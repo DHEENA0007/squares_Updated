@@ -1,4 +1,4 @@
-import { User, Settings, LogOut } from "lucide-react";
+import { User, LogOut, Settings, CreditCard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
@@ -10,9 +10,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { authService } from "@/services/authService";
 
-const ProfileDropdown = () => {
+const CustomerProfileDropdown = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   
@@ -23,11 +24,11 @@ const ProfileDropdown = () => {
   }, []);
 
   const handleProfile = () => {
-    navigate("/admin/profile");
+    navigate("/customer/profile");
   };
 
-  const handleSettings = () => {
-    navigate("/admin/settings");
+  const handleSubscription = () => {
+    navigate("/customer/subscription");
   };
 
   const handleLogout = () => {
@@ -38,26 +39,31 @@ const ProfileDropdown = () => {
   // Get user display name and initials
   const displayName = user?.profile ? 
     `${user.profile.firstName} ${user.profile.lastName}` : 
-    "Admin User";
-  const userEmail = user?.email || "admin@example.com";
+    "Guest User";
+  const userEmail = user?.email || "guest@example.com";
   const initials = user?.profile ? 
     `${user.profile.firstName?.[0] || ''}${user.profile.lastName?.[0] || ''}`.toUpperCase() : 
-    "AU";
+    "GU";
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenuTrigger className="focus:outline-none">
         <Avatar className="w-9 h-9 cursor-pointer ring-2 ring-transparent hover:ring-primary/20 transition-all">
-          <AvatarImage src={user?.profile?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'admin'}`} alt="Profile" />
+          <AvatarImage src={user?.profile?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'customer'}`} alt="Profile" />
           <AvatarFallback className="bg-primary text-primary-foreground">{initials}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
       
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="w-64 bg-popover border-border">
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium">{displayName}</p>
             <p className="text-xs text-muted-foreground">{userEmail}</p>
+            <div className="flex items-center gap-2 mt-2">
+              <Badge variant="secondary" className="text-xs">
+                {user?.role === 'customer' ? 'Customer' : 'Premium Member'}
+              </Badge>
+            </div>
           </div>
         </DropdownMenuLabel>
         
@@ -68,13 +74,18 @@ const ProfileDropdown = () => {
           className="cursor-pointer"
         >
           <User className="mr-2 h-4 w-4" />
-          <span>Profile</span>
+          <span>My Profile</span>
         </DropdownMenuItem>
-        
+
         <DropdownMenuItem 
-          onClick={handleSettings}
+          onClick={handleSubscription}
           className="cursor-pointer"
         >
+          <CreditCard className="mr-2 h-4 w-4" />
+          <span>Subscription</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem className="cursor-pointer">
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>
@@ -93,4 +104,4 @@ const ProfileDropdown = () => {
   );
 };
 
-export default ProfileDropdown;
+export default CustomerProfileDropdown;

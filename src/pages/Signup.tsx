@@ -8,24 +8,27 @@ import { toast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import signupHero from "@/assets/signup-hero.jpg";
+import { authService } from "@/services/authService";
 
 const Signup = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<"form" | "otp">("form");
   const [otp, setOtp] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
     password: "",
     confirmPassword: "",
   });
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validation
-    if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.confirmPassword) {
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone || !formData.password || !formData.confirmPassword) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -61,12 +64,31 @@ const Signup = () => {
       return;
     }
 
-    // Send OTP (simulated)
-    toast({
-      title: "OTP Sent",
-      description: `Verification code sent to ${formData.phone}`,
-    });
-    setStep("otp");
+    setIsLoading(true);
+
+    try {
+      const response = await authService.register({
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        role: "customer",
+        agreeToTerms: true,
+      });
+
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Registration successful! Please verify your email.",
+        });
+        setStep("otp");
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleOtpSubmit = (e: React.FormEvent) => {
@@ -81,20 +103,15 @@ const Signup = () => {
       return;
     }
 
-    // Verify OTP (simulated - in real app, verify with backend)
-    if (otp === "123456") {
-      toast({
-        title: "Success",
-        description: "Account created successfully!",
-      });
-      navigate("/login");
-    } else {
-      toast({
-        title: "Error",
-        description: "Invalid OTP. Please try again.",
-        variant: "destructive",
-      });
-    }
+    // For demo purposes, accept any 6-digit OTP
+    // In production, this would verify with the backend
+    toast({
+      title: "Success",
+      description: "Email verified successfully! Please login.",
+    });
+    
+    // Redirect to login page for authentication
+    navigate("/login");
   };
 
   const resendOtp = () => {
@@ -133,16 +150,29 @@ const Signup = () => {
 
               {step === "form" ? (
                 <form onSubmit={handleFormSubmit} className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name *</Label>
-                    <Input
-                      id="name"
-                      type="text"
-                      placeholder="Enter your full name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      required
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First Name *</Label>
+                      <Input
+                        id="firstName"
+                        type="text"
+                        placeholder="First name"
+                        value={formData.firstName}
+                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Last Name *</Label>
+                      <Input
+                        id="lastName"
+                        type="text"
+                        placeholder="Last name"
+                        value={formData.lastName}
+                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                        required
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -193,8 +223,8 @@ const Signup = () => {
                     />
                   </div>
 
-                  <Button type="submit" className="w-full" size="lg">
-                    Send OTP
+                  <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                    {isLoading ? "Creating Account..." : "Create Account"}
                   </Button>
 
                   <p className="text-center text-sm text-muted-foreground">

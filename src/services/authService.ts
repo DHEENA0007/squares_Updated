@@ -1,0 +1,191 @@
+import { toast } from "@/hooks/use-toast";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  role?: string;
+  agreeToTerms: boolean;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    token: string;
+    user: {
+      id: string;
+      email: string;
+      role: string;
+      profile?: any;
+    };
+  };
+}
+
+export interface ApiError {
+  success: false;
+  message: string;
+  errors?: any;
+}
+
+class AuthService {
+  private async makeRequest<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`;
+    
+    const config: RequestInit = {
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      ...options,
+    };
+
+    // Add auth token if available
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers = {
+        ...config.headers,
+        Authorization: `Bearer ${token}`,
+      };
+    }
+
+    try {
+      const response = await fetch(url, config);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({
+          success: false,
+          message: `HTTP ${response.status}: ${response.statusText}`,
+        }));
+        throw new Error(errorData.message || "An error occurred");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("API request failed:", error);
+      throw error;
+    }
+  }
+
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    try {
+      const response = await this.makeRequest<AuthResponse>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify(credentials),
+      });
+
+      if (response.success && response.data) {
+        // Store auth data
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("user", JSON.stringify(response.data.user));
+        
+        toast({
+          title: "Success",
+          description: "Logged in successfully!",
+        });
+      }
+
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Login failed";
+      toast({
+        title: "Login Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  async register(userData: RegisterData): Promise<AuthResponse> {
+    try {
+      const response = await this.makeRequest<AuthResponse>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify(userData),
+      });
+
+      if (response.success) {
+        toast({
+          title: "Registration Successful",
+          description: response.message || "Please check your email for verification.",
+        });
+      }
+
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Registration failed";
+      toast({
+        title: "Registration Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await this.makeRequest("/auth/logout", {
+        method: "POST",
+      });
+    } catch (error) {
+      console.error("Logout request failed:", error);
+    } finally {
+      // Clear local storage regardless of API call success
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      
+      toast({
+        title: "Logged Out",
+        description: "You have been logged out successfully.",
+      });
+    }
+  }
+
+  async getCurrentUser(): Promise<any> {
+    try {
+      const response = await this.makeRequest("/auth/me");
+      return response;
+    } catch (error) {
+      // If auth fails, clear stored data
+      this.logout();
+      throw error;
+    }
+  }
+
+  isAuthenticated(): boolean {
+    const token = localStorage.getItem("token");
+    return !!token;
+  }
+
+  getStoredUser(): any {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        return JSON.parse(userStr);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  getToken(): string | null {
+    return localStorage.getItem("token");
+  }
+}
+
+export const authService = new AuthService();
+export default authService;
