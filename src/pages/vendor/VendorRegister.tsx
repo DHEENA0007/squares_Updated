@@ -431,6 +431,39 @@ const VendorRegister = () => {
             </div>
 
             <div className="space-y-4">
+              {/* Legal Information Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="licenseNumber">Professional License Number</Label>
+                  <Input
+                    id="licenseNumber"
+                    value={formData.licenseNumber}
+                    onChange={(e) => handleInputChange("licenseNumber", e.target.value)}
+                    placeholder="RERA/Professional License Number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gstNumber">GST Number (Optional)</Label>
+                  <Input
+                    id="gstNumber"
+                    value={formData.gstNumber}
+                    onChange={(e) => handleInputChange("gstNumber", e.target.value)}
+                    placeholder="GST Registration Number"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="panNumber">PAN Number</Label>
+                <Input
+                  id="panNumber"
+                  value={formData.panNumber}
+                  onChange={(e) => handleInputChange("panNumber", e.target.value)}
+                  placeholder="PAN Card Number"
+                  required
+                />
+              </div>
+
               <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
                 <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                 <p className="font-medium mb-1">Business Registration Certificate</p>
@@ -522,6 +555,23 @@ const VendorRegister = () => {
                 <CardContent className="pt-0 space-y-2 text-sm">
                   <p>{formData.address}</p>
                   <p>{formData.city}, {formData.state} - {formData.pincode}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Legal Information</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-2 text-sm">
+                  {formData.licenseNumber && (
+                    <p><span className="font-medium">License Number:</span> {formData.licenseNumber}</p>
+                  )}
+                  {formData.gstNumber && (
+                    <p><span className="font-medium">GST Number:</span> {formData.gstNumber}</p>
+                  )}
+                  {formData.panNumber && (
+                    <p><span className="font-medium">PAN Number:</span> {formData.panNumber}</p>
+                  )}
                 </CardContent>
               </Card>
             </div>

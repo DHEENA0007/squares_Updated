@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,187 +21,171 @@ import {
   Edit,
   Trash,
   Search,
-  Filter
+  Filter,
+  Loader2,
+  Eye,
+  TrendingUp
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { vendorServicesService, VendorService, ServiceStats, ServiceFilters } from "@/services/vendorServicesService";
+import { useToast } from "@/hooks/use-toast";
 
 const VendorServices = () => {
+  const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddServiceOpen, setIsAddServiceOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [services, setServices] = useState<VendorService[]>([]);
+  const [serviceStats, setServiceStats] = useState<ServiceStats | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [selectedService, setSelectedService] = useState<VendorService | null>(null);
+  const [editingService, setEditingService] = useState<VendorService | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const serviceCategories = [
-    { id: "moving", name: "Moving & Packing", icon: Truck, color: "text-blue-600" },
-    { id: "interior", name: "Interior Design", icon: Home, color: "text-green-600" },
-    { id: "loan", name: "Home Loans", icon: DollarSign, color: "text-purple-600" },
-    { id: "cleaning", name: "Cleaning Services", icon: Sparkles, color: "text-pink-600" },
-    { id: "insurance", name: "Property Insurance", icon: Shield, color: "text-orange-600" },
-    { id: "photography", name: "Photography", icon: Camera, color: "text-indigo-600" },
-    { id: "legal", name: "Legal Services", icon: FileText, color: "text-red-600" },
-    { id: "consultation", name: "Property Consultation", icon: Users, color: "text-teal-600" }
-  ];
-
-  const myServices = [
-    {
-      id: 1,
-      title: "Professional Moving Services",
-      category: "moving",
-      description: "Complete packing and moving solutions for residential properties",
-      price: "₹8,000 - ₹25,000",
-      rating: 4.8,
-      reviews: 156,
-      orders: 89,
-      status: "active",
-      provider: "MoveMaster Pro",
-      commission: "15%",
-      features: [
-        "Packing materials included",
-        "Insurance coverage",
-        "Professional team",
-        "Same day service available"
-      ]
-    },
-    {
-      id: 2,
-      title: "Home Interior Design",
-      category: "interior",
-      description: "Complete interior design solutions for modern homes",
-      price: "₹50,000 - ₹5,00,000",
-      rating: 4.9,
-      reviews: 203,
-      orders: 45,
-      status: "active",
-      provider: "Design Studio Elite",
-      commission: "20%",
-      features: [
-        "3D design visualization",
-        "Material sourcing",
-        "Project management",
-        "1 year warranty"
-      ]
-    },
-    {
-      id: 3,
-      title: "Home Loan Assistance",
-      category: "loan",
-      description: "Expert guidance for home loan approvals and best rates",
-      price: "₹5,000 - ₹15,000",
-      rating: 4.7,
-      reviews: 89,
-      orders: 67,
-      status: "active",
-      provider: "LoanPro Advisors",
-      commission: "25%",
-      features: [
-        "Bank partner network",
-        "Document assistance",
-        "Rate comparison",
-        "Fast approval process"
-      ]
-    },
-    {
-      id: 4,
-      title: "Deep Cleaning Services",
-      category: "cleaning",
-      description: "Professional deep cleaning for new and existing homes",
-      price: "₹2,000 - ₹8,000",
-      rating: 4.6,
-      reviews: 124,
-      orders: 156,
-      status: "paused",
-      provider: "CleanPro Services",
-      commission: "18%",
-      features: [
-        "Eco-friendly products",
-        "Trained professionals",
-        "Equipment included",
-        "Satisfaction guarantee"
-      ]
-    }
-  ];
-
-  const availableServices = [
-    {
-      id: 5,
-      title: "Property Insurance Plans",
-      category: "insurance",
-      description: "Comprehensive insurance coverage for residential properties",
-      price: "₹10,000 - ₹50,000/year",
-      rating: 4.5,
-      reviews: 78,
-      provider: "SecureHome Insurance",
-      commission: "22%",
-      features: [
-        "Natural disaster coverage",
-        "Theft protection",
-        "Liability coverage",
-        "24/7 claims support"
-      ]
-    },
-    {
-      id: 6,
-      title: "Real Estate Photography",
-      category: "photography",
-      description: "Professional property photography and virtual tours",
-      price: "₹3,000 - ₹12,000",
-      rating: 4.9,
-      reviews: 234,
-      provider: "PhotoPro Studios",
-      commission: "30%",
-      features: [
-        "HDR photography",
-        "Virtual tour creation",
-        "Drone shots available",
-        "Same day delivery"
-      ]
-    },
-    {
-      id: 7,
-      title: "Legal Documentation",
-      category: "legal",
-      description: "Complete legal assistance for property transactions",
-      price: "₹15,000 - ₹75,000",
-      rating: 4.8,
-      reviews: 145,
-      provider: "LegalEase Associates",
-      commission: "20%",
-      features: [
-        "Document verification",
-        "Registration assistance",
-        "Title clearance",
-        "Expert legal advice"
-      ]
-    }
-  ];
-
-  const serviceStats = {
-    totalServices: myServices.length,
-    activeServices: myServices.filter(s => s.status === "active").length,
-    totalOrders: myServices.reduce((sum, service) => sum + service.orders, 0),
-    totalRevenue: "₹2,45,000",
-    avgRating: "4.7"
+  const filters: ServiceFilters = {
+    page: currentPage,
+    limit: 10,
+    category: selectedCategory !== 'all' ? selectedCategory : undefined,
+    search: searchQuery || undefined,
+    status: 'all',
+    sortBy: 'updatedAt',
+    sortOrder: 'desc'
   };
 
-  const filteredMyServices = myServices.filter(service => {
-    const matchesSearch = service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         service.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "all" || service.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+  const loadServices = async () => {
+    try {
+      setLoading(true);
+      const [servicesData, statsData] = await Promise.all([
+        vendorServicesService.getServices(filters),
+        vendorServicesService.getServiceStats()
+      ]);
+      
+      setServices(servicesData.services);
+      setTotalPages(servicesData.totalPages);
+      setServiceStats(statsData);
+    } catch (error) {
+      console.error("Failed to load services:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load services. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadServices();
+  }, [currentPage, selectedCategory, searchQuery]);
+
+  const handleToggleServiceStatus = async (serviceId: string) => {
+    try {
+      setActionLoading(serviceId);
+      const updatedService = await vendorServicesService.toggleServiceStatus(serviceId);
+      if (updatedService) {
+        setServices(services.map(service => 
+          service._id === serviceId ? updatedService : service
+        ));
+      }
+    } catch (error) {
+      console.error("Failed to toggle service status:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteService = async (serviceId: string) => {
+    if (!confirm("Are you sure you want to delete this service?")) return;
+    
+    try {
+      setActionLoading(serviceId);
+      const success = await vendorServicesService.deleteService(serviceId);
+      if (success) {
+        setServices(services.filter(service => service._id !== serviceId));
+      }
+    } catch (error) {
+      console.error("Failed to delete service:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Service categories configuration
+  const serviceCategories = [
+    { id: 'property_management', name: 'Property Management', icon: Home, color: 'text-blue-600' },
+    { id: 'consultation', name: 'Real Estate Consultation', icon: Users, color: 'text-green-600' },
+    { id: 'legal_services', name: 'Legal Services', icon: FileText, color: 'text-purple-600' },
+    { id: 'home_loans', name: 'Home Loans', icon: DollarSign, color: 'text-pink-600' },
+    { id: 'interior_design', name: 'Interior Design', icon: Sparkles, color: 'text-orange-600' },
+    { id: 'moving_services', name: 'Moving Services', icon: Truck, color: 'text-indigo-600' },
+    { id: 'insurance', name: 'Property Insurance', icon: Shield, color: 'text-red-600' },
+    { id: 'other', name: 'Other Services', icon: Calculator, color: 'text-teal-600' }
+  ];
+
+  const filteredServices = services.filter(service => {
+    const categoryMatch = selectedCategory === "all" || service.category === selectedCategory;
+    const searchMatch = !searchQuery || 
+      service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      service.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return categoryMatch && searchMatch;
   });
 
+  // Mock data for marketplace services
+  const availableServices = [
+    {
+      id: 'marketplace-1',
+      title: 'Professional Moving Service',
+      category: 'moving_services',
+      description: 'Complete relocation services with packing and unpacking',
+      price: '₹15,000 - ₹50,000',
+      commission: '12%',
+      rating: 4.8,
+      reviews: 127,
+      features: ['Professional packing', 'Insured transport', '24/7 support'],
+      provider: 'MoveEasy Solutions'
+    },
+    {
+      id: 'marketplace-2',
+      title: 'Interior Design Consultation',
+      category: 'interior_design',
+      description: 'Expert interior design planning and execution',
+      price: '₹25,000 - ₹2,00,000',
+      commission: '15%',
+      rating: 4.9,
+      reviews: 89,
+      features: ['3D visualization', 'Material sourcing', 'Project management'],
+      provider: 'Design Studio Pro'
+    }
+  ];
+
   const filteredAvailableServices = availableServices.filter(service => {
-    const matchesSearch = service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         service.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "all" || service.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const categoryMatch = selectedCategory === "all" || service.category === selectedCategory;
+    const searchMatch = !searchQuery || 
+      service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      service.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return categoryMatch && searchMatch;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading services...</span>
+        </div>
+      </div>
+    );
+  }
 
   const getCategoryIcon = (categoryId: string) => {
     const category = serviceCategories.find(cat => cat.id === categoryId);
-    return category ? category.icon : Users;
+    return category ? category.icon : Calculator;
   };
 
   const getCategoryColor = (categoryId: string) => {
@@ -211,7 +195,7 @@ const VendorServices = () => {
 
   const getCategoryName = (categoryId: string) => {
     const category = serviceCategories.find(cat => cat.id === categoryId);
-    return category ? category.name : "Other";
+    return category ? category.name : 'Other';
   };
 
   return (
@@ -286,31 +270,33 @@ const VendorServices = () => {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{serviceStats.totalServices}</div>
+            <div className="text-2xl font-bold text-blue-600">{serviceStats?.totalServices || 0}</div>
             <div className="text-sm text-muted-foreground">Total Services</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{serviceStats.activeServices}</div>
+            <div className="text-2xl font-bold text-green-600">{serviceStats?.activeServices || 0}</div>
             <div className="text-sm text-muted-foreground">Active Services</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-purple-600">{serviceStats.totalOrders}</div>
+            <div className="text-2xl font-bold text-purple-600">{serviceStats?.totalBookings || 0}</div>
             <div className="text-sm text-muted-foreground">Total Orders</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-orange-600">{serviceStats.totalRevenue}</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {serviceStats ? vendorServicesService.formatCurrency(serviceStats.totalRevenue) : '₹0'}
+            </div>
             <div className="text-sm text-muted-foreground">Revenue Earned</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-yellow-600">{serviceStats.avgRating}</div>
+            <div className="text-2xl font-bold text-yellow-600">{serviceStats?.averageRating.toFixed(1) || '0.0'}</div>
             <div className="text-sm text-muted-foreground">Avg Rating</div>
           </CardContent>
         </Card>
@@ -318,7 +304,7 @@ const VendorServices = () => {
 
       <Tabs defaultValue="my-services" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="my-services">My Services ({myServices.length})</TabsTrigger>
+          <TabsTrigger value="my-services">My Services ({filteredServices.length})</TabsTrigger>
           <TabsTrigger value="marketplace">Service Marketplace ({availableServices.length})</TabsTrigger>
           <TabsTrigger value="orders">Orders & Bookings</TabsTrigger>
         </TabsList>
@@ -350,12 +336,12 @@ const VendorServices = () => {
         </div>
 
         <TabsContent value="my-services" className="space-y-4">
-          {filteredMyServices.length > 0 ? (
+          {filteredServices.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {filteredMyServices.map((service) => {
+              {filteredServices.map((service) => {
                 const CategoryIcon = getCategoryIcon(service.category);
                 return (
-                  <Card key={service.id} className="hover:shadow-lg transition-shadow">
+                  <Card key={service._id} className="hover:shadow-lg transition-shadow">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-start space-x-3">
@@ -368,11 +354,38 @@ const VendorServices = () => {
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <Badge variant={service.status === "active" ? "default" : "secondary"}>
-                            {service.status}
+                          <Badge 
+                            variant={service.isActive ? "default" : "secondary"}
+                            className={service.isActive ? "bg-green-100 text-green-800" : ""}
+                          >
+                            {service.isActive ? "Active" : "Inactive"}
                           </Badge>
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setEditingService(service)}
+                          >
                             <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleToggleServiceStatus(service._id)}
+                            disabled={actionLoading === service._id}
+                          >
+                            {actionLoading === service._id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleDeleteService(service._id)}
+                            disabled={actionLoading === service._id}
+                          >
+                            <Trash className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
@@ -382,22 +395,22 @@ const VendorServices = () => {
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div>
                           <p className="text-xs text-muted-foreground">Price Range</p>
-                          <p className="font-semibold">{service.price}</p>
+                          <p className="font-semibold">{vendorServicesService.getPricingDisplay(service.pricing)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-muted-foreground">Commission</p>
-                          <p className="font-semibold text-green-600">{service.commission}</p>
+                          <p className="text-xs text-muted-foreground">Duration</p>
+                          <p className="font-semibold text-green-600">{service.duration || 'Flexible'}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-muted-foreground">Orders</p>
-                          <p className="font-semibold">{service.orders}</p>
+                          <p className="text-xs text-muted-foreground">Total Bookings</p>
+                          <p className="font-semibold">{service.statistics.totalBookings}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Rating</p>
                           <div className="flex items-center">
                             <Star className="w-4 h-4 text-yellow-500 fill-current mr-1" />
-                            <span className="font-semibold">{service.rating}</span>
-                            <span className="text-xs text-muted-foreground ml-1">({service.reviews})</span>
+                            <span className="font-semibold">{service.statistics.averageRating.toFixed(1)}</span>
+                            <span className="text-xs text-muted-foreground ml-1">({service.statistics.totalBookings})</span>
                           </div>
                         </div>
                       </div>
@@ -412,7 +425,7 @@ const VendorServices = () => {
                       </div>
 
                       <div className="flex justify-between items-center">
-                        <p className="text-sm text-muted-foreground">by {service.provider}</p>
+                        <p className="text-sm text-muted-foreground">by {service.vendorId}</p>
                         <div className="flex space-x-2">
                           <Button size="sm" variant="outline">
                             <MessageSquare className="w-4 h-4 mr-2" />

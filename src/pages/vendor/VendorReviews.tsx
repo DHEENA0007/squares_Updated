@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,138 +16,143 @@ import {
   Award,
   Search,
   Filter,
-  Reply
+  Reply,
+  Loader2,
+  Eye,
+  EyeOff,
+  Flag,
+  CheckCircle
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { reviewsService, Review, ReviewStats, ReviewFilters } from "@/services/reviewsService";
+import { useToast } from "@/hooks/use-toast";
 
 const VendorReviews = () => {
-  const [selectedFilter, setSelectedFilter] = useState("all");
+  const { toast } = useToast();
+  const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [replyText, setReplyText] = useState("");
-  const [showReplyForm, setShowReplyForm] = useState<number | null>(null);
+  const [showReplyForm, setShowReplyForm] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  
+  // State for real data
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const reviewStats = {
-    averageRating: 4.7,
-    totalReviews: 156,
-    ratingDistribution: {
-      5: 78,
-      4: 45,
-      3: 23,
-      2: 7,
-      1: 3
-    },
-    recentTrend: "+0.3",
-    responseRate: "92%"
+  const filters: ReviewFilters = {
+    page: currentPage,
+    limit: 10,
+    reviewType: (selectedFilter !== 'all' && ['property', 'service', 'general'].includes(selectedFilter)) 
+      ? selectedFilter as 'property' | 'service' | 'general' 
+      : undefined,
+    rating: ['1', '2', '3', '4', '5'].includes(selectedFilter) ? parseInt(selectedFilter) : undefined,
+    hasResponse: selectedFilter === 'no-reply' ? false : undefined,
+    search: searchQuery || undefined,
+    sortBy: 'createdAt',
+    sortOrder: 'desc'
   };
 
-  const reviews = [
-    {
-      id: 1,
-      customerName: "Rahul Sharma",
-      avatar: "/api/placeholder/40/40",
-      rating: 5,
-      date: "2024-10-22",
-      property: "Luxury 3BHK Apartment in Powai",
-      title: "Excellent service and professional approach",
-      comment: "Amazing experience working with this vendor. Very professional, responsive, and helped us find our dream home. The entire process was smooth and transparent. Highly recommended!",
-      helpful: 12,
-      notHelpful: 1,
-      verified: true,
-      hasReply: false,
-      tags: ["Professional", "Responsive", "Helpful"]
-    },
-    {
-      id: 2,
-      customerName: "Priya Patel",
-      avatar: "/api/placeholder/40/40",
-      rating: 4,
-      date: "2024-10-20",
-      property: "Modern Villa with Private Garden",
-      title: "Good service, minor issues with communication",
-      comment: "Overall good experience. The vendor was knowledgeable about the market and showed us relevant properties. Some delays in communication but issues were resolved quickly.",
-      helpful: 8,
-      notHelpful: 2,
-      verified: true,
-      hasReply: true,
-      reply: {
-        text: "Thank you for your feedback! We've improved our communication processes to ensure faster responses. We appreciate your patience and look forward to serving you again.",
-        date: "2024-10-21"
-      },
-      tags: ["Knowledgeable", "Market Expert"]
-    },
-    {
-      id: 3,
-      customerName: "Amit Kumar",
-      avatar: "/api/placeholder/40/40",
-      rating: 5,
-      date: "2024-10-18",
-      property: "Commercial Office Space",
-      title: "Outstanding support for commercial property",
-      comment: "Exceptional service for our office space requirements. Deep understanding of commercial real estate market. Negotiated a great deal for us and handled all paperwork efficiently.",
-      helpful: 15,
-      notHelpful: 0,
-      verified: true,
-      hasReply: true,
-      reply: {
-        text: "Thank you for the wonderful review! It was a pleasure helping you secure the perfect office space. Wishing you success in your new venture!",
-        date: "2024-10-19"
-      },
-      tags: ["Commercial Expert", "Negotiation Skills", "Efficient"]
-    },
-    {
-      id: 4,
-      customerName: "Sneha Reddy",
-      avatar: "/api/placeholder/40/40",
-      rating: 3,
-      date: "2024-10-15",
-      property: "Budget 2BHK Flat",
-      title: "Average experience, room for improvement",
-      comment: "The vendor helped us find a property within our budget but the service could be more proactive. Property visits were well organized but follow-up could be better.",
-      helpful: 5,
-      notHelpful: 8,
-      verified: true,
-      hasReply: false,
-      tags: ["Budget Friendly"]
-    },
-    {
-      id: 5,
-      customerName: "Karthik Menon",
-      avatar: "/api/placeholder/40/40",
-      rating: 5,
-      date: "2024-10-12",
-      property: "Luxury Penthouse",
-      title: "Exceptional service for luxury properties",
-      comment: "Top-notch service for our luxury property search. Excellent market knowledge, professional presentation, and personalized attention. Made the entire buying process enjoyable.",
-      helpful: 20,
-      notHelpful: 1,
-      verified: true,
-      hasReply: true,
-      reply: {
-        text: "Thank you for choosing us for your luxury property needs! We're delighted that you had an exceptional experience. Congratulations on your new penthouse!",
-        date: "2024-10-13"
-      },
-      tags: ["Luxury Expert", "Personalized Service", "Market Knowledge"]
+  const loadReviewsData = async () => {
+    try {
+      setLoading(true);
+      const [reviewsData, statsData] = await Promise.all([
+        reviewsService.getReviews(filters),
+        reviewsService.getReviewStats()
+      ]);
+      
+      setReviews(reviewsData.reviews);
+      setTotalPages(reviewsData.totalPages);
+      setReviewStats(statsData);
+    } catch (error) {
+      console.error("Failed to load reviews:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load reviews. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const filteredReviews = reviews.filter(review => {
-    const matchesSearch = review.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         review.comment.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         review.property.toLowerCase().includes(searchQuery.toLowerCase());
+  useEffect(() => {
+    loadReviewsData();
+  }, [currentPage, selectedFilter, searchQuery]);
+
+  const handleReplyToReview = async (reviewId: string) => {
+    if (!replyText.trim()) return;
     
-    if (selectedFilter === "all") return matchesSearch;
-    if (selectedFilter === "5") return matchesSearch && review.rating === 5;
-    if (selectedFilter === "4") return matchesSearch && review.rating === 4;
-    if (selectedFilter === "3") return matchesSearch && review.rating === 3;
-    if (selectedFilter === "2") return matchesSearch && review.rating === 2;
-    if (selectedFilter === "1") return matchesSearch && review.rating === 1;
-    if (selectedFilter === "no-reply") return matchesSearch && !review.hasReply;
+    try {
+      setActionLoading(reviewId);
+      const updatedReview = await reviewsService.respondToReview({
+        reviewId,
+        message: replyText
+      });
+      
+      if (updatedReview) {
+        setReviews(reviews.map(review => 
+          review._id === reviewId ? updatedReview : review
+        ));
+        setReplyText("");
+        setShowReplyForm(null);
+      }
+    } catch (error) {
+      console.error("Failed to reply to review:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleVisibility = async (reviewId: string, currentVisibility: boolean) => {
+    try {
+      setActionLoading(reviewId);
+      const updatedReview = await reviewsService.updateReviewVisibility(reviewId, !currentVisibility);
+      
+      if (updatedReview) {
+        setReviews(reviews.map(review => 
+          review._id === reviewId ? updatedReview : review
+        ));
+      }
+    } catch (error) {
+      console.error("Failed to update review visibility:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReportReview = async (reviewId: string) => {
+    const reason = prompt("Please provide a reason for reporting this review:");
+    if (!reason) return;
     
-    return matchesSearch;
-  });
+    try {
+      setActionLoading(reviewId);
+      await reviewsService.reportReview(reviewId, reason);
+    } catch (error) {
+      console.error("Failed to report review:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading reviews...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Filter reviews based on search and selected filter
+  const filteredReviews = reviews; // API already filters based on our filters object
 
   const renderStars = (rating: number, size: "sm" | "md" = "md") => {
     const starSize = size === "sm" ? "w-3 h-3" : "w-4 h-4";
@@ -165,10 +170,10 @@ const VendorReviews = () => {
     );
   };
 
-  const handleReply = (reviewId: number) => {
-    // Handle reply submission
-    setShowReplyForm(null);
-    setReplyText("");
+  const handleReply = (reviewId: string) => {
+    if (!replyText.trim()) return;
+    
+    handleReplyToReview(reviewId);
   };
 
   return (
@@ -191,21 +196,23 @@ const VendorReviews = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardContent className="p-6 text-center">
-            <div className="text-3xl font-bold text-yellow-600 mb-2">{reviewStats.averageRating}</div>
+            <div className="text-3xl font-bold text-yellow-600 mb-2">
+              {reviewStats ? reviewsService.formatRating(reviewStats.averageRating) : '0.0'}
+            </div>
             <div className="flex justify-center mb-2">
-              {renderStars(Math.round(reviewStats.averageRating))}
+              {renderStars(Math.round(reviewStats?.averageRating || 0))}
             </div>
             <p className="text-sm text-muted-foreground">Average Rating</p>
             <div className="flex items-center justify-center mt-2">
               <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-              <span className="text-sm text-green-500">{reviewStats.recentTrend} this month</span>
+              <span className="text-sm text-green-500">+0.3 this month</span>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="p-6 text-center">
-            <div className="text-3xl font-bold text-blue-600 mb-2">{reviewStats.totalReviews}</div>
+            <div className="text-3xl font-bold text-blue-600 mb-2">{reviewStats?.totalReviews || 0}</div>
             <p className="text-sm text-muted-foreground">Total Reviews</p>
             <div className="mt-2">
               <Badge className="bg-blue-100 text-blue-800">
@@ -218,7 +225,7 @@ const VendorReviews = () => {
 
         <Card>
           <CardContent className="p-6 text-center">
-            <div className="text-3xl font-bold text-green-600 mb-2">{reviewStats.responseRate}</div>
+            <div className="text-3xl font-bold text-green-600 mb-2">{reviewStats?.responseRate || 0}%</div>
             <p className="text-sm text-muted-foreground">Response Rate</p>
             <p className="text-xs text-green-600 mt-2">Excellent response rate!</p>
           </CardContent>
@@ -232,11 +239,11 @@ const VendorReviews = () => {
                 <div key={rating} className="flex items-center space-x-2">
                   <span className="text-sm w-8">{rating}★</span>
                   <Progress 
-                    value={(reviewStats.ratingDistribution[rating as keyof typeof reviewStats.ratingDistribution] / reviewStats.totalReviews) * 100} 
+                    value={reviewStats ? (reviewStats.ratingDistribution[rating as keyof typeof reviewStats.ratingDistribution] / Math.max(reviewStats.totalReviews, 1)) * 100 : 0} 
                     className="flex-1 h-2" 
                   />
                   <span className="text-sm text-muted-foreground w-8">
-                    {reviewStats.ratingDistribution[rating as keyof typeof reviewStats.ratingDistribution]}
+                    {reviewStats?.ratingDistribution[rating as keyof typeof reviewStats.ratingDistribution] || 0}
                   </span>
                 </div>
               ))}
@@ -264,17 +271,20 @@ const VendorReviews = () => {
                 className="pl-10"
               />
             </div>
-            <Select value={selectedFilter} onValueChange={setSelectedFilter}>
+            <Select value={selectedFilter} onValueChange={(value: string) => setSelectedFilter(value)}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Filter by rating" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Ratings</SelectItem>
+                <SelectItem value="all">All Reviews</SelectItem>
                 <SelectItem value="5">5 Stars</SelectItem>
                 <SelectItem value="4">4 Stars</SelectItem>
                 <SelectItem value="3">3 Stars</SelectItem>
                 <SelectItem value="2">2 Stars</SelectItem>
                 <SelectItem value="1">1 Star</SelectItem>
+                <SelectItem value="property">Property Reviews</SelectItem>
+                <SelectItem value="service">Service Reviews</SelectItem>
+                <SelectItem value="general">General Reviews</SelectItem>
                 <SelectItem value="no-reply">No Reply</SelectItem>
               </SelectContent>
             </Select>
@@ -283,33 +293,37 @@ const VendorReviews = () => {
           {/* Reviews List */}
           <div className="space-y-6">
             {filteredReviews.map((review) => (
-              <Card key={review.id} className="hover:shadow-lg transition-shadow">
+              <Card key={review._id} className="hover:shadow-lg transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex items-start space-x-4">
                     <Avatar className="h-12 w-12">
-                      <AvatarImage src={review.avatar} />
-                      <AvatarFallback>{review.customerName.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={review.clientAvatar} />
+                      <AvatarFallback>{review.clientName.charAt(0)}</AvatarFallback>
                     </Avatar>
                     
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
                         <div>
-                          <h4 className="font-semibold">{review.customerName}</h4>
+                          <h4 className="font-semibold">{review.clientName}</h4>
                           <div className="flex items-center space-x-2">
                             {renderStars(review.rating, "sm")}
-                            {review.verified && (
+                            {review.isVerified && (
                               <Badge variant="secondary" className="text-xs">
-                                Verified Purchase
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Verified
                               </Badge>
                             )}
+                            <Badge className={reviewsService.getReviewTypeColor(review.reviewType)}>
+                              {reviewsService.getReviewTypeLabel(review.reviewType)}
+                            </Badge>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm text-muted-foreground">{review.date}</p>
+                          <p className="text-sm text-muted-foreground">{reviewsService.formatDate(review.createdAt)}</p>
+                          <p className="text-xs text-muted-foreground">{reviewsService.getRelativeTime(review.createdAt)}</p>
                         </div>
                       </div>
                       
-                      <p className="text-sm text-muted-foreground mb-2">{review.property}</p>
                       <h5 className="font-medium mb-2">{review.title}</h5>
                       <p className="text-sm mb-3">{review.comment}</p>
                       
@@ -327,28 +341,51 @@ const VendorReviews = () => {
                         <div className="flex items-center space-x-4">
                           <div className="flex items-center space-x-1">
                             <ThumbsUp className="w-4 h-4 text-green-600" />
-                            <span className="text-sm">{review.helpful}</span>
+                            <span className="text-sm">{review.helpfulCount}</span>
                           </div>
                           <div className="flex items-center space-x-1">
                             <ThumbsDown className="w-4 h-4 text-red-600" />
-                            <span className="text-sm">{review.notHelpful}</span>
+                            <span className="text-sm">{review.unhelpfulCount}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleToggleVisibility(review._id, review.isPublic)}
+                              disabled={actionLoading === review._id}
+                            >
+                              {review.isPublic ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleReportReview(review._id)}
+                              disabled={actionLoading === review._id}
+                            >
+                              <Flag className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
                         
-                        {!review.hasReply && (
+                        {!review.vendorResponse && (
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => setShowReplyForm(review.id)}
+                            onClick={() => setShowReplyForm(review._id)}
+                            disabled={actionLoading === review._id}
                           >
-                            <Reply className="w-4 h-4 mr-2" />
+                            {actionLoading === review._id ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <Reply className="w-4 h-4 mr-2" />
+                            )}
                             Reply
                           </Button>
                         )}
                       </div>
                       
                       {/* Reply Form */}
-                      {showReplyForm === review.id && (
+                      {showReplyForm === review._id && (
                         <div className="mt-4 p-4 bg-muted rounded-lg">
                           <Textarea
                             placeholder="Write your reply..."
@@ -366,8 +403,12 @@ const VendorReviews = () => {
                             </Button>
                             <Button 
                               size="sm"
-                              onClick={() => handleReply(review.id)}
+                              onClick={() => handleReply(review._id)}
+                              disabled={!replyText.trim() || actionLoading === review._id}
                             >
+                              {actionLoading === review._id ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              ) : null}
                               Post Reply
                             </Button>
                           </div>
@@ -375,14 +416,14 @@ const VendorReviews = () => {
                       )}
                       
                       {/* Existing Reply */}
-                      {review.hasReply && review.reply && (
+                      {review.vendorResponse && (
                         <div className="mt-4 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
                           <div className="flex items-center space-x-2 mb-2">
                             <User className="w-4 h-4 text-blue-600" />
                             <span className="text-sm font-medium text-blue-800">Your Reply</span>
-                            <span className="text-xs text-blue-600">{review.reply.date}</span>
+                            <span className="text-xs text-blue-600">{reviewsService.formatDate(review.vendorResponse.respondedAt)}</span>
                           </div>
-                          <p className="text-sm text-blue-800">{review.reply.text}</p>
+                          <p className="text-sm text-blue-800">{review.vendorResponse.message}</p>
                         </div>
                       )}
                     </div>

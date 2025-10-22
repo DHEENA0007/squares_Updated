@@ -72,6 +72,64 @@ const userSchema = new mongoose.Schema({
         showEmail: { type: Boolean, default: false },
         showPhone: { type: Boolean, default: false }
       }
+    },
+    // Vendor-specific fields
+    vendorInfo: {
+      licenseNumber: {
+        type: String,
+        default: null
+      },
+      gstNumber: {
+        type: String,
+        default: null
+      },
+      panNumber: {
+        type: String,
+        default: null
+      },
+      companyName: {
+        type: String,
+        default: null
+      },
+      experience: {
+        type: Number,
+        default: 0
+      },
+      website: {
+        type: String,
+        default: null
+      },
+      specializations: [{
+        type: String
+      }],
+      serviceAreas: [{
+        type: String
+      }],
+      certifications: [{
+        name: String,
+        issuedBy: String,
+        date: String,
+        verified: { type: Boolean, default: false }
+      }],
+      vendorPreferences: {
+        emailNotifications: { type: Boolean, default: true },
+        smsNotifications: { type: Boolean, default: true },
+        leadAlerts: { type: Boolean, default: true },
+        marketingEmails: { type: Boolean, default: false },
+        weeklyReports: { type: Boolean, default: true }
+      },
+      rating: {
+        average: { type: Number, default: 0 },
+        count: { type: Number, default: 0 }
+      },
+      responseTime: {
+        type: String,
+        default: "Not calculated"
+      },
+      memberSince: {
+        type: Date,
+        default: Date.now
+      }
     }
   }
 }, {

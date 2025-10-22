@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,133 +24,152 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { messageService, type Message, type Conversation } from "@/services/messageService";
+import { toast } from "@/hooks/use-toast";
 
 const VendorMessages = () => {
-  const [selectedChat, setSelectedChat] = useState(1);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
-  const conversations = [
-    {
-      id: 1,
-      name: "Rahul Sharma",
-      avatar: "/api/placeholder/40/40",
-      lastMessage: "Can we schedule a property visit this weekend?",
-      timestamp: "2 min ago",
-      unread: 2,
-      online: true,
-      property: "Luxury 3BHK Apartment in Powai",
-      phone: "+91 98765 43210",
-      priority: "high"
-    },
-    {
-      id: 2,
-      name: "Priya Patel",
-      avatar: "/api/placeholder/40/40",
-      lastMessage: "Thank you for the property details. Very interested!",
-      timestamp: "10 min ago",
-      unread: 0,
-      online: false,
-      property: "Modern Villa with Private Garden",
-      phone: "+91 87654 32109",
-      priority: "medium"
-    },
-    {
-      id: 3,
-      name: "Amit Kumar",
-      avatar: "/api/placeholder/40/40",
-      lastMessage: "What's the final price for the office space?",
-      timestamp: "1 hour ago",
-      unread: 1,
-      online: true,
-      property: "Commercial Office Space",
-      phone: "+91 76543 21098",
-      priority: "high"
-    },
-    {
-      id: 4,
-      name: "Sneha Reddy",
-      avatar: "/api/placeholder/40/40",
-      lastMessage: "Can you help with home loan process?",
-      timestamp: "2 hours ago",
-      unread: 0,
-      online: false,
-      property: "Budget 2BHK Flat",
-      phone: "+91 65432 10987",
-      priority: "low"
+  useEffect(() => {
+    loadConversations();
+  }, []);
+
+  useEffect(() => {
+    loadConversations();
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (selectedChat) {
+      loadMessages(selectedChat);
     }
-  ];
+  }, [selectedChat]);
 
-  const messages = [
-    {
-      id: 1,
-      senderId: 1,
-      senderName: "Rahul Sharma",
-      content: "Hi, I'm interested in the luxury apartment you have listed in Powai.",
-      timestamp: "10:30 AM",
-      type: "text",
-      status: "read"
-    },
-    {
-      id: 2,
-      senderId: "vendor",
-      senderName: "You",
-      content: "Hello Rahul! Thank you for your interest. I'd be happy to help you with the apartment details. It's a beautiful 3BHK with modern amenities.",
-      timestamp: "10:35 AM",
-      type: "text",
-      status: "read"
-    },
-    {
-      id: 3,
-      senderId: 1,
-      senderName: "Rahul Sharma",
-      content: "That sounds great! Can you share more details about the amenities and pricing?",
-      timestamp: "10:40 AM",
-      type: "text",
-      status: "read"
-    },
-    {
-      id: 4,
-      senderId: "vendor",
-      senderName: "You",
-      content: "Sure! The apartment features:\n• Modern kitchen with modular fittings\n• 24/7 security\n• Swimming pool and gym\n• Children's play area\n• Covered parking\n\nThe price is ₹1.2 Cr (negotiable)",
-      timestamp: "10:45 AM",
-      type: "text",
-      status: "read"
-    },
-    {
-      id: 5,
-      senderId: 1,
-      senderName: "Rahul Sharma",
-      content: "Looks perfect! Can we schedule a visit this weekend?",
-      timestamp: "11:00 AM",
-      type: "text",
-      status: "delivered"
-    },
-    {
-      id: 6,
-      senderId: "vendor",
-      senderName: "You",
-      content: "Absolutely! I'm available Saturday and Sunday. What time works best for you?",
-      timestamp: "11:05 AM",
-      type: "text",
-      status: "sent"
-    }
-  ];
+  const loadConversations = async () => {
+    try {
+      setIsLoading(true);
+      const filters = {
+        page: 1,
+        limit: 50,
+        ...(searchQuery && { search: searchQuery }),
+      };
 
-  const selectedConversation = conversations.find(conv => conv.id === selectedChat);
-  const filteredConversations = conversations.filter(conv =>
-    conv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    conv.property.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      // Add message sending logic here
-      setNewMessage("");
+      const response = await messageService.getConversations(filters);
+      setConversations(response.conversations);
+      
+      // Auto-select first conversation if none selected
+      if (!selectedChat && response.conversations.length > 0) {
+        setSelectedChat(response.conversations[0]._id);
+      }
+    } catch (error) {
+      console.error('Failed to load conversations:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load conversations. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const loadMessages = async (conversationId: string) => {
+    try {
+      setIsLoadingMessages(true);
+      const response = await messageService.getConversationMessages(conversationId);
+      setMessages(response.messages);
+      
+      // Mark conversation as read
+      await messageService.markConversationAsRead(conversationId);
+      
+      // Update conversation unread count in local state
+      setConversations(prev => 
+        prev.map(conv => 
+          conv._id === conversationId 
+            ? { ...conv, unreadCount: 0 }
+            : conv
+        )
+      );
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load messages. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedChat) return;
+
+    try {
+      const sentMessage = await messageService.sendMessage(selectedChat, newMessage.trim());
+      setMessages(prev => [...prev, sentMessage]);
+      setNewMessage("");
+      
+      // Update last message in conversations list
+      setConversations(prev =>
+        prev.map(conv =>
+          conv._id === selectedChat
+            ? { ...conv, lastMessage: sentMessage, updatedAt: sentMessage.createdAt }
+            : conv
+        )
+      );
+
+      toast({
+        title: "Success",
+        description: "Message sent successfully!",
+      });
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteConversation = async (conversationId: string) => {
+    if (window.confirm('Are you sure you want to delete this conversation?')) {
+      try {
+        await messageService.deleteConversation(conversationId);
+        setConversations(prev => prev.filter(conv => conv._id !== conversationId));
+        
+        if (selectedChat === conversationId) {
+          setSelectedChat(null);
+          setMessages([]);
+        }
+
+        toast({
+          title: "Success",
+          description: "Conversation deleted successfully.",
+        });
+      } catch (error) {
+        console.error('Failed to delete conversation:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete conversation. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const getOtherParticipant = (conversation: Conversation) => {
+    const currentUserId = JSON.parse(localStorage.getItem("user") || "{}")?.id;
+    return conversation.participants.find(p => p._id !== currentUserId);
+  };
+
+  // Helper functions
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "sent": return <Check className="w-3 h-3 text-gray-400" />;
@@ -168,6 +187,32 @@ const VendorMessages = () => {
       default: return "bg-gray-100 text-gray-800";
     }
   };
+
+  const selectedConversation = conversations.find(conv => conv._id === selectedChat);
+  const otherParticipant = selectedConversation ? getOtherParticipant(selectedConversation) : null;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading messages...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const filteredConversations = conversations.filter(conv => {
+    if (!searchQuery) return true;
+    
+    const otherParticipant = getOtherParticipant(conv);
+    if (!otherParticipant) return false;
+    
+    const participantName = messageService.formatName(otherParticipant);
+    return participantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           conv.lastMessage?.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           conv.property?.title.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   return (
     <div className="h-[calc(100vh-8rem)] flex">
@@ -188,56 +233,54 @@ const VendorMessages = () => {
 
         <ScrollArea className="h-[calc(100%-8rem)]">
           <div className="p-2">
-            {filteredConversations.map((conversation) => (
+            {filteredConversations.map((conversation) => {
+              const otherParticipant = getOtherParticipant(conversation);
+              const participantName = messageService.formatName(otherParticipant);
+              return (
               <div
-                key={conversation.id}
+                key={conversation._id}
                 className={`p-3 rounded-lg cursor-pointer transition-colors hover:bg-muted ${
-                  selectedChat === conversation.id ? 'bg-muted' : ''
+                  selectedChat === conversation._id ? 'bg-muted' : ''
                 }`}
-                onClick={() => setSelectedChat(conversation.id)}
+                onClick={() => setSelectedChat(conversation._id)}
               >
                 <div className="flex items-start space-x-3">
                   <div className="relative">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={conversation.avatar} />
-                      <AvatarFallback>{conversation.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={otherParticipant?.profile?.avatar} />
+                      <AvatarFallback>{participantName.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    {conversation.online && (
-                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background"></div>
-                    )}
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <h4 className="text-sm font-semibold truncate">{conversation.name}</h4>
+                      <h4 className="text-sm font-semibold truncate">{participantName}</h4>
                       <div className="flex items-center space-x-1">
-                        <Badge className={`text-xs ${getPriorityColor(conversation.priority)}`}>
-                          {conversation.priority}
-                        </Badge>
-                        {conversation.unread > 0 && (
+                        {conversation.unreadCount > 0 && (
                           <Badge className="bg-primary text-primary-foreground text-xs px-2">
-                            {conversation.unread}
+                            {conversation.unreadCount}
                           </Badge>
                         )}
                       </div>
                     </div>
                     
                     <p className="text-xs text-muted-foreground mb-1 truncate">
-                      {conversation.property}
+                      {conversation.property?.title || 'General inquiry'}
                     </p>
                     
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-muted-foreground truncate flex-1">
-                        {conversation.lastMessage}
+                        {conversation.lastMessage?.message}
                       </p>
                       <span className="text-xs text-muted-foreground ml-2">
-                        {conversation.timestamp}
+                        {new Date(conversation.lastMessage?.createdAt || '').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </ScrollArea>
       </div>
@@ -252,17 +295,14 @@ const VendorMessages = () => {
                 <div className="flex items-center space-x-3">
                   <div className="relative">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={selectedConversation.avatar} />
-                      <AvatarFallback>{selectedConversation.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={otherParticipant?.profile?.avatar} />
+                      <AvatarFallback>{messageService.formatName(otherParticipant).charAt(0)}</AvatarFallback>
                     </Avatar>
-                    {selectedConversation.online && (
-                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background"></div>
-                    )}
                   </div>
                   <div>
-                    <h3 className="font-semibold">{selectedConversation.name}</h3>
+                    <h3 className="font-semibold">{messageService.formatName(otherParticipant)}</h3>
                     <p className="text-sm text-muted-foreground">
-                      {selectedConversation.online ? 'Online' : 'Last seen 2 hours ago'}
+                      Interested in property
                     </p>
                   </div>
                 </div>
@@ -289,7 +329,7 @@ const VendorMessages = () => {
                         <Archive className="w-4 h-4 mr-2" />
                         Archive
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">
+                      <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteConversation(selectedConversation._id)}>
                         <Trash className="w-4 h-4 mr-2" />
                         Delete Conversation
                       </DropdownMenuItem>
@@ -299,38 +339,49 @@ const VendorMessages = () => {
               </div>
               
               {/* Property Info */}
-              <div className="mt-3 p-3 bg-muted rounded-lg">
-                <p className="text-sm font-medium">{selectedConversation.property}</p>
-                <p className="text-xs text-muted-foreground">{selectedConversation.phone}</p>
-              </div>
+              {selectedConversation.property && (
+                <div className="mt-3 p-3 bg-muted rounded-lg">
+                  <p className="text-sm font-medium">{selectedConversation.property.title}</p>
+                  <p className="text-xs text-muted-foreground">₹{selectedConversation.property.price.toLocaleString()}</p>
+                </div>
+              )}
             </div>
 
             {/* Messages */}
             <ScrollArea className="flex-1 p-4">
-              <div className="space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.senderId === 'vendor' ? 'justify-end' : 'justify-start'}`}
-                  >
+              {isLoadingMessages ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-sm text-muted-foreground">Loading messages...</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {messages.map((message) => (
                     <div
-                      className={`max-w-[70%] rounded-lg p-3 ${
-                        message.senderId === 'vendor'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
-                      }`}
+                      key={message._id}
+                      className={`flex ${message.sender._id === otherParticipant?._id ? 'justify-start' : 'justify-end'}`}
                     >
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                      <div className={`flex items-center justify-end mt-1 space-x-1 ${
-                        message.senderId === 'vendor' ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                      }`}>
-                        <span className="text-xs">{message.timestamp}</span>
-                        {message.senderId === 'vendor' && getStatusIcon(message.status)}
+                      <div
+                        className={`max-w-[70%] rounded-lg p-3 ${
+                          message.sender._id === otherParticipant?._id
+                            ? 'bg-muted'
+                            : 'bg-primary text-primary-foreground'
+                        }`}
+                      >
+                        <p className="text-sm whitespace-pre-wrap">{message.message}</p>
+                        <div className={`flex items-center justify-end mt-1 space-x-1 ${
+                          message.sender._id === otherParticipant?._id ? 'text-muted-foreground' : 'text-primary-foreground/70'
+                        }`}>
+                          <span className="text-xs">{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          {message.sender._id !== otherParticipant?._id && getStatusIcon(message.status)}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </ScrollArea>
 
             {/* Message Input */}

@@ -19,6 +19,7 @@ const planRoutes = require('./routes/plans');
 const roleRoutes = require('./routes/roles');
 const subscriptionRoutes = require('./routes/subscriptions');
 const adminRoutes = require('./routes/admin');
+const vendorRoutes = require('./routes/vendors');
 // const serviceRoutes = require('./routes/services');
 // const uploadRoutes = require('./routes/upload');
 
@@ -80,6 +81,7 @@ app.use('/api/plans', planRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/vendors', vendorRoutes);
 // app.use('/api/services', authenticateToken, serviceRoutes);
 // app.use('/api/upload', authenticateToken, uploadRoutes);
 

@@ -278,6 +278,128 @@ class PropertyService {
     }
     return 'Area not specified';
   }
+
+  // Vendor-specific methods
+  async getVendorProperties(filters: PropertyFilters = {}): Promise<PropertyResponse> {
+    try {
+      const queryParams = new URLSearchParams();
+      
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+
+      const endpoint = `/vendors/properties${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const response = await this.makeRequest<PropertyResponse>(endpoint);
+
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch vendor properties";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  async getVendorPropertyStats(): Promise<{
+    totalProperties: number;
+    totalViews: number;
+    totalLeads: number;
+    averageRating: number;
+    activeProperties: number;
+    soldProperties: number;
+    pendingProperties: number;
+  }> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: any;
+      }>("/vendors/statistics");
+
+      if (response.success && response.data) {
+        return {
+          totalProperties: response.data.totalProperties || 0,
+          totalViews: response.data.totalViews || 0,
+          totalLeads: response.data.totalLeads || 0,
+          averageRating: response.data.rating || 0,
+          activeProperties: response.data.activeProperties || 0,
+          soldProperties: response.data.soldProperties || 0,
+          pendingProperties: response.data.pendingProperties || 0
+        };
+      }
+
+      // Return default stats if endpoint doesn't return property stats
+      return {
+        totalProperties: 0,
+        totalViews: 0,
+        totalLeads: 0,
+        averageRating: 0,
+        activeProperties: 0,
+        soldProperties: 0,
+        pendingProperties: 0
+      };
+    } catch (error) {
+      console.error("Failed to fetch vendor property stats:", error);
+      // Return default stats on error
+      return {
+        totalProperties: 0,
+        totalViews: 0,
+        totalLeads: 0,
+        averageRating: 0,
+        activeProperties: 0,
+        soldProperties: 0,
+        pendingProperties: 0
+      };
+    }
+  }
+
+  async togglePropertyFeatured(propertyId: string, featured: boolean): Promise<void> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        message: string;
+      }>(`/properties/${propertyId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ featured }),
+      });
+
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: `Property ${featured ? 'featured' : 'unfeatured'} successfully!`,
+        });
+      } else {
+        throw new Error("Failed to update property featured status");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update property featured status";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  getStatusColor(status: string): string {
+    switch (status.toLowerCase()) {
+      case "available": return "bg-green-500";
+      case "pending": return "bg-yellow-500";
+      case "sold": return "bg-blue-500";
+      case "rented": return "bg-purple-500";
+      case "inactive": return "bg-gray-500";
+      default: return "bg-gray-500";
+    }
+  }
+
+  getStatusText(status: string): string {
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  }
 }
 
 export const propertyService = new PropertyService();

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,117 +27,111 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Link } from "react-router-dom";
+import { propertyService, type Property } from "@/services/propertyService";
+import { toast } from "@/hooks/use-toast";
 
 const VendorProperties = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
-
-  const properties = [
-    {
-      id: 1,
-      title: "Luxury 3BHK Apartment in Powai",
-      location: "Powai, Mumbai, Maharashtra",
-      price: "₹1.2 Cr",
-      type: "apartment",
-      status: "active",
-      bedrooms: 3,
-      bathrooms: 2,
-      area: "1450 sqft",
-      images: 12,
-      views: 234,
-      leads: 12,
-      favorites: 8,
-      rating: 4.5,
-      listedDate: "2024-10-15",
-      image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=300&h=200&fit=crop&auto=format",
-      featured: true,
-      verified: true
-    },
-    {
-      id: 2,
-      title: "Modern Villa with Private Garden",
-      location: "Whitefield, Bangalore, Karnataka",
-      price: "₹2.5 Cr",
-      type: "villa",
-      status: "pending",
-      bedrooms: 4,
-      bathrooms: 3,
-      area: "2800 sqft",
-      images: 18,
-      views: 156,
-      leads: 8,
-      favorites: 15,
-      rating: 4.8,
-      listedDate: "2024-10-12",
-      image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=300&h=200&fit=crop&auto=format",
-      featured: false,
-      verified: true
-    },
-    {
-      id: 3,
-      title: "Commercial Office Space",
-      location: "Cyber City, Gurgaon, Haryana",
-      price: "₹45 Lac",
-      type: "commercial",
-      status: "active",
-      bedrooms: 0,
-      bathrooms: 2,
-      area: "1200 sqft",
-      images: 8,
-      views: 89,
-      leads: 5,
-      favorites: 3,
-      rating: 4.2,
-      listedDate: "2024-10-08",
-      image: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=300&h=200&fit=crop&auto=format",
-      featured: true,
-      verified: false
-    },
-    {
-      id: 4,
-      title: "Budget 2BHK Flat",
-      location: "Thane West, Mumbai, Maharashtra",
-      price: "₹65 Lac",
-      type: "apartment",
-      status: "sold",
-      bedrooms: 2,
-      bathrooms: 1,
-      area: "850 sqft",
-      images: 5,
-      views: 432,
-      leads: 28,
-      favorites: 22,
-      rating: 4.1,
-      listedDate: "2024-09-25",
-      image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=300&h=200&fit=crop&auto=format",
-      featured: false,
-      verified: true
-    }
-  ];
-
-  const filteredProperties = properties.filter(property => {
-    const matchesSearch = property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         property.location.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || property.status === statusFilter;
-    const matchesType = typeFilter === "all" || property.type === typeFilter;
-    
-    return matchesSearch && matchesStatus && matchesType;
+  const [isLoading, setIsLoading] = useState(true);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [stats, setStats] = useState({
+    totalProperties: 0,
+    totalViews: 0,
+    totalLeads: 0,
+    averageRating: 0
+  });
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalProperties: 0,
+    hasNextPage: false,
+    hasPrevPage: false
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active": return "bg-green-500";
-      case "pending": return "bg-yellow-500";
-      case "sold": return "bg-blue-500";
-      case "rented": return "bg-purple-500";
-      default: return "bg-gray-500";
+  useEffect(() => {
+    loadProperties();
+    loadStats();
+  }, []);
+
+  useEffect(() => {
+    loadProperties();
+  }, [searchQuery, statusFilter, typeFilter]);
+
+  const loadProperties = async () => {
+    try {
+      setIsLoading(true);
+      const filters = {
+        page: 1,
+        limit: 10,
+        ...(searchQuery && { search: searchQuery }),
+        ...(statusFilter !== "all" && { status: statusFilter }),
+        ...(typeFilter !== "all" && { propertyType: typeFilter })
+      };
+
+      const response = await propertyService.getVendorProperties(filters);
+      setProperties(response.data.properties);
+      setPagination(response.data.pagination);
+    } catch (error) {
+      console.error('Failed to load properties:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const getStatusText = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1);
+  const loadStats = async () => {
+    try {
+      const statsData = await propertyService.getVendorPropertyStats();
+      setStats(statsData);
+    } catch (error) {
+      console.error('Failed to load stats:', error);
+    }
   };
+
+  const handleDeleteProperty = async (propertyId: string) => {
+    if (window.confirm('Are you sure you want to delete this property?')) {
+      try {
+        await propertyService.deleteProperty(propertyId);
+        loadProperties(); // Refresh the list
+        loadStats(); // Refresh stats
+      } catch (error) {
+        console.error('Failed to delete property:', error);
+      }
+    }
+  };
+
+  const handleToggleFeatured = async (propertyId: string, currentFeatured: boolean) => {
+    try {
+      await propertyService.togglePropertyFeatured(propertyId, !currentFeatured);
+      loadProperties(); // Refresh the list
+    } catch (error) {
+      console.error('Failed to toggle featured status:', error);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const getLocationString = (property: Property) => {
+    return `${property.address.locality}, ${property.address.city}, ${property.address.state}`;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading properties...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -162,7 +156,7 @@ const VendorProperties = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Properties</p>
-                <p className="text-2xl font-bold">24</p>
+                <p className="text-2xl font-bold">{stats.totalProperties}</p>
               </div>
               <Building2 className="h-8 w-8 text-blue-600" />
             </div>
@@ -173,7 +167,7 @@ const VendorProperties = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Views</p>
-                <p className="text-2xl font-bold">2,847</p>
+                <p className="text-2xl font-bold">{stats.totalViews.toLocaleString()}</p>
               </div>
               <Eye className="h-8 w-8 text-green-600" />
             </div>
@@ -184,7 +178,7 @@ const VendorProperties = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Leads</p>
-                <p className="text-2xl font-bold">156</p>
+                <p className="text-2xl font-bold">{stats.totalLeads}</p>
               </div>
               <Users className="h-8 w-8 text-purple-600" />
             </div>
@@ -195,7 +189,7 @@ const VendorProperties = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Avg. Rating</p>
-                <p className="text-2xl font-bold">4.5</p>
+                <p className="text-2xl font-bold">{stats.averageRating.toFixed(1)}</p>
               </div>
               <Star className="h-8 w-8 text-orange-600" />
             </div>
@@ -223,7 +217,7 @@ const VendorProperties = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="available">Available</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="sold">Sold</SelectItem>
                 <SelectItem value="rented">Rented</SelectItem>
@@ -237,9 +231,11 @@ const VendorProperties = () => {
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="apartment">Apartment</SelectItem>
+                <SelectItem value="house">House</SelectItem>
                 <SelectItem value="villa">Villa</SelectItem>
-                <SelectItem value="commercial">Commercial</SelectItem>
                 <SelectItem value="plot">Plot</SelectItem>
+                <SelectItem value="commercial">Commercial</SelectItem>
+                <SelectItem value="office">Office</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -248,14 +244,14 @@ const VendorProperties = () => {
 
       {/* Properties List */}
       <div className="space-y-4">
-        {filteredProperties.map((property) => (
-          <Card key={property.id} className="overflow-hidden">
+        {properties.map((property) => (
+          <Card key={property._id} className="overflow-hidden">
             <CardContent className="p-0">
               <div className="flex flex-col lg:flex-row">
                 {/* Property Image */}
                 <div className="lg:w-64 h-48 lg:h-auto bg-muted relative">
                   <img 
-                    src={property.image} 
+                    src={propertyService.getPrimaryImage(property)} 
                     alt={property.title}
                     className="w-full h-full object-cover"
                   />
@@ -263,8 +259,8 @@ const VendorProperties = () => {
                     <Camera className="w-12 h-12 text-muted-foreground" />
                   </div>
                   <div className="absolute top-3 left-3 flex gap-2">
-                    <Badge className={`${getStatusColor(property.status)} text-white`}>
-                      {getStatusText(property.status)}
+                    <Badge className={`${propertyService.getStatusColor(property.status)} text-white`}>
+                      {propertyService.getStatusText(property.status)}
                     </Badge>
                     {property.featured && (
                       <Badge variant="secondary">Featured</Badge>
@@ -274,7 +270,7 @@ const VendorProperties = () => {
                     )}
                   </div>
                   <div className="absolute bottom-3 left-3 bg-black/70 text-white px-2 py-1 rounded text-sm">
-                    {property.images} photos
+                    {property.images.length} photos
                   </div>
                 </div>
 
@@ -285,9 +281,11 @@ const VendorProperties = () => {
                       <h3 className="text-xl font-semibold mb-1">{property.title}</h3>
                       <p className="text-muted-foreground flex items-center mb-2">
                         <MapPin className="w-4 h-4 mr-1" />
-                        {property.location}
+                        {getLocationString(property)}
                       </p>
-                      <p className="text-2xl font-bold text-primary">{property.price}</p>
+                      <p className="text-2xl font-bold text-primary">
+                        {propertyService.formatPrice(property.price, property.listingType)}
+                      </p>
                     </div>
                     
                     <DropdownMenu>
@@ -305,11 +303,14 @@ const VendorProperties = () => {
                           <Edit3 className="w-4 h-4 mr-2" />
                           Edit Property
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleToggleFeatured(property._id, property.featured)}>
                           <TrendingUp className="w-4 h-4 mr-2" />
-                          Promote
+                          {property.featured ? 'Unfeature' : 'Promote'}
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem 
+                          className="text-red-600"
+                          onClick={() => handleDeleteProperty(property._id)}
+                        >
                           <Trash2 className="w-4 h-4 mr-2" />
                           Delete
                         </DropdownMenuItem>
@@ -330,14 +331,11 @@ const VendorProperties = () => {
                     </div>
                     <div className="text-center">
                       <p className="text-sm text-muted-foreground">Area</p>
-                      <p className="font-semibold">{property.area}</p>
+                      <p className="font-semibold">{propertyService.formatArea(property.area)}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground">Rating</p>
-                      <p className="font-semibold flex items-center justify-center">
-                        <Star className="w-4 h-4 text-yellow-500 mr-1" />
-                        {property.rating}
-                      </p>
+                      <p className="text-sm text-muted-foreground">Type</p>
+                      <p className="font-semibold capitalize">{property.type}</p>
                     </div>
                   </div>
 
@@ -348,15 +346,15 @@ const VendorProperties = () => {
                     </span>
                     <span className="flex items-center">
                       <Users className="w-4 h-4 mr-1" />
-                      {property.leads} leads
+                      0 leads
                     </span>
                     <span className="flex items-center">
                       <Star className="w-4 h-4 mr-1" />
-                      {property.favorites} favorites
+                      0 favorites
                     </span>
                     <span className="flex items-center">
                       <Calendar className="w-4 h-4 mr-1" />
-                      Listed {property.listedDate}
+                      Listed {formatDate(property.createdAt)}
                     </span>
                   </div>
 
@@ -369,9 +367,9 @@ const VendorProperties = () => {
                       <Edit3 className="w-4 h-4 mr-2" />
                       Edit
                     </Button>
-                    <Button size="sm">
+                    <Button size="sm" onClick={() => handleToggleFeatured(property._id, property.featured)}>
                       <TrendingUp className="w-4 h-4 mr-2" />
-                      Promote
+                      {property.featured ? 'Unfeature' : 'Promote'}
                     </Button>
                   </div>
                 </div>
@@ -381,7 +379,7 @@ const VendorProperties = () => {
         ))}
       </div>
 
-      {filteredProperties.length === 0 && (
+      {properties.length === 0 && !isLoading && (
         <Card>
           <CardContent className="p-12 text-center">
             <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
