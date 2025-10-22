@@ -13,7 +13,6 @@ import {
   MyProperties,
   PostCustomerProperty,
   ServiceRequests,
-  MySubscription,
   CustomerProfile,
   Messages,
   ReviewsRatings
@@ -52,11 +51,6 @@ const CustomerRoutes = () => {
               <MyProperties />
             </Suspense>
           } />
-          <Route path="post-property" element={
-            <Suspense fallback={<PageLoader />}>
-              <PostCustomerProperty />
-            </Suspense>
-          } />
           
           {/* Communication */}
           <Route path="messages" element={
@@ -78,11 +72,6 @@ const CustomerRoutes = () => {
           } />
           
           {/* Account */}
-          <Route path="subscription" element={
-            <Suspense fallback={<PageLoader />}>
-              <MySubscription />
-            </Suspense>
-          } />
           <Route path="profile" element={
             <Suspense fallback={<PageLoader />}>
               <CustomerProfile />

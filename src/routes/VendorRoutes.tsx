@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import { Suspense } from "react";
 import VendorLayout from "@/layout/VendorLayout";
+import VendorProtectedRoute from "@/components/auth/VendorProtectedRoute";
 import {
   VendorDashboard,
   VendorProperties,
@@ -19,7 +20,11 @@ import {
 const VendorRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<VendorLayout />}>
+      <Route path="/" element={
+        <VendorProtectedRoute>
+          <VendorLayout />
+        </VendorProtectedRoute>
+      }>
         <Route index element={
           <Suspense fallback={<div>Loading...</div>}>
             <VendorDashboard />

@@ -57,6 +57,11 @@ const VendorRegister = () => {
     state: "",
     pincode: "",
     
+    // Legal Documents
+    licenseNumber: "",
+    gstNumber: "",
+    panNumber: "",
+    
     // Documents
     documents: [],
     
@@ -116,26 +121,65 @@ const VendorRegister = () => {
       return;
     }
 
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
+      toast({
+        title: "Password Mismatch",
+        description: "Passwords do not match. Please check and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // TODO: Implement vendor registration API call
-      toast({
-        title: "Registration Submitted!",
-        description: "We'll review your application and contact you within 24-48 hours.",
-        variant: "default",
-      });
+      // Import authService
+      const { authService } = await import("@/services/authService");
       
-      // For now, redirect to login
-      setTimeout(() => {
-        navigate("/vendor/login");
-      }, 2000);
+      const registrationData = {
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        role: "agent", // Vendors are agents in the system
+        agreeToTerms: formData.termsAccepted,
+        // Additional vendor-specific data
+        businessInfo: {
+          businessName: formData.businessName,
+          businessType: formData.businessType,
+          businessDescription: formData.businessDescription,
+          experience: formData.experience,
+          address: formData.address,
+          city: formData.city,
+          state: formData.state,
+          pincode: formData.pincode,
+          licenseNumber: formData.licenseNumber,
+          gstNumber: formData.gstNumber,
+          panNumber: formData.panNumber
+        }
+      };
+
+      const response = await authService.register(registrationData);
+      
+      if (response.success) {
+        toast({
+          title: "Registration Successful!",
+          description: "Your vendor account has been created. Please log in to access your dashboard.",
+        });
+        
+        // Redirect to login after successful registration
+        setTimeout(() => {
+          navigate("/vendor/login");
+        }, 2000);
+      }
       
     } catch (error) {
       console.error("Vendor registration error:", error);
       toast({
         title: "Registration Failed",
-        description: "An error occurred. Please try again.",
+        description: "An error occurred during registration. Please try again.",
         variant: "destructive",
       });
     } finally {

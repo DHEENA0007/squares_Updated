@@ -3,12 +3,10 @@ import {
   Search, 
   Heart, 
   GitCompare, 
-  Building, 
-  Plus,
+  Building,
   MessageSquare,
   Wrench,
   Star,
-  CreditCard,
   User,
   ChevronLeft,
   ChevronRight
@@ -29,11 +27,9 @@ const navItems = [
   { icon: Heart, label: "My Favorites", path: "/customer/favorites" },
   { icon: GitCompare, label: "Compare", path: "/customer/compare" },
   { icon: Building, label: "My Properties", path: "/customer/my-properties" },
-  { icon: Plus, label: "Post Property", path: "/customer/post-property" },
   { icon: MessageSquare, label: "Messages", path: "/customer/messages" },
   { icon: Wrench, label: "Services", path: "/customer/services" },
   { icon: Star, label: "Reviews", path: "/customer/reviews" },
-  { icon: CreditCard, label: "Subscription", path: "/customer/subscription" },
   { icon: User, label: "Profile", path: "/customer/profile" },
 ];
 

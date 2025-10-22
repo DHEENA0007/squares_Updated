@@ -29,7 +29,8 @@ const App = () => (
             <Route path="/*" element={<UserRoutes />} />
             <Route path="/admin/*" element={<AdminRoutes />} />
             <Route path="/customer/*" element={<CustomerRoutes />} />
-            <Route path="/vendor/*" element={<VendorRoutes />} />
+            
+            {/* Vendor Authentication Routes (outside protection) */}
             <Route path="/vendor/login" element={
               <Suspense fallback={<div>Loading...</div>}>
                 <VendorLogin />
@@ -45,6 +46,10 @@ const App = () => (
                 <VendorForgotPassword />
               </Suspense>
             } />
+            
+            {/* Protected Vendor Routes */}
+            <Route path="/vendor/*" element={<VendorRoutes />} />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

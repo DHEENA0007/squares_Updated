@@ -44,22 +44,46 @@ const VendorLogin = () => {
     setIsLoading(true);
 
     try {
-      // TODO: Implement vendor login API call
-      // For now, just show a message that vendor portal is coming soon
-      toast({
-        title: "Coming Soon!",
-        description: "Vendor portal is under development. Please check back later.",
-        variant: "default",
-      });
+      // Import authService
+      const { authService } = await import("@/services/authService");
       
-      // Navigate to vendor register page for now
-      navigate("/vendor/register");
+      // Clear any existing auth data first
+      await authService.logout();
+      console.log('VendorLogin: Cleared existing auth data');
+      
+      const response = await authService.login({ email, password });
+      console.log('VendorLogin: Login response:', response);
+      
+      if (response.success && response.data?.user) {
+        const userRole = response.data.user.role;
+        console.log('VendorLogin: User role from server:', userRole);
+        
+        // Check if user is a vendor (agent role)
+        if (userRole === 'agent') {
+          toast({
+            title: "Success",
+            description: "Logged in successfully! Redirecting to vendor dashboard...",
+          });
+          // Navigate to vendor dashboard
+          console.log('VendorLogin: Navigating to vendor dashboard');
+          navigate("/vendor/dashboard");
+        } else {
+          console.log('VendorLogin: User role is', userRole, 'expected agent');
+          toast({
+            title: "Access Denied",
+            description: "This login is for vendors only. Please use the appropriate login portal.",
+            variant: "destructive",
+          });
+          // Clear the login
+          await authService.logout();
+        }
+      }
       
     } catch (error) {
       console.error("Vendor login error:", error);
       toast({
         title: "Login Failed",
-        description: "An error occurred. Please try again.",
+        description: "Invalid credentials or server error. Please try again.",
         variant: "destructive",
       });
     } finally {
