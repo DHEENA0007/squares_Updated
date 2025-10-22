@@ -42,6 +42,29 @@ const Clients = () => {
       setTotalPages(response.data.pagination.totalPages);
     } catch (error) {
       console.error("Failed to fetch subscriptions:", error);
+      
+      // Handle specific error cases
+      if (error instanceof Error) {
+        if (error.message.includes('Admin access required')) {
+          toast({
+            title: "Access Denied",
+            description: "Admin privileges required to view subscriptions.",
+            variant: "destructive",
+          });
+        } else if (error.message.includes('Authentication required')) {
+          toast({
+            title: "Authentication Required",
+            description: "Please log in to continue.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to load subscriptions. Please try again.",
+            variant: "destructive",
+          });
+        }
+      }
     } finally {
       setLoading(false);
     }

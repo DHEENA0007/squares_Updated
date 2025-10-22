@@ -1,6 +1,5 @@
 import { User, Settings, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,17 +9,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { authService } from "@/services/authService";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ProfileDropdown = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<any>(null);
-  
-  useEffect(() => {
-    // Get user data from localStorage
-    const userData = authService.getStoredUser();
-    setUser(userData);
-  }, []);
+  const { user, logout } = useAuth();
 
   const handleProfile = () => {
     navigate("/admin/profile");
@@ -31,7 +24,7 @@ const ProfileDropdown = () => {
   };
 
   const handleLogout = () => {
-    authService.logout();
+    logout();
     navigate("/login");
   };
 

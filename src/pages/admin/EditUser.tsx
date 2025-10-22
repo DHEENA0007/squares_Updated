@@ -25,6 +25,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { userService } from "@/services/userService";
 
 const userSchema = z.object({
   first_name: z.string().min(2, "First name must be at least 2 characters"),
@@ -43,36 +45,112 @@ const EditUser = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { id } = useParams();
+  const [loading, setLoading] = useState(true);
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
     defaultValues: {
-      first_name: "John",
-      last_name: "Doe",
-      email: "john.doe@example.com",
-      phone: "1234567890",
+      first_name: "",
+      last_name: "",
+      email: "",
+      phone: "",
       role: "user",
       status: "active",
     },
   });
 
+  // Fetch user data on component mount
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (!id) {
+        toast({
+          title: "Error",
+          description: "User ID is required",
+          variant: "destructive",
+        });
+        navigate("/admin/users");
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await userService.getUser(id);
+        
+        if (response.success) {
+          const user = response.data.user;
+          
+          // Set form values with user data
+          form.reset({
+            first_name: user.profile.firstName || "",
+            last_name: user.profile.lastName || "",
+            email: user.email,
+            phone: user.profile.phone || "",
+            birthday: user.profile.birthday ? new Date(user.profile.birthday) : undefined,
+            anniversary: user.profile.anniversary ? new Date(user.profile.anniversary) : undefined,
+            role: user.role as "admin" | "moderator" | "user",
+            status: user.status,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load user data",
+          variant: "destructive",
+        });
+        navigate("/admin/users");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, [id, form, toast, navigate]);
+
   const onSubmit = async (data: UserFormValues) => {
+    if (!id) return;
+
     try {
-      // TODO: Implement actual update logic
-      console.log("User data:", data, "ID:", id);
+      // Prepare user data for API
+      const userData = {
+        email: data.email,
+        profile: {
+          firstName: data.first_name,
+          lastName: data.last_name,
+          phone: data.phone,
+          birthday: data.birthday,
+          anniversary: data.anniversary,
+        },
+        role: data.role,
+        status: data.status,
+      };
+
+      await userService.updateUser(id, userData);
+      
       toast({
         title: "Success",
         description: "User updated successfully.",
       });
       navigate("/admin/users");
     } catch (error) {
+      console.error("Failed to update user:", error);
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: "Failed to update user. Please try again.",
         variant: "destructive",
       });
     }
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto relative top-[60px]">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto relative top-[60px]">

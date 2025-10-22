@@ -104,6 +104,18 @@ class SubscriptionService {
       const response = await fetch(url, config);
       
       if (!response.ok) {
+        // Handle authentication errors
+        if (response.status === 401) {
+          console.error('Authentication failed - redirecting to login');
+          authService.logout();
+          window.location.href = '/login';
+          throw new Error('Authentication required');
+        }
+        
+        if (response.status === 403) {
+          throw new Error('Admin access required');
+        }
+
         const errorData = await response.json().catch(() => ({
           success: false,
           message: `HTTP ${response.status}: ${response.statusText}`,

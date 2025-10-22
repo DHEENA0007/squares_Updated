@@ -26,6 +26,7 @@ import { CalendarIcon, Eye, EyeOff } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { userService } from "@/services/userService";
 
 const userSchema = z.object({
   first_name: z.string().min(2, "First name must be at least 2 characters"),
@@ -67,17 +68,33 @@ const AddUser = () => {
 
   const onSubmit = async (data: UserFormValues) => {
     try {
-      // TODO: Implement actual save logic
-      console.log("User data:", data);
+      // Prepare user data for API
+      const userData = {
+        email: data.email,
+        password: data.password,
+        profile: {
+          firstName: data.first_name,
+          lastName: data.last_name,
+          phone: data.phone,
+          birthday: data.birthday,
+          anniversary: data.anniversary,
+        },
+        role: data.role,
+        status: data.status,
+      };
+
+      await userService.createUser(userData);
+      
       toast({
         title: "Success",
         description: "User created successfully.",
       });
       navigate("/admin/users");
     } catch (error) {
+      console.error("Failed to create user:", error);
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: "Failed to create user. Please try again.",
         variant: "destructive",
       });
     }

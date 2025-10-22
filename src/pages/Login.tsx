@@ -1,19 +1,24 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { authService } from "@/services/authService";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Get the intended destination from location state
+  const from = location.state?.from?.pathname || null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,25 +36,25 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const response = await authService.login({ email, password });
+      const success = await login(email, password);
       
-      if (response.success) {
-        // Navigate to customer portal
-        navigate("/customer");
-      } else {
-        toast({
-          title: "Login Failed",
-          description: response.message || "Invalid credentials",
-          variant: "destructive",
-        });
+      if (success) {
+        // If user was trying to access a specific route, redirect there
+        if (from) {
+          navigate(from, { replace: true });
+        } else {
+          // Otherwise redirect based on user role (handled by login function)
+          // Get user from auth service to determine role
+          const user = JSON.parse(localStorage.getItem("user") || "{}");
+          if (user.role === 'admin' || user.role === 'superadmin') {
+            navigate("/admin/dashboard");
+          } else {
+            navigate("/customer/dashboard");
+          }
+        }
       }
     } catch (error) {
       console.error("Login error:", error);
-      toast({
-        title: "Login Error",
-        description: "Unable to connect to server. Please try again.",
-        variant: "destructive",
-      });
     } finally {
       setIsLoading(false);
     }

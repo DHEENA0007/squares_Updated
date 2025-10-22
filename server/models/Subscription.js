@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const subscriptionSchema = new mongoose.Schema({
   user: {
@@ -121,5 +122,8 @@ subscriptionSchema.methods.cancel = function(reason) {
 
 subscriptionSchema.set('toJSON', { virtuals: true });
 subscriptionSchema.set('toObject', { virtuals: true });
+
+// Add pagination plugin
+subscriptionSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('Subscription', subscriptionSchema);
