@@ -8,7 +8,7 @@ export interface Property {
   _id: string;
   title: string;
   description: string;
-  type: 'apartment' | 'house' | 'villa' | 'plot' | 'commercial' | 'office';
+  type: 'apartment' | 'house' | 'villa' | 'plot' | 'land' | 'commercial' | 'office' | 'pg';
   status: 'available' | 'sold' | 'rented' | 'pending';
   listingType: 'sale' | 'rent';
   price: number;

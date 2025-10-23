@@ -55,7 +55,7 @@ export const getRandomPropertyImages = (count: number, width = 400, height = 300
  * Get a property image by type
  */
 export const getPropertyImageByType = (
-  type: 'apartment' | 'house' | 'villa' | 'plot' | 'commercial' | 'office',
+  type: 'apartment' | 'house' | 'villa' | 'plot' | 'land' | 'commercial' | 'office' | 'pg',
   width = 400,
   height = 300
 ): string => {
@@ -64,8 +64,10 @@ export const getPropertyImageByType = (
     house: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&h=300&fit=crop&auto=format',
     villa: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&h=300&fit=crop&auto=format',
     plot: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=400&h=300&fit=crop&auto=format',
+    land: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=400&h=300&fit=crop&auto=format',
     commercial: 'https://images.unsplash.com/photo-1577495508048-b635879837f1?w=400&h=300&fit=crop&auto=format',
-    office: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop&auto=format'
+    office: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop&auto=format',
+    pg: 'https://images.unsplash.com/photo-1555854877-bab0e6480e44?w=400&h=300&fit=crop&auto=format'
   };
 
   return typeImageMap[type].replace(/w=\d+&h=\d+/, `w=${width}&h=${height}`);

@@ -91,7 +91,9 @@ const AddProperty = () => {
     { value: "house", label: "House" },
     { value: "commercial", label: "Commercial" },
     { value: "plot", label: "Plot" },
-    { value: "office", label: "Office Space" }
+    { value: "land", label: "Land" },
+    { value: "office", label: "Office Space" },
+    { value: "pg", label: "PG (Paying Guest)" }
   ];
 
   const amenitiesList = [
@@ -99,7 +101,12 @@ const AddProperty = () => {
     "Garden/Park", "Playground", "Clubhouse", "Power Backup",
     "Elevator", "WiFi", "CCTV Surveillance", "Intercom",
     "Water Supply", "Waste Management", "Fire Safety", "Visitor Parking",
-    "Shopping Complex", "Restaurant", "Spa", "Jogging Track"
+    "Shopping Complex", "Restaurant", "Spa", "Jogging Track",
+    // PG-specific amenities
+    "Meals Included", "Laundry Service", "Room Cleaning", "24/7 Security",
+    "Common Kitchen", "Common Area", "Study Room", "Single Occupancy",
+    "Double Occupancy", "Triple Occupancy", "AC Rooms", "Non-AC Rooms",
+    "Attached Bathroom", "Common Bathroom", "Wi-Fi in Rooms", "TV in Rooms"
   ];
 
   const nextStep = () => {
