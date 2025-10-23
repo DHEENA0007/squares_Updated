@@ -51,13 +51,20 @@ const PostProperty = () => {
     { value: "villa", label: "Villa" },
     { value: "house", label: "House" },
     { value: "commercial", label: "Commercial" },
-    { value: "plot", label: "Plot" }
+    { value: "plot", label: "Plot" },
+    { value: "land", label: "Land" },
+    { value: "pg", label: "PG (Paying Guest)" }
   ];
 
   const amenitiesList = [
     "Parking", "Gym", "Swimming Pool", "Security", "Power Backup",
     "Elevator", "Garden", "Terrace", "Club House", "Children's Play Area",
-    "CCTV", "Intercom", "Fire Safety", "Waste Management", "Solar Panels"
+    "CCTV", "Intercom", "Fire Safety", "Waste Management", "Solar Panels",
+    // PG-specific amenities
+    "Meals Included", "Laundry Service", "Room Cleaning", "24/7 Security",
+    "Common Kitchen", "Common Area", "Study Room", "Single Occupancy",
+    "Double Occupancy", "Triple Occupancy", "AC Rooms", "Non-AC Rooms",
+    "Attached Bathroom", "Common Bathroom", "Wi-Fi in Rooms", "TV in Rooms"
   ];
 
   const handleNext = () => {
@@ -140,6 +147,7 @@ const PostProperty = () => {
                   <SelectContent>
                     <SelectItem value="sell">For Sale</SelectItem>
                     <SelectItem value="rent">For Rent</SelectItem>
+                    <SelectItem value="lease">For Lease</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

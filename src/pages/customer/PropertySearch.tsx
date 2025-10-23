@@ -185,6 +185,10 @@ const PropertySearch = () => {
             <SelectItem value="villa">Villa</SelectItem>
             <SelectItem value="house">House</SelectItem>
             <SelectItem value="plot">Plot</SelectItem>
+            <SelectItem value="land">Land</SelectItem>
+            <SelectItem value="commercial">Commercial</SelectItem>
+            <SelectItem value="office">Office Space</SelectItem>
+            <SelectItem value="pg">PG (Paying Guest)</SelectItem>
           </SelectContent>
         </Select>
       </div>

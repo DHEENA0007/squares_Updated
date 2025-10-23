@@ -59,7 +59,8 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
         <div className="flex items-start justify-between mb-2">
           <h3 className="font-semibold text-lg line-clamp-1">{property.title}</h3>
           <Badge variant="secondary">
-            {property.listingType === 'sale' ? 'For Sale' : 'For Rent'}
+            {property.listingType === 'sale' ? 'For Sale' : 
+             property.listingType === 'rent' ? 'For Rent' : 'For Lease'}
           </Badge>
         </div>
         

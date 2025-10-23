@@ -13,6 +13,7 @@ const Hero = () => {
     const backgroundImages: Record<string, string> = {
       buy: buyImage,
       rent: sellImage,
+      lease: sellImage, // Using rent image for lease, or add specific lease image
       commercial: commercialImage,
     };
 
@@ -38,9 +39,10 @@ const Hero = () => {
           
           <div className="bg-card rounded-xl p-6 shadow-[var(--shadow-large)]">
             <Tabs defaultValue="buy" className="mb-4" onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="buy">Buy</TabsTrigger>
                 <TabsTrigger value="rent">Rent</TabsTrigger>
+                <TabsTrigger value="lease">Lease</TabsTrigger>
                 <TabsTrigger value="commercial">Commercial</TabsTrigger>
               </TabsList>
             </Tabs>

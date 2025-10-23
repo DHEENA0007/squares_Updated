@@ -7,7 +7,7 @@ const propertyFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email"),
   phone: z.string().regex(/^[0-9]{10}$/, "Must be 10 digits"),
-  lookingTo: z.enum(["sell", "rent"]),
+  lookingTo: z.enum(["sell", "rent", "lease"]),
   propertyType: z.string().min(1, "Required"),
   city: z.string().min(1, "Required"),
   locality: z.string().min(1, "Required"),

@@ -8,9 +8,9 @@ export interface Property {
   _id: string;
   title: string;
   description: string;
-  type: 'apartment' | 'house' | 'villa' | 'plot' | 'commercial' | 'office';
+  type: 'apartment' | 'house' | 'villa' | 'plot' | 'land' | 'commercial' | 'office' | 'pg';
   status: 'available' | 'sold' | 'rented' | 'pending';
-  listingType: 'sale' | 'rent';
+  listingType: 'sale' | 'rent' | 'lease';
   price: number;
   area: {
     builtUp?: number;
@@ -70,7 +70,7 @@ export interface PropertyFilters {
   maxPrice?: number;
   propertyType?: string;
   bedrooms?: number;
-  listingType?: 'sale' | 'rent';
+  listingType?: 'sale' | 'rent' | 'lease';
   search?: string;
 }
 
@@ -247,9 +247,11 @@ class PropertyService {
   }
 
   // Helper method to format price
-  formatPrice(price: number, listingType: 'sale' | 'rent'): string {
+  formatPrice(price: number, listingType: 'sale' | 'rent' | 'lease'): string {
     if (listingType === 'rent') {
       return `₹${price.toLocaleString('en-IN')}/month`;
+    } else if (listingType === 'lease') {
+      return `₹${price.toLocaleString('en-IN')}/year`;
     } else {
       if (price >= 10000000) {
         return `₹${(price / 10000000).toFixed(1)} Cr`;

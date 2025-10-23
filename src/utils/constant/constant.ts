@@ -25,6 +25,10 @@ export const propertyTypes = [
   { label: "All Agricultural", value: "all_agricultural" },
   { label: "Agricultural Land", value: "agricultural_land" },
   { label: "Farm House", value: "farm_house" },
+
+  // ADDITIONAL PROPERTY TYPES
+  { label: "Land", value: "land" },
+  { label: "PG (Paying Guest)", value: "pg" },
 ];
 
 export const furnishingTypes = [

@@ -89,6 +89,7 @@ const PropertyFilters = ({ onFilterChange }: PropertyFiltersProps) => {
             <SelectItem value="all">All Types</SelectItem>
             <SelectItem value="sale">For Sale</SelectItem>
             <SelectItem value="rent">For Rent</SelectItem>
+            <SelectItem value="lease">For Lease</SelectItem>
           </SelectContent>
         </Select>
         
@@ -105,8 +106,10 @@ const PropertyFilters = ({ onFilterChange }: PropertyFiltersProps) => {
             <SelectItem value="villa">Villa</SelectItem>
             <SelectItem value="house">House</SelectItem>
             <SelectItem value="plot">Plot</SelectItem>
+            <SelectItem value="land">Land</SelectItem>
             <SelectItem value="commercial">Commercial</SelectItem>
             <SelectItem value="office">Office</SelectItem>
+            <SelectItem value="pg">PG (Paying Guest)</SelectItem>
           </SelectContent>
         </Select>
         
