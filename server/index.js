@@ -39,7 +39,7 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   "http://localhost:5173",
   "http://localhost:3000",
-  "http://localhost:8080"
+  "http://localhost:8001"
 ].filter(Boolean);
 
 const io = new Server(server, {
@@ -50,7 +50,7 @@ const io = new Server(server, {
   }
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 
 // Rate limiting
 const limiter = rateLimit({
@@ -194,7 +194,7 @@ const startServer = async () => {
     server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🔗 Client URL: ${process.env.CLIENT_URL || 'http://localhost:8080'}`);
+      console.log(`🔗 Client URL: ${process.env.CLIENT_URL || 'http://localhost:8001'}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

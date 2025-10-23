@@ -45,7 +45,7 @@ const VendorSubscriptionManager: React.FC = () => {
 
   const loadSubscriptionData = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/vendors/subscription-status`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/vendors/subscription-status`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

@@ -37,7 +37,7 @@ async function testPaymentEndpoint() {
     const { default: fetch } = await import('node-fetch');
     
     // First, login to get a token
-    const loginResponse = await fetch('http://localhost:5000/api/auth/login', {
+    const loginResponse = await fetch('http://localhost:8000/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -54,7 +54,7 @@ async function testPaymentEndpoint() {
     if (loginData.success && loginData.data?.token) {
       // Test payment endpoint
       const planToTest = plan || await Plan.findOne();
-      const paymentResponse = await fetch('http://localhost:5000/api/payments/create-order', {
+      const paymentResponse = await fetch('http://localhost:8000/api/payments/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
