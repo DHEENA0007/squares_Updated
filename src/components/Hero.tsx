@@ -6,6 +6,7 @@ import buyImage from "@/assets/Buy.jpg";
 import rentImage from "@/assets/Rent.jpg";
 import leaseImage from "@/assets/Lease.jpg";
 import commercialImage from "@/assets/commercial.jpg";
+import sellImage from "@/assets/Sell.jpg";
 import { useState } from "react";
 
 const Hero = () => {
@@ -16,6 +17,7 @@ const Hero = () => {
       rent: rentImage,
       lease: leaseImage,
       commercial: commercialImage,
+      sell: sellImage,
     };
 
   return (
@@ -57,7 +59,7 @@ const Hero = () => {
           <div className="max-w-4xl mx-auto">
             <div className="bg-white/60 dark:bg-card/80 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20 dark:border-border/30 transform hover:scale-[1.02] transition-all duration-300">
               <Tabs defaultValue="buy" className="mb-4" onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-4 h-12 p-1">
+                <TabsList className="grid w-full grid-cols-5 h-12 p-1">
                   <TabsTrigger 
                     value="buy" 
                     className="text-sm font-semibold h-10 rounded-lg transition-all duration-300 hover:scale-105"
@@ -69,6 +71,12 @@ const Hero = () => {
                     className="text-sm font-semibold h-10 rounded-lg transition-all duration-300 hover:scale-105"
                   >
                     Rent
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="sell" 
+                    className="text-sm font-semibold h-10 rounded-lg transition-all duration-300 hover:scale-105"
+                  >
+                    Sell
                   </TabsTrigger>
                   <TabsTrigger 
                     value="lease" 

@@ -1,4 +1,4 @@
-import { User, LogOut, Settings, CreditCard } from "lucide-react";
+import { User, LogOut, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
@@ -27,9 +27,7 @@ const CustomerProfileDropdown = () => {
     navigate("/customer/profile");
   };
 
-  const handleSubscription = () => {
-    navigate("/customer/subscription");
-  };
+
 
   const handleLogout = () => {
     authService.logout();
@@ -75,14 +73,6 @@ const CustomerProfileDropdown = () => {
         >
           <User className="mr-2 h-4 w-4" />
           <span>My Profile</span>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem 
-          onClick={handleSubscription}
-          className="cursor-pointer"
-        >
-          <CreditCard className="mr-2 h-4 w-4" />
-          <span>Subscription</span>
         </DropdownMenuItem>
 
         <DropdownMenuItem className="cursor-pointer">

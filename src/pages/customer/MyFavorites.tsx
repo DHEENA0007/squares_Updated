@@ -9,14 +9,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Trash2, Heart, MapPin, Search, Filter, Calendar, Share, SortAsc } from 'lucide-react';
 import { favoriteService, type Favorite, type FavoriteStats } from '@/services/favoriteService';
 import { toast } from '@/hooks/use-toast';
+import { useRealtime, useRealtimeEvent } from '@/contexts/RealtimeContext';
 
 const MyFavorites: React.FC = () => {
+  const { isConnected } = useRealtime();
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [stats, setStats] = useState<FavoriteStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
+
+  // Listen for real-time favorite events
+  useRealtimeEvent('favorite_added', (data) => {
+    console.log('Favorite added:', data);
+    loadFavorites();
+    loadStats();
+  });
+
+  useRealtimeEvent('favorite_removed', (data) => {
+    console.log('Favorite removed:', data);
+    loadFavorites();
+    loadStats();
+  });
 
   useEffect(() => {
     loadFavorites();
@@ -150,6 +165,14 @@ const MyFavorites: React.FC = () => {
               Remove Selected ({selectedProperties.length})
             </Button>
           )}
+        </div>
+
+        {/* Realtime Status */}
+        <div className="flex items-center gap-2 bg-muted/50 p-3 rounded-lg">
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span className="text-sm text-muted-foreground">
+            {isConnected ? 'Real-time favorite updates active' : 'Offline mode'}
+          </span>
         </div>
 
         {/* Search and Filters */}

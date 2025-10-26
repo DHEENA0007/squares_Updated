@@ -18,9 +18,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import logoLight from "@/assets/logo-light.png";
-import logoDark from "@/assets/logo-dark.png";
-import { useTheme } from "next-themes";
 
 interface VendorSidebarProps {
   sidebarOpen: boolean;
@@ -29,7 +26,6 @@ interface VendorSidebarProps {
 
 const VendorSidebar = ({ sidebarOpen, setSidebarOpen }: VendorSidebarProps) => {
   const location = useLocation();
-  const { theme } = useTheme();
 
   const navigation = [
     { name: "Dashboard", href: "/vendor/dashboard", icon: Home },
@@ -62,19 +58,11 @@ const VendorSidebar = ({ sidebarOpen, setSidebarOpen }: VendorSidebarProps) => {
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="flex h-16 items-center justify-between px-6 border-b border-sidebar-border">
-            <Link to="/vendor/dashboard" className="flex items-center">
-              <img
-                src={theme === "dark" ? logoLight : logoDark}
-                alt="Squares"
-                className="h-8 w-auto"
-              />
-            </Link>
+          {/* Mobile close button */}
+          <div className="flex h-16 items-center justify-end px-6 border-b border-sidebar-border lg:hidden">
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden"
               onClick={() => setSidebarOpen(false)}
             >
               <X className="h-5 w-5" />

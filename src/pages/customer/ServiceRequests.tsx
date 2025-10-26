@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,123 +23,95 @@ import {
   IndianRupee,
   AlertCircle,
   MessageSquare,
-  ExternalLink
+  ExternalLink,
+  RefreshCw
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useRealtime, useRealtimeEvent } from "@/contexts/RealtimeContext";
 import { Label } from "@/components/ui/label";
+import { vendorServicesService, ServiceBooking, VendorService } from "@/services/vendorServicesService";
+import { toast } from "@/hooks/use-toast";
 
 const ServiceRequests = () => {
+  const { isConnected } = useRealtime();
+  const [activeTab, setActiveTab] = useState("active");
   const [searchQuery, setSearchQuery] = useState("");
+  const [serviceBookings, setServiceBookings] = useState<ServiceBooking[]>([]);
+  const [services, setServices] = useState<VendorService[]>([]);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [serviceFilter, setServiceFilter] = useState("all");
   const [showNewRequestDialog, setShowNewRequestDialog] = useState(false);
 
-  // Mock service requests data
-  const serviceRequests = [
-    {
-      id: 1,
-      type: "home_loan",
-      title: "Home Loan Application",
-      description: "Need home loan for 3BHK apartment purchase in Powai",
-      amount: "₹80 Lakhs",
-      property: {
-        title: "Luxury 3BHK Apartment",
-        location: "Powai, Mumbai",
-        price: "₹1.2 Cr"
-      },
-      provider: {
-        name: "HDFC Bank",
-        logo: "https://api.dicebear.com/7.x/initials/svg?seed=HDFC",
-        rating: 4.5,
-        phone: "+91 1800 266 4332"
-      },
-      status: "in_progress",
-      createdAt: "2024-10-15",
-      updatedAt: "2024-10-20",
-      estimatedCompletion: "2024-11-15",
-      documents: ["Income Certificate", "Property Papers", "ID Proof"],
-      progress: 65,
-      nextStep: "Property valuation scheduled for Oct 25"
-    },
-    {
-      id: 2,
-      type: "movers",
-      title: "House Shifting Service",
-      description: "Moving from 2BHK to 3BHK apartment within Mumbai",
-      amount: "₹25,000",
-      property: {
-        from: "Andheri East, Mumbai",
-        to: "Powai, Mumbai",
-        distance: "18 km"
-      },
-      provider: {
-        name: "Agarwal Packers & Movers",
-        logo: "https://api.dicebear.com/7.x/initials/svg?seed=APM",
-        rating: 4.2,
-        phone: "+91 98765 43210"
-      },
-      status: "completed",
-      createdAt: "2024-09-20",
-      updatedAt: "2024-09-28",
-      completedAt: "2024-09-28",
-      services: ["Packing", "Loading", "Transportation", "Unloading"],
-      rating: 5,
-      review: "Excellent service! Very careful with fragile items."
-    },
-    {
-      id: 3,
-      type: "legal",
-      title: "Property Registration",
-      description: "Legal assistance for property purchase agreement",
-      amount: "₹15,000",
-      property: {
-        title: "Modern Villa with Garden",
-        location: "Baner, Pune",
-        price: "₹2.5 Cr"
-      },
-      provider: {
-        name: "Legal Associates",
-        logo: "https://api.dicebear.com/7.x/initials/svg?seed=LA",
-        rating: 4.7,
-        phone: "+91 87654 32109"
-      },
-      status: "pending",
-      createdAt: "2024-10-18",
-      updatedAt: "2024-10-18",
-      estimatedCompletion: "2024-11-10",
-      documents: ["Property Title", "NOC", "Tax Receipts"],
-      services: ["Document Verification", "Registration", "Agreement Drafting"]
-    },
-    {
-      id: 4,
-      type: "interior",
-      title: "Interior Design Consultation",
-      description: "Complete interior design for new 3BHK apartment",
-      amount: "₹1.2 Lakhs",
-      property: {
-        title: "Luxury 3BHK Apartment",
-        location: "Powai, Mumbai",
-        area: "1450 sq ft"
-      },
-      provider: {
-        name: "Design Studio",
-        logo: "https://api.dicebear.com/7.x/initials/svg?seed=DS",
-        rating: 4.3,
-        phone: "+91 76543 21098"
-      },
-      status: "cancelled",
-      createdAt: "2024-10-10",
-      updatedAt: "2024-10-12",
-      cancelledAt: "2024-10-12",
-      cancellationReason: "Found another service provider",
-      refundAmount: "₹5,000"
+  // Load service bookings from API
+  const loadServiceBookings = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Note: We would need a customer bookings endpoint, for now using service bookings
+      // In a real app, this would be something like customerService.getBookings()
+      const bookings = await vendorServicesService.getServiceBookings(""); // Empty for all bookings
+      setServiceBookings(Array.isArray(bookings) ? bookings : []);
+    } catch (error) {
+      console.error('Error loading service bookings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load service requests. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  }, []);
 
-  // Service categories
+  // Load available services
+  const loadServices = useCallback(async () => {
+    try {
+      const response = await vendorServicesService.getServices({ status: 'active' });
+      setServices(response.services || []);
+    } catch (error) {
+      console.error('Error loading services:', error);
+    }
+  }, []);
+
+  // Handle real-time service booking updates
+  useRealtimeEvent('service_booking_updated', (data) => {
+    setServiceBookings(prev => prev.map(booking => 
+      booking._id === data.bookingId ? { ...booking, ...data.updates } : booking
+    ));
+  });
+
+  useRealtimeEvent('service_booking_created', (data) => {
+    setServiceBookings(prev => [data.booking, ...prev]);
+  });
+
+  // Initial load
+  useEffect(() => {
+    loadServiceBookings();
+    loadServices();
+  }, [loadServiceBookings, loadServices]);
+
+  // Handle booking status updates
+  const handleStatusUpdate = async (bookingId: string, newStatus: ServiceBooking['status']) => {
+    try {
+      await vendorServicesService.updateBookingStatus(bookingId, newStatus);
+      toast({
+        title: "Success",
+        description: "Service request status updated",
+      });
+    } catch (error) {
+      console.error('Error updating booking status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Service categories for new requests
   const serviceCategories = [
     {
       id: "home_loan",
@@ -154,8 +126,8 @@ const ServiceRequests = () => {
       id: "movers",
       name: "Packers & Movers",
       icon: Truck,
-      description: "Trusted moving services",
-      providers: 25,
+      description: "Professional moving services",
+      providers: 8,
       avgRating: 4.2,
       color: "bg-green-500"
     },
@@ -164,7 +136,7 @@ const ServiceRequests = () => {
       name: "Legal Services",
       icon: FileText,
       description: "Property legal assistance",
-      providers: 18,
+      providers: 15,
       avgRating: 4.6,
       color: "bg-purple-500"
     },
@@ -172,14 +144,15 @@ const ServiceRequests = () => {
       id: "interior",
       name: "Interior Design",
       icon: Home,
-      description: "Professional interior designers",
-      providers: 35,
+      description: "Transform your space",
+      providers: 10,
       avgRating: 4.3,
       color: "bg-orange-500"
     }
   ];
 
-  const getStatusColor = (status: string) => {
+  // Helper functions
+  const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-500';
       case 'in_progress': return 'bg-blue-500';
@@ -205,32 +178,59 @@ const ServiceRequests = () => {
       case 'in_progress': return AlertCircle;
       case 'completed': return CheckCircle;
       case 'cancelled': return XCircle;
+      case 'confirmed': return CheckCircle;
       default: return Clock;
     }
   };
 
-  const filteredRequests = serviceRequests.filter(request => {
-    const matchesSearch = request.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         request.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || request.status === statusFilter;
-    const matchesService = serviceFilter === 'all' || request.type === serviceFilter;
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'confirmed': return 'bg-blue-100 text-blue-800';
+      case 'in_progress': return 'bg-orange-100 text-orange-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Filtering logic for service bookings
+  const filteredBookings = serviceBookings.filter(booking => {
+    const matchesSearch = booking.clientDetails.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         booking.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         booking.clientDetails.requirements?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || booking.status === statusFilter;
     
-    return matchesSearch && matchesStatus && matchesService;
+    return matchesSearch && matchesStatus;
   });
 
+  // Calculate stats from real data
   const stats = {
-    total: serviceRequests.length,
-    pending: serviceRequests.filter(r => r.status === 'pending').length,
-    inProgress: serviceRequests.filter(r => r.status === 'in_progress').length,
-    completed: serviceRequests.filter(r => r.status === 'completed').length,
-    totalAmount: serviceRequests.reduce((sum, r) => {
-      const amount = parseFloat(r.amount.replace(/[₹,\s]/g, ''));
-      return sum + (isNaN(amount) ? 0 : amount);
-    }, 0)
+    total: serviceBookings.length,
+    pending: serviceBookings.filter(b => b.status === 'pending').length,
+    inProgress: serviceBookings.filter(b => b.status === 'in_progress').length,
+    completed: serviceBookings.filter(b => b.status === 'completed').length,
+    totalAmount: serviceBookings.reduce((sum, b) => sum + b.totalAmount, 0)
   };
 
   return (
     <div className="space-y-6 pt-16">
+      {/* Realtime Status */}
+      <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span className="text-sm text-muted-foreground">
+            {isConnected ? 'Real-time service updates active' : 'Offline mode'}
+          </span>
+        </div>
+        {loading && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            Loading requests...
+          </div>
+        )}
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -250,7 +250,7 @@ const ServiceRequests = () => {
               New Request
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Request New Service</DialogTitle>
             </DialogHeader>
@@ -399,190 +399,138 @@ const ServiceRequests = () => {
 
           {/* Service Requests List */}
           <div className="space-y-4">
-            {filteredRequests.map((request) => {
-              const StatusIcon = getStatusIcon(request.status);
+            {filteredBookings.map((booking) => {
+              const StatusIcon = getStatusIcon(booking.status);
               return (
-                <Card key={request.id}>
+                <Card key={booking._id}>
                   <CardContent className="p-6">
                     <div className="flex flex-col lg:flex-row lg:items-start gap-6">
-                      {/* Provider Info */}
+                      {/* Client Info */}
                       <div className="flex items-center gap-4">
                         <Avatar className="w-16 h-16">
-                          <AvatarImage src={request.provider.logo} />
                           <AvatarFallback>
-                            {request.provider.name.split(' ').map(n => n[0]).join('')}
+                            {booking.clientDetails.name.split(' ').map(n => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <h3 className="text-lg font-semibold">{request.provider.name}</h3>
+                          <h3 className="text-lg font-semibold">{booking.clientDetails.name}</h3>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                            <span>{request.provider.rating}</span>
+                            <Phone className="w-4 h-4" />
+                            <span>{booking.clientDetails.phone}</span>
                             <span>•</span>
-                            <span>{request.provider.phone}</span>
+                            <span>{booking.clientDetails.email}</span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Request Details */}
+                      {/* Booking Details */}
                       <div className="flex-1">
                         <div className="flex items-start justify-between mb-4">
                           <div>
-                            <h4 className="text-xl font-semibold mb-2">{request.title}</h4>
-                            <p className="text-muted-foreground mb-3">{request.description}</p>
+                            <h4 className="text-xl font-semibold mb-2">Service Booking #{booking._id.slice(-8)}</h4>
+                            <p className="text-muted-foreground mb-3">{booking.notes || booking.clientDetails.requirements || 'No additional notes'}</p>
                             
-                            {/* Property Info */}
-                            {request.property && (
-                              <div className="bg-muted/50 p-3 rounded-lg mb-3">
-                                {request.property.title && (
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <Home className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-medium">{request.property.title}</span>
-                                  </div>
-                                )}
-                                {request.property.location && (
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <MapPin className="w-4 h-4" />
-                                    <span>{request.property.location}</span>
-                                    {request.property.price && (
-                                      <>
-                                        <span>•</span>
-                                        <span>{request.property.price}</span>
-                                      </>
-                                    )}
-                                  </div>
-                                )}
-                                {request.property.from && request.property.to && (
-                                  <div className="text-sm text-muted-foreground">
-                                    <span>{request.property.from} → {request.property.to}</span>
-                                    <span className="ml-2">({request.property.distance})</span>
-                                  </div>
-                                )}
+                            {/* Booking Info */}
+                            <div className="bg-muted/50 p-3 rounded-lg mb-3">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Calendar className="w-4 h-4 text-muted-foreground" />
+                                <span className="font-medium">Scheduled: {new Date(booking.scheduledDate).toLocaleDateString()}</span>
+                                <span className="text-muted-foreground">at {booking.scheduledTime}</span>
                               </div>
-                            )}
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Clock className="w-4 h-4" />
+                                <span>Duration: {booking.duration} minutes</span>
+                              </div>
+                              {booking.clientDetails.requirements && (
+                                <div className="text-sm text-muted-foreground mt-2">
+                                  <strong>Requirements:</strong> {booking.clientDetails.requirements}
+                                </div>
+                              )}
+                            </div>
                           </div>
 
                           <div className="text-right">
-                            <Badge className={`${getStatusColor(request.status)} text-white mb-2`}>
+                            <Badge className={`${getStatusColor(booking.status)} mb-2`}>
                               <StatusIcon className="w-3 h-3 mr-1" />
-                              {getStatusText(request.status)}
+                              {getStatusText(booking.status)}
                             </Badge>
-                            <p className="text-2xl font-bold text-primary">{request.amount}</p>
+                            <p className="text-2xl font-bold text-primary">₹{booking.totalAmount.toLocaleString()}</p>
+                            <p className="text-sm text-muted-foreground">Payment: {booking.paymentStatus}</p>
                           </div>
                         </div>
 
-                        {/* Progress Bar (for in-progress requests) */}
-                        {request.status === 'in_progress' && request.progress && (
-                          <div className="mb-4">
-                            <div className="flex justify-between text-sm mb-2">
-                              <span>Progress</span>
-                              <span>{request.progress}%</span>
+                        {/* Rating Section (for completed bookings) */}
+                        {booking.status === 'completed' && booking.rating && (
+                          <div className="mb-4 p-3 bg-green-50 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-sm font-medium">Service Rating:</span>
+                              <div className="flex items-center gap-1">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star 
+                                    key={i} 
+                                    className={`w-4 h-4 ${i < booking.rating! ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} 
+                                  />
+                                ))}
+                                <span className="text-sm text-muted-foreground ml-1">({booking.rating}/5)</span>
+                              </div>
                             </div>
-                            <div className="w-full bg-muted rounded-full h-2">
-                              <div 
-                                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${request.progress}%` }}
-                              />
-                            </div>
-                            {request.nextStep && (
-                              <p className="text-sm text-blue-600 mt-2">
-                                Next: {request.nextStep}
+                            {booking.review && (
+                              <p className="text-sm text-muted-foreground">
+                                "{booking.review}"
                               </p>
                             )}
                           </div>
                         )}
 
-                        {/* Services/Documents */}
-                        {(request.services || request.documents) && (
-                          <div className="mb-4">
-                            <h5 className="font-semibold mb-2">
-                              {request.services ? 'Services Included:' : 'Documents Required:'}
-                            </h5>
-                            <div className="flex flex-wrap gap-2">
-                              {(request.services || request.documents)?.map((item, index) => (
-                                <Badge key={index} variant="secondary">
-                                  {item}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
                         {/* Dates */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground mb-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-muted-foreground mb-4">
                           <div>
                             <span className="block">Created</span>
-                            <span className="font-medium">{new Date(request.createdAt).toLocaleDateString()}</span>
+                            <span className="font-medium">{new Date(booking.createdAt).toLocaleDateString()}</span>
                           </div>
                           <div>
                             <span className="block">Updated</span>
-                            <span className="font-medium">{new Date(request.updatedAt).toLocaleDateString()}</span>
+                            <span className="font-medium">{new Date(booking.updatedAt).toLocaleDateString()}</span>
                           </div>
-                          {request.estimatedCompletion && (
-                            <div>
-                              <span className="block">Expected</span>
-                              <span className="font-medium">{new Date(request.estimatedCompletion).toLocaleDateString()}</span>
-                            </div>
-                          )}
-                          {request.completedAt && (
-                            <div>
-                              <span className="block">Completed</span>
-                              <span className="font-medium text-green-600">{new Date(request.completedAt).toLocaleDateString()}</span>
-                            </div>
-                          )}
+                          <div>
+                            <span className="block">Scheduled</span>
+                            <span className="font-medium">{new Date(booking.scheduledDate).toLocaleDateString()}</span>
+                          </div>
                         </div>
 
                         {/* Review (for completed requests) */}
-                        {request.status === 'completed' && request.rating && (
+                        {booking.status === 'completed' && (booking as any).rating && (
                           <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg mb-4">
                             <div className="flex items-center gap-2 mb-2">
                               <span className="font-semibold text-green-800 dark:text-green-200">Your Review:</span>
                               <div className="flex items-center gap-1">
                                 {[...Array(5)].map((_, i) => (
-                                  <Star key={i} className={`w-4 h-4 ${i < request.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                                  <Star key={i} className={`w-4 h-4 ${i < (booking as any).rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
                                 ))}
                               </div>
                             </div>
-                            {request.review && (
-                              <p className="text-sm text-green-700 dark:text-green-300">{request.review}</p>
+                            {(booking as any).review && (
+                              <p className="text-sm text-green-700 dark:text-green-300">{(booking as any).review}</p>
                             )}
                           </div>
                         )}
-
-                        {/* Cancellation Info */}
-                        {request.status === 'cancelled' && (
-                          <div className="bg-red-50 dark:bg-red-950/20 p-3 rounded-lg mb-4">
-                            <h5 className="font-semibold text-red-800 dark:text-red-200 mb-1">Cancelled</h5>
-                            {request.cancellationReason && (
-                              <p className="text-sm text-red-700 dark:text-red-300 mb-2">
-                                Reason: {request.cancellationReason}
-                              </p>
-                            )}
-                            {request.refundAmount && (
-                              <p className="text-sm text-red-700 dark:text-red-300">
-                                Refund: {request.refundAmount}
-                              </p>
-                            )}
-                          </div>
-                        )}
-
                         {/* Action Buttons */}
                         <div className="flex flex-wrap gap-2">
                           <Button size="sm" variant="outline">
                             <MessageSquare className="w-4 h-4 mr-2" />
-                            Message
+                            Message Vendor
                           </Button>
-                          <Button size="sm" variant="outline">
-                            <Phone className="w-4 h-4 mr-2" />
-                            Call
-                          </Button>
-                          {request.status === 'in_progress' && (
-                            <Button size="sm" variant="outline">
-                              <Calendar className="w-4 h-4 mr-2" />
-                              Track Progress
+                          {booking.status === 'pending' && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleStatusUpdate(booking._id, 'cancelled')}
+                            >
+                              <XCircle className="w-4 h-4 mr-2" />
+                              Cancel Booking
                             </Button>
                           )}
-                          {request.status === 'completed' && !request.rating && (
+                          {booking.status === 'completed' && !booking.rating && (
                             <Button size="sm">
                               <Star className="w-4 h-4 mr-2" />
                               Rate Service
@@ -601,7 +549,7 @@ const ServiceRequests = () => {
             })}
           </div>
 
-          {filteredRequests.length === 0 && (
+          {filteredBookings.length === 0 && (
             <Card>
               <CardContent className="p-12 text-center">
                 <Briefcase className="w-16 h-16 text-muted-foreground mx-auto mb-4" />

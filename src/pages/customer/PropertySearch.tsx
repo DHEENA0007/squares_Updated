@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,12 +19,19 @@ import {
   Bed,
   Bath,
   Square,
-  SlidersHorizontal
+  SlidersHorizontal,
+  RefreshCw
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useRealtime, usePropertyRealtime, useRealtimeEvent } from "@/contexts/RealtimeContext";
+import { propertyService, Property, PropertyFilters } from "@/services/propertyService";
+import { favoriteService } from "@/services/favoriteService";
+import { toast } from "@/hooks/use-toast";
 
 const PropertySearch = () => {
+  const { isConnected } = useRealtime();
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState("all");
   const [priceRange, setPriceRange] = useState([0, 10000000]);
@@ -32,6 +39,9 @@ const PropertySearch = () => {
   const [bedrooms, setBedrooms] = useState("any");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [sortBy, setSortBy] = useState("relevance");
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
   
   // Amenities filter
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
@@ -49,76 +59,130 @@ const PropertySearch = () => {
     "Children's Play Area"
   ];
 
-  // Mock property data - in real app, this would come from API
-  const properties = [
-    {
-      id: 1,
-      title: "Luxury 3BHK Apartment in Powai",
-      location: "Powai, Mumbai, Maharashtra",
-      price: 12000000,
-      originalPrice: 13500000,
-      bedrooms: 3,
-      bathrooms: 2,
-      area: 1450,
-      type: "apartment",
-      images: ["https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&h=300&fit=crop&auto=format"],
-      amenities: ["Swimming Pool", "Gym/Fitness Center", "Parking", "Security"],
-      rating: 4.5,
-      views: 234,
-      listedDate: "2 days ago",
-      featured: true,
-      verified: true,
-    },
-    {
-      id: 2,
-      title: "Modern Villa with Private Garden",
-      location: "Whitefield, Bangalore, Karnataka",
-      price: 25000000,
-      bedrooms: 4,
-      bathrooms: 3,
-      area: 2800,
-      type: "villa",
-      images: ["https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&h=300&fit=crop&auto=format"],
-      amenities: ["Garden/Park", "Parking", "Security", "Power Backup"],
-      rating: 4.8,
-      views: 156,
-      listedDate: "1 week ago",
-      featured: false,
-      verified: true,
-    },
-    {
-      id: 3,
-      title: "Spacious 2BHK with City View",
-      location: "Bandra West, Mumbai, Maharashtra",
-      price: 8500000,
-      bedrooms: 2,
-      bathrooms: 2,
-      area: 1200,
-      type: "apartment",
-      images: ["https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=400&h=300&fit=crop&auto=format"],
-      amenities: ["Elevator", "Parking", "WiFi", "Security"],
-      rating: 4.3,
-      views: 89,
-      listedDate: "3 days ago",
-      featured: false,
-      verified: false,
-    },
-  ];
+  // Use property realtime with refresh callback
+  usePropertyRealtime({
+    refreshProperties: () => {
+      console.log("Properties updated via realtime, refreshing...");
+      loadProperties();
+    }
+  });
 
-  const filteredProperties = useMemo(() => {
-    return properties.filter(property => {
-      const matchesSearch = property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           property.location.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCity = selectedCity === "all" || property.location.includes(selectedCity);
-      const matchesPrice = property.price >= priceRange[0] && property.price <= priceRange[1];
-      const matchesType = propertyType === "all" || property.type === propertyType;
-      const matchesBedrooms = bedrooms === "any" || property.bedrooms.toString() === bedrooms;
-      const matchesAmenities = selectedAmenities.length === 0 || 
-                              selectedAmenities.every(amenity => property.amenities.includes(amenity));
+  // Build filters object for API
+  const buildFilters = useCallback((): PropertyFilters => {
+    return {
+      minPrice: priceRange[0],
+      maxPrice: priceRange[1],
+      propertyType: propertyType !== "all" ? propertyType : undefined,
+      bedrooms: bedrooms !== "any" ? parseInt(bedrooms) : undefined,
+      location: selectedCity !== "all" ? selectedCity : undefined,
+      search: searchQuery || undefined
+    };
+  }, [priceRange, propertyType, bedrooms, selectedCity, searchQuery]);
+    
+  // Load properties from API
+  const loadProperties = useCallback(async () => {
+    try {
+      setLoading(true);
+      const filters = buildFilters();
+      const response = await propertyService.getProperties(filters);
       
-      return matchesSearch && matchesCity && matchesPrice && matchesType && matchesBedrooms && matchesAmenities;
+      if (response.success) {
+        setProperties(response.data.properties);
+        setFilteredProperties(response.data.properties);
+      } else {
+        throw new Error('Failed to fetch properties');
+      }
+    } catch (error) {
+      console.error('Error loading properties:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load properties. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [buildFilters]);
+
+  // Handle real-time property updates
+  useRealtimeEvent('property_updated', (data) => {
+    setProperties(prev => prev.map(p => 
+      p._id === data.propertyId ? { ...p, ...data.updates } : p
+    ));
+    setFilteredProperties(prev => prev.map(p => 
+      p._id === data.propertyId ? { ...p, ...data.updates } : p
+    ));
+  });
+
+  // Handle property favorites via realtime  
+  useRealtimeEvent('property_favorited', (data) => {
+    // Note: Property interface may not have favoriteCount field, 
+    // but we update it for local state tracking
+    setProperties(prev => prev.map(p => 
+      p._id === data.propertyId ? { ...p, favoriteCount: ((p as any).favoriteCount || 0) + 1 } : p
+    ));
+    setFilteredProperties(prev => prev.map(p => 
+      p._id === data.propertyId ? { ...p, favoriteCount: ((p as any).favoriteCount || 0) + 1 } : p
+    ));
+  });
+
+  // Handle property views via realtime
+  useRealtimeEvent('property_viewed', (data) => {
+    setProperties(prev => prev.map(p => 
+      p._id === data.propertyId ? { ...p, views: (p.views || 0) + 1 } : p
+    ));
+    setFilteredProperties(prev => prev.map(p => 
+      p._id === data.propertyId ? { ...p, views: (p.views || 0) + 1 } : p
+    ));
+  });
+
+  // Initial load and reloading on filter changes
+  useEffect(() => {
+    loadProperties();
+  }, [loadProperties]);
+
+  // Client-side filtering and search
+  const clientFilteredProperties = useMemo(() => {
+    return filteredProperties.filter(property => {
+      const location = `${property.address?.locality || ''} ${property.address?.city || ''} ${property.address?.state || ''}`;
+      const matchesSearch = property.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           location.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      return matchesSearch;
     });
-  }, [searchQuery, selectedCity, priceRange, propertyType, bedrooms, selectedAmenities]);
+  }, [searchQuery, filteredProperties]);
+
+  // Property interaction handlers
+  const handlePropertyView = async (propertyId: string) => {
+    // Property viewing is typically handled by navigation to the property detail page
+    // For now, we just simulate the view increment via realtime
+    console.log(`Viewing property: ${propertyId}`);
+  };
+
+  const handlePropertyFavorite = async (propertyId: string) => {
+    try {
+      await favoriteService.addToFavorites(propertyId);
+      toast({
+        title: "Success",
+        description: "Property added to favorites",
+      });
+    } catch (error) {
+      console.error('Error adding favorite:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add to favorites",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePropertyContact = (property: Property) => {
+    // This would typically open a contact modal or navigate to contact page
+    toast({
+      title: "Contact Information",
+      description: `Contact details for ${property.title} would be shown here`,
+    });
+  };
 
   const formatPrice = (price: number) => {
     if (price >= 10000000) {
@@ -315,6 +379,22 @@ const PropertySearch = () => {
 
         {/* Results */}
         <div className="lg:col-span-3 space-y-6">
+          {/* Realtime Status */}
+          <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className="text-sm text-muted-foreground">
+                {isConnected ? 'Real-time property updates active' : 'Offline mode'}
+              </span>
+            </div>
+            {loading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                Loading properties...
+              </div>
+            )}
+          </div>
+
           {/* Results Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center gap-4">
@@ -375,15 +455,23 @@ const PropertySearch = () => {
           {/* Results Content */}
           <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "list" | "map")}>
             <TabsContent value="list" className="space-y-4">
-              {filteredProperties.map((property) => (
-                <Card key={property.id} className="hover:shadow-lg transition-shadow">
+              {clientFilteredProperties.map((property) => (
+                <Card key={property._id} className="hover:shadow-lg transition-shadow">
                   <CardContent className="p-0">
                     <div className="flex flex-col md:flex-row">
                       {/* Property Image */}
-                      <div className="md:w-80 h-64 md:h-48 bg-muted flex items-center justify-center relative">
-                        <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center">
-                          <MapPin className="w-6 h-6 text-primary" />
-                        </div>
+                      <div className="md:w-80 h-64 md:h-48 bg-muted flex items-center justify-center relative overflow-hidden">
+                        {property.images && property.images.length > 0 ? (
+                          <img 
+                            src={property.images.find(img => img.isPrimary)?.url || property.images[0]?.url}
+                            alt={property.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center">
+                            <MapPin className="w-6 h-6 text-primary" />
+                          </div>
+                        )}
                         {property.featured && (
                           <Badge className="absolute top-2 left-2">Featured</Badge>
                         )}
@@ -401,7 +489,9 @@ const PropertySearch = () => {
                             <h3 className="text-xl font-semibold mb-2">{property.title}</h3>
                             <div className="flex items-center text-muted-foreground mb-2">
                               <MapPin className="w-4 h-4 mr-1" />
-                              <span className="text-sm">{property.location}</span>
+                              <span className="text-sm">
+                                {property.address?.locality}, {property.address?.city}, {property.address?.state}
+                              </span>
                             </div>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <div className="flex items-center gap-1">
@@ -414,7 +504,7 @@ const PropertySearch = () => {
                               </div>
                               <div className="flex items-center gap-1">
                                 <Square className="w-4 h-4" />
-                                <span>{property.area} sq.ft</span>
+                                <span>{property.area?.builtUp || property.area?.carpet || property.area?.plot || 0} {property.area?.unit || 'sqft'}</span>
                               </div>
                             </div>
                           </div>
@@ -423,13 +513,8 @@ const PropertySearch = () => {
                             <div className="text-2xl font-bold text-primary">
                               {formatPrice(property.price)}
                             </div>
-                            {property.originalPrice && property.originalPrice > property.price && (
-                              <div className="text-sm text-muted-foreground line-through">
-                                {formatPrice(property.originalPrice)}
-                              </div>
-                            )}
                             <div className="text-xs text-muted-foreground mt-1">
-                              {formatPrice(Math.round(property.price / property.area))} per sq.ft
+                              {property.area?.builtUp && formatPrice(Math.round(property.price / property.area.builtUp))} per {property.area?.unit || 'sqft'}
                             </div>
                           </div>
                         </div>
@@ -453,24 +538,35 @@ const PropertySearch = () => {
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <Eye className="w-3 h-3" />
-                              <span>{property.views} views</span>
+                              <span>{property.views || 0} views</span>
                             </div>
                             <span>•</span>
-                            <span>{property.listedDate}</span>
+                            <span>{property.createdAt ? new Date(property.createdAt).toLocaleDateString() : 'Recently listed'}</span>
                           </div>
                           
                           <div className="flex gap-2">
-                            <Button size="sm" variant="outline">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handlePropertyFavorite(property._id)}
+                            >
                               <Heart className="w-4 h-4" />
                             </Button>
                             <Button size="sm" variant="outline">
                               <Share className="w-4 h-4" />
                             </Button>
-                            <Button size="sm" variant="outline">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handlePropertyContact(property)}
+                            >
                               <Phone className="w-4 h-4 mr-1" />
                               Contact
                             </Button>
-                            <Button size="sm">
+                            <Button 
+                              size="sm"
+                              onClick={() => handlePropertyView(property._id)}
+                            >
                               View Details
                             </Button>
                           </div>

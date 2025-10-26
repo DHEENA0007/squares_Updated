@@ -24,7 +24,8 @@ import {
   Filter,
   Loader2,
   Eye,
-  TrendingUp
+  TrendingUp,
+  Building
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -129,42 +130,6 @@ const VendorServices = () => {
   ];
 
   const filteredServices = services.filter(service => {
-    const categoryMatch = selectedCategory === "all" || service.category === selectedCategory;
-    const searchMatch = !searchQuery || 
-      service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      service.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return categoryMatch && searchMatch;
-  });
-
-  // Mock data for marketplace services
-  const availableServices = [
-    {
-      id: 'marketplace-1',
-      title: 'Professional Moving Service',
-      category: 'moving_services',
-      description: 'Complete relocation services with packing and unpacking',
-      price: '₹15,000 - ₹50,000',
-      commission: '12%',
-      rating: 4.8,
-      reviews: 127,
-      features: ['Professional packing', 'Insured transport', '24/7 support'],
-      provider: 'MoveEasy Solutions'
-    },
-    {
-      id: 'marketplace-2',
-      title: 'Interior Design Consultation',
-      category: 'interior_design',
-      description: 'Expert interior design planning and execution',
-      price: '₹25,000 - ₹2,00,000',
-      commission: '15%',
-      rating: 4.9,
-      reviews: 89,
-      features: ['3D visualization', 'Material sourcing', 'Project management'],
-      provider: 'Design Studio Pro'
-    }
-  ];
-
-  const filteredAvailableServices = availableServices.filter(service => {
     const categoryMatch = selectedCategory === "all" || service.category === selectedCategory;
     const searchMatch = !searchQuery || 
       service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -305,7 +270,7 @@ const VendorServices = () => {
       <Tabs defaultValue="my-services" className="space-y-6">
         <TabsList>
           <TabsTrigger value="my-services">My Services ({filteredServices.length})</TabsTrigger>
-          <TabsTrigger value="marketplace">Service Marketplace ({availableServices.length})</TabsTrigger>
+          <TabsTrigger value="marketplace">Service Marketplace</TabsTrigger>
           <TabsTrigger value="orders">Orders & Bookings</TabsTrigger>
         </TabsList>
 
@@ -457,61 +422,20 @@ const VendorServices = () => {
         </TabsContent>
 
         <TabsContent value="marketplace" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredAvailableServices.map((service) => {
-              const CategoryIcon = getCategoryIcon(service.category);
-              return (
-                <Card key={service.id} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-start space-x-3 mb-4">
-                      <div className={`p-2 rounded-lg bg-muted`}>
-                        <CategoryIcon className={`w-5 h-5 ${getCategoryColor(service.category)}`} />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg">{service.title}</h3>
-                        <p className="text-sm text-muted-foreground">{getCategoryName(service.category)}</p>
-                      </div>
-                    </div>
-
-                    <p className="text-sm text-muted-foreground mb-4">{service.description}</p>
-
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Price Range</p>
-                        <p className="font-semibold">{service.price}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Commission</p>
-                        <p className="font-semibold text-green-600">{service.commission}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center mb-4">
-                      <Star className="w-4 h-4 text-yellow-500 fill-current mr-1" />
-                      <span className="font-semibold">{service.rating}</span>
-                      <span className="text-xs text-muted-foreground ml-1">({service.reviews} reviews)</span>
-                    </div>
-
-                    <div className="space-y-2 mb-4">
-                      {service.features.slice(0, 2).map((feature, index) => (
-                        <div key={index} className="flex items-center text-sm">
-                          <div className="w-1.5 h-1.5 bg-primary rounded-full mr-2" />
-                          <span>{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <p className="text-sm text-muted-foreground">by {service.provider}</p>
-                      <Button size="sm">
-                        Add to My Services
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Building className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Service Marketplace Coming Soon</h3>
+              <p className="text-muted-foreground mb-4">
+                Discover and add third-party services to expand your offerings. This feature will be available soon.
+              </p>
+              <div className="text-sm text-muted-foreground">
+                <p>• Browse professional service providers</p>
+                <p>• Add services to your portfolio</p>
+                <p>• Earn commissions on referrals</p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="orders" className="space-y-4">

@@ -7,11 +7,13 @@ const VendorLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-background">
-      <VendorSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+    <div className="h-screen overflow-hidden bg-background flex flex-col">
+      {/* Unified navbar at top */}
+      <VendorNavbar setSidebarOpen={setSidebarOpen} />
       
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <VendorNavbar setSidebarOpen={setSidebarOpen} />
+      {/* Sidebar and main content below navbar */}
+      <div className="flex flex-1 overflow-hidden">
+        <VendorSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
         
         <main className="flex-1 overflow-y-auto bg-background p-6">
           <Outlet />

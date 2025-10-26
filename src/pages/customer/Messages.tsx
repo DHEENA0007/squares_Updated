@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   MessageSquare, 
   Send, 
@@ -21,130 +22,96 @@ import {
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useRealtime, useMessagingRealtime } from "@/contexts/RealtimeContext";
 
 const Messages = () => {
+  const { isConnected } = useRealtime();
   const [selectedConversation, setSelectedConversation] = useState<number | null>(1);
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock conversations data
-  const conversations = [
-    {
-      id: 1,
-      propertyId: 1,
-      propertyTitle: "Luxury 3BHK Apartment in Powai",
-      propertyPrice: "₹1.2 Cr",
-      agentName: "Rahul Sharma",
-      agentPhone: "+91 98765 43210",
-      agentAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=rahul",
-      agentVerified: true,
-      lastMessage: "The property is still available. Would you like to schedule a visit?",
-      lastMessageTime: "2 min ago",
-      unreadCount: 2,
-      status: "online",
-      inquiryType: "buying",
-      messages: [
-        {
-          id: 1,
-          senderId: "customer",
-          message: "Hi, I'm interested in this 3BHK apartment. Is it still available?",
-          timestamp: "2024-10-21T10:30:00Z",
-          status: "read"
-        },
-        {
-          id: 2,
-          senderId: "agent",
-          message: "Hello! Yes, the property is still available. It's a beautiful 3BHK with all modern amenities.",
-          timestamp: "2024-10-21T10:35:00Z",
-          status: "read"
-        },
-        {
-          id: 3,
-          senderId: "customer",
-          message: "That sounds great! Can you tell me more about the location and nearby facilities?",
-          timestamp: "2024-10-21T10:40:00Z",
-          status: "read"
-        },
-        {
-          id: 4,
-          senderId: "agent",
-          message: "It's located in Powai with excellent connectivity. Metro station is just 0.5km away. Good schools and hospitals nearby.",
-          timestamp: "2024-10-21T10:45:00Z",
-          status: "read"
-        },
-        {
-          id: 5,
-          senderId: "agent",
-          message: "The property is still available. Would you like to schedule a visit?",
-          timestamp: "2024-10-21T11:30:00Z",
-          status: "delivered"
-        }
-      ]
+  // Realtime messaging events
+  useMessagingRealtime({
+    refreshConversations: () => {
+      console.log("Conversations updated via realtime");
+      loadConversations();
     },
-    {
-      id: 2,
-      propertyId: 2,
-      propertyTitle: "Modern Villa with Private Garden",
-      propertyPrice: "₹2.5 Cr",
-      agentName: "Priya Patel",
-      agentPhone: "+91 87654 32109",
-      agentAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=priya",
-      agentVerified: true,
-      lastMessage: "Thank you for your interest. Let me check the availability.",
-      lastMessageTime: "1 hour ago",
-      unreadCount: 0,
-      status: "away",
-      inquiryType: "buying",
-      messages: [
-        {
-          id: 1,
-          senderId: "customer",
-          message: "I saw your villa listing. Can we discuss the price?",
-          timestamp: "2024-10-21T09:00:00Z",
-          status: "read"
-        },
-        {
-          id: 2,
-          senderId: "agent",
-          message: "Thank you for your interest. Let me check the availability.",
-          timestamp: "2024-10-21T09:30:00Z",
-          status: "read"
-        }
-      ]
-    },
-    {
-      id: 3,
-      propertyId: 3,
-      propertyTitle: "Premium Penthouse with Terrace",
-      propertyPrice: "₹1.8 Cr",
-      agentName: "Amit Kumar",
-      agentPhone: "+91 76543 21098",
-      agentAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=amit",
-      agentVerified: false,
-      lastMessage: "I'll send you the floor plans shortly.",
-      lastMessageTime: "3 hours ago",
-      unreadCount: 1,
-      status: "offline",
-      inquiryType: "renting",
-      messages: [
-        {
-          id: 1,
-          senderId: "customer",
-          message: "Is this penthouse available for rent?",
-          timestamp: "2024-10-21T07:00:00Z",
-          status: "read"
-        },
-        {
-          id: 2,
-          senderId: "agent",
-          message: "I'll send you the floor plans shortly.",
-          timestamp: "2024-10-21T08:00:00Z",
-          status: "delivered"
-        }
-      ]
+    onNewMessage: (message) => {
+      console.log("New message received:", message);
     }
-  ];
+  });
+
+  // Load conversations from API (simulated)
+  const loadConversations = async () => {
+    setLoading(true);
+    // Simulate API call
+    setTimeout(() => {
+      setConversations([
+        {
+          id: 1,
+          propertyId: 1,
+          propertyTitle: "Luxury 3BHK Apartment in Powai",
+          propertyPrice: "₹1.2 Cr",
+          agentName: "Rahul Sharma",
+          agentPhone: "+91 98765 43210",
+          agentAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=rahul",
+          agentVerified: true,
+          lastMessage: "The property is still available. Would you like to schedule a visit?",
+          lastMessageTime: "2 min ago",
+          unreadCount: 2,
+          status: "online",
+          inquiryType: "buying",
+          messages: [
+            {
+              id: 1,
+              senderId: "customer",
+              message: "Hi, I'm interested in this 3BHK apartment. Is it still available?",
+              timestamp: "2024-10-21T10:30:00Z",
+              status: "read"
+            },
+            {
+              id: 2,
+              senderId: "agent",
+              message: "Hello! Yes, the property is still available. It's a beautiful 3BHK with all modern amenities.",
+              timestamp: "2024-10-21T10:35:00Z",
+              status: "read"
+            }
+          ]
+        },
+        {
+          id: 2,
+          propertyId: 2,
+          propertyTitle: "Modern Villa with Garden",
+          propertyPrice: "₹2.8 Cr",
+          agentName: "Priya Patel",
+          agentPhone: "+91 87654 32109",
+          agentAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=priya",
+          agentVerified: true,
+          lastMessage: "Sure, I can arrange a virtual tour tomorrow.",
+          lastMessageTime: "1 hour ago",
+          unreadCount: 0,
+          status: "away",
+          inquiryType: "renting",
+          messages: [
+            {
+              id: 1,
+              senderId: "customer",
+              message: "Hi Priya, I saw your villa listing. Can we arrange a virtual tour?",
+              timestamp: "2024-10-21T08:30:00Z",
+              status: "read"
+            }
+          ]
+        }
+      ]);
+      setLoading(false);
+    }, 1000);
+  };
+
+  useEffect(() => {
+    loadConversations();
+  }, []);
 
   const activeConversation = conversations.find(c => c.id === selectedConversation);
 
@@ -181,6 +148,22 @@ const Messages = () => {
 
   return (
     <div className="space-y-6 pt-16">
+      {/* Realtime Status */}
+      <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span className="text-sm text-muted-foreground">
+            {isConnected ? 'Real-time messaging active' : 'Offline mode'}
+          </span>
+        </div>
+        {loading && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            Loading conversations...
+          </div>
+        )}
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -198,22 +181,17 @@ const Messages = () => {
             <Filter className="w-4 h-4 mr-2" />
             Filter
           </Button>
-          <Button variant="outline">
-            <Calendar className="w-4 h-4 mr-2" />
-            Schedule Visit
-          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[600px]">
+      {/* Messages Interface */}
+      <div className="grid lg:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
         {/* Conversations List */}
-        <Card className="lg:col-span-4">
-          <CardHeader>
+        <Card className="lg:col-span-1">
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle>Conversations</CardTitle>
-              <Badge variant="secondary">
-                {conversations.reduce((sum, conv) => sum + conv.unreadCount, 0)} unread
-              </Badge>
+              <CardTitle className="text-lg">Conversations</CardTitle>
+              <Badge variant="secondary">{conversations.length}</Badge>
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -227,13 +205,15 @@ const Messages = () => {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[400px]">
-              <div className="space-y-1 p-4">
+            <ScrollArea className="h-[calc(100vh-20rem)]">
+              <div className="space-y-1 p-3">
                 {filteredConversations.map((conversation) => (
                   <div
                     key={conversation.id}
-                    className={`p-3 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${
-                      selectedConversation === conversation.id ? 'bg-muted border border-primary/20' : ''
+                    className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                      selectedConversation === conversation.id
+                        ? 'bg-primary/10 border border-primary/20'
+                        : 'hover:bg-muted/50'
                     }`}
                     onClick={() => setSelectedConversation(conversation.id)}
                   >
@@ -245,34 +225,29 @@ const Messages = () => {
                             {conversation.agentName.split(' ').map(n => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
-                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-background ${getStatusColor(conversation.status)}`} />
+                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${getStatusColor(conversation.status)}`} />
                       </div>
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-sm truncate">
-                              {conversation.agentName}
-                            </h4>
+                            <p className="font-semibold text-sm truncate">{conversation.agentName}</p>
                             {conversation.agentVerified && (
-                              <Badge variant="secondary" className="text-xs">Verified</Badge>
+                              <CheckCheck className="w-4 h-4 text-blue-500" />
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground">
-                            {conversation.lastMessageTime}
-                          </span>
+                          <span className="text-xs text-muted-foreground">{conversation.lastMessageTime}</span>
                         </div>
                         
-                        <p className="text-xs text-muted-foreground mb-2 line-clamp-1">
-                          {conversation.propertyTitle}
-                        </p>
+                        <p className="text-xs text-primary font-medium mb-1">{conversation.propertyTitle}</p>
+                        <p className="text-xs text-muted-foreground truncate">{conversation.lastMessage}</p>
                         
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-muted-foreground line-clamp-1 flex-1">
-                            {conversation.lastMessage}
-                          </p>
+                        <div className="flex items-center justify-between mt-2">
+                          <Badge variant={conversation.inquiryType === 'buying' ? 'default' : 'secondary'} className="text-xs">
+                            {conversation.inquiryType}
+                          </Badge>
                           {conversation.unreadCount > 0 && (
-                            <Badge className="ml-2 text-xs">
+                            <Badge className="bg-primary text-white text-xs px-2 py-1">
                               {conversation.unreadCount}
                             </Badge>
                           )}
@@ -287,11 +262,11 @@ const Messages = () => {
         </Card>
 
         {/* Chat Area */}
-        <Card className="lg:col-span-8">
+        <Card className="lg:col-span-2">
           {activeConversation ? (
             <>
               {/* Chat Header */}
-              <CardHeader className="border-b">
+              <CardHeader className="pb-3 border-b">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="relative">
@@ -301,61 +276,50 @@ const Messages = () => {
                           {activeConversation.agentName.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
                       </Avatar>
-                      <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-background ${getStatusColor(activeConversation.status)}`} />
+                      <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${getStatusColor(activeConversation.status)}`} />
                     </div>
                     
                     <div>
-                      <h3 className="font-semibold flex items-center gap-2">
-                        {activeConversation.agentName}
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">{activeConversation.agentName}</h3>
                         {activeConversation.agentVerified && (
-                          <Badge variant="secondary" className="text-xs">Verified</Badge>
+                          <CheckCheck className="w-4 h-4 text-blue-500" />
                         )}
-                      </h3>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <MapPin className="w-3 h-3" />
-                        <span className="line-clamp-1">{activeConversation.propertyTitle}</span>
                       </div>
+                      <p className="text-sm text-muted-foreground">{activeConversation.propertyTitle}</p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {activeConversation.inquiryType}
-                    </Badge>
+                  <div className="flex gap-2">
                     <Button size="sm" variant="outline">
                       <Phone className="w-4 h-4" />
                     </Button>
                     <Button size="sm" variant="outline">
                       <Video className="w-4 h-4" />
                     </Button>
-                    <Button size="sm" variant="ghost">
+                    <Button size="sm" variant="outline">
                       <MoreVertical className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
               </CardHeader>
 
-              {/* Property Info Banner */}
-              <div className="p-4 bg-muted/50 border-b">
+              {/* Property Info */}
+              <div className="px-6 py-3 bg-muted/30 border-b">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center">
-                      <MapPin className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">{activeConversation.propertyTitle}</h4>
-                      <p className="text-sm text-primary font-semibold">{activeConversation.propertyPrice}</p>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">{activeConversation.propertyTitle}</span>
                   </div>
-                  <Button size="sm">View Property</Button>
+                  <span className="text-sm font-semibold text-primary">{activeConversation.propertyPrice}</span>
                 </div>
               </div>
 
               {/* Messages */}
               <CardContent className="p-0">
-                <ScrollArea className="h-[300px] p-4">
+                <ScrollArea className="h-[calc(100vh-28rem)] p-4">
                   <div className="space-y-4">
-                    {activeConversation.messages.map((message) => (
+                    {activeConversation.messages?.map((message) => (
                       <div
                         key={message.id}
                         className={`flex ${message.senderId === 'customer' ? 'justify-end' : 'justify-start'}`}
@@ -368,14 +332,12 @@ const Messages = () => {
                           }`}
                         >
                           <p className="text-sm">{message.message}</p>
-                          <div className="flex items-center justify-end gap-1 mt-1">
+                          <div className="flex items-center gap-2 mt-2">
                             <span className="text-xs opacity-70">
                               {formatTime(message.timestamp)}
                             </span>
                             {message.senderId === 'customer' && (
-                              <CheckCheck className={`w-3 h-3 ${
-                                message.status === 'read' ? 'text-blue-400' : 'opacity-70'
-                              }`} />
+                              <CheckCheck className={`w-3 h-3 ${message.status === 'read' ? 'text-blue-300' : 'opacity-50'}`} />
                             )}
                           </div>
                         </div>
@@ -383,112 +345,45 @@ const Messages = () => {
                     ))}
                   </div>
                 </ScrollArea>
-              </CardContent>
 
-              {/* Message Input */}
-              <div className="p-4 border-t">
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline">
-                    <Paperclip className="w-4 h-4" />
-                  </Button>
-                  <div className="flex-1 flex gap-2">
-                    <Textarea
-                      placeholder="Type your message..."
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      className="min-h-[40px] max-h-[120px] resize-none"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          sendMessage();
-                        }
-                      }}
-                    />
+                {/* Message Input */}
+                <div className="p-4 border-t">
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline">
+                      <Paperclip className="w-4 h-4" />
+                    </Button>
+                    <div className="flex-1 relative">
+                      <Textarea
+                        placeholder="Type your message..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage();
+                          }
+                        }}
+                        className="min-h-[40px] resize-none"
+                      />
+                    </div>
                     <Button onClick={sendMessage} disabled={!newMessage.trim()}>
                       <Send className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
-                <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
-                  <span>Press Enter to send, Shift+Enter for new line</span>
-                  <span>Agent typically responds within 10 minutes</span>
-                </div>
-              </div>
+              </CardContent>
             </>
           ) : (
-            <CardContent className="p-12 text-center">
-              <MessageSquare className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Select a conversation</h3>
-              <p className="text-muted-foreground">
-                Choose a conversation from the left to start messaging
-              </p>
+            <CardContent className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <MessageSquare className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-semibold mb-2">Select a conversation</h3>
+                <p className="text-muted-foreground">
+                  Choose a conversation from the left to start messaging
+                </p>
+              </div>
             </CardContent>
           )}
-        </Card>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-500/10 rounded-lg">
-                <MessageSquare className="w-5 h-5 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{conversations.length}</p>
-                <p className="text-sm text-muted-foreground">Total Chats</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-500/10 rounded-lg">
-                <Clock className="w-5 h-5 text-green-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {conversations.filter(c => c.status === 'online').length}
-                </p>
-                <p className="text-sm text-muted-foreground">Active Now</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-500/10 rounded-lg">
-                <Badge className="w-5 h-5 text-orange-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {conversations.reduce((sum, conv) => sum + conv.unreadCount, 0)}
-                </p>
-                <p className="text-sm text-muted-foreground">Unread</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-500/10 rounded-lg">
-                <Phone className="w-5 h-5 text-purple-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {conversations.filter(c => c.agentVerified).length}
-                </p>
-                <p className="text-sm text-muted-foreground">Verified Agents</p>
-              </div>
-            </div>
-          </CardContent>
         </Card>
       </div>
     </div>

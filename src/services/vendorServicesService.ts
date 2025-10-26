@@ -451,6 +451,10 @@ class VendorServicesService {
   }
 
   getPricingDisplay(pricing: VendorService['pricing']): string {
+    if (!pricing) {
+      return 'Contact for pricing';
+    }
+    
     if (pricing.type === 'negotiable') {
       return 'Negotiable';
     }

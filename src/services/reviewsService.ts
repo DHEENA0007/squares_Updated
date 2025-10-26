@@ -44,6 +44,8 @@ export interface ReviewStats {
   verifiedReviews: number;
   publicReviews: number;
   helpfulVotes: number;
+  pendingReplies: number;
+  commonKeywords: string[];
 }
 
 export interface ReviewFilters {
@@ -203,6 +205,8 @@ class ReviewsService {
         verifiedReviews: 0,
         publicReviews: 0,
         helpfulVotes: 0,
+        pendingReplies: 0,
+        commonKeywords: [],
       };
     } catch (error) {
       console.error("Failed to fetch review stats:", error);
@@ -216,6 +220,8 @@ class ReviewsService {
         verifiedReviews: 0,
         publicReviews: 0,
         helpfulVotes: 0,
+        pendingReplies: 0,
+        commonKeywords: [],
       };
     }
   }

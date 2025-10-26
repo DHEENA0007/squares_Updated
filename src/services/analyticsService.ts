@@ -12,6 +12,23 @@ export interface AnalyticsOverviewStats {
   averageRating: number;
   responseTime: string;
   conversionRate: number;
+  trends?: {
+    views: {
+      current: number;
+      previous: number;
+      growth: number;
+    };
+    leads: {
+      current: number;
+      previous: number;
+      growth: number;
+    };
+    properties: {
+      current: number;
+      previous: number;
+      growth: number;
+    };
+  };
 }
 
 export interface AnalyticsFilters {
@@ -218,7 +235,11 @@ class AnalyticsService {
     }
   }
 
-  formatCurrency(amount: number): string {
+  formatCurrency(amount: number | undefined | null): string {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      return '₹0';
+    }
+    
     if (amount >= 10000000) {
       return `₹${(amount / 10000000).toFixed(1)} Cr`;
     } else if (amount >= 100000) {
@@ -228,7 +249,11 @@ class AnalyticsService {
     }
   }
 
-  formatNumber(num: number): string {
+  formatNumber(num: number | undefined | null): string {
+    if (num === undefined || num === null || isNaN(num)) {
+      return '0';
+    }
+    
     if (num >= 1000000) {
       return `${(num / 1000000).toFixed(1)}M`;
     } else if (num >= 1000) {
@@ -238,7 +263,10 @@ class AnalyticsService {
     }
   }
 
-  formatPercentage(value: number): string {
+  formatPercentage(value: number | undefined | null): string {
+    if (value === undefined || value === null || isNaN(value)) {
+      return '0%';
+    }
     return `${value.toFixed(1)}%`;
   }
 

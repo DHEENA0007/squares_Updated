@@ -94,7 +94,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // @route   GET /api/users/profile
 // @access  Private
 router.get('/profile', asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id).select('-password -verificationToken');
+  const user = await User.findById(req.user.id).select('-password -verificationToken');
   
   if (!user) {
     return res.status(404).json({
@@ -105,9 +105,9 @@ router.get('/profile', asyncHandler(async (req, res) => {
 
   // Get user statistics
   const [totalProperties, totalFavorites, totalMessages] = await Promise.all([
-    Property.countDocuments({ owner: req.user._id }),
-    Favorite.countDocuments({ user: req.user._id }),
-    Message.countDocuments({ $or: [{ sender: req.user._id }, { recipient: req.user._id }] })
+    Property.countDocuments({ owner: req.user.id }),
+    Favorite.countDocuments({ user: req.user.id }),
+    Message.countDocuments({ $or: [{ sender: req.user.id }, { recipient: req.user.id }] })
   ]);
 
   res.json({
@@ -185,7 +185,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   }
 
   // Only allow users to update their own profile or admin to update any
-  if (req.user._id.toString() !== req.params.id && req.user.role !== 'admin') {
+  if (req.user.id.toString() !== req.params.id && req.user.role !== 'admin') {
     return res.status(403).json({
       success: false,
       message: 'Not authorized to update this user'
@@ -308,7 +308,7 @@ router.get('/activity', asyncHandler(async (req, res) => {
   const activities = [];
 
   // Recent properties created
-  const recentProperties = await Property.find({ owner: req.user._id })
+  const recentProperties = await Property.find({ owner: req.user.id })
     .sort({ createdAt: -1 })
     .limit(5)
     .select('title createdAt');
@@ -322,7 +322,7 @@ router.get('/activity', asyncHandler(async (req, res) => {
   })));
 
   // Recent favorites
-  const recentFavorites = await Favorite.find({ user: req.user._id })
+  const recentFavorites = await Favorite.find({ user: req.user.id })
     .populate('property', 'title')
     .sort({ createdAt: -1 })
     .limit(5);
@@ -337,7 +337,7 @@ router.get('/activity', asyncHandler(async (req, res) => {
 
   // Recent messages
   const recentMessages = await Message.find({
-    $or: [{ sender: req.user._id }, { recipient: req.user._id }]
+    $or: [{ sender: req.user.id }, { recipient: req.user.id }]
   })
     .sort({ createdAt: -1 })
     .limit(5)
@@ -345,7 +345,7 @@ router.get('/activity', asyncHandler(async (req, res) => {
 
   activities.push(...recentMessages.map(message => ({
     type: 'message',
-    action: message.sender.toString() === req.user._id.toString() ? 'Sent message' : 'Received message',
+    action: message.sender.toString() === req.user.id.toString() ? 'Sent message' : 'Received message',
     details: message.subject,
     timestamp: message.createdAt,
     metadata: { messageId: message._id }

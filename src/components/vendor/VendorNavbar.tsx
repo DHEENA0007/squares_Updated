@@ -1,4 +1,4 @@
-import { Menu, Bell, User, Search, LogOut } from "lucide-react";
+import { Menu, Bell, User, Search, LogOut, Settings, CreditCard, HelpCircle, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,9 +11,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import ThemeToggle from "@/components/ThemeToggle";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import logoLight from "@/assets/logo-light.png";
+import logoDark from "@/assets/logo-dark.png";
+import { useTheme } from "next-themes";
 
 interface VendorNavbarProps {
   setSidebarOpen: (open: boolean) => void;
@@ -22,6 +25,7 @@ interface VendorNavbarProps {
 const VendorNavbar = ({ setSidebarOpen }: VendorNavbarProps) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { theme } = useTheme();
 
   const handleLogout = async () => {
     try {
@@ -41,73 +45,135 @@ const VendorNavbar = ({ setSidebarOpen }: VendorNavbarProps) => {
     }
   };
 
+  const handleProfileClick = () => {
+    console.log("Profile clicked");
+    navigate("/vendor/profile");
+  };
+
+  const handleCompanyDetailsClick = () => {
+    console.log("Company details clicked");
+    navigate("/vendor/profile");
+  };
+
+  const handleBillingClick = () => {
+    console.log("Billing clicked");
+    navigate("/vendor/billing");
+  };
+
+  const handleSupportClick = () => {
+    console.log("Support clicked");
+    // Could navigate to support page or open help center
+    toast({
+      title: "Support",
+      description: "Support feature coming soon. Please contact admin for assistance.",
+    });
+  };
+
   return (
-    <header className="bg-background border-b border-border px-6 py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              type="search"
-              placeholder="Search properties, leads..."
-              className="pl-10 w-64"
-            />
+    <>
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-colors duration-300">
+        <div className="container mx-auto px-4">
+          <div className="flex h-16 items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+              
+              {/* Logo in navbar like home page */}
+              <Link to="/vendor/dashboard" className="transition-transform hover:scale-105 duration-300">
+                <img
+                  src={theme === "dark" ? logoDark : logoLight}
+                  alt="Squares"
+                  className="w-[140px] h-[50px] object-contain"
+                />
+              </Link>
+              
+              {/* Search */}
+              <div className="relative hidden md:block">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  type="search"
+                  placeholder="Search properties, leads..."
+                  className="pl-10 w-64"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <ThemeToggle />
+              
+              <Button variant="ghost" size="icon" className="relative">
+                <Bell className="h-5 w-5" />
+                <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs">
+                  3
+                </Badge>
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div className="text-left hidden sm:block">
+                      <div className="text-sm font-medium">
+                        {user?.profile?.firstName && user?.profile?.lastName
+                          ? `${user.profile.firstName} ${user.profile.lastName}`
+                          : "Vendor User"
+                        }
+                      </div>
+                      <div className="text-xs text-muted-foreground">Premium Agent</div>
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleProfileClick}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Profile Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleCompanyDetailsClick}>
+                    <Building className="mr-2 h-4 w-4" />
+                    Company Details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleBillingClick}>
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Billing
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSupportClick}>
+                    <HelpCircle className="mr-2 h-4 w-4" />
+                    Support
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          {/* Mobile search for smaller screens */}
+          <div className="md:hidden pb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                type="search"
+                placeholder="Search properties, leads..."
+                className="pl-10 w-full"
+              />
+            </div>
           </div>
         </div>
-
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs">
-              3
-            </Badge>
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4" />
-                </div>
-                <div className="text-left">
-                  <div className="text-sm font-medium">
-                    {user?.profile?.firstName && user?.profile?.lastName
-                      ? `${user.profile.firstName} ${user.profile.lastName}`
-                      : "Vendor User"
-                    }
-                  </div>
-                  <div className="text-xs text-muted-foreground">Premium Agent</div>
-                </div>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile Settings</DropdownMenuItem>
-              <DropdownMenuItem>Company Details</DropdownMenuItem>
-              <DropdownMenuItem>Billing</DropdownMenuItem>
-              <DropdownMenuItem>Support</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-destructive">
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-    </header>
+      </header>
+    </>
   );
 };
 

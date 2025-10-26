@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,149 +15,151 @@ import {
   Heart,
   Share,
   Check,
-  Minus
+  Minus,
+  RefreshCw,
+  Home
 } from "lucide-react";
 import { useSearchParams, Link } from "react-router-dom";
+import { useRealtime, useRealtimeEvent } from "@/contexts/RealtimeContext";
+import { propertyService, Property } from "@/services/propertyService";
+import { toast } from "@/hooks/use-toast";
 
 const PropertyComparison = () => {
+  const { isConnected, lastEvent } = useRealtime();
   const [searchParams] = useSearchParams();
-  const [selectedProperties, setSelectedProperties] = useState<number[]>([]);
+  const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Mock property data - in real app, this would come from API
-  const allProperties = [
-    {
-      id: 1,
-      title: "Luxury 3BHK Apartment in Powai",
-      location: "Powai, Mumbai, Maharashtra",
-      price: 12000000,
-      bedrooms: 3,
-      bathrooms: 2,
-      area: 1450,
-      type: "apartment",
-      yearBuilt: 2020,
-      furnishing: "Semi-Furnished",
-      parking: 2,
-      floor: "12/25",
-      facing: "North-East",
-      amenities: ["Swimming Pool", "Gym/Fitness Center", "Parking", "Security", "Garden/Park", "WiFi"],
-      nearbyPlaces: {
-        "Metro Station": "0.5 km",
-        "School": "0.8 km", 
-        "Hospital": "1.2 km",
-        "Shopping Mall": "0.3 km"
-      },
-      agent: {
-        name: "Rahul Sharma",
-        phone: "+91 98765 43210",
-        verified: true
-      },
-      images: ["https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&h=300&fit=crop&auto=format"],
-      listedDate: "2024-10-15",
-      pricePerSqft: Math.round(12000000 / 1450),
-      monthlyMaintenance: 3500,
-      possession: "Ready to Move"
-    },
-    {
-      id: 2,
-      title: "Modern Villa with Private Garden",
-      location: "Whitefield, Bangalore, Karnataka",
-      price: 25000000,
-      bedrooms: 4,
-      bathrooms: 3,
-      area: 2800,
-      type: "villa",
-      yearBuilt: 2019,
-      furnishing: "Unfurnished",
-      parking: 3,
-      floor: "Ground + 2",
-      facing: "South",
-      amenities: ["Garden/Park", "Parking", "Security", "Power Backup", "Swimming Pool"],
-      nearbyPlaces: {
-        "Tech Park": "2.0 km",
-        "International School": "1.5 km",
-        "Hospital": "3.0 km",
-        "Airport": "15 km"
-      },
-      agent: {
-        name: "Priya Patel",
-        phone: "+91 87654 32109",
-        verified: true
-      },
-      images: ["https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&h=300&fit=crop&auto=format"],
-      listedDate: "2024-10-12",
-      pricePerSqft: Math.round(25000000 / 2800),
-      monthlyMaintenance: 8000,
-      possession: "Ready to Move"
-    },
-    {
-      id: 3,
-      title: "Premium Penthouse with Terrace",
-      location: "Koramangala, Bangalore, Karnataka",
-      price: 18000000,
-      bedrooms: 3,
-      bathrooms: 3,
-      area: 2100,
-      type: "apartment",
-      yearBuilt: 2021,
-      furnishing: "Fully Furnished",
-      parking: 2,
-      floor: "15/15",
-      facing: "West",
-      amenities: ["Terrace", "Swimming Pool", "Gym", "Concierge", "Security", "Elevator", "WiFi"],
-      nearbyPlaces: {
-        "Metro Station": "1.0 km",
-        "IT Hub": "0.5 km",
-        "Restaurants": "0.2 km",
-        "Park": "0.3 km"
-      },
-      agent: {
-        name: "Sunita Reddy",
-        phone: "+91 65432 10987",
-        verified: true
-      },
-      images: ["https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop&auto=format"],
-      listedDate: "2024-10-08",
-      pricePerSqft: Math.round(18000000 / 2100),
-      monthlyMaintenance: 5500,
-      possession: "Ready to Move"
+  // Load properties from API
+  const loadProperties = useCallback(async (propertyIds: string[]) => {
+    if (propertyIds.length === 0) {
+      setProperties([]);
+      setLoading(false);
+      return;
     }
-  ];
+
+    try {
+      setLoading(true);
+      const propertyPromises = propertyIds.map(id => 
+        propertyService.getProperty(id).catch(error => {
+          console.error(`Failed to load property ${id}:`, error);
+          return null;
+        })
+      );
+
+      const results = await Promise.all(propertyPromises);
+      const loadedProperties = results
+        .filter((result): result is NonNullable<typeof result> => result !== null && result.success)
+        .map(result => result.data.property);
+
+      setProperties(loadedProperties);
+    } catch (error) {
+      console.error('Error loading properties:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load properties for comparison",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Refresh data
+  const refreshData = useCallback(async () => {
+    setRefreshing(true);
+    await loadProperties(selectedProperties);
+    setRefreshing(false);
+  }, [loadProperties, selectedProperties]);
 
   useEffect(() => {
     // Get property IDs from URL params if coming from favorites
-    const ids = searchParams.get('properties')?.split(',').map(Number) || [];
-    setSelectedProperties(ids.slice(0, 3)); // Max 3 properties for comparison
-  }, [searchParams]);
+    const ids = searchParams.get('properties')?.split(',').filter(Boolean) || [];
+    const limitedIds = ids.slice(0, 3); // Max 3 properties for comparison
+    setSelectedProperties(limitedIds);
+    loadProperties(limitedIds);
+  }, [searchParams, loadProperties]);
 
-  const comparisonProperties = allProperties.filter(p => selectedProperties.includes(p.id));
-
-  const formatPrice = (price: number) => {
-    if (price >= 10000000) {
-      return `₹${(price / 10000000).toFixed(1)} Cr`;
-    } else if (price >= 100000) {
-      return `₹${(price / 100000).toFixed(0)} Lac`;
+  // Listen to realtime events for property updates
+  useRealtimeEvent('property_updated', (data) => {
+    if (data.propertyId && selectedProperties.includes(data.propertyId)) {
+      console.log("Property updated via realtime, refreshing comparison");
+      refreshData();
     }
-    return `₹${price}`;
+  });
+
+  useRealtimeEvent('property_favorited', (data) => {
+    if (data.propertyId && selectedProperties.includes(data.propertyId)) {
+      // Update property in the list if it's favorited/unfavorited
+      setProperties(prev => prev.map(prop => 
+        prop._id === data.propertyId 
+          ? { ...prop, isFavorited: data.action === 'add' }
+          : prop
+      ));
+    }
+  });
+
+  const formatPrice = (price: number, listingType: Property['listingType']) => {
+    if (listingType === 'rent') {
+      return `₹${price.toLocaleString('en-IN')}/month`;
+    } else if (listingType === 'lease') {
+      return `₹${price.toLocaleString('en-IN')}/year`;
+    } else {
+      if (price >= 10000000) {
+        return `₹${(price / 10000000).toFixed(1)} Cr`;
+      } else if (price >= 100000) {
+        return `₹${(price / 100000).toFixed(1)} Lac`;
+      } else {
+        return `₹${price.toLocaleString('en-IN')}`;
+      }
+    }
   };
 
-  const removeProperty = (propertyId: number) => {
+  const formatArea = (area: Property['area']) => {
+    if (area.builtUp) {
+      return `${area.builtUp} ${area.unit}`;
+    } else if (area.plot) {
+      return `${area.plot} ${area.unit}`;
+    } else if (area.carpet) {
+      return `${area.carpet} ${area.unit}`;
+    }
+    return 'N/A';
+  };
+
+  const calculatePricePerSqft = (property: Property) => {
+    const areaValue = property.area.builtUp || property.area.carpet || property.area.plot || 0;
+    if (areaValue === 0) return 0;
+    return Math.round(property.price / areaValue);
+  };
+
+  const getPrimaryImage = (property: Property): string => {
+    const primaryImage = property.images.find(img => img.isPrimary);
+    return primaryImage?.url || property.images[0]?.url || '/placeholder-property.jpg';
+  };
+
+  const removeProperty = (propertyId: string) => {
     setSelectedProperties(prev => prev.filter(id => id !== propertyId));
+    setProperties(prev => prev.filter(prop => prop._id !== propertyId));
   };
 
   const addProperty = () => {
     // In real app, this would open a modal to select from favorites or search
-    console.log("Add property to comparison");
+    toast({
+      title: "Feature Coming Soon",
+      description: "Property selection modal will be available soon",
+    });
   };
 
   const getComparisonValue = (value: any, isNumeric = false) => {
     if (!value) return { display: "-", color: "text-muted-foreground" };
     
-    if (isNumeric && comparisonProperties.length > 1) {
-      const values = comparisonProperties.map(p => {
-        switch (typeof value) {
-          case 'number': return value;
-          default: return 0;
-        }
+    if (isNumeric && properties.length > 1) {
+      const values = properties.map(p => {
+        // Extract numeric value based on the comparison context
+        if (typeof value === 'number') return value;
+        return 0;
       });
       const max = Math.max(...values);
       const min = Math.min(...values);
@@ -174,6 +176,30 @@ const PropertyComparison = () => {
 
   return (
     <div className="space-y-6 pt-16">
+      {/* Realtime Status */}
+      <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span className="text-sm text-muted-foreground">
+            {isConnected ? 'Real-time property updates active' : 'Offline mode'}
+          </span>
+          {lastEvent && (
+            <Badge variant="secondary" className="text-xs">
+              Last update: {new Date(lastEvent.timestamp).toLocaleTimeString()}
+            </Badge>
+          )}
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={refreshData}
+          disabled={refreshing}
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh'}
+        </Button>
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -200,7 +226,19 @@ const PropertyComparison = () => {
         </div>
       </div>
 
-      {comparisonProperties.length === 0 ? (
+      {/* Loading State */}
+      {loading && (
+        <Card>
+          <CardContent className="flex items-center justify-center h-32">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 animate-spin" />
+              <span>Loading properties for comparison...</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && properties.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <GitCompare className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
@@ -223,44 +261,55 @@ const PropertyComparison = () => {
             </div>
           </CardContent>
         </Card>
-      ) : (
+      ) : !loading && (
         <div className="space-y-6">
           {/* Property Cards Overview */}
-          <div className={`grid gap-4 ${comparisonProperties.length === 1 ? 'grid-cols-1 max-w-md mx-auto' : comparisonProperties.length === 2 ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 lg:grid-cols-3'}`}>
-            {comparisonProperties.map((property) => (
-              <Card key={property.id} className="relative">
+          <div className={`grid gap-4 ${properties.length === 1 ? 'grid-cols-1 max-w-md mx-auto' : properties.length === 2 ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 lg:grid-cols-3'}`}>
+            {properties.map((property) => (
+              <Card key={property._id} className="relative">
                 <button
-                  onClick={() => removeProperty(property.id)}
+                  onClick={() => removeProperty(property._id)}
                   className="absolute top-2 right-2 z-10 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
                 >
                   <X className="w-4 h-4" />
                 </button>
                 
                 <CardContent className="p-4">
-                  <div className="aspect-video bg-muted flex items-center justify-center mb-4 rounded-lg">
-                    <MapPin className="w-8 h-8 text-muted-foreground" />
+                  <div className="aspect-video bg-muted flex items-center justify-center mb-4 rounded-lg overflow-hidden">
+                    <img 
+                      src={getPrimaryImage(property)}
+                      alt={property.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                    <Home className="w-8 h-8 text-muted-foreground hidden" />
                   </div>
                   
                   <h3 className="font-semibold text-sm mb-2 line-clamp-2">{property.title}</h3>
                   <div className="flex items-center text-xs text-muted-foreground mb-2">
                     <MapPin className="w-3 h-3 mr-1" />
-                    <span className="line-clamp-1">{property.location}</span>
+                    <span className="line-clamp-1">
+                      {property.address.locality}, {property.address.city}
+                    </span>
                   </div>
                   
                   <div className="text-lg font-bold text-primary mb-2">
-                    {formatPrice(property.price)}
+                    {formatPrice(property.price, property.listingType)}
                   </div>
                   
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>{property.bedrooms} BHK</span>
-                    <span>{property.area} sq.ft</span>
-                    <span>₹{property.pricePerSqft}/sq.ft</span>
+                    <span>{formatArea(property.area)}</span>
+                    <span>₹{calculatePricePerSqft(property)}/sq.ft</span>
                   </div>
                 </CardContent>
               </Card>
             ))}
             
-            {comparisonProperties.length < 3 && (
+            {properties.length < 3 && (
               <Card className="border-dashed border-2">
                 <CardContent className="p-4 h-full flex items-center justify-center">
                   <Button 
@@ -287,8 +336,8 @@ const PropertyComparison = () => {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-4 w-48">Feature</th>
-                      {comparisonProperties.map((property) => (
-                        <th key={property.id} className="text-left p-4 min-w-64">
+                      {properties.map((property) => (
+                        <th key={property._id} className="text-left p-4 min-w-64">
                           <div className="truncate">{property.title}</div>
                         </th>
                       ))}
@@ -298,12 +347,12 @@ const PropertyComparison = () => {
                     {/* Price */}
                     <tr className="border-b hover:bg-muted/50">
                       <td className="p-4 font-medium">Price</td>
-                      {comparisonProperties.map((property) => {
+                      {properties.map((property) => {
                         const comparison = getComparisonValue(property.price, true);
                         return (
-                          <td key={property.id} className={`p-4 ${comparison.color}`}>
+                          <td key={property._id} className={`p-4 ${comparison.color}`}>
                             <div className="flex items-center gap-2">
-                              {formatPrice(property.price)}
+                              {formatPrice(property.price, property.listingType)}
                               {comparison.isBest && <Badge variant="default" className="text-xs">Expensive</Badge>}
                               {comparison.isWorst && <Badge variant="secondary" className="text-xs">Affordable</Badge>}
                             </div>
@@ -315,12 +364,13 @@ const PropertyComparison = () => {
                     {/* Price per sq.ft */}
                     <tr className="border-b hover:bg-muted/50">
                       <td className="p-4 font-medium">Price per sq.ft</td>
-                      {comparisonProperties.map((property) => {
-                        const comparison = getComparisonValue(property.pricePerSqft, true);
+                      {properties.map((property) => {
+                        const pricePerSqft = calculatePricePerSqft(property);
+                        const comparison = getComparisonValue(pricePerSqft, true);
                         return (
-                          <td key={property.id} className={`p-4 ${comparison.color}`}>
+                          <td key={property._id} className={`p-4 ${comparison.color}`}>
                             <div className="flex items-center gap-2">
-                              ₹{property.pricePerSqft}
+                              ₹{pricePerSqft}
                               {comparison.isBest && <Badge variant="default" className="text-xs">Highest</Badge>}
                               {comparison.isWorst && <Badge variant="secondary" className="text-xs">Best Value</Badge>}
                             </div>
@@ -332,12 +382,13 @@ const PropertyComparison = () => {
                     {/* Area */}
                     <tr className="border-b hover:bg-muted/50">
                       <td className="p-4 font-medium">Area</td>
-                      {comparisonProperties.map((property) => {
-                        const comparison = getComparisonValue(property.area, true);
+                      {properties.map((property) => {
+                        const areaValue = property.area.builtUp || property.area.carpet || property.area.plot || 0;
+                        const comparison = getComparisonValue(areaValue, true);
                         return (
-                          <td key={property.id} className={`p-4 ${comparison.color}`}>
+                          <td key={property._id} className={`p-4 ${comparison.color}`}>
                             <div className="flex items-center gap-2">
-                              {property.area} sq.ft
+                              {formatArea(property.area)}
                               {comparison.isBest && <Badge variant="default" className="text-xs">Largest</Badge>}
                               {comparison.isWorst && <Badge variant="secondary" className="text-xs">Smallest</Badge>}
                             </div>
@@ -349,8 +400,8 @@ const PropertyComparison = () => {
                     {/* Bedrooms */}
                     <tr className="border-b hover:bg-muted/50">
                       <td className="p-4 font-medium">Bedrooms</td>
-                      {comparisonProperties.map((property) => (
-                        <td key={property.id} className="p-4">
+                      {properties.map((property) => (
+                        <td key={property._id} className="p-4">
                           {property.bedrooms} BHK
                         </td>
                       ))}
@@ -359,101 +410,63 @@ const PropertyComparison = () => {
                     {/* Bathrooms */}
                     <tr className="border-b hover:bg-muted/50">
                       <td className="p-4 font-medium">Bathrooms</td>
-                      {comparisonProperties.map((property) => (
-                        <td key={property.id} className="p-4">
+                      {properties.map((property) => (
+                        <td key={property._id} className="p-4">
                           {property.bathrooms}
                         </td>
                       ))}
                     </tr>
 
-                    {/* Floor */}
+                    {/* Property Type */}
                     <tr className="border-b hover:bg-muted/50">
-                      <td className="p-4 font-medium">Floor</td>
-                      {comparisonProperties.map((property) => (
-                        <td key={property.id} className="p-4">
-                          {property.floor}
-                        </td>
-                      ))}
-                    </tr>
-
-                    {/* Facing */}
-                    <tr className="border-b hover:bg-muted/50">
-                      <td className="p-4 font-medium">Facing</td>
-                      {comparisonProperties.map((property) => (
-                        <td key={property.id} className="p-4">
-                          {property.facing}
-                        </td>
-                      ))}
-                    </tr>
-
-                    {/* Year Built */}
-                    <tr className="border-b hover:bg-muted/50">
-                      <td className="p-4 font-medium">Year Built</td>
-                      {comparisonProperties.map((property) => {
-                        const comparison = getComparisonValue(property.yearBuilt, true);
-                        return (
-                          <td key={property.id} className={`p-4 ${comparison.color}`}>
-                            <div className="flex items-center gap-2">
-                              {property.yearBuilt}
-                              {comparison.isBest && <Badge variant="default" className="text-xs">Newest</Badge>}
-                              {comparison.isWorst && <Badge variant="secondary" className="text-xs">Oldest</Badge>}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-
-                    {/* Furnishing */}
-                    <tr className="border-b hover:bg-muted/50">
-                      <td className="p-4 font-medium">Furnishing</td>
-                      {comparisonProperties.map((property) => (
-                        <td key={property.id} className="p-4">
-                          <Badge variant="outline">{property.furnishing}</Badge>
-                        </td>
-                      ))}
-                    </tr>
-
-                    {/* Parking */}
-                    <tr className="border-b hover:bg-muted/50">
-                      <td className="p-4 font-medium">Parking Spaces</td>
-                      {comparisonProperties.map((property) => {
-                        const comparison = getComparisonValue(property.parking, true);
-                        return (
-                          <td key={property.id} className={`p-4 ${comparison.color}`}>
-                            <div className="flex items-center gap-2">
-                              {property.parking}
-                              {comparison.isBest && <Badge variant="default" className="text-xs">Most</Badge>}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-
-                    {/* Monthly Maintenance */}
-                    <tr className="border-b hover:bg-muted/50">
-                      <td className="p-4 font-medium">Monthly Maintenance</td>
-                      {comparisonProperties.map((property) => {
-                        const comparison = getComparisonValue(property.monthlyMaintenance, true);
-                        return (
-                          <td key={property.id} className={`p-4 ${comparison.color}`}>
-                            <div className="flex items-center gap-2">
-                              ₹{property.monthlyMaintenance}
-                              {comparison.isBest && <Badge variant="default" className="text-xs">Highest</Badge>}
-                              {comparison.isWorst && <Badge variant="secondary" className="text-xs">Lowest</Badge>}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-
-                    {/* Possession */}
-                    <tr className="border-b hover:bg-muted/50">
-                      <td className="p-4 font-medium">Possession</td>
-                      {comparisonProperties.map((property) => (
-                        <td key={property.id} className="p-4">
-                          <Badge variant="default" className="bg-green-500">
-                            {property.possession}
+                      <td className="p-4 font-medium">Property Type</td>
+                      {properties.map((property) => (
+                        <td key={property._id} className="p-4">
+                          <Badge variant="outline" className="capitalize">
+                            {property.type}
                           </Badge>
+                        </td>
+                      ))}
+                    </tr>
+
+                    {/* Listing Type */}
+                    <tr className="border-b hover:bg-muted/50">
+                      <td className="p-4 font-medium">Listing Type</td>
+                      {properties.map((property) => (
+                        <td key={property._id} className="p-4">
+                          <Badge variant="outline" className="capitalize">
+                            {property.listingType}
+                          </Badge>
+                        </td>
+                      ))}
+                    </tr>
+
+                    {/* Status */}
+                    <tr className="border-b hover:bg-muted/50">
+                      <td className="p-4 font-medium">Status</td>
+                      {properties.map((property) => (
+                        <td key={property._id} className="p-4">
+                          <Badge 
+                            variant={property.status === 'available' ? 'default' : 'secondary'}
+                            className={property.status === 'available' ? 'bg-green-500' : ''}
+                          >
+                            {property.status === 'available' ? 'Available' : property.status}
+                          </Badge>
+                        </td>
+                      ))}
+                    </tr>
+
+                    {/* Location */}
+                    <tr className="border-b hover:bg-muted/50">
+                      <td className="p-4 font-medium">Location</td>
+                      {properties.map((property) => (
+                        <td key={property._id} className="p-4">
+                          <div className="text-sm">
+                            <div className="font-medium">{property.address.locality}</div>
+                            <div className="text-muted-foreground">
+                              {property.address.city}, {property.address.state}
+                            </div>
+                          </div>
                         </td>
                       ))}
                     </tr>
@@ -471,16 +484,16 @@ const PropertyComparison = () => {
             <CardContent>
               <div className="space-y-4">
                 {/* Get all unique amenities */}
-                {Array.from(new Set(comparisonProperties.flatMap(p => p.amenities))).map((amenity) => (
-                  <div key={amenity} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <span className="font-medium">{amenity}</span>
+                {Array.from(new Set(properties.flatMap(p => p.amenities))).map((amenity, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <span className="font-medium">{String(amenity)}</span>
                     <div className="flex gap-4">
-                      {comparisonProperties.map((property) => (
-                        <div key={property.id} className="flex items-center gap-2">
+                      {properties.map((property) => (
+                        <div key={property._id} className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground w-16 truncate">
                             {property.title.slice(0, 15)}...
                           </span>
-                          {property.amenities.includes(amenity) ? (
+                          {property.amenities.includes(String(amenity)) ? (
                             <Check className="w-4 h-4 text-green-500" />
                           ) : (
                             <Minus className="w-4 h-4 text-muted-foreground" />
@@ -494,25 +507,39 @@ const PropertyComparison = () => {
             </CardContent>
           </Card>
 
-          {/* Nearby Places */}
+          {/* Contact Information */}
           <Card>
             <CardHeader>
-              <CardTitle>Nearby Places</CardTitle>
+              <CardTitle>Contact Information</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4">
-                {Array.from(new Set(comparisonProperties.flatMap(p => Object.keys(p.nearbyPlaces)))).map((place) => (
-                  <div key={place} className="space-y-2">
-                    <h4 className="font-medium">{place}</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      {comparisonProperties.map((property) => (
-                        <div key={property.id} className="p-3 bg-muted/50 rounded-lg">
-                          <div className="text-sm font-medium mb-1">{property.title.slice(0, 20)}...</div>
-                          <div className="text-sm text-muted-foreground">
-                            {property.nearbyPlaces[place] || "Not available"}
-                          </div>
+                {properties.map((property) => (
+                  <div key={property._id} className="p-4 border rounded-lg">
+                    <h4 className="font-medium mb-2">{property.title}</h4>
+                    <div className="space-y-2">
+                      {property.owner && (
+                        <div>
+                          <p className="text-sm font-medium">Owner</p>
+                          <p className="text-sm text-muted-foreground">
+                            {property.owner.profile.firstName} {property.owner.profile.lastName}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {property.owner.profile.phone}
+                          </p>
                         </div>
-                      ))}
+                      )}
+                      {property.agent && (
+                        <div>
+                          <p className="text-sm font-medium">Agent</p>
+                          <p className="text-sm text-muted-foreground">
+                            {property.agent.profile.firstName} {property.agent.profile.lastName}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {property.agent.profile.phone}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -522,8 +549,8 @@ const PropertyComparison = () => {
 
           {/* Action Buttons */}
           <div className="flex justify-center gap-4">
-            {comparisonProperties.map((property) => (
-              <Card key={property.id} className="p-4">
+            {properties.map((property) => (
+              <Card key={property._id} className="p-4">
                 <div className="text-center space-y-2">
                   <h4 className="font-medium text-sm">{property.title.slice(0, 25)}...</h4>
                   <div className="flex gap-2">
@@ -531,9 +558,11 @@ const PropertyComparison = () => {
                       <Phone className="w-4 h-4 mr-1" />
                       Call
                     </Button>
-                    <Button size="sm">
-                      View Details
-                    </Button>
+                    <Link to={`/property/${property._id}`}>
+                      <Button size="sm">
+                        View Details
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               </Card>

@@ -10,6 +10,7 @@ import UserRoutes from "@/routes/UserRoutes";
 import CustomerRoutes from "@/routes/CustomerRoutes";
 import VendorRoutes from "@/routes/VendorRoutes";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { RealtimeProvider } from "@/contexts/RealtimeContext";
 
 // Lazy load vendor components
 const VendorLogin = lazy(() => import("@/pages/vendor/VendorLogin"));
@@ -21,39 +22,41 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/*" element={<UserRoutes />} />
-            <Route path="/admin/*" element={<AdminRoutes />} />
-            <Route path="/customer/*" element={<CustomerRoutes />} />
-            
-            {/* Vendor Authentication Routes (outside protection) */}
-            <Route path="/vendor/login" element={
-              <Suspense fallback={<div>Loading...</div>}>
-                <VendorLogin />
-              </Suspense>
-            } />
-            <Route path="/vendor/register" element={
-              <Suspense fallback={<div>Loading...</div>}>
-                <VendorRegister />
-              </Suspense>
-            } />
-            <Route path="/vendor/forgot-password" element={
-              <Suspense fallback={<div>Loading...</div>}>
-                <VendorForgotPassword />
-              </Suspense>
-            } />
-            
-            {/* Protected Vendor Routes */}
-            <Route path="/vendor/*" element={<VendorRoutes />} />
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <RealtimeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/*" element={<UserRoutes />} />
+              <Route path="/admin/*" element={<AdminRoutes />} />
+              <Route path="/customer/*" element={<CustomerRoutes />} />
+              
+              {/* Vendor Authentication Routes (outside protection) */}
+              <Route path="/vendor/login" element={
+                <Suspense fallback={<div>Loading...</div>}>
+                  <VendorLogin />
+                </Suspense>
+              } />
+              <Route path="/vendor/register" element={
+                <Suspense fallback={<div>Loading...</div>}>
+                  <VendorRegister />
+                </Suspense>
+              } />
+              <Route path="/vendor/forgot-password" element={
+                <Suspense fallback={<div>Loading...</div>}>
+                  <VendorForgotPassword />
+                </Suspense>
+              } />
+              
+              {/* Protected Vendor Routes */}
+              <Route path="/vendor/*" element={<VendorRoutes />} />
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </RealtimeProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

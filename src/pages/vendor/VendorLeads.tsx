@@ -1,445 +1,156 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Users,
-  Search,
-  Phone,
-  Mail,
-  MapPin,
   Clock,
+  Bell,
   Star,
-  Filter,
-  Download,
-  MessageSquare,
   TrendingUp,
-  Calendar,
-  Eye
+  Zap,
+  ArrowRight
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { leadService, type Lead, type LeadStats } from "@/services/leadService";
-import { toast } from "@/hooks/use-toast";
 
 const VendorLeads = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [interestFilter, setInterestFilter] = useState("all");
-  const [priorityFilter, setPriorityFilter] = useState("all");
-  const [isLoading, setIsLoading] = useState(true);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [stats, setStats] = useState<LeadStats>({
-    totalLeads: 0,
-    newLeads: 0,
-    contactedLeads: 0,
-    qualifiedLeads: 0,
-    convertedLeads: 0,
-    conversionRate: 0,
-    avgResponseTime: "Not calculated",
-    avgLeadScore: 0
-  });
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalLeads: 0,
-    hasNextPage: false,
-    hasPrevPage: false
-  });
-
-  useEffect(() => {
-    loadLeads();
-    loadStats();
-  }, []);
-
-  useEffect(() => {
-    loadLeads();
-  }, [searchQuery, statusFilter, priorityFilter]);
-
-  const loadLeads = async () => {
-    try {
-      setIsLoading(true);
-      const filters = {
-        page: 1,
-        limit: 20,
-        ...(searchQuery && { search: searchQuery }),
-        ...(statusFilter !== "all" && { status: statusFilter }),
-        ...(priorityFilter !== "all" && { priority: priorityFilter }),
-        sortBy: 'createdAt',
-        sortOrder: 'desc' as const
-      };
-
-      const response = await leadService.getVendorLeads(filters);
-      setLeads(response.leads);
-      setPagination(response.pagination);
-    } catch (error) {
-      console.error('Failed to load leads:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadStats = async () => {
-    try {
-      const statsData = await leadService.getVendorLeadStats();
-      setStats(statsData);
-    } catch (error) {
-      console.error('Failed to load lead stats:', error);
-    }
-  };
-
-  const handleStatusUpdate = async (leadId: string, newStatus: Lead['status']) => {
-    try {
-      await leadService.updateLeadStatus(leadId, newStatus);
-      loadLeads(); // Refresh the list
-      loadStats(); // Refresh stats
-    } catch (error) {
-      console.error('Failed to update lead status:', error);
-    }
-  };
-
-  const handlePriorityUpdate = async (leadId: string, newPriority: Lead['priority']) => {
-    try {
-      await leadService.updateLeadPriority(leadId, newPriority);
-      loadLeads(); // Refresh the list
-    } catch (error) {
-      console.error('Failed to update lead priority:', error);
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getLocationString = (lead: Lead) => {
-    if (lead.property) {
-      return `${lead.property.address.locality}, ${lead.property.address.city}`;
-    }
-    return lead.preferredLocation || 'Not specified';
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'new': return 'bg-blue-500';
-      case 'contacted': return 'bg-yellow-500';
-      case 'qualified': return 'bg-green-500';
-      case 'converted': return 'bg-green-600';
-      case 'lost': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const getInterestColor = (interest: string) => {
-    switch (interest) {
-      case 'High': return 'text-green-600 bg-green-50 border-green-200';
-      case 'Medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'Low': return 'text-red-600 bg-red-50 border-red-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading leads...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Filter leads based on search and filter criteria
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch = !searchQuery || 
-      (lead.sender.profile.firstName + ' ' + lead.sender.profile.lastName).toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.sender.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (lead.property?.title && lead.property.title.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
-    const matchesInterest = interestFilter === "all" || lead.priority === interestFilter;
-    
-    return matchesSearch && matchesStatus && matchesInterest;
-  });
-
-  // Calculate stats array for display
-  const statsArray = [
-    {
-      title: "Total Leads",
-      value: stats.totalLeads,
-      icon: Users,
-      description: "All leads",
-      color: "bg-blue-500"
-    },
-    {
-      title: "New Leads",
-      value: stats.newLeads,
-      icon: TrendingUp,
-      description: "Uncontacted",
-      color: "bg-green-500"
-    },
-    {
-      title: "Contacted",
-      value: stats.contactedLeads,
-      icon: Phone,
-      description: "In progress",
-      color: "bg-yellow-500"
-    },
-    {
-      title: "Converted",
-      value: stats.convertedLeads,
-      icon: Star,
-      description: "Success",
-      color: "bg-purple-500"
-    }
-  ];
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
-          <p className="text-muted-foreground">Manage your property inquiries and potential customers</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-          <Button>
-            <Filter className="w-4 h-4 mr-2" />
-            Advanced Filter
-          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">Leads Management</h1>
+          <p className="text-muted-foreground">Track and manage your property inquiries</p>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statsArray.map((stat) => (
-          <Card key={stat.title}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                  <p className="text-2xl font-bold mb-1">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">{stat.description}</p>
-                </div>
-                <stat.icon className={`h-8 w-8 ${stat.color}`} />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Tabs defaultValue="all" className="space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <TabsList>
-            <TabsTrigger value="all">All Leads ({leads.length})</TabsTrigger>
-            <TabsTrigger value="new">New (23)</TabsTrigger>
-            <TabsTrigger value="contacted">Contacted (45)</TabsTrigger>
-            <TabsTrigger value="qualified">Qualified (45)</TabsTrigger>
-            <TabsTrigger value="converted">Converted (12)</TabsTrigger>
-          </TabsList>
-
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search leads..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="new">New</SelectItem>
-                <SelectItem value="contacted">Contacted</SelectItem>
-                <SelectItem value="qualified">Qualified</SelectItem>
-                <SelectItem value="converted">Converted</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={interestFilter} onValueChange={setInterestFilter}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Interest" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Interest</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <TabsContent value="all" className="space-y-4">
-          {filteredLeads.map((lead) => (
-            <Card key={lead._id} className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold mb-1">
-                          {lead.sender.profile.firstName} {lead.sender.profile.lastName}
-                        </h3>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
-                          <span className="flex items-center">
-                            <Mail className="w-4 h-4 mr-1" />
-                            {lead.sender.email}
-                          </span>
-                          <span className="flex items-center">
-                            <Phone className="w-4 h-4 mr-1" />
-                            {lead.sender.profile.phone}
-                          </span>
-                          <span className="flex items-center">
-                            <MapPin className="w-4 h-4 mr-1" />
-                            {lead.property?.address.city || 'N/A'}
-                          </span>
-                        </div>
-                        <p className="text-sm font-medium mb-1">{lead.property?.title || 'General Inquiry'}</p>
-                        <p className="text-primary font-bold">₹{lead.property?.price.toLocaleString() || 'N/A'}</p>
-                      </div>
-                      
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="flex gap-2">
-                          <Badge className={`${getStatusColor(lead.status)} text-white`}>
-                            {lead.status}
-                          </Badge>
-                                                    <Badge className={getInterestColor(lead.priority)}>
-                            {lead.priority}
-                          </Badge>
-                        </div>
-                        <div className={`text-sm font-medium ${getScoreColor(lead.score || 0)}`}>
-                          Score: {lead.score || 0}%
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Budget Range</p>
-                        <p className="text-sm font-medium">
-                          {lead.budget ? `₹${lead.budget.min.toLocaleString()} - ₹${lead.budget.max.toLocaleString()}` : 'Not specified'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Source</p>
-                        <p className="text-sm font-medium">{lead.source}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Last Contact</p>
-                        <p className="text-sm font-medium flex items-center">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {lead.lastContact}
-                        </p>
-                      </div>
-                    </div>
-
-                    {lead.message && (
-                      <div className="bg-muted p-3 rounded-lg mb-4">
-                        <p className="text-sm italic">"{lead.message}"</p>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="flex items-center">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        Created: {lead.createdAt}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2 lg:ml-6">
-                    <Button size="sm">
-                      <Phone className="w-4 h-4 mr-2" />
-                      Call
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Message
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Details
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </TabsContent>
-
-        {/* Similar content for other tabs */}
-        <TabsContent value="new">
-          <div className="text-center py-12">
-            <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">New Leads</h3>
-            <p className="text-muted-foreground">New leads will appear here</p>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="contacted">
-          <div className="text-center py-12">
-            <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Contacted Leads</h3>
-            <p className="text-muted-foreground">Leads you've already contacted will appear here</p>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="qualified">
-          <div className="text-center py-12">
-            <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Qualified Leads</h3>
-            <p className="text-muted-foreground">Qualified leads ready for conversion will appear here</p>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="converted">
-          <div className="text-center py-12">
-            <TrendingUp className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Converted Leads</h3>
-            <p className="text-muted-foreground">Successfully converted leads will appear here</p>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {filteredLeads.length === 0 && (
-        <Card>
+      {/* Coming Soon Section */}
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="w-full max-w-2xl mx-auto">
           <CardContent className="p-12 text-center">
-            <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No leads found</h3>
-            <p className="text-muted-foreground mb-4">
-              {searchQuery || statusFilter !== "all" || interestFilter !== "all" 
-                ? "No leads match your search criteria" 
-                : "No leads available yet"
-              }
+            {/* Icon */}
+            <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Users className="w-12 h-12 text-primary" />
+            </div>
+
+            {/* Title */}
+            <h2 className="text-3xl font-bold mb-4">Coming Soon</h2>
+            
+            {/* Description */}
+            <p className="text-lg text-muted-foreground mb-8 max-w-md mx-auto">
+              We're building an amazing leads management system to help you track, manage, and convert your property inquiries more effectively.
             </p>
+
+            {/* Features Preview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              <div className="flex items-center space-x-3 p-4 bg-muted/50 rounded-lg">
+                <Bell className="w-6 h-6 text-blue-500" />
+                <div className="text-left">
+                  <h4 className="font-semibold">Real-time Notifications</h4>
+                  <p className="text-sm text-muted-foreground">Get instant alerts for new leads</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-3 p-4 bg-muted/50 rounded-lg">
+                <Star className="w-6 h-6 text-yellow-500" />
+                <div className="text-left">
+                  <h4 className="font-semibold">Lead Scoring</h4>
+                  <p className="text-sm text-muted-foreground">Prioritize high-quality leads</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-3 p-4 bg-muted/50 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-green-500" />
+                <div className="text-left">
+                  <h4 className="font-semibold">Analytics & Insights</h4>
+                  <p className="text-sm text-muted-foreground">Track conversion rates</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-3 p-4 bg-muted/50 rounded-lg">
+                <Zap className="w-6 h-6 text-purple-500" />
+                <div className="text-left">
+                  <h4 className="font-semibold">Quick Actions</h4>
+                  <p className="text-sm text-muted-foreground">Respond to leads instantly</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Timeline */}
+            <div className="mb-8">
+              <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
+                <Clock className="w-4 h-4" />
+                <span>Expected launch: Coming Soon</span>
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <Button size="lg" className="group">
+              Get Notified When Ready
+              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+            </Button>
+
+            {/* Contact Info */}
+            <div className="mt-8 pt-8 border-t">
+              <p className="text-sm text-muted-foreground">
+                Questions about leads management? Contact our support team
+              </p>
+              <Button variant="link" size="sm" className="mt-2">
+                Contact Support
+              </Button>
+            </div>
           </CardContent>
         </Card>
-      )}
+      </div>
+
+      {/* Quick Stats Preview (Placeholder) */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 opacity-50">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Leads</p>
+                <p className="text-2xl font-bold">--</p>
+              </div>
+              <Users className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">New Today</p>
+                <p className="text-2xl font-bold">--</p>
+              </div>
+              <Bell className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Conversion Rate</p>
+                <p className="text-2xl font-bold">--%</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Avg. Response</p>
+                <p className="text-2xl font-bold">--h</p>
+              </div>
+              <Clock className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

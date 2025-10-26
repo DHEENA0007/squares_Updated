@@ -136,10 +136,12 @@ const VendorProfilePage: React.FC = () => {
   }
 
   const fullName = `${formData.profile.firstName} ${formData.profile.lastName}`;
-  const memberSince = new Date(formData.profile.vendorInfo.memberSince).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-  });
+  const memberSince = formData.profile.vendorInfo?.memberSince 
+    ? new Date(formData.profile.vendorInfo.memberSince).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+      })
+    : "Unknown";
 
   return (
     <div className="space-y-6">
@@ -265,15 +267,15 @@ const VendorProfilePage: React.FC = () => {
                 <div className="flex items-center">
                   <Star className="w-4 h-4 text-yellow-400 mr-1" />
                   <span className="font-medium">
-                    {formData.profile.vendorInfo.rating.average.toFixed(1)}
+                    {(formData.profile.vendorInfo?.rating?.average || 0).toFixed(1)}
                   </span>
                   <span className="text-muted-foreground ml-1">
-                    ({formData.profile.vendorInfo.rating.count} reviews)
+                    ({formData.profile.vendorInfo?.rating?.count || 0} reviews)
                   </span>
                 </div>
                 <div className="flex items-center">
                   <span className="text-sm">
-                    {formData.profile.vendorInfo.responseTime} avg response
+                    {formData.profile.vendorInfo?.responseTime || "Not calculated"} avg response
                   </span>
                 </div>
               </div>
@@ -406,7 +408,7 @@ const VendorProfilePage: React.FC = () => {
                   {isEditing ? (
                     <Input
                       id="companyName"
-                      value={formData.profile.vendorInfo.companyName || ""}
+                      value={formData.profile.vendorInfo?.companyName || ""}
                       onChange={(e) =>
                         updateFormField(
                           "profile.vendorInfo.companyName",
@@ -416,7 +418,7 @@ const VendorProfilePage: React.FC = () => {
                     />
                   ) : (
                     <p className="text-sm">
-                      {formData.profile.vendorInfo.companyName || "Not provided"}
+                      {formData.profile.vendorInfo?.companyName || "Not provided"}
                     </p>
                   )}
                 </div>
@@ -427,7 +429,7 @@ const VendorProfilePage: React.FC = () => {
                     <Input
                       id="experience"
                       type="number"
-                      value={formData.profile.vendorInfo.experience}
+                      value={formData.profile.vendorInfo?.experience || 0}
                       onChange={(e) =>
                         updateFormField(
                           "profile.vendorInfo.experience",
@@ -437,7 +439,7 @@ const VendorProfilePage: React.FC = () => {
                     />
                   ) : (
                     <p className="text-sm">
-                      {formData.profile.vendorInfo.experience} years
+                      {formData.profile.vendorInfo?.experience || 0} years
                     </p>
                   )}
                 </div>
@@ -447,7 +449,7 @@ const VendorProfilePage: React.FC = () => {
                   {isEditing ? (
                     <Input
                       id="website"
-                      value={formData.profile.vendorInfo.website || ""}
+                      value={formData.profile.vendorInfo?.website || ""}
                       onChange={(e) =>
                         updateFormField(
                           "profile.vendorInfo.website",
@@ -459,12 +461,12 @@ const VendorProfilePage: React.FC = () => {
                     <div className="flex items-center">
                       <Globe className="w-4 h-4 mr-1" />
                       <a
-                        href={formData.profile.vendorInfo.website}
+                        href={formData.profile.vendorInfo?.website}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline text-sm"
                       >
-                        {formData.profile.vendorInfo.website || "Not provided"}
+                        {formData.profile.vendorInfo?.website || "Not provided"}
                       </a>
                     </div>
                   )}
@@ -475,7 +477,7 @@ const VendorProfilePage: React.FC = () => {
                   {isEditing ? (
                     <Input
                       id="licenseNumber"
-                      value={formData.profile.vendorInfo.licenseNumber || ""}
+                      value={formData.profile.vendorInfo?.licenseNumber || ""}
                       onChange={(e) =>
                         updateFormField(
                           "profile.vendorInfo.licenseNumber",
@@ -485,7 +487,7 @@ const VendorProfilePage: React.FC = () => {
                     />
                   ) : (
                     <p className="text-sm">
-                      {formData.profile.vendorInfo.licenseNumber ||
+                      {formData.profile.vendorInfo?.licenseNumber ||
                         "Not provided"}
                     </p>
                   )}
@@ -496,7 +498,7 @@ const VendorProfilePage: React.FC = () => {
                   {isEditing ? (
                     <Input
                       id="gstNumber"
-                      value={formData.profile.vendorInfo.gstNumber || ""}
+                      value={formData.profile.vendorInfo?.gstNumber || ""}
                       onChange={(e) =>
                         updateFormField(
                           "profile.vendorInfo.gstNumber",
@@ -506,7 +508,7 @@ const VendorProfilePage: React.FC = () => {
                     />
                   ) : (
                     <p className="text-sm">
-                      {formData.profile.vendorInfo.gstNumber || "Not provided"}
+                      {formData.profile.vendorInfo?.gstNumber || "Not provided"}
                     </p>
                   )}
                 </div>
@@ -516,7 +518,7 @@ const VendorProfilePage: React.FC = () => {
                   {isEditing ? (
                     <Input
                       id="panNumber"
-                      value={formData.profile.vendorInfo.panNumber || ""}
+                      value={formData.profile.vendorInfo?.panNumber || ""}
                       onChange={(e) =>
                         updateFormField(
                           "profile.vendorInfo.panNumber",
@@ -526,7 +528,7 @@ const VendorProfilePage: React.FC = () => {
                     />
                   ) : (
                     <p className="text-sm">
-                      {formData.profile.vendorInfo.panNumber || "Not provided"}
+                      {formData.profile.vendorInfo?.panNumber || "Not provided"}
                     </p>
                   )}
                 </div>
@@ -546,16 +548,20 @@ const VendorProfilePage: React.FC = () => {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
-                  {formData.profile.vendorInfo.specializations.map(
-                    (spec, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="flex items-center"
-                      >
-                        {spec}
-                      </Badge>
+                  {(formData.profile.vendorInfo?.specializations || []).length > 0 ? (
+                    formData.profile.vendorInfo.specializations.map(
+                      (spec, index) => (
+                        <Badge
+                          key={index}
+                          variant="secondary"
+                          className="flex items-center"
+                        >
+                          {spec}
+                        </Badge>
+                      )
                     )
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No specializations added yet</p>
                   )}
                 </div>
               </div>
@@ -572,16 +578,20 @@ const VendorProfilePage: React.FC = () => {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
-                  {formData.profile.vendorInfo.serviceAreas.map(
-                    (area, index) => (
-                      <Badge
-                        key={index}
-                        variant="outline"
-                        className="flex items-center"
-                      >
-                        {area}
-                      </Badge>
+                  {(formData.profile.vendorInfo?.serviceAreas || []).length > 0 ? (
+                    formData.profile.vendorInfo.serviceAreas.map(
+                      (area, index) => (
+                        <Badge
+                          key={index}
+                          variant="outline"
+                          className="flex items-center"
+                        >
+                          {area}
+                        </Badge>
+                      )
                     )
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No service areas added yet</p>
                   )}
                 </div>
               </div>
@@ -597,31 +607,35 @@ const VendorProfilePage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {formData.profile.vendorInfo.certifications.map(
-                  (cert, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-blue-100 rounded-full">
-                          <Award className="w-4 h-4 text-blue-600" />
+                {(formData.profile.vendorInfo?.certifications || []).length > 0 ? (
+                  formData.profile.vendorInfo.certifications.map(
+                    (cert, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-blue-100 rounded-full">
+                            <Award className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium">{cert.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Issued by {cert.issuedBy} • {cert.date}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-medium">{cert.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Issued by {cert.issuedBy} ??? {cert.date}
-                          </p>
-                        </div>
+                        {cert.verified && (
+                          <Badge className="bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Verified
+                          </Badge>
+                        )}
                       </div>
-                      {cert.verified && (
-                        <Badge className="bg-green-100 text-green-800">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Verified
-                        </Badge>
-                      )}
-                    </div>
+                    )
                   )
+                ) : (
+                  <p className="text-sm text-muted-foreground">No certifications added yet</p>
                 )}
               </div>
             </CardContent>
@@ -647,8 +661,8 @@ const VendorProfilePage: React.FC = () => {
                 <Switch
                   id="emailNotifications"
                   checked={
-                    formData.profile.vendorInfo.vendorPreferences
-                      .emailNotifications
+                    formData.profile.vendorInfo?.vendorPreferences
+                      ?.emailNotifications || false
                   }
                   onCheckedChange={(checked) =>
                     updateFormField(
@@ -670,8 +684,8 @@ const VendorProfilePage: React.FC = () => {
                 <Switch
                   id="smsNotifications"
                   checked={
-                    formData.profile.vendorInfo.vendorPreferences
-                      .smsNotifications
+                    formData.profile.vendorInfo?.vendorPreferences
+                      ?.smsNotifications || false
                   }
                   onCheckedChange={(checked) =>
                     updateFormField(
@@ -693,7 +707,7 @@ const VendorProfilePage: React.FC = () => {
                 <Switch
                   id="leadAlerts"
                   checked={
-                    formData.profile.vendorInfo.vendorPreferences.leadAlerts
+                    formData.profile.vendorInfo?.vendorPreferences?.leadAlerts || false
                   }
                   onCheckedChange={(checked) =>
                     updateFormField(
@@ -715,7 +729,7 @@ const VendorProfilePage: React.FC = () => {
                 <Switch
                   id="weeklyReports"
                   checked={
-                    formData.profile.vendorInfo.vendorPreferences.weeklyReports
+                    formData.profile.vendorInfo?.vendorPreferences?.weeklyReports || false
                   }
                   onCheckedChange={(checked) =>
                     updateFormField(
@@ -737,8 +751,8 @@ const VendorProfilePage: React.FC = () => {
                 <Switch
                   id="marketingEmails"
                   checked={
-                    formData.profile.vendorInfo.vendorPreferences
-                      .marketingEmails
+                    formData.profile.vendorInfo?.vendorPreferences
+                      ?.marketingEmails || false
                   }
                   onCheckedChange={(checked) =>
                     updateFormField(
@@ -783,7 +797,7 @@ const VendorProfilePage: React.FC = () => {
 
               <div className="text-center">
                 <div className="text-2xl font-bold text-purple-600">
-                  {formData.profile.vendorInfo.rating.average.toFixed(1)}
+                  {(formData.profile.vendorInfo?.rating?.average || 0).toFixed(1)}
                 </div>
                 <div className="text-sm text-muted-foreground">
                   Average Rating

@@ -64,12 +64,18 @@ const VendorAnalytics = () => {
       const [statsData, metricsData, propertiesData] = await Promise.all([
         analyticsService.getOverviewStats(filters),
         analyticsService.getPerformanceMetrics(filters),
-        propertyService.getProperties({ page: 1, limit: 100 })
+        propertyService.getVendorProperties({ page: 1, limit: 100 }) // Use vendor-specific endpoint
       ]);
       
       setOverviewStats(statsData);
       setPerformanceMetrics(metricsData);
-      setProperties(propertiesData.success ? propertiesData.data.properties : []);
+      const vendorProperties = propertiesData.success ? propertiesData.data.properties : [];
+      setProperties(vendorProperties);
+      
+      // Reset filter if the selected property no longer exists
+      if (propertyFilter !== 'all' && !vendorProperties.find(p => p._id === propertyFilter)) {
+        setPropertyFilter('all');
+      }
     } catch (error) {
       console.error("Failed to load analytics data:", error);
       toast({
@@ -110,107 +116,155 @@ const VendorAnalytics = () => {
     );
   }
 
-  const formatOverviewStats = (stats: AnalyticsOverviewStats) => [
+  const formatOverviewStats = (stats: AnalyticsOverviewStats | null | undefined) => {
+    if (!stats) {
+      return [
+        {
+          title: "Total Views",
+          value: "0",
+          change: "0%",
+          changeType: "neutral" as "neutral" | "increase" | "decrease",
+          icon: Eye,
+          description: "Property page views"
+        },
+        {
+          title: "Leads Generated", 
+          value: "Coming Soon",
+          change: "",
+          changeType: "neutral" as "neutral" | "increase" | "decrease", 
+          icon: Clock,
+          description: "Feature in development"
+        },
+        {
+          title: "Phone Calls",
+          value: "0",
+          change: "0%",
+          changeType: "neutral" as "neutral" | "increase" | "decrease",
+          icon: Phone,
+          description: "Direct calls"
+        },
+        {
+          title: "Messages",
+          value: "0",
+          change: "0%",
+          changeType: "neutral" as "neutral" | "increase" | "decrease",
+          icon: MessageSquare,
+          description: "Chat inquiries"
+        },
+        {
+          title: "Total Revenue",
+          value: "₹0",
+          change: "0%",
+          changeType: "neutral" as "neutral" | "increase" | "decrease",
+          icon: DollarSign,
+          description: "All properties"
+        },
+        {
+          title: "Avg. Rating",
+          value: "0.0",
+          change: "0%",
+          changeType: "neutral" as "neutral" | "increase" | "decrease",
+          icon: Star,
+          description: "Customer reviews"
+        }
+      ];
+    }
+
+    // Helper function to format change percentage and determine type
+    const formatChange = (growth: number | undefined): { change: string; changeType: "increase" | "decrease" | "neutral" } => {
+      if (growth === undefined || growth === null || isNaN(growth)) {
+        return { change: "0%", changeType: "neutral" };
+      }
+      const formattedGrowth = growth.toFixed(1);
+      return {
+        change: `${growth > 0 ? "+" : ""}${formattedGrowth}%`,
+        changeType: growth > 0 ? "increase" : growth < 0 ? "decrease" : "neutral"
+      };
+    };
+
+    const viewsChange = formatChange(stats.trends?.views?.growth);
+    const leadsChange = formatChange(stats.trends?.leads?.growth);
+    const propertiesChange = formatChange(stats.trends?.properties?.growth);
+
+    return [
     {
       title: "Total Views",
       value: analyticsService.formatNumber(stats.totalViews),
-      change: "N/A", // Would come from historical comparison data
-      changeType: "neutral",
+      change: viewsChange.change,
+      changeType: viewsChange.changeType,
       icon: Eye,
       description: "Property page views"
     },
     {
       title: "Leads Generated", 
-      value: analyticsService.formatNumber(stats.totalLeads),
-      change: "N/A",
-      changeType: "neutral", 
-      icon: Users,
-      description: "This month"
+      value: "Coming Soon",
+      change: "",
+      changeType: "neutral" as "neutral" | "increase" | "decrease", 
+      icon: Clock,
+      description: "Feature in development"
     },
     {
       title: "Phone Calls",
       value: analyticsService.formatNumber(stats.totalCalls),
-      change: "N/A",
-      changeType: "neutral",
+      change: "0%", // Call trends not implemented yet
+      changeType: "neutral" as "neutral" | "increase" | "decrease",
       icon: Phone,
       description: "Direct calls"
     },
     {
       title: "Messages",
       value: analyticsService.formatNumber(stats.totalMessages),
-      change: "N/A",
-      changeType: "neutral",
+      change: "0%", // Message trends not implemented yet
+      changeType: "neutral" as "neutral" | "increase" | "decrease",
       icon: MessageSquare,
       description: "Chat inquiries"
     },
     {
-      title: "Revenue",
-      value: analyticsService.formatCurrency(stats.totalRevenue),
-      change: "N/A",
-      changeType: "neutral",
+      title: "Total Revenue",
+      value: `₹${analyticsService.formatNumber(stats.totalRevenue)}`,
+      change: "0%", // Revenue trends not implemented yet
+      changeType: "neutral" as "neutral" | "increase" | "decrease",
       icon: DollarSign,
-      description: "Commission earned"
-    },
-    {
-      title: "Active Properties",
-      value: analyticsService.formatNumber(stats.totalProperties),
-      change: "N/A",
-      changeType: "neutral",
-      icon: Home,
-      description: "Listed properties"
+      description: "All properties"
     },
     {
       title: "Avg. Rating",
-      value: stats.averageRating.toFixed(1),
-      change: "N/A",
-      changeType: "neutral",
+      value: stats.averageRating?.toFixed(1) || "0.0",
+      change: "0%", // Rating trends not implemented yet
+      changeType: "neutral" as "neutral" | "increase" | "decrease",
       icon: Star,
-      description: "Customer rating"
-    },
-    {
-      title: "Response Time",
-      value: stats.responseTime,
-      change: "N/A",
-      changeType: "neutral",
-      icon: Clock,
-      description: "Avg. response time"
+      description: "Customer reviews"
     }
-  ];
-
-  const displayStats = overviewStats ? formatOverviewStats(overviewStats) : [];
+    ];
+  };  const displayStats = overviewStats ? formatOverviewStats(overviewStats) : [];
 
   // Use real performance metrics data or fallback to default
-  const viewsData = performanceMetrics?.viewsData.length ? 
+  const viewsData = performanceMetrics?.viewsData?.length ? 
     performanceMetrics.viewsData : 
     analyticsService.generateDateRange(timeframe);
 
-  const leadsData = performanceMetrics?.leadsData.length ?
+  const leadsData = performanceMetrics?.leadsData?.length ?
     performanceMetrics.leadsData :
     analyticsService.generateDateRange(timeframe);
 
-  const conversionData = performanceMetrics?.conversionData.length ?
+  const conversionData = performanceMetrics?.conversionData?.length ?
     performanceMetrics.conversionData :
     analyticsService.generateDateRange(timeframe);
 
-  const revenueData = performanceMetrics?.revenueData.length ?
+  const revenueData = performanceMetrics?.revenueData?.length ?
     performanceMetrics.revenueData :
     analyticsService.generateDateRange(timeframe);
 
   const propertyPerformance = performanceMetrics?.propertyPerformance || [];
 
-  const leadSources = performanceMetrics?.leadSources.length ? 
-    performanceMetrics.leadSources : [
-    { name: "Website", value: 45, color: "#8884d8" },
-    { name: "Social Media", value: 25, color: "#82ca9d" },
-    { name: "Referrals", value: 20, color: "#ffc658" },
-    { name: "Direct Call", value: 10, color: "#ff7300" }
-  ];
+  const leadSources = performanceMetrics?.leadSources?.length ? 
+    performanceMetrics.leadSources : [];
 
-  const demographicsData = performanceMetrics?.demographicsData.length ?
+  const demographicsData = performanceMetrics?.demographicsData?.length ?
     performanceMetrics.demographicsData : [];
 
   // Generate engagement data from real metrics or use empty array
-  const engagementData = performanceMetrics?.viewsData.length ? 
+  const engagementData = performanceMetrics?.viewsData?.length ? 
     performanceMetrics.viewsData.slice(0, 7).map((item, index) => ({
       name: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index] || item.name,
       favorites: Math.floor(item.value * 0.1),
@@ -282,11 +336,11 @@ const VendorAnalytics = () => {
                   <div className="flex items-center mt-2">
                     {stat.changeType === "increase" ? (
                       <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                    ) : (
+                    ) : stat.changeType === "decrease" ? (
                       <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
-                    )}
+                    ) : null}
                     <span className={`text-sm ${
-                      stat.changeType === "increase" ? "text-green-500" : "text-red-500"
+                      stat.changeType === "increase" ? "text-green-500" : stat.changeType === "decrease" ? "text-red-500" : "text-muted-foreground"
                     }`}>
                       {stat.change}
                     </span>
@@ -340,35 +394,45 @@ const VendorAnalytics = () => {
             <CardTitle>Lead Sources</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={leadSources}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {leadSources.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+            {leadSources.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={leadSources}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {leadSources.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap justify-center gap-4 mt-4">
+                  {leadSources.map((source) => (
+                    <div key={source.name} className="flex items-center">
+                      <div 
+                        className="w-3 h-3 rounded-full mr-2" 
+                        style={{ backgroundColor: source.color }}
+                      />
+                      <span className="text-sm">{source.name} ({source.value}%)</span>
+                    </div>
                   ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex flex-wrap justify-center gap-4 mt-4">
-              {leadSources.map((source) => (
-                <div key={source.name} className="flex items-center">
-                  <div 
-                    className="w-3 h-3 rounded-full mr-2" 
-                    style={{ backgroundColor: source.color }}
-                  />
-                  <span className="text-sm">{source.name} ({source.value}%)</span>
                 </div>
-              ))}
-            </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                <BarChart3 className="w-16 h-16 text-gray-300 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">Coming Soon</h3>
+                <p className="text-sm text-gray-500">Lead source analytics will be available once data is collected</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -380,35 +444,66 @@ const VendorAnalytics = () => {
             <CardTitle>Property Performance</CardTitle>
             <Select value={propertyFilter} onValueChange={setPropertyFilter}>
               <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by type" />
+                <SelectValue placeholder="Filter by property" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Properties</SelectItem>
-                {properties.map((property) => (
-                  <SelectItem key={property._id} value={property._id}>
-                    {property.title.substring(0, 30)}...
+                {properties.length > 0 ? (
+                  properties.map((property) => (
+                    <SelectItem key={property._id} value={property._id}>
+                      {(property.title || 'Untitled Property').substring(0, 30)}
+                      {property.title && property.title.length > 30 ? '...' : ''}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="no-properties" disabled>
+                    No properties available
                   </SelectItem>
-                ))}
+                )}
               </SelectContent>
             </Select>
           </div>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={propertyPerformance}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="name" 
-                angle={-45}
-                textAnchor="end"
-                height={100}
-              />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="views" fill="#8884d8" name="Views" />
-              <Bar dataKey="leads" fill="#82ca9d" name="Leads" />
-            </BarChart>
-          </ResponsiveContainer>
+          {properties.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[400px] text-center">
+              <Home className="w-16 h-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Properties Found</h3>
+              <p className="text-muted-foreground max-w-md mb-4">
+                You haven't added any properties yet. Add your first property to start tracking performance analytics.
+              </p>
+              <Button 
+                onClick={() => window.location.href = '/vendor/properties/add'} 
+                className="mt-2"
+              >
+                Add Your First Property
+              </Button>
+            </div>
+          ) : propertyPerformance.length > 0 ? (
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={propertyPerformance}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="title" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="views" fill="#8884d8" name="Views" />
+                <Bar dataKey="leads" fill="#82ca9d" name="Leads" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-[400px] text-center">
+              <Clock className="w-16 h-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Coming Soon</h3>
+              <p className="text-muted-foreground max-w-md">
+                Property performance analytics will be available once your properties receive sufficient views and interactions.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -419,35 +514,43 @@ const VendorAnalytics = () => {
             <CardTitle>Weekly Engagement</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={engagementData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Line 
-                  type="monotone" 
-                  dataKey="favorites" 
-                  stroke="#8884d8" 
-                  strokeWidth={2}
-                  name="Favorites"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="shares" 
-                  stroke="#82ca9d" 
-                  strokeWidth={2}
-                  name="Shares"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="inquiries" 
-                  stroke="#ffc658" 
-                  strokeWidth={2}
-                  name="Inquiries"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {engagementData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={engagementData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line 
+                    type="monotone" 
+                    dataKey="favorites" 
+                    stroke="#8884d8" 
+                    strokeWidth={2}
+                    name="Favorites"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="shares" 
+                    stroke="#82ca9d" 
+                    strokeWidth={2}
+                    name="Shares"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="inquiries" 
+                    stroke="#ffc658" 
+                    strokeWidth={2}
+                    name="Inquiries"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                <Clock className="w-16 h-16 text-gray-300 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">Coming Soon</h3>
+                <p className="text-sm text-gray-500">Weekly engagement data will be displayed once sufficient activity is recorded</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -457,40 +560,50 @@ const VendorAnalytics = () => {
             <CardTitle>Top Performing Properties</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {topProperties.map((property, index) => (
-                <div key={property.propertyId || index} className="flex items-center space-x-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-16 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                      <Home className="w-6 h-6 text-gray-400" />
+            {topProperties.length > 0 ? (
+              <div className="space-y-4">
+                {topProperties.map((property, index) => (
+                  <div key={property.propertyId || index} className="flex items-center space-x-4">
+                    <div className="flex-shrink-0">
+                      <div className="w-16 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <Home className="w-6 h-6 text-gray-400" />
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-medium truncate">{property.title}</h4>
-                    <div className="flex items-center space-x-4 mt-1">
-                      <span className="flex items-center text-xs text-muted-foreground">
-                        <Eye className="w-3 h-3 mr-1" />
-                        {property.views}
-                      </span>
-                      <span className="flex items-center text-xs text-muted-foreground">
-                        <Users className="w-3 h-3 mr-1" />
-                        {property.leads}
-                      </span>
-                      <span className="flex items-center text-xs text-muted-foreground">
-                        <TrendingUp className="w-3 h-3 mr-1" />
-                        {property.conversionRate}%
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium truncate">{property.title || 'Untitled Property'}</h4>
+                      <div className="flex items-center space-x-4 mt-1">
+                        <span className="flex items-center text-xs text-muted-foreground">
+                          <Eye className="w-3 h-3 mr-1" />
+                          {property.views || 0}
+                        </span>
+                        <span className="flex items-center text-xs text-muted-foreground">
+                          <Users className="w-3 h-3 mr-1" />
+                          {property.leads || 0}
+                        </span>
+                        <span className="flex items-center text-xs text-muted-foreground">
+                          <TrendingUp className="w-3 h-3 mr-1" />
+                          {property.conversionRate || 0}%
+                        </span>
+                      </div>
                     </div>
+                    <Badge 
+                      variant="default"
+                      className="flex-shrink-0"
+                    >
+                      {analyticsService.formatCurrency(property.revenue || 0)}
+                    </Badge>
                   </div>
-                  <Badge 
-                    variant="default"
-                    className="flex-shrink-0"
-                  >
-                    {analyticsService.formatCurrency(property.revenue)}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-48 text-center">
+                <Home className="w-16 h-16 text-gray-300 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">No Data Available</h3>
+                <p className="text-sm text-gray-500">
+                  Top performing properties will appear here once you have property data and analytics
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -503,21 +616,21 @@ const VendorAnalytics = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h4 className="font-semibold text-blue-900 mb-2">Peak Activity Time</h4>
+              <h4 className="font-semibold text-blue-900 mb-2">Performance Analytics</h4>
               <p className="text-sm text-blue-700">
-                Most inquiries come between 6-9 PM. Consider posting new properties during this time.
+                Detailed analytics insights will be available once sufficient data is collected from your property listings.
               </p>
             </div>
             <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <h4 className="font-semibold text-green-900 mb-2">Best Performing Content</h4>
+              <h4 className="font-semibold text-green-900 mb-2">Content Optimization</h4>
               <p className="text-sm text-green-700">
-                Properties with virtual tours get 35% more leads. Add virtual tours to boost performance.
+                Recommendations for improving your property listings will appear here based on performance data.
               </p>
             </div>
             <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-              <h4 className="font-semibold text-amber-900 mb-2">Pricing Strategy</h4>
+              <h4 className="font-semibold text-amber-900 mb-2">Market Insights</h4>
               <p className="text-sm text-amber-700">
-                Your commercial properties have higher conversion rates. Consider focusing more on commercial listings.
+                Market trends and pricing strategy insights will be generated from your property performance data.
               </p>
             </div>
           </div>

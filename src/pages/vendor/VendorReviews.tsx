@@ -204,8 +204,14 @@ const VendorReviews = () => {
             </div>
             <p className="text-sm text-muted-foreground">Average Rating</p>
             <div className="flex items-center justify-center mt-2">
-              <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-              <span className="text-sm text-green-500">+0.3 this month</span>
+              {reviewStats?.recentReviews ? (
+                <>
+                  <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
+                  <span className="text-sm text-muted-foreground">Based on {reviewStats.recentReviews} recent reviews</span>
+                </>
+              ) : (
+                <span className="text-sm text-muted-foreground">No recent activity</span>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -255,7 +261,7 @@ const VendorReviews = () => {
       <Tabs defaultValue="all-reviews" className="space-y-6">
         <TabsList>
           <TabsTrigger value="all-reviews">All Reviews ({reviews.length})</TabsTrigger>
-          <TabsTrigger value="pending-replies">Pending Replies (2)</TabsTrigger>
+          <TabsTrigger value="pending-replies">Pending Replies ({reviewStats?.pendingReplies || 0})</TabsTrigger>
           <TabsTrigger value="insights">Insights</TabsTrigger>
         </TabsList>
 
@@ -469,15 +475,21 @@ const VendorReviews = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {["Professional", "Responsive", "Helpful", "Knowledgeable", "Efficient"].map((keyword, index) => (
-                    <div key={keyword} className="flex justify-between items-center">
-                      <span className="text-sm">{keyword}</span>
-                      <div className="flex items-center space-x-2">
-                        <Progress value={90 - (index * 15)} className="w-20 h-2" />
-                        <span className="text-xs text-muted-foreground">{25 - (index * 3)}</span>
+                  {reviewStats?.commonKeywords && reviewStats.commonKeywords.length > 0 ? (
+                    reviewStats.commonKeywords.map((keyword, index) => (
+                      <div key={keyword} className="flex justify-between items-center">
+                        <span className="text-sm">{keyword}</span>
+                        <div className="flex items-center space-x-2">
+                          <Progress value={Math.max(20, 100 - (index * 15))} className="w-20 h-2" />
+                          <span className="text-xs text-muted-foreground">{Math.max(1, 25 - (index * 3))}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No keyword data available yet. Keywords will appear as you receive more reviews.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -488,20 +500,38 @@ const VendorReviews = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-green-800">Positive Trend</p>
-                      <p className="text-sm text-green-600">Rating improved by 0.3 points</p>
+                  {reviewStats?.totalReviews && reviewStats.totalReviews > 0 ? (
+                    <>
+                      <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <div>
+                          <p className="font-medium text-green-800">Current Rating</p>
+                          <p className="text-sm text-green-600">
+                            {reviewStats.averageRating.toFixed(1)} stars from {reviewStats.totalReviews} reviews
+                          </p>
+                        </div>
+                        <Star className="w-8 h-8 text-green-600" />
+                      </div>
+                      {reviewStats.recentReviews > 0 && (
+                        <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-blue-800">Recent Activity</p>
+                            <p className="text-sm text-blue-600">
+                              {reviewStats.recentReviews} new reviews this month
+                            </p>
+                          </div>
+                          <MessageSquare className="w-8 h-8 text-blue-600" />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground">No reviews yet</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Trends will appear once you start receiving reviews
+                      </p>
                     </div>
-                    <TrendingUp className="w-8 h-8 text-green-600" />
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-blue-800">Response Time</p>
-                      <p className="text-sm text-blue-600">Average reply time: 2.3 hours</p>
-                    </div>
-                    <MessageSquare className="w-8 h-8 text-blue-600" />
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
