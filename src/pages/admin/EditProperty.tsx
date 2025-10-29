@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, X, Loader2, Upload, MapPin } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import propertyService, { Property } from "@/services/propertyService";
-import { pincodeService } from "@/services/postcodeService";
+import EnhancedAddressInput from "@/components/form/EnhancedAddressInput";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -56,7 +56,7 @@ const EditProperty = () => {
   const { toast } = useToast();
   const [property, setProperty] = useState<Property | null>(null);
   const [uploadedPhotos, setUploadedPhotos] = useState<File[]>([]);
-  const [isLoadingPostcode, setIsLoadingPostcode] = useState(false);
+
 
   const form = useForm<PropertyFormValues>({
     resolver: zodResolver(propertyFormSchema),
@@ -114,56 +114,7 @@ const EditProperty = () => {
     }
   };
 
-  const handlePincodeChange = async (pincode: string) => {
-    // Update the pincode field first
-    form.setValue('pincode', pincode);
-    
-    // Only fetch location if pincode is valid length (6 digits for India)
-    if (pincode.length === 6 && /^\d{6}$/.test(pincode)) {
-      setIsLoadingPostcode(true);
-      
-      try {
-        const result = await pincodeService.getLocationByPincode(pincode);
-        
-        if (result.success && result.data) {
-          // Auto-fill location fields based on pincode data
-          if (result.data.district) {
-            form.setValue('city', result.data.district);
-          }
-          if (result.data.state) {
-            form.setValue('state', result.data.state);
-          }
-          if (result.data.area) {
-            // If locality is empty, fill it with area name
-            const currentLocality = form.getValues('locality');
-            if (!currentLocality) {
-              form.setValue('locality', result.data.area);
-            }
-          }
-          
-          toast({
-            title: "Location Found ✓",
-            description: `Auto-filled: ${result.data.area}, ${result.data.district}, ${result.data.state}`,
-          });
-        } else {
-          toast({
-            title: "Pincode not found",
-            description: "Please enter location details manually",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching pincode data:', error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch location details. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoadingPostcode(false);
-      }
-    }
-  };
+
   
 
   return (
@@ -486,101 +437,41 @@ const EditProperty = () => {
                 </div>
 
                 {/* Property Location */}
-                <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
-                  <h2 className="text-xl font-semibold text-foreground mb-4">Property Location</h2>
+                <div className="bg-transparent rounded-lg border border-primary/20 p-6 shadow-sm">
+                  <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-primary" />
+                    Property Location
+                  </h2>
                   
                   <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="street"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Street / Society (Optional)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter street or society name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                    <p className="text-sm text-muted-foreground">
+                      Enter location details or start with pincode for instant auto-completion
+                    </p>
+                    
+                    <EnhancedAddressInput
+                      onLocationChange={(locationData) => {
+                        // Update form fields based on location data
+                        if (locationData.pincode) {
+                          form.setValue('pincode', locationData.pincode);
+                        }
+                        if (locationData.state) {
+                          form.setValue('state', locationData.state);
+                        }
+                        if (locationData.city || locationData.district) {
+                          form.setValue('city', locationData.city || locationData.district || '');
+                        }
+                        if (locationData.locationName) {
+                          form.setValue('locality', locationData.locationName);
+                        }
+                      }}
+                      initialData={{
+                        pincode: form.watch('pincode') || '',
+                        state: form.watch('state') || '',
+                        city: form.watch('city') || '',
+                        locationName: form.watch('locality') || ''
+                      }}
+                      showPincodeFirst={true}
                     />
-
-                    <FormField
-                      control={form.control}
-                      name="locality"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Locality *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter locality" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="city"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>City *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter city" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="state"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>State *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter state" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="border-t pt-4 mt-6">
-                      <p className="text-sm text-muted-foreground mb-3 flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        Enter pincode to auto-fill location details
-                      </p>
-                      <FormField
-                        control={form.control}
-                        name="pincode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Pincode *</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input 
-                                  placeholder="Enter 6-digit pincode" 
-                                  {...field}
-                                  onChange={(e) => {
-                                    field.onChange(e);
-                                    handlePincodeChange(e.target.value);
-                                  }}
-                                />
-                                {isLoadingPostcode && (
-                                  <div className="absolute right-3 top-3">
-                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                  </div>
-                                )}
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
                   </div>
                 </div>
 

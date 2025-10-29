@@ -605,6 +605,67 @@ class LocationService {
     }
     return pincode.length >= 5; // Basic validation for other countries
   }
+
+  // New autocomplete methods for the updated UI with enhanced functionality
+  async getCountrySuggestions(query: string, limit: number = 10): Promise<{success: boolean; suggestions: any[]}> {
+    try {
+      const response = await this.makeRequest<{success: boolean; suggestions: any[]}>(`/locations/autocomplete/countries?q=${encodeURIComponent(query)}&limit=${limit}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching country suggestions:', error);
+      return { success: false, suggestions: [] };
+    }
+  }
+
+  async getStateSuggestions(query: string, countryCode: string = 'IN', limit: number = 10): Promise<{success: boolean; suggestions: any[]}> {
+    try {
+      const response = await this.makeRequest<{success: boolean; suggestions: any[]}>(`/locations/autocomplete/states?q=${encodeURIComponent(query)}&country=${countryCode}&limit=${limit}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching state suggestions:', error);
+      return { success: false, suggestions: [] };
+    }
+  }
+
+  async getDistrictSuggestions(query: string, stateCode: string = '', limit: number = 10): Promise<{success: boolean; suggestions: any[]}> {
+    try {
+      const response = await this.makeRequest<{success: boolean; suggestions: any[]}>(`/locations/autocomplete/districts?q=${encodeURIComponent(query)}&stateCode=${stateCode}&limit=${limit}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching district suggestions:', error);
+      return { success: false, suggestions: [] };
+    }
+  }
+
+  async getCitySuggestions(query: string, stateCode: string = '', districtId: string = '', limit: number = 10): Promise<{success: boolean; suggestions: any[]}> {
+    try {
+      const response = await this.makeRequest<{success: boolean; suggestions: any[]}>(`/locations/autocomplete/cities?q=${encodeURIComponent(query)}&stateCode=${stateCode}&districtId=${districtId}&limit=${limit}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching city suggestions:', error);
+      return { success: false, suggestions: [] };
+    }
+  }
+
+  async searchAddress(query: string, limit: number = 10): Promise<{success: boolean; results: any[]}> {
+    try {
+      const response = await this.makeRequest<{success: boolean; results: any[]}>(`/locations/address-search?q=${encodeURIComponent(query)}&limit=${limit}`);
+      return response;
+    } catch (error) {
+      console.error('Error searching address:', error);
+      return { success: false, results: [] };
+    }
+  }
+
+  async validatePincode(pincode: string): Promise<{success: boolean; valid: boolean; message: string}> {
+    try {
+      const response = await this.makeRequest<{success: boolean; valid: boolean; message: string}>(`/locations/validate-pincode/${pincode}`);
+      return response;
+    } catch (error) {
+      console.error('Error validating pincode:', error);
+      return { success: false, valid: false, message: 'Validation failed' };
+    }
+  }
 }
 
 export const locationService = new LocationService();

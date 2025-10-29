@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Upload } from "lucide-react";
+import { ArrowLeft, Upload, MapPin } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import propertyService from "@/services/propertyService";
 import { z } from "zod";
@@ -15,6 +15,7 @@ import { useForm } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import EnhancedAddressInput from "@/components/form/EnhancedAddressInput";
 
 const propertyFormSchema = z.object({
   // Admin/Owner info
@@ -503,69 +504,91 @@ const AddProperty = () => {
                 </div>
 
                 {/* Location */}
-                <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
-                  <h2 className="text-xl font-semibold text-foreground mb-4">Location</h2>
+                <div className="bg-transparent rounded-lg border border-primary/20 p-6 shadow-sm">
+                  <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-primary" />
+                    Smart Location Finder
+                  </h2>
+                  <p className="text-muted-foreground mb-6 text-sm">
+                    Enter location details or start with pincode for instant auto-completion
+                  </p>
                   
-                  <div className="space-y-4">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="city"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>City *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter city" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                  <EnhancedAddressInput
+                    onLocationChange={(locationData) => {
+                      // Update form fields when location changes
+                      if (locationData.city) {
+                        form.setValue('city', locationData.city);
+                      }
+                      if (locationData.district) {
+                        form.setValue('locality', locationData.district);
+                      }
+                      if (locationData.pincode) {
+                        form.setValue('pincode', locationData.pincode);
+                      }
+                      if (locationData.formattedAddress) {
+                        form.setValue('street', locationData.formattedAddress);
+                      }
+                    }}
+                    initialData={{
+                      city: form.getValues('city'),
+                      district: form.getValues('locality'),
+                      pincode: form.getValues('pincode'),
+                      formattedAddress: form.getValues('street')
+                    }}
+                    showPincodeFirst={true}
+                    className="w-full"
+                  />
 
-                      <FormField
-                        control={form.control}
-                        name="locality"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Locality *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter locality" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="street"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Street Address</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter street address" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="pincode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Pincode *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="6 digit pincode" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                  {/* Hidden form fields to maintain form validation */}
+                  <div className="hidden">
+                    <FormField
+                      control={form.control}
+                      name="city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="locality"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="street"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="pincode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 </div>
 

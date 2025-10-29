@@ -20,7 +20,8 @@ import {
   Eye,
   Crown,
   Lock,
-  Loader2
+  Loader2,
+  Search
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, Link } from "react-router-dom";
@@ -28,8 +29,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { vendorService } from "@/services/vendorService";
 import { locationService, type Country, type State, type District, type City, type Taluk, type LocationName } from "@/services/locationService";
-import { pincodeService } from "@/services/postcodeService";
-import SearchableLocationDropdown from "@/components/form-components/SearchableLocationDropdown";
+import EnhancedAddressInput from "@/components/form/EnhancedAddressInput";
+import AutocompleteInput from "@/components/form/AutocompleteInput";
 import { toast } from "@/hooks/use-toast";
 
 const AddProperty = () => {
@@ -426,7 +427,7 @@ const AddProperty = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Enhanced pincode change handler with auto-fill and dropdown integration
+  // Enhanced pincode change handler with LocationIQ integration
   const handlePincodeChange = async (pincode: string) => {
     setFormData(prev => ({ ...prev, pincode }));
 
@@ -435,27 +436,31 @@ const AddProperty = () => {
       setLocationLoading(prev => ({ ...prev, pincode: true }));
       
       try {
-        const result = await pincodeService.getLocationByPincode(pincode);
+        // Use the new LocationIQ-powered API endpoint
+        const response = await fetch(`/api/locations/pincode/${pincode}`);
+        const result = await response.json();
         
         if (result.success && result.data) {
-          // Auto-detect and set location dropdowns based on enhanced pincode data
+          const locationData = result.data;
+          
+          // Auto-detect and set location dropdowns based on LocationIQ data
           
           // 1. Set country to India
-          if (result.data.countryCode) {
-            setFormData(prev => ({ ...prev, country: result.data.countryCode }));
+          if (locationData.countryCode) {
+            setFormData(prev => ({ ...prev, country: locationData.countryCode }));
             
             // Load states for India
-            const statesData = await locationService.getStatesByCountry(result.data.countryCode);
+            const statesData = await locationService.getStatesByCountry(locationData.countryCode);
             setStates(statesData);
             
             // 2. Find and set matching state using state code or name
             let matchingState = null;
-            if (result.data.stateCode) {
-              matchingState = statesData.find(s => s.stateCode === result.data.stateCode);
+            if (locationData.stateCode) {
+              matchingState = statesData.find(s => s.stateCode === locationData.stateCode);
             }
-            if (!matchingState && result.data.state) {
+            if (!matchingState && locationData.state) {
               matchingState = statesData.find(s => 
-                s.name.toLowerCase() === result.data.state.toLowerCase()
+                s.name.toLowerCase() === locationData.state.toLowerCase()
               );
             }
             
@@ -463,26 +468,26 @@ const AddProperty = () => {
               setFormData(prev => ({ ...prev, state: matchingState.stateCode }));
               
               // Load districts for the detected state
-              const districtsData = await locationService.getDistrictsByState(matchingState.stateCode, result.data.countryCode);
+              const districtsData = await locationService.getDistrictsByState(matchingState.stateCode, locationData.countryCode);
               setDistricts(districtsData);
               
               // 3. Find and set matching district
               const matchingDistrict = districtsData.find(d => 
-                d.name.toLowerCase() === result.data.district.toLowerCase() ||
-                d.name.toLowerCase() === result.data.city?.toLowerCase()
+                d.name.toLowerCase() === locationData.district?.toLowerCase() ||
+                d.name.toLowerCase() === locationData.city?.toLowerCase()
               );
               
               if (matchingDistrict) {
                 setFormData(prev => ({ ...prev, district: matchingDistrict.id }));
                 
                 // Load cities for the detected district
-                const citiesData = await locationService.getCitiesByDistrict(matchingDistrict.id, matchingState.stateCode, result.data.countryCode);
+                const citiesData = await locationService.getCitiesByDistrict(matchingDistrict.id, matchingState.stateCode, locationData.countryCode);
                 setCities(citiesData);
                 
-                // 4. Find matching city (district name often matches city name in Indian context)
+                // 4. Find matching city
                 let matchingCity = citiesData.find(c => 
-                  c.name.toLowerCase() === result.data.city?.toLowerCase() ||
-                  c.name.toLowerCase() === result.data.district.toLowerCase()
+                  c.name.toLowerCase() === locationData.city?.toLowerCase() ||
+                  c.name.toLowerCase() === locationData.district?.toLowerCase()
                 );
                 
                 if (!matchingCity && citiesData.length > 0) {
@@ -498,10 +503,10 @@ const AddProperty = () => {
                   
                   // 5. Find matching taluk based on area/block data
                   let matchingTaluk = null;
-                  if (result.data.taluk) {
+                  if (locationData.taluk) {
                     matchingTaluk = taluksData.find(t => 
-                      t.name.toLowerCase().includes(result.data.taluk.toLowerCase()) ||
-                      result.data.taluk.toLowerCase().includes(t.name.toLowerCase())
+                      t.name.toLowerCase().includes(locationData.taluk.toLowerCase()) ||
+                      locationData.taluk.toLowerCase().includes(t.name.toLowerCase())
                     );
                   }
                   
@@ -518,17 +523,17 @@ const AddProperty = () => {
                     
                     // 6. Find matching location name based on locality/area
                     let matchingLocationName = null;
-                    if (result.data.locationName) {
+                    if (locationData.locationName) {
                       matchingLocationName = locationNamesData.find(l => 
-                        l.name.toLowerCase().includes(result.data.locationName.toLowerCase()) ||
-                        result.data.locationName.toLowerCase().includes(l.name.toLowerCase())
+                        l.name.toLowerCase().includes(locationData.locationName.toLowerCase()) ||
+                        locationData.locationName.toLowerCase().includes(l.name.toLowerCase())
                       );
                     }
                     
-                    if (!matchingLocationName && result.data.locality) {
+                    if (!matchingLocationName && locationData.area) {
                       matchingLocationName = locationNamesData.find(l => 
-                        l.name.toLowerCase().includes(result.data.locality.toLowerCase()) ||
-                        result.data.locality.toLowerCase().includes(l.name.toLowerCase())
+                        l.name.toLowerCase().includes(locationData.area.toLowerCase()) ||
+                        locationData.area.toLowerCase().includes(l.name.toLowerCase())
                       );
                     }
                     
@@ -547,7 +552,7 @@ const AddProperty = () => {
 
           toast({
             title: "Location Auto-Detected ✓",
-            description: `Found: ${result.data.area}, ${result.data.district}, ${result.data.state}`,
+            description: `Found: ${locationData.area || locationData.locationName}, ${locationData.district}, ${locationData.state}`,
           });
         } else {
           toast({
@@ -577,6 +582,8 @@ const AddProperty = () => {
         : [...prev.amenities, amenity]
     }));
   };
+
+
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -661,217 +668,63 @@ const AddProperty = () => {
       case 2:
         return (
           <div className="space-y-6">
+            <div className="border border-primary/20 rounded-lg p-6 bg-transparent">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-primary" />
+                  Smart Location Finder
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Enter location details or start with pincode for instant auto-completion
+                </p>
+              </div>
+              
+              <EnhancedAddressInput
+                onLocationChange={(locationData) => {
+                  const updatedFormData = {
+                    ...formData,
+                    country: locationData.countryCode || formData.country,
+                    state: locationData.stateCode || formData.state,
+                    district: locationData.district || formData.district,
+                    city: locationData.city || formData.city,
+                    taluk: locationData.taluk || formData.taluk,
+                    locationName: locationData.locationName || formData.locationName,
+                    pincode: locationData.pincode || formData.pincode,
+                    address: locationData.formattedAddress || formData.address
+                  };
+                  setFormData(updatedFormData);
+                }}
+                initialData={{
+                  country: formData.country,
+                  countryCode: formData.country,
+                  state: formData.state,
+                  stateCode: formData.state,
+                  district: formData.district,
+                  city: formData.city,
+                  taluk: formData.taluk,
+                  locationName: formData.locationName,
+                  pincode: formData.pincode,
+                  formattedAddress: formData.address
+                }}
+                showPincodeFirst={true}
+                className="w-full"
+              />
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="address">Complete Address *</Label>
+              <Label htmlFor="address">Complete Address</Label>
               <Textarea
                 id="address"
-                placeholder="Enter complete address with landmark"
+                placeholder="Enter complete address with landmark (will be auto-filled from location details above)"
                 rows={3}
                 value={formData.address}
                 onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
               />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="country">Country *</Label>
-                <Select 
-                  value={formData.country} 
-                  onValueChange={(value) => handleLocationChange('country', value)}
-                  disabled={locationLoading.countries}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={locationLoading.countries ? "Loading..." : "Select country"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {countries.map((country) => (
-                      <SelectItem key={country.code} value={country.code}>
-                        <span className="flex items-center">
-                          <span className="mr-2">{country.flag}</span>
-                          {country.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="state">State/Province *</Label>
-                <SearchableLocationDropdown
-                  options={states.map(state => ({
-                    value: state.stateCode,
-                    label: state.name,
-                    searchText: state.name
-                  }))}
-                  value={formData.state}
-                  onValueChange={(value) => handleLocationChange('state', value)}
-                  placeholder={
-                    !formData.country ? "Select country first" : 
-                    locationLoading.states ? "Loading..." : 
-                    "Select state"
-                  }
-                  disabled={!formData.country || locationLoading.states}
-                  loading={locationLoading.states}
-                  searchPlaceholder="Search states..."
-                  emptyText="No states found."
-                />
-                {locationLoading.states && (
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                    Loading states...
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="district">District *</Label>
-                <SearchableLocationDropdown
-                  options={districts.map(district => ({
-                    value: district.id,
-                    label: district.name,
-                    searchText: `${district.name}, ${district.stateCode}`
-                  }))}
-                  value={formData.district}
-                  onValueChange={(value) => handleLocationChange('district', value)}
-                  placeholder={
-                    !formData.state ? "Select state first" : 
-                    locationLoading.districts ? "Loading..." : 
-                    "Select district"
-                  }
-                  disabled={!formData.state || locationLoading.districts}
-                  loading={locationLoading.districts}
-                  searchPlaceholder="Search districts..."
-                  emptyText="No districts found."
-                />
-                {locationLoading.districts && (
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                    Loading districts...
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="city">City *</Label>
-                <SearchableLocationDropdown
-                  options={cities.map(city => ({
-                    value: city.id,
-                    label: city.name,
-                    searchText: `${city.name}, ${city.districtId}`
-                  }))}
-                  value={formData.city}
-                  onValueChange={(value) => handleLocationChange('city', value)}
-                  placeholder={
-                    !formData.district ? "Select district first" : 
-                    locationLoading.cities ? "Loading..." : 
-                    "Select city"
-                  }
-                  disabled={!formData.district || locationLoading.cities}
-                  loading={locationLoading.cities}
-                  searchPlaceholder="Search cities..."
-                  emptyText="No cities found."
-                />
-                {locationLoading.cities && (
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                    Loading cities...
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="taluk">Taluk/Block *</Label>
-                <SearchableLocationDropdown
-                  options={taluks.map(taluk => ({
-                    value: taluk.id,
-                    label: taluk.name,
-                    searchText: `${taluk.name}, ${taluk.cityId}`
-                  }))}
-                  value={formData.taluk}
-                  onValueChange={(value) => handleLocationChange('taluk', value)}
-                  placeholder={
-                    !formData.city ? "Select city first" : 
-                    locationLoading.taluks ? "Loading..." : 
-                    "Select taluk"
-                  }
-                  disabled={!formData.city || locationLoading.taluks}
-                  loading={locationLoading.taluks}
-                  searchPlaceholder="Search taluks..."
-                  emptyText="No taluks found."
-                />
-                {locationLoading.taluks && (
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                    Loading taluks...
-                  </div>
-                )}
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="locationName">Location Name (Village/Urban) *</Label>
-                <SearchableLocationDropdown
-                  options={locationNames.map(locationName => ({
-                    value: locationName.id,
-                    label: locationName.name,
-                    searchText: locationName.pincode ? `${locationName.name}, ${locationName.type}, Pincode: ${locationName.pincode}` : `${locationName.name}, ${locationName.type}`
-                  }))}
-                  value={formData.locationName}
-                  onValueChange={(value) => handleLocationChange('locationName', value)}
-                  placeholder={
-                    !formData.taluk ? "Select taluk first" : 
-                    locationLoading.locationNames ? "Loading..." : 
-                    "Select location"
-                  }
-                  disabled={!formData.taluk || locationLoading.locationNames}
-                  loading={locationLoading.locationNames}
-                  searchPlaceholder="Search locations..."
-                  emptyText="No locations found."
-                />
-                {locationLoading.locationNames && (
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                    Loading locations...
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="border-t pt-4 mt-6">
-              <p className="text-sm text-muted-foreground mb-3 flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                Enter pincode to auto-detect and fill all location dropdowns above
+              <p className="text-xs text-muted-foreground">
+                This will be automatically filled when you enter location details above
               </p>
-              <div className="space-y-2">
-                <Label htmlFor="pincode">Pincode/ZIP Code *</Label>
-                <div className="relative">
-                  <Input
-                    id="pincode"
-                    placeholder="Enter 6-digit pincode to auto-fill location dropdowns"
-                    value={formData.pincode}
-                    onChange={(e) => handlePincodeChange(e.target.value)}
-                  />
-                  {locationLoading.pincode && (
-                    <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  🎯 Smart Feature: Enter pincode to automatically detect and fill all location dropdowns above
-                </p>
-              </div>
             </div>
 
-            {formData.pincode && !/^\d{6}$/.test(formData.pincode) && (
-              <Alert>
-                <AlertDescription>
-                  Please enter a valid 6-digit Indian pincode for auto-detection.
-                </AlertDescription>
-              </Alert>
-            )}
           </div>
         );
 
