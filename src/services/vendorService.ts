@@ -15,10 +15,17 @@ export interface VendorProfile {
     bio?: string;
     address: {
       street?: string;
+      area?: string;
       city?: string;
       state?: string;
+      district?: string;
       zipCode?: string;
       country?: string;
+      countryCode?: string;
+      stateCode?: string;
+      districtCode?: string;
+      cityCode?: string;
+      landmark?: string;
     };
     vendorInfo: {
       licenseNumber?: string;
@@ -69,10 +76,17 @@ export interface UpdateVendorData {
     bio?: string;
     address?: {
       street?: string;
+      area?: string;
       city?: string;
       state?: string;
+      district?: string;
       zipCode?: string;
       country?: string;
+      countryCode?: string;
+      stateCode?: string;
+      districtCode?: string;
+      cityCode?: string;
+      landmark?: string;
     };
     vendorInfo?: {
       licenseNumber?: string;

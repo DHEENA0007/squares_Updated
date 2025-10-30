@@ -29,8 +29,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { vendorService } from "@/services/vendorService";
 import { locationService, type Country, type State, type District, type City, type Taluk, type LocationName } from "@/services/locationService";
-import EnhancedAddressInput from "@/components/form/EnhancedAddressInput";
-import AutocompleteInput from "@/components/form/AutocompleteInput";
+import EnhancedLocationSelector from "@/components/vendor/EnhancedLocationSelector";
 import { toast } from "@/hooks/use-toast";
 
 const AddProperty = () => {
@@ -47,12 +46,14 @@ const AddProperty = () => {
     
     // Location
     address: "",
-    country: "",
+    country: "India",
+    countryCode: "IN",
     state: "",
+    stateCode: "",
     district: "",
+    districtCode: "",
     city: "",
-    taluk: "",
-    locationName: "",
+    cityCode: "",
     pincode: "",
     
     // Property Details
@@ -675,39 +676,54 @@ const AddProperty = () => {
                   Smart Location Finder
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Enter location details or start with pincode for instant auto-completion
+                  Select your property location from the dropdown menus
                 </p>
               </div>
               
-              <EnhancedAddressInput
-                onLocationChange={(locationData) => {
-                  const updatedFormData = {
-                    ...formData,
-                    country: locationData.countryCode || formData.country,
-                    state: locationData.stateCode || formData.state,
-                    district: locationData.district || formData.district,
-                    city: locationData.city || formData.city,
-                    taluk: locationData.taluk || formData.taluk,
-                    locationName: locationData.locationName || formData.locationName,
-                    pincode: locationData.pincode || formData.pincode,
-                    address: locationData.formattedAddress || formData.address
-                  };
-                  setFormData(updatedFormData);
-                }}
-                initialData={{
+              <EnhancedLocationSelector
+                value={{
                   country: formData.country,
-                  countryCode: formData.country,
+                  countryCode: formData.countryCode,
                   state: formData.state,
-                  stateCode: formData.state,
+                  stateCode: formData.stateCode,
                   district: formData.district,
+                  districtCode: formData.districtCode,
                   city: formData.city,
-                  taluk: formData.taluk,
-                  locationName: formData.locationName,
-                  pincode: formData.pincode,
-                  formattedAddress: formData.address
+                  cityCode: formData.cityCode
                 }}
-                showPincodeFirst={true}
+                onChange={(locationData) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    country: locationData.country || "India",
+                    countryCode: locationData.countryCode || "IN",
+                    state: locationData.state || "",
+                    stateCode: locationData.stateCode || "",
+                    district: locationData.district || "",
+                    districtCode: locationData.districtCode || "",
+                    city: locationData.city || "",
+                    cityCode: locationData.cityCode || ""
+                  }));
+                }}
+                showLabels={true}
+                placeholder={{
+                  state: "Select property state...",
+                  district: "Select property district...",
+                  city: "Select property city..."
+                }}
                 className="w-full"
+                showValidation={true}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pincode">PIN Code</Label>
+              <Input
+                id="pincode"
+                placeholder="Enter 6-digit PIN code (e.g., 400001)"
+                maxLength={6}
+                pattern="[0-9]{6}"
+                value={formData.pincode}
+                onChange={(e) => setFormData(prev => ({ ...prev, pincode: e.target.value }))}
               />
             </div>
 

@@ -90,6 +90,18 @@ const vendorSchema = new mongoose.Schema({
     serviceAreas: [{
       city: String,
       state: String,
+      district: String,
+      country: {
+        type: String,
+        default: 'India'
+      },
+      countryCode: {
+        type: String,
+        default: 'IN'
+      },
+      stateCode: String,
+      districtCode: String,
+      cityCode: String,
       pincode: String,
       locality: String
     }],
@@ -125,10 +137,18 @@ const vendorSchema = new mongoose.Schema({
       area: String,
       city: String,
       state: String,
+      district: String,
       country: {
         type: String,
         default: 'India'
       },
+      countryCode: {
+        type: String,
+        default: 'IN'
+      },
+      stateCode: String,
+      districtCode: String,
+      cityCode: String,
       pincode: String,
       landmark: String
     },
@@ -359,7 +379,12 @@ const vendorSchema = new mongoose.Schema({
       area: String,
       city: String,
       state: String,
+      district: String,
       country: String,
+      countryCode: String,
+      stateCode: String,
+      districtCode: String,
+      cityCode: String,
       pincode: String
     }
   },

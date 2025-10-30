@@ -103,7 +103,12 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
           area: '',
           city: businessInfo?.city || '',
           state: businessInfo?.state || '',
+          district: businessInfo?.district || '',
           country: 'India',
+          countryCode: businessInfo?.countryCode || 'IN',
+          stateCode: businessInfo?.stateCode || '',
+          districtCode: businessInfo?.districtCode || '',
+          cityCode: businessInfo?.cityCode || '',
           pincode: businessInfo?.pincode || '',
           landmark: ''
         },

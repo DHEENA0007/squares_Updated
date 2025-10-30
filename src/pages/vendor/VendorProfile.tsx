@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { vendorService, type VendorProfile } from "@/services/vendorService";
+import EnhancedLocationSelector from "@/components/vendor/EnhancedLocationSelector";
 
 const VendorProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -320,7 +321,7 @@ const VendorProfilePage: React.FC = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
                   <Label htmlFor="street">Street Address</Label>
                   {isEditing ? (
@@ -330,6 +331,7 @@ const VendorProfilePage: React.FC = () => {
                       onChange={(e) =>
                         updateFormField("profile.address.street", e.target.value)
                       }
+                      placeholder="Enter street address..."
                     />
                   ) : (
                     <p className="text-sm">
@@ -338,42 +340,66 @@ const VendorProfilePage: React.FC = () => {
                   )}
                 </div>
 
-                <div>
-                  <Label htmlFor="city">City</Label>
-                  {isEditing ? (
-                    <Input
-                      id="city"
-                      value={formData.profile.address?.city || ""}
-                      onChange={(e) =>
-                        updateFormField("profile.address.city", e.target.value)
-                      }
-                    />
-                  ) : (
-                    <p className="text-sm">
-                      {formData.profile.address?.city || "Not provided"}
-                    </p>
-                  )}
-                </div>
+                {isEditing ? (
+                  <div>
+                    <Label className="text-sm font-medium">Location Details</Label>
+                    <div className="mt-2">
+                      <EnhancedLocationSelector
+                        value={{
+                          country: formData.profile.address?.country || "India",
+                          countryCode: "IN",
+                          state: formData.profile.address?.state || "",
+                          stateCode: formData.profile.address?.stateCode || "",
+                          district: formData.profile.address?.district || "",
+                          districtCode: formData.profile.address?.districtCode || "",
+                          city: formData.profile.address?.city || "",
+                          cityCode: formData.profile.address?.cityCode || ""
+                        }}
+                        onChange={(locationData) => {
+                          updateFormField("profile.address.country", locationData.country || "India");
+                          updateFormField("profile.address.countryCode", locationData.countryCode || "IN");
+                          updateFormField("profile.address.state", locationData.state || "");
+                          updateFormField("profile.address.stateCode", locationData.stateCode || "");
+                          updateFormField("profile.address.district", locationData.district || "");
+                          updateFormField("profile.address.districtCode", locationData.districtCode || "");
+                          updateFormField("profile.address.city", locationData.city || "");
+                          updateFormField("profile.address.cityCode", locationData.cityCode || "");
+                        }}
+                        showLabels={false}
+                        placeholder={{
+                          state: "Select your state...",
+                          district: "Select your district...",
+                          city: "Select your city..."
+                        }}
+                        showValidation={true}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>State</Label>
+                      <p className="text-sm">
+                        {formData.profile.address?.state || "Not provided"}
+                      </p>
+                    </div>
+                    <div>
+                      <Label>District</Label>
+                      <p className="text-sm">
+                        {formData.profile.address?.district || "Not provided"}
+                      </p>
+                    </div>
+                    <div>
+                      <Label>City</Label>
+                      <p className="text-sm">
+                        {formData.profile.address?.city || "Not provided"}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div>
-                  <Label htmlFor="state">State</Label>
-                  {isEditing ? (
-                    <Input
-                      id="state"
-                      value={formData.profile.address?.state || ""}
-                      onChange={(e) =>
-                        updateFormField("profile.address.state", e.target.value)
-                      }
-                    />
-                  ) : (
-                    <p className="text-sm">
-                      {formData.profile.address?.state || "Not provided"}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="zipCode">ZIP Code</Label>
+                  <Label htmlFor="zipCode">PIN Code</Label>
                   {isEditing ? (
                     <Input
                       id="zipCode"
@@ -381,6 +407,8 @@ const VendorProfilePage: React.FC = () => {
                       onChange={(e) =>
                         updateFormField("profile.address.zipCode", e.target.value)
                       }
+                      placeholder="Enter 6-digit PIN code..."
+                      maxLength={6}
                     />
                   ) : (
                     <p className="text-sm">

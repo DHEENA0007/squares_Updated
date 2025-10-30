@@ -24,6 +24,7 @@ const vendorRoutes = require('./routes/vendors');
 const paymentRoutes = require('./routes/payments');
 const uploadRoutes = require('./routes/upload');
 const locationRoutes = require('./routes/locations');
+const localLocationRoutes = require('./routes/localLocations');
 // const serviceRoutes = require('./routes/services');
 
 // Import middleware
@@ -98,6 +99,7 @@ app.use('/api/vendors', vendorRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/locations', locationRoutes);
+app.use('/api/local-locations', localLocationRoutes);
 // app.use('/api/services', authenticateToken, serviceRoutes);
 
 // Import admin real-time service

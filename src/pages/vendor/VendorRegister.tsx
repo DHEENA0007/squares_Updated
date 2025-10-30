@@ -28,6 +28,7 @@ import {
   Clock,
   Shield
 } from "lucide-react";
+import EnhancedLocationSelector from "@/components/vendor/EnhancedLocationSelector";
 
 const VendorRegister = () => {
   const navigate = useNavigate();
@@ -53,8 +54,14 @@ const VendorRegister = () => {
     
     // Address Information
     address: "",
-    city: "",
+    country: "India",
+    countryCode: "IN",
     state: "",
+    stateCode: "",
+    district: "",
+    districtCode: "",
+    city: "",
+    cityCode: "",
     pincode: "",
     
     // Legal Documents
@@ -200,8 +207,14 @@ const VendorRegister = () => {
           businessDescription: formData.businessDescription,
           experience: formData.experience,
           address: formData.address,
-          city: formData.city,
+          country: formData.country,
+          countryCode: formData.countryCode,
           state: formData.state,
+          stateCode: formData.stateCode,
+          district: formData.district,
+          districtCode: formData.districtCode,
+          city: formData.city,
+          cityCode: formData.cityCode,
           pincode: formData.pincode,
           licenseNumber: formData.licenseNumber,
           gstNumber: formData.gstNumber,
@@ -417,14 +430,14 @@ const VendorRegister = () => {
         return (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">Street Address</Label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                 <Textarea
                   id="address"
                   value={formData.address}
                   onChange={(e) => handleInputChange("address", e.target.value)}
-                  placeholder="Complete business address"
+                  placeholder="Complete business address (building, street, area)"
                   className="pl-10"
                   rows={3}
                   required
@@ -432,36 +445,54 @@ const VendorRegister = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  value={formData.city}
-                  onChange={(e) => handleInputChange("city", e.target.value)}
-                  placeholder="Mumbai"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="state">State</Label>
-                <Input
-                  id="state"
-                  value={formData.state}
-                  onChange={(e) => handleInputChange("state", e.target.value)}
-                  placeholder="Maharashtra"
-                  required
-                />
-              </div>
+            <div>
+              <Label className="text-sm font-medium">Location Details</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Select your business location from the dropdown menus
+              </p>
+              <EnhancedLocationSelector
+                value={{
+                  country: formData.country,
+                  countryCode: formData.countryCode,
+                  state: formData.state,
+                  stateCode: formData.stateCode,
+                  district: formData.district,
+                  districtCode: formData.districtCode,
+                  city: formData.city,
+                  cityCode: formData.cityCode
+                }}
+                onChange={(locationData) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    country: locationData.country || "India",
+                    countryCode: locationData.countryCode || "IN",
+                    state: locationData.state || "",
+                    stateCode: locationData.stateCode || "",
+                    district: locationData.district || "",
+                    districtCode: locationData.districtCode || "",
+                    city: locationData.city || "",
+                    cityCode: locationData.cityCode || ""
+                  }));
+                }}
+                showLabels={true}
+                placeholder={{
+                  state: "Select your state...",
+                  district: "Select your district...",
+                  city: "Select your city..."
+                }}
+                showValidation={true}
+              />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pincode">Pincode</Label>
+              <Label htmlFor="pincode">PIN Code</Label>
               <Input
                 id="pincode"
                 value={formData.pincode}
                 onChange={(e) => handleInputChange("pincode", e.target.value)}
-                placeholder="400001"
+                placeholder="Enter 6-digit PIN code (e.g., 400001)"
+                maxLength={6}
+                pattern="[0-9]{6}"
                 required
               />
             </div>
@@ -660,7 +691,13 @@ const VendorRegister = () => {
                 </CardHeader>
                 <CardContent className="pt-0 space-y-2 text-sm">
                   <p>{formData.address}</p>
-                  <p>{formData.city}, {formData.state} - {formData.pincode}</p>
+                  <p>
+                    {[formData.city, formData.district, formData.state, formData.country]
+                      .filter(Boolean)
+                      .join(', ')
+                    }
+                    {formData.pincode && ` - ${formData.pincode}`}
+                  </p>
                 </CardContent>
               </Card>
 
