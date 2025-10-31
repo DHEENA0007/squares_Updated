@@ -1,0 +1,61 @@
+[
+  {
+    "_id": "68f8857175b9205ce27f8e9b",
+    "name": "customer",
+    "description": "Regular customer with basic property viewing and inquiry capabilities",
+    "permissions": [
+      "read_property",
+      "send_messages"
+    ],
+    "isSystemRole": true,
+    "isActive": true,
+    "level": 1,
+    "createdAt": "2025-10-22T07:19:13.714Z",
+    "updatedAt": "2025-10-22T07:19:13.714Z",
+    "__v": 0
+  },
+  {
+    "_id": "68f8857175b9205ce27f8e9e",
+    "name": "agent",
+    "description": "Property agent who can manage their own listings and interact with customers",
+    "permissions": [
+      "create_property",
+      "read_property",
+      "update_property",
+      "send_messages",
+      "access_analytics"
+    ],
+    "isSystemRole": true,
+    "isActive": true,
+    "level": 5,
+    "createdAt": "2025-10-22T07:19:13.828Z",
+    "updatedAt": "2025-10-22T07:19:13.828Z",
+    "__v": 0
+  },
+  {
+    "_id": "68f8857175b9205ce27f8ea1",
+    "name": "admin",
+    "description": "Administrator with full system access",
+    "permissions": [
+      "create_property",
+      "read_property",
+      "update_property",
+      "delete_property",
+      "manage_users",
+      "manage_roles",
+      "manage_plans",
+      "view_dashboard",
+      "manage_settings",
+      "manage_content",
+      "send_messages",
+      "moderate_content",
+      "access_analytics"
+    ],
+    "isSystemRole": true,
+    "isActive": true,
+    "level": 10,
+    "createdAt": "2025-10-22T07:19:13.917Z",
+    "updatedAt": "2025-10-22T07:19:13.917Z",
+    "__v": 0
+  }
+]

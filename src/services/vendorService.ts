@@ -327,6 +327,50 @@ class VendorService {
       return [];
     }
   }
+
+  async getSubscriptionLimits(): Promise<{
+    maxProperties: number;
+    currentProperties: number;
+    canAddMore: boolean;
+    planName: string;
+    features: string[];
+  }> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: {
+          maxProperties: number;
+          currentProperties: number;
+          canAddMore: boolean;
+          planName: string;
+          features: string[];
+        };
+      }>("/vendors/subscription-limits");
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      // Default limits for free users
+      return {
+        maxProperties: 5,
+        currentProperties: 0,
+        canAddMore: true,
+        planName: 'Free',
+        features: ['5 Property Listings']
+      };
+    } catch (error) {
+      console.error("Failed to fetch subscription limits:", error);
+      // Return free tier limits as fallback
+      return {
+        maxProperties: 5,
+        currentProperties: 0,
+        canAddMore: true,
+        planName: 'Free',
+        features: ['5 Property Listings']
+      };
+    }
+  }
 }
 
 export const vendorService = new VendorService();

@@ -208,7 +208,7 @@ const MyProperties = () => {
   // Filter properties
   const filteredProperties = properties.filter(property => {
     const matchesSearch = property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         `${property.address.locality}, ${property.address.city}`.toLowerCase().includes(searchQuery.toLowerCase());
+                         `${property.address.city}, ${property.address.state}`.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || property.status === statusFilter;
     const matchesType = typeFilter === 'all' || property.type === typeFilter;
     
@@ -440,7 +440,7 @@ const MyProperties = () => {
                         <div className="flex items-center gap-4 text-muted-foreground text-sm mb-2">
                           <span className="flex items-center gap-1">
                             <MapPin className="w-4 h-4" />
-                            {property.address.locality}, {property.address.city}
+                            {property.address.city}, {property.address.state}
                           </span>
                           <span className="flex items-center gap-1">
                             <Calendar className="w-4 h-4" />

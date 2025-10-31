@@ -28,17 +28,57 @@ import { useNavigate, Link } from "react-router-dom";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { vendorService } from "@/services/vendorService";
+import { propertyService } from "@/services/propertyService";
 import { locationService, type Country, type State, type District, type City, type Taluk, type LocationName } from "@/services/locationService";
 import AutocompleteInput from "@/components/form/AutocompleteInput";
 import EnhancedLocationSelector from "@/components/vendor/EnhancedLocationSelector";
 import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
 import { toast } from "@/hooks/use-toast";
 
+// Upload function using server-side endpoint
+const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('folder', folder);
+
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/upload/single`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to upload file');
+    }
+
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.message || 'Upload failed');
+    }
+    
+    return data.data.url;
+  } catch (error) {
+    console.error('File upload error:', error);
+    throw new Error('Failed to upload file');
+  }
+};
+
 const AddProperty = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [hasAddPropertySubscription, setHasAddPropertySubscription] = useState(false);
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
+  const [subscriptionLimits, setSubscriptionLimits] = useState({
+    maxProperties: 0,
+    currentProperties: 0,
+    canAddMore: false,
+    planName: '',
+    features: []
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     // Basic Details
     title: "",
@@ -94,6 +134,14 @@ const AddProperty = () => {
 
   const [uploadedImages, setUploadedImages] = useState([]);
   const [uploadedVideos, setUploadedVideos] = useState([]);
+
+  // Store selected location names for display
+  const [selectedLocationNames, setSelectedLocationNames] = useState({
+    country: 'India',
+    state: '',
+    district: '',
+    city: ''
+  });
 
   // Location data states
   const [countries, setCountries] = useState<Country[]>([]);
@@ -160,9 +208,13 @@ const AddProperty = () => {
           state: '', 
           district: '',
           city: '', 
-          taluk: '',
-          locationName: '', 
           pincode: '' 
+        }));
+        setSelectedLocationNames(prev => ({
+          ...prev,
+          state: '',
+          district: '',
+          city: ''
         }));
         setDistricts([]);
         setCities([]);
@@ -200,9 +252,12 @@ const AddProperty = () => {
           ...prev, 
           district: '',
           city: '', 
-          taluk: '',
-          locationName: '', 
           pincode: '' 
+        }));
+        setSelectedLocationNames(prev => ({
+          ...prev,
+          district: '',
+          city: ''
         }));
         setCities([]);
         setTaluks([]);
@@ -238,9 +293,11 @@ const AddProperty = () => {
         setFormData(prev => ({ 
           ...prev, 
           city: '', 
-          taluk: '',
-          locationName: '', 
           pincode: '' 
+        }));
+        setSelectedLocationNames(prev => ({
+          ...prev,
+          city: ''
         }));
         setTaluks([]);
         setLocationNames([]);
@@ -259,105 +316,75 @@ const AddProperty = () => {
     loadCities();
   }, [formData.district]);
 
-  // Load taluks when city changes
+  // No longer loading taluks or location names since they're not needed
+
+  // Update selectedLocationNames when form data and arrays change
   useEffect(() => {
-    const loadTaluks = async () => {
-      if (!formData.city) {
-        setTaluks([]);
-        return;
+    if (states.length > 0 && formData.state) {
+      const selectedState = states.find(s => s.stateCode === formData.state);
+      if (selectedState) {
+        setSelectedLocationNames(prev => ({ ...prev, state: selectedState.name }));
       }
+    }
+  }, [states, formData.state]);
 
-      setLocationLoading(prev => ({ ...prev, taluks: true }));
-      try {
-        const taluksData = await locationService.getTaluksByCity(formData.city);
-        setTaluks(taluksData);
-        // Reset dependent fields
-        setFormData(prev => ({ 
-          ...prev, 
-          taluk: '', 
-          locationName: '',
-          pincode: '' 
-        }));
-        setLocationNames([]);
-      } catch (error) {
-        console.error('Error loading taluks:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load taluks. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setLocationLoading(prev => ({ ...prev, taluks: false }));
-      }
-    };
-
-    loadTaluks();
-  }, [formData.city]);
-
-  // Load location names when taluk changes
   useEffect(() => {
-    const loadLocationNames = async () => {
-      if (!formData.taluk) {
-        setLocationNames([]);
-        return;
+    if (districts.length > 0 && formData.district) {
+      const selectedDistrict = districts.find(d => d.id === formData.district);
+      if (selectedDistrict) {
+        setSelectedLocationNames(prev => ({ ...prev, district: selectedDistrict.name }));
       }
+    }
+  }, [districts, formData.district]);
 
-      setLocationLoading(prev => ({ ...prev, locationNames: true }));
-      try {
-        const locationNamesData = await locationService.getLocationNamesByTaluk(formData.taluk);
-        setLocationNames(locationNamesData);
-        // Reset dependent fields
-        setFormData(prev => ({ 
-          ...prev, 
-          locationName: '',
-          pincode: '' 
-        }));
-      } catch (error) {
-        console.error('Error loading location names:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load location names. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setLocationLoading(prev => ({ ...prev, locationNames: false }));
-      }
-    };
-
-    loadLocationNames();
-  }, [formData.taluk]);
-
-  // Auto-detect pincode when location name changes
   useEffect(() => {
-    const autoDetectPincode = async () => {
-      if (!formData.locationName) return;
-
-      const selectedLocationName = locationNames.find(l => l.id === formData.locationName);
-      if (selectedLocationName && selectedLocationName.pincode) {
-        setFormData(prev => ({ 
-          ...prev, 
-          pincode: selectedLocationName.pincode 
-        }));
+    if (cities.length > 0 && formData.city) {
+      const selectedCity = cities.find(c => c.id === formData.city);
+      if (selectedCity) {
+        setSelectedLocationNames(prev => ({ ...prev, city: selectedCity.name }));
       }
-    };
+    }
+  }, [cities, formData.city]);
 
-    autoDetectPincode();
-  }, [formData.locationName, locationNames]);
-
-  // Check if user has addPropertySubscription
+  // Auto-populate address field when location details are selected
   useEffect(() => {
-    const checkAddPropertySubscription = async () => {
+    const addressParts = [];
+    if (selectedLocationNames.city) addressParts.push(selectedLocationNames.city);
+    if (selectedLocationNames.district) addressParts.push(selectedLocationNames.district);
+    if (selectedLocationNames.state) addressParts.push(selectedLocationNames.state);
+    if (formData.pincode) addressParts.push(formData.pincode);
+    
+    if (addressParts.length > 0 && !formData.address.trim()) {
+      setFormData(prev => ({ 
+        ...prev, 
+        address: addressParts.join(', ') 
+      }));
+    }
+  }, [selectedLocationNames, formData.pincode]);
+
+  // Check subscription limits and property count
+  useEffect(() => {
+    const checkSubscriptionLimits = async () => {
       setIsCheckingSubscription(true);
       try {
-        const hasSubscription = await vendorService.checkSubscription("addPropertySubscription");
-        setHasAddPropertySubscription(hasSubscription);
+        const limits = await vendorService.getSubscriptionLimits();
+        setSubscriptionLimits(limits);
+        setHasAddPropertySubscription(limits.canAddMore);
         
-        if (!hasSubscription) {
-          toast({
-            title: "Subscription Required",
-            description: "You need an active subscription to add properties. Please upgrade your plan.",
-            variant: "destructive",
-          });
+        if (!limits.canAddMore) {
+          if (limits.maxProperties === 0) {
+            toast({
+              title: "Subscription Required",
+              description: "You need an active subscription to add properties. Please upgrade your plan.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Property Limit Reached",
+              description: `You have reached your plan limit of ${limits.maxProperties} properties. Please upgrade to add more.`,
+              variant: "destructive",
+            });
+          }
         }
       } catch (error) {
         console.error("Error checking subscription:", error);
@@ -372,7 +399,7 @@ const AddProperty = () => {
       }
     };
 
-    checkAddPropertySubscription();
+    checkSubscriptionLimits();
   }, []);
 
   const steps = [
@@ -421,10 +448,163 @@ const AddProperty = () => {
     }
   };
 
-  const handleSubmit = () => {
-    console.log("Property Data:", formData);
-    // Here you would submit to your backend
-    navigate("/vendor/properties");
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    
+    // Validate required fields
+    const requiredFields = {
+      title: formData.title?.trim(),
+      description: formData.description?.trim(),
+      propertyType: formData.propertyType,
+      listingType: formData.listingType,
+      price: formData.price,
+      builtUpArea: formData.builtUpArea,
+      pincode: formData.pincode
+    };
+
+    const missingFields = Object.entries(requiredFields)
+      .filter(([key, value]) => !value)
+      .map(([key]) => key);
+
+    if (missingFields.length > 0) {
+      toast({
+        title: "Missing Required Fields",
+        description: `Please fill in: ${missingFields.join(', ')}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate location fields
+    if (!formData.state || !formData.city) {
+      toast({
+        title: "Location Required",
+        description: "Please select state and city for your property",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Upload images to Cloudinary first
+      const uploadedImageUrls = [];
+      for (const image of uploadedImages) {
+        if (image.file) {
+          const uploadedUrl = await uploadToCloudinary(image.file, 'property_images');
+          uploadedImageUrls.push({
+            url: uploadedUrl,
+            caption: image.name,
+            isPrimary: uploadedImageUrls.length === 0 // First image is primary
+          });
+        }
+      }
+
+      // Upload videos to Cloudinary if any
+      const uploadedVideoUrls = [];
+      for (const video of uploadedVideos) {
+        if (video.file) {
+          const uploadedUrl = await uploadToCloudinary(video.file, 'property_videos');
+          uploadedVideoUrls.push({
+            url: uploadedUrl,
+            caption: video.name
+          });
+        }
+      }
+
+      // Prepare property data for submission
+      const propertyData: any = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        type: formData.propertyType as 'apartment' | 'villa' | 'house' | 'commercial' | 'plot' | 'land' | 'office' | 'pg',
+        listingType: formData.listingType as 'sale' | 'rent' | 'lease',
+        price: parseFloat(formData.price),
+        area: {
+          builtUp: formData.builtUpArea ? parseFloat(formData.builtUpArea) : undefined,
+          carpet: formData.carpetArea ? parseFloat(formData.carpetArea) : undefined,
+          plot: formData.plotArea ? parseFloat(formData.plotArea) : undefined,
+          unit: 'sqft' as const
+        },
+        bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : 0,
+        bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : 0,
+        address: {
+          street: formData.address.trim(),
+          district: districts.find(d => d.id === formData.district)?.name || selectedLocationNames.district || '',
+          city: cities.find(c => c.id === formData.city)?.name || selectedLocationNames.city || '',
+          state: states.find(s => s.stateCode === formData.state)?.name || selectedLocationNames.state || '',
+          pincode: formData.pincode
+        },
+        amenities: formData.amenities || [],
+        images: uploadedImageUrls || [],
+        videos: uploadedVideoUrls || []
+      };
+
+      // Only add optional fields if they have values
+      if (formData.virtualTour?.trim()) {
+        propertyData.virtualTour = formData.virtualTour.trim();
+      }
+      if (formData.furnishing) {
+        propertyData.furnishing = formData.furnishing;
+      }
+      if (formData.age) {
+        propertyData.age = formData.age;
+      }
+      if (formData.floor?.trim()) {
+        propertyData.floor = formData.floor.trim();
+      }
+      if (formData.totalFloors?.trim()) {
+        propertyData.totalFloors = formData.totalFloors.trim();
+      }
+      if (formData.facing) {
+        propertyData.facing = formData.facing;
+      }
+      if (formData.parkingSpaces) {
+        propertyData.parkingSpaces = formData.parkingSpaces;
+      }
+      if (formData.priceNegotiable !== undefined) {
+        propertyData.priceNegotiable = formData.priceNegotiable;
+      }
+      if (formData.maintenanceCharges?.trim()) {
+        propertyData.maintenanceCharges = parseFloat(formData.maintenanceCharges);
+      }
+      if (formData.securityDeposit?.trim()) {
+        propertyData.securityDeposit = parseFloat(formData.securityDeposit);
+      }
+      if (formData.availability?.trim()) {
+        propertyData.availability = formData.availability.trim();
+      }
+      if (formData.possession?.trim()) {
+        propertyData.possession = formData.possession.trim();
+      }
+
+      // Log the data being sent for debugging
+      console.log('Property data being sent:', JSON.stringify(propertyData, null, 2));
+
+      // Submit property to backend
+      const response = await propertyService.createProperty(propertyData);
+      
+      toast({
+        title: "Success!",
+        description: "Property submitted successfully. It will be live after admin verification.",
+      });
+
+      navigate("/vendor/properties");
+    } catch (error) {
+      console.error("Error submitting property:", error);
+      
+      let errorMessage = "Failed to submit property. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Handle location field changes
@@ -593,11 +773,23 @@ const AddProperty = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      // In real app, you'd upload to server here
       setUploadedImages(prev => [...prev, ...files.map(file => ({
         id: Date.now() + Math.random(),
         name: file.name,
-        url: URL.createObjectURL(file)
+        url: URL.createObjectURL(file),
+        file: file // Store the actual file for upload
+      }))]);
+    }
+  };
+
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setUploadedVideos(prev => [...prev, ...files.map(file => ({
+        id: Date.now() + Math.random(),
+        name: file.name,
+        url: URL.createObjectURL(file),
+        file: file // Store the actual file for upload
       }))]);
     }
   };
@@ -688,24 +880,31 @@ const AddProperty = () => {
                 value={{
                   country: formData.country,
                   countryCode: formData.countryCode,
-                  state: formData.state,
-                  stateCode: formData.stateCode,
-                  district: formData.district,
-                  districtCode: formData.districtCode,
-                  city: formData.city,
-                  cityCode: formData.cityCode
+                  state: selectedLocationNames.state,
+                  stateCode: formData.state,
+                  district: selectedLocationNames.district,
+                  districtCode: formData.district,
+                  city: selectedLocationNames.city,
+                  cityCode: formData.city
                 }}
                 onChange={(locationData) => {
                   setFormData(prev => ({
                     ...prev,
                     country: locationData.country || "India",
                     countryCode: locationData.countryCode || "IN",
+                    // Use the Code fields for IDs (these are what the backend expects)
+                    state: locationData.stateCode || "",
+                    district: locationData.districtCode || "",
+                    city: locationData.cityCode || ""
+                  }));
+                  
+                  // Immediately update display names with the selected values
+                  setSelectedLocationNames(prev => ({
+                    ...prev,
+                    country: "India",
                     state: locationData.state || "",
-                    stateCode: locationData.stateCode || "",
                     district: locationData.district || "",
-                    districtCode: locationData.districtCode || "",
-                    city: locationData.city || "",
-                    cityCode: locationData.cityCode || ""
+                    city: locationData.city || ""
                   }));
                 }}
                 showLabels={true}
@@ -718,6 +917,8 @@ const AddProperty = () => {
                 showValidation={true}
               />
             </div>
+
+
 
             <div className="space-y-2">
               <Label htmlFor="pincode">PIN Code</Label>
@@ -1057,7 +1258,7 @@ const AddProperty = () => {
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
                 <Video className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <div className="space-y-2">
-                  <Button variant="outline">
+                  <Button variant="outline" onClick={() => document.getElementById('video-upload')?.click()}>
                     <Upload className="w-4 h-4 mr-2" />
                     Upload Video
                   </Button>
@@ -1065,7 +1266,39 @@ const AddProperty = () => {
                     MP4, MOV, AVI (max 100MB)
                   </p>
                 </div>
+                <input
+                  id="video-upload"
+                  type="file"
+                  multiple
+                  accept="video/*"
+                  className="hidden"
+                  onChange={handleVideoUpload}
+                />
               </div>
+
+              {uploadedVideos.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  {uploadedVideos.map((video) => (
+                    <div key={video.id} className="relative border rounded-lg p-4">
+                      <div className="flex items-center space-x-3">
+                        <Video className="w-8 h-8 text-primary" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium truncate">{video.name}</p>
+                          <p className="text-xs text-muted-foreground">Video file</p>
+                        </div>
+                        <Button
+                          size="icon"
+                          variant="destructive"
+                          className="h-6 w-6"
+                          onClick={() => setUploadedVideos(prev => prev.filter(v => v.id !== video.id))}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -1103,13 +1336,12 @@ const AddProperty = () => {
                   
                   <div>
                     <h3 className="font-semibold mb-2">Location</h3>
-                    <p><strong>Country:</strong> {countries.find(c => c.code === formData.country)?.name}</p>
-                    <p><strong>State:</strong> {states.find(s => s.stateCode === formData.state)?.name}</p>
-                    <p><strong>District:</strong> {districts.find(d => d.id === formData.district)?.name}</p>
-                    <p><strong>City:</strong> {cities.find(c => c.id === formData.city)?.name}</p>
-                    <p><strong>Taluk:</strong> {taluks.find(t => t.id === formData.taluk)?.name}</p>
-                    <p><strong>Location:</strong> {locationNames.find(l => l.id === formData.locationName)?.name}</p>
+                    <p><strong>Country:</strong> {countries.find(c => c.code === formData.country)?.name || selectedLocationNames.country || 'India'}</p>
+                    <p><strong>State:</strong> {states.find(s => s.stateCode === formData.state)?.name || selectedLocationNames.state || 'Not selected'}</p>
+                    <p><strong>District:</strong> {districts.find(d => d.id === formData.district)?.name || selectedLocationNames.district || 'Not selected'}</p>
+                    <p><strong>City:</strong> {cities.find(c => c.id === formData.city)?.name || selectedLocationNames.city || 'Not selected'}</p>
                     <p><strong>Pincode:</strong> {formData.pincode}</p>
+                    <p><strong>Address:</strong> {formData.address || 'Not provided'}</p>
                   </div>
                   
                   <div>
@@ -1201,7 +1433,7 @@ const AddProperty = () => {
         </Card>
       )}
 
-      {/* Subscription Required */}
+      {/* Subscription Required/Limit Reached */}
       {!isCheckingSubscription && !hasAddPropertySubscription && (
         <Card className="border-amber-200 bg-amber-50/50">
           <CardContent className="p-6">
@@ -1210,32 +1442,60 @@ const AddProperty = () => {
                 <Lock className="w-8 h-8 text-amber-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-amber-900 mb-2">
-                  Subscription Required
-                </h2>
-                <p className="text-amber-700 mb-4">
-                  To add properties, you need an active "Add Property Subscription" plan.
-                </p>
-                <p className="text-sm text-amber-600 mb-2">
-                  Upgrade your plan to start listing properties and reach potential customers.
-                </p>
-                <div className="bg-amber-100 border border-amber-200 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-amber-800">
-                    <strong>What you'll get with a subscription:</strong>
+                {subscriptionLimits.maxProperties === 0 ? (
+                  <>
+                    <h2 className="text-2xl font-bold text-amber-900 mb-2">
+                      Subscription Required
+                    </h2>
+                    <p className="text-amber-700 mb-4">
+                      To add properties, you need an active subscription plan.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-2xl font-bold text-amber-900 mb-2">
+                      Property Limit Reached
+                    </h2>
+                    <p className="text-amber-700 mb-4">
+                      You have reached your {subscriptionLimits.planName} plan limit of {subscriptionLimits.maxProperties} properties.
+                    </p>
+                    <p className="text-sm text-amber-600 mb-2">
+                      Current: {subscriptionLimits.currentProperties}/{subscriptionLimits.maxProperties} properties used
+                    </p>
+                  </>
+                )}
+                
+                <div className="bg-amber-100 border border-amber-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-amber-800 font-medium mb-2">
+                    Available Subscription Plans:
                   </p>
-                  <ul className="text-sm text-amber-700 mt-2 space-y-1">
-                    <li>• Unlimited property listings</li>
-                    <li>• Advanced lead management</li>
-                    <li>• Priority customer support</li>
-                    <li>• Enhanced property visibility</li>
-                  </ul>
+                  <div className="text-left space-y-2 text-sm text-amber-700">
+                    <div className="flex justify-between items-center p-2 bg-white rounded border">
+                      <span><strong>FREE LISTING</strong> - 5 Properties</span>
+                      <Badge variant="secondary" className="text-xs">Current</Badge>
+                    </div>
+                    <div className="flex justify-between items-center p-2 bg-white rounded border">
+                      <span><strong>₹199</strong> - 10 Properties + Top Rated + Verified Badge</span>
+                      <Badge className="text-xs bg-green-600">Popular</Badge>
+                    </div>
+                    <div className="flex justify-between items-center p-2 bg-white rounded border">
+                      <span><strong>₹499</strong> - 15 Properties + 1 Poster + 6 Leads</span>
+                    </div>
+                    <div className="flex justify-between items-center p-2 bg-white rounded border">
+                      <span><strong>₹1999</strong> - Unlimited + 4 Posters + 20 Leads</span>
+                    </div>
+                    <div className="flex justify-between items-center p-2 bg-white rounded border">
+                      <span><strong>₹4999</strong> - Unlimited + Videos + Marketing Manager + 30+ Leads</span>
+                      <Badge className="text-xs bg-purple-600">Premium</Badge>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Link to="/vendor/subscription-plans">
                   <Button className="bg-amber-600 hover:bg-amber-700 text-white">
                     <Crown className="w-4 h-4 mr-2" />
-                    View Subscription Plans
+                    Upgrade Plan
                   </Button>
                 </Link>
                 <Button variant="outline" onClick={() => navigate("/vendor/properties")}>
@@ -1296,8 +1556,15 @@ const AddProperty = () => {
                 </Button>
                 
                 {currentStep === steps.length ? (
-                  <Button onClick={handleSubmit} className="px-8">
-                    Submit Property
+                  <Button onClick={handleSubmit} className="px-8" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      'Submit Property'
+                    )}
                   </Button>
                 ) : (
                   <Button onClick={nextStep}>

@@ -6,6 +6,8 @@ import {
   VendorDashboard,
   VendorProperties,
   AddProperty,
+  PropertyDetails,
+  EditProperty,
   VendorLeads,
   VendorMessages,
   VendorAnalytics,
@@ -41,6 +43,16 @@ const VendorRoutes = () => {
           <Route path="properties/add" element={
             <Suspense fallback={<div>Loading...</div>}>
               <AddProperty />
+            </Suspense>
+          } />
+          <Route path="properties/details/:id" element={
+            <Suspense fallback={<div>Loading...</div>}>
+              <PropertyDetails />
+            </Suspense>
+          } />
+          <Route path="properties/edit/:id" element={
+            <Suspense fallback={<div>Loading...</div>}>
+              <EditProperty />
             </Suspense>
           } />
           <Route path="leads" element={

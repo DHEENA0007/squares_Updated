@@ -1,0 +1,300 @@
+[
+  {
+    "_id": "68f76792ae8ba267e353c0e9",
+    "email": "ddd732443@gmail.com",
+    "password": "$2b$12$LUjYUB3K.3n52pyS5/Iot.UuAmMWqlNT7O0vvwA4xJ41PeGaM2AvK",
+    "role": "customer",
+    "status": "active",
+    "profile": {
+      "firstName": "Dheena",
+      "lastName": "User",
+      "phone": "7397705276",
+      "emailVerified": true,
+      "avatar": null,
+      "bio": null,
+      "lastLogin": "2025-10-30T04:53:57.715Z",
+      "preferences": {
+        "notifications": {
+          "email": true,
+          "sms": false,
+          "push": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": false
+        }
+      },
+      "vendorInfo": {
+        "certifications": [],
+        "experience": 0,
+        "memberSince": "2025-10-23T07:03:49.818Z",
+        "rating": {
+          "average": 0,
+          "count": 0
+        },
+        "responseTime": "Not calculated",
+        "serviceAreas": [],
+        "specializations": [],
+        "vendorPreferences": {
+          "emailNotifications": true,
+          "leadAlerts": true,
+          "marketingEmails": false,
+          "smsNotifications": true,
+          "weeklyReports": true
+        }
+      }
+    },
+    "createdAt": "2025-10-21T10:59:31.034Z",
+    "updatedAt": "2025-10-30T04:53:57.724Z",
+    "__v": 1
+  },
+  {
+    "_id": "68f8857275b9205ce27f8ea5",
+    "email": "admin@ninetyneacres.com",
+    "password": "$2b$12$J4rs8NEArWMsj8fiozVc1evkFH84oVLPOctetUcSVyWLi7fQn1rdC",
+    "role": "admin",
+    "status": "active",
+    "profile": {
+      "firstName": "Super",
+      "lastName": "Admin",
+      "phone": "+1234567890",
+      "bio": "System Administrator for Ninety Nine Acres Platform",
+      "address": {
+        "street": "123 Admin Street",
+        "city": "Admin City",
+        "state": "Admin State",
+        "zipCode": "12345",
+        "country": "India"
+      },
+      "emailVerified": true,
+      "preferences": {
+        "notifications": {
+          "email": true,
+          "sms": false,
+          "push": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": false
+        }
+      },
+      "avatar": null,
+      "lastLogin": "2025-10-27T13:49:25.083Z",
+      "vendorInfo": {
+        "certifications": [],
+        "experience": 0,
+        "memberSince": "2025-10-27T06:00:50.161Z",
+        "rating": {
+          "average": 0,
+          "count": 0
+        },
+        "responseTime": "Not calculated",
+        "serviceAreas": [],
+        "specializations": [],
+        "vendorPreferences": {
+          "emailNotifications": true,
+          "leadAlerts": true,
+          "marketingEmails": false,
+          "smsNotifications": true,
+          "weeklyReports": true
+        }
+      }
+    },
+    "createdAt": "2025-10-22T07:19:14.070Z",
+    "updatedAt": "2025-10-27T13:49:25.097Z",
+    "__v": 1
+  },
+  {
+    "_id": "68f8b1214f4741e752f0e18b",
+    "email": "vendor1@ninetyneacres.com",
+    "password": "$2b$12$La7lTANaHBH5/7kHrLtoX..o/2DoH2wDavhqwjMtIkfyLhCsTjTKS",
+    "role": "agent",
+    "status": "active",
+    "profile": {
+      "firstName": "Vendor",
+      "lastName": "One",
+      "phone": "+91 9876543210",
+      "bio": "Professional Real Estate Vendor",
+      "address": {
+        "street": "123 Business Street",
+        "city": "Mumbai",
+        "state": "Maharashtra",
+        "zipCode": "400001",
+        "country": "India"
+      },
+      "emailVerified": true,
+      "preferences": {
+        "notifications": {
+          "email": true,
+          "sms": true,
+          "push": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": true
+        }
+      },
+      "avatar": null,
+      "lastLogin": "2025-10-30T04:56:25.442Z",
+      "vendorInfo": {
+        "certifications": [],
+        "experience": 0,
+        "memberSince": "2025-10-23T05:32:39.909Z",
+        "rating": {
+          "average": 0,
+          "count": 0
+        },
+        "responseTime": "Not calculated",
+        "serviceAreas": [],
+        "specializations": [],
+        "vendorPreferences": {
+          "emailNotifications": true,
+          "leadAlerts": true,
+          "marketingEmails": false,
+          "smsNotifications": true,
+          "weeklyReports": true
+        }
+      }
+    },
+    "createdAt": "2025-10-22T10:25:37.241Z",
+    "updatedAt": "2025-10-30T04:56:25.443Z",
+    "__v": 1,
+    "vendorProfile": "68ff5d3d2f4e2406a9c90807"
+  },
+  {
+    "_id": "68f9d919f3de51260fb705f1",
+    "email": "vendor@ninetyneacres.com",
+    "password": "$2b$12$LrtUa01InO5SgRPJmm./p.5tatIuYW6AUqLAqaVc9wY.8EYgpHgrK",
+    "role": "agent",
+    "status": "active",
+    "profile": {
+      "firstName": "Test",
+      "lastName": "Vendor",
+      "phone": "+91-9876543210",
+      "address": {
+        "street": "123 Test Street",
+        "city": "Mumbai",
+        "state": "Maharashtra",
+        "zipCode": "400001",
+        "country": "India"
+      },
+      "preferences": {
+        "notifications": {
+          "email": true,
+          "sms": false,
+          "push": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": true
+        }
+      },
+      "vendorInfo": {
+        "licenseNumber": "REA-123456",
+        "gstNumber": "22AAAAA0000A1Z5",
+        "panNumber": "ABCDE1234F",
+        "companyName": "Test Real Estate",
+        "experience": 5,
+        "specializations": [
+          "Residential",
+          "Commercial"
+        ],
+        "serviceAreas": [
+          "Mumbai",
+          "Pune"
+        ],
+        "rating": {
+          "average": 4.5,
+          "count": 10
+        },
+        "website": null,
+        "certifications": [],
+        "vendorPreferences": {
+          "emailNotifications": true,
+          "smsNotifications": true,
+          "leadAlerts": true,
+          "marketingEmails": false,
+          "weeklyReports": true
+        },
+        "responseTime": "Not calculated",
+        "memberSince": "2025-10-23T07:28:25.622Z"
+      },
+      "avatar": null,
+      "bio": "Professional Real Estate Vendor",
+      "emailVerified": true,
+      "lastLogin": "2025-10-23T08:18:41.946Z"
+    },
+    "createdAt": "2025-10-23T07:28:25.628Z",
+    "updatedAt": "2025-10-27T11:55:33.463Z",
+    "__v": 0,
+    "vendorProfile": "68ff5d3d2f4e2406a9c9080e"
+  },
+  {
+    "_id": "68fa18a0c9fa98e30aa7a7ac",
+    "email": "kanagaraj@gmail.com",
+    "password": "$2b$12$cOGLQ6D3qe.GzEE4E0CLcu7oyBjQM6pwgb/mTULqkf23lCTqaejxe",
+    "role": "agent",
+    "status": "active",
+    "profile": {
+      "firstName": "Test",
+      "lastName": "Vendor",
+      "phone": "+91-9876543210",
+      "address": {
+        "street": "123 Test Street",
+        "city": "Mumbai",
+        "state": "Maharashtra",
+        "zipCode": "400001",
+        "country": "India"
+      },
+      "preferences": {
+        "notifications": {
+          "email": true,
+          "sms": false,
+          "push": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": true
+        }
+      },
+      "vendorInfo": {
+        "licenseNumber": "REA-123456",
+        "gstNumber": "22AAAAA0000A1Z5",
+        "panNumber": "ABCDE1234F",
+        "companyName": "Test Real Estate",
+        "experience": 5,
+        "specializations": [
+          "Residential",
+          "Commercial"
+        ],
+        "serviceAreas": [
+          "Mumbai",
+          "Pune"
+        ],
+        "rating": {
+          "average": 4.5,
+          "count": 10
+        },
+        "website": null,
+        "certifications": [],
+        "vendorPreferences": {
+          "emailNotifications": true,
+          "smsNotifications": true,
+          "leadAlerts": true,
+          "marketingEmails": false,
+          "weeklyReports": true
+        },
+        "responseTime": "Not calculated",
+        "memberSince": "2025-10-23T11:59:28.450Z"
+      },
+      "avatar": null,
+      "bio": "Professional Real Estate Vendor",
+      "emailVerified": true,
+      "lastLogin": "2025-10-25T04:59:30.772Z"
+    },
+    "createdAt": "2025-10-23T11:59:28.457Z",
+    "updatedAt": "2025-10-27T11:55:33.665Z",
+    "__v": 0,
+    "vendorProfile": "68ff5d3d2f4e2406a9c90815"
+  }
+]

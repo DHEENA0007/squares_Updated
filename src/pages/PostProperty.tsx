@@ -29,7 +29,7 @@ const propertyFormSchema = z.object({
   
   // Property Location
   city: z.string().min(1, "City is required"),
-  locality: z.string().min(1, "Locality is required"),
+
   street: z.string().optional(),
   state: z.string().min(1, "State is required"),
   pincode: z.string().regex(/^\d{6}$/, "Pincode must be exactly 6 digits"),
@@ -420,6 +420,7 @@ const PostProperty = () => {
                       Select location details step by step for accurate autocomplete
                     </p>
                     
+<<<<<<< HEAD
                     <div className="grid md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
@@ -501,6 +502,30 @@ const PostProperty = () => {
                         )}
                       />
                     </div>
+=======
+                    <EnhancedAddressInput
+                      onLocationChange={(locationData) => {
+                        // Update form fields based on location data
+                        if (locationData.pincode) {
+                          form.setValue('pincode', locationData.pincode);
+                        }
+                        if (locationData.state) {
+                          form.setValue('state', locationData.state);
+                        }
+                        if (locationData.city || locationData.district) {
+                          form.setValue('city', locationData.city || locationData.district || '');
+                        }
+
+                      }}
+                      initialData={{
+                        pincode: form.watch('pincode') || '',
+                        state: form.watch('state') || '',
+                        city: form.watch('city') || '',
+                        locationName: ''
+                      }}
+                      showPincodeFirst={true}
+                    />
+>>>>>>> 7f10eed1ff6dac9eb3140976498343a46cb4b9c5
                   </div>
                 </div>
 

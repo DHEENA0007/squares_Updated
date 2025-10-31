@@ -22,8 +22,10 @@ export interface Property {
   bathrooms: number;
   address: {
     street: string;
-    locality: string;
+    district?: string;
     city: string;
+    taluk?: string;
+    locationName?: string;
     state: string;
     pincode: string;
     coordinates?: {
@@ -127,6 +129,12 @@ class PropertyService {
           success: false,
           message: `HTTP ${response.status}: ${response.statusText}`,
         }));
+        
+        // Better error message for validation errors
+        if (errorData.errors && Array.isArray(errorData.errors)) {
+          throw new Error(`Validation failed: ${errorData.errors.join(', ')}`);
+        }
+        
         throw new Error(errorData.message || "An error occurred");
       }
 

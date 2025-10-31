@@ -84,7 +84,7 @@ const Properties = () => {
       const matchesSearch =
         property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         property.address.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        property.address.locality.toLowerCase().includes(searchTerm.toLowerCase());
+        property.address.state.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesType = typeFilter === "all" || property.type === typeFilter;
       return matchesSearch && matchesType;
     });
@@ -173,7 +173,7 @@ const Properties = () => {
         <div>
           <div className="font-medium">{property.title}</div>
           <div className="text-sm text-muted-foreground">
-            {property.address.locality}, {property.address.city}
+            {property.address.city}, {property.address.state}
           </div>
         </div>
       )

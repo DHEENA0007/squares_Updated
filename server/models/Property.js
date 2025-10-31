@@ -47,18 +47,46 @@ const propertySchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  furnishing: {
+    type: String,
+    enum: ['fully-furnished', 'semi-furnished', 'unfurnished']
+  },
+  age: {
+    type: String,
+    enum: ['new', '1-3', '3-5', '5-10', '10+']
+  },
+  floor: String,
+  totalFloors: String,
+  facing: {
+    type: String,
+    enum: ['north', 'south', 'east', 'west', 'north-east', 'north-west', 'south-east', 'south-west']
+  },
+  parkingSpaces: String,
+  priceNegotiable: {
+    type: Boolean,
+    default: false
+  },
+  maintenanceCharges: Number,
+  securityDeposit: Number,
+  availability: String,
+  possession: String,
   address: {
     street: {
       type: String,
       required: true
     },
-    locality: {
-      type: String,
-      required: true
+    district: {
+      type: String
     },
     city: {
       type: String,
       required: true
+    },
+    taluk: {
+      type: String
+    },
+    locationName: {
+      type: String
     },
     state: {
       type: String,
@@ -84,6 +112,12 @@ const propertySchema = new mongoose.Schema({
       default: false
     }
   }],
+  videos: [{
+    url: String,
+    caption: String,
+    thumbnail: String
+  }],
+  virtualTour: String,
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

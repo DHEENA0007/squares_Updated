@@ -37,7 +37,7 @@ const VendorSubscriptionPlans: React.FC = () => {
   const [addons, setAddons] = useState<AddonService[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<any>(null);
   const [loadingSubscription, setLoadingSubscription] = useState(true);
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [billingCycle] = useState<'monthly'>('monthly');
   const [loading, setLoading] = useState(false);
   const [addonsLoading, setAddonsLoading] = useState(true);
   const { toast } = useToast();
@@ -45,50 +45,79 @@ const VendorSubscriptionPlans: React.FC = () => {
 
   const plans: Plan[] = [
     {
-      id: 'basic',
-      name: 'Basic',
-      price: 999,
-      description: 'Perfect for getting started',
-      icon: <Circle className="w-8 h-8 text-blue-600" />,
+      id: 'free',
+      name: 'FREE LISTING',
+      price: 0,
+      description: '5 Properties/Products - Basic listing',
+      icon: <Circle className="w-8 h-8 text-gray-600" />,
       features: [
-        'Up to 10 property listings',
-        'Basic analytics',
-        'Email support',
-        'Mobile app access',
-        'Standard templates'
+        '5 Property listings',
+        'Basic property details',
+        'Standard visibility',
+        'Email support'
+      ]
+    },
+    {
+      id: 'basic',
+      name: 'BASIC PLAN',
+      price: 199,
+      description: '10 Properties + Top Rated + Verified Owner Badge',
+      icon: <Star className="w-8 h-8 text-green-600" />,
+      recommended: true,
+      features: [
+        '10 Property listings',
+        'Top Rated in Website',
+        'Verified Owner Badge',
+        'Priority email support',
+        'Enhanced visibility'
+      ]
+    },
+    {
+      id: 'standard',
+      name: 'STANDARD PLAN',
+      price: 499,
+      description: '15 Properties + Benefits + 1 Poster with 6 leads',
+      icon: <Zap className="w-8 h-8 text-blue-600" />,
+      features: [
+        '15 Property listings',
+        'Top Rated in Website',
+        'Verified Owner Badge',
+        '1 Poster with 6 leads',
+        'Priority support',
+        'Enhanced marketing'
       ]
     },
     {
       id: 'premium',
-      name: 'Premium',
-      price: 2499,
-      description: 'Most popular choice for growing businesses',
-      icon: <Star className="w-8 h-8 text-yellow-600" />,
-      recommended: true,
+      name: 'PREMIUM PLAN',
+      price: 1999,
+      description: 'Unlimited Properties + 4 Posters with 20 leads',
+      icon: <Shield className="w-8 h-8 text-purple-600" />,
       features: [
-        'Up to 50 property listings',
-        'Advanced analytics & insights',
-        'Priority support',
-        'Custom branding',
-        'Lead management',
-        'Virtual tour integration',
-        'SEO optimization'
+        'Unlimited Property listings',
+        'Top Rated in Website',
+        'Verified Owner Badge',
+        '4 Posters with 20 leads',
+        'Priority phone & email support',
+        'Advanced analytics',
+        'Featured listings'
       ]
     },
     {
       id: 'enterprise',
-      name: 'Enterprise',
-      price: 0, // Contact based
-      description: 'For large-scale operations',
-      icon: <Shield className="w-8 h-8 text-purple-600" />,
+      name: 'ENTERPRISE PLAN',
+      price: 4999,
+      description: 'Unlimited + Videos + 30+ leads + Marketing Manager',
+      icon: <Shield className="w-8 h-8 text-gold-600" />,
       features: [
-        'Unlimited property listings',
-        'Custom reporting',
-        'Dedicated account manager',
-        'API access',
-        'White-label solution',
-        'Advanced integrations',
-        'Custom features'
+        'Unlimited Property listings',
+        'Top Rated in Website',
+        'Verified Owner Badge',
+        '4 Posters & 1 Video with 30+ leads',
+        'Consultation with Marketing Manager',
+        'Commission based revenue',
+        '24/7 dedicated support',
+        'Custom branding & API access'
       ]
     }
   ];
@@ -157,9 +186,8 @@ const VendorSubscriptionPlans: React.FC = () => {
   };
 
   const calculatePlanPrice = (plan: Plan) => {
-    if (plan.price === 0) return 'Contact Us';
-    const price = billingCycle === 'yearly' ? plan.price * 10 : plan.price; // 2 months free on yearly
-    return `₹${price.toLocaleString()}`;
+    if (plan.price === 0) return plan.id === 'free' ? 'FREE' : 'Contact Us';
+    return `₹${plan.price.toLocaleString()}`;
   };
 
   const calculateAddonTotal = () => {
@@ -167,9 +195,8 @@ const VendorSubscriptionPlans: React.FC = () => {
   };
 
   const calculateTotal = () => {
-    if (!selectedPlan || selectedPlan.price === 0) return 0;
-    const planPrice = billingCycle === 'yearly' ? selectedPlan.price * 10 : selectedPlan.price;
-    return planPrice + calculateAddonTotal();
+    if (!selectedPlan) return 0;
+    return selectedPlan.price + calculateAddonTotal();
   };
 
   const handlePlanSelect = (plan: Plan) => {
@@ -222,7 +249,7 @@ const VendorSubscriptionPlans: React.FC = () => {
       const paymentData = {
         planId: selectedPlan.id,
         addons: selectedAddons.map(addon => addon._id),
-        billingCycle,
+        billingCycle: 'monthly' as 'monthly',
         totalAmount: calculateTotal()
       };
 
@@ -300,28 +327,20 @@ const VendorSubscriptionPlans: React.FC = () => {
           }
         </p>
         
-        <div className="flex items-center justify-center space-x-4 mb-12">
-          <Button
-            variant={billingCycle === 'monthly' ? 'default' : 'outline'}
-            onClick={() => setBillingCycle('monthly')}
-            size="lg"
-          >
-            Monthly
-          </Button>
-          <Button
-            variant={billingCycle === 'yearly' ? 'default' : 'outline'}
-            onClick={() => setBillingCycle('yearly')}
-            size="lg"
-          >
-            Yearly 
-            <Badge className="ml-2 bg-green-600 hover:bg-green-600">Save 17%</Badge>
-          </Button>
+        <div className="text-center mb-8">
+          <Badge variant="outline" className="px-4 py-2 text-sm">
+            Monthly Billing - No Long-term Commitments
+          </Badge>
         </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-8">
         {plans
           .filter(plan => {
+            // Hide free plan from display
+            if (plan.id === 'free') {
+              return false;
+            }
             // Hide current plan if upgrading
             if (currentSubscription) {
               const currentPlanName = currentSubscription.planName?.toLowerCase();
@@ -362,7 +381,7 @@ const VendorSubscriptionPlans: React.FC = () => {
                 {calculatePlanPrice(plan)}
                 {plan.price > 0 && (
                   <span className="text-lg text-muted-foreground font-normal">
-                    /{billingCycle}
+                    /month
                   </span>
                 )}
               </div>
@@ -384,6 +403,10 @@ const VendorSubscriptionPlans: React.FC = () => {
         
         {/* Show message if no upgrades available */}
         {currentSubscription && plans.filter(plan => {
+          // Hide free plan from display
+          if (plan.id === 'free') {
+            return false;
+          }
           const currentPlanName = currentSubscription.planName?.toLowerCase();
           return !currentPlanName?.includes(plan.name.toLowerCase());
         }).length === 0 && (
@@ -527,13 +550,13 @@ const VendorSubscriptionPlans: React.FC = () => {
                 <div>
                   <h4 className="font-semibold text-lg">{selectedPlan?.name} Plan</h4>
                   <p className="text-sm text-muted-foreground">
-                    Billed {billingCycle}
+                    Billed monthly
                   </p>
                 </div>
               </div>
               <div className="text-right">
                 <p className="font-bold text-lg">
-                  ₹{(billingCycle === 'yearly' && selectedPlan?.price ? selectedPlan.price * 10 : selectedPlan?.price || 0).toLocaleString()}
+                  ₹{selectedPlan?.price || 0}
                 </p>
               </div>
             </div>

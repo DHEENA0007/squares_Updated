@@ -4,6 +4,8 @@ import { lazy } from "react";
 export const VendorDashboard = lazy(() => import("@/pages/vendor/VendorDashboard"));
 export const VendorProperties = lazy(() => import("@/pages/vendor/VendorProperties"));
 export const AddProperty = lazy(() => import("@/pages/vendor/AddProperty"));
+export const PropertyDetails = lazy(() => import("@/pages/vendor/PropertyDetails"));
+export const EditProperty = lazy(() => import("@/pages/vendor/EditProperty"));
 export const VendorLeads = lazy(() => import("@/pages/vendor/VendorLeads"));
 export const VendorMessages = lazy(() => import("@/pages/vendor/VendorMessages"));
 export const VendorAnalytics = lazy(() => import("@/pages/vendor/VendorAnalytics"));

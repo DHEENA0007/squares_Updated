@@ -292,7 +292,7 @@ const PropertyComparison = () => {
                   <div className="flex items-center text-xs text-muted-foreground mb-2">
                     <MapPin className="w-3 h-3 mr-1" />
                     <span className="line-clamp-1">
-                      {property.address.locality}, {property.address.city}
+                      {property.address.city}, {property.address.state}
                     </span>
                   </div>
                   
@@ -462,9 +462,9 @@ const PropertyComparison = () => {
                       {properties.map((property) => (
                         <td key={property._id} className="p-4">
                           <div className="text-sm">
-                            <div className="font-medium">{property.address.locality}</div>
+                            <div className="font-medium">{property.address.city}</div>
                             <div className="text-muted-foreground">
-                              {property.address.city}, {property.address.state}
+                              {property.address.state}
                             </div>
                           </div>
                         </td>

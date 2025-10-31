@@ -144,7 +144,7 @@ const PropertySearch = () => {
   // Client-side filtering and search
   const clientFilteredProperties = useMemo(() => {
     return filteredProperties.filter(property => {
-      const location = `${property.address?.locality || ''} ${property.address?.city || ''} ${property.address?.state || ''}`;
+      const location = `${property.address?.city || ''} ${property.address?.state || ''}`;
       const matchesSearch = property.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            location.toLowerCase().includes(searchQuery.toLowerCase());
       
@@ -490,7 +490,7 @@ const PropertySearch = () => {
                             <div className="flex items-center text-muted-foreground mb-2">
                               <MapPin className="w-4 h-4 mr-1" />
                               <span className="text-sm">
-                                {property.address?.locality}, {property.address?.city}, {property.address?.state}
+                                {property.address?.city}, {property.address?.state}
                               </span>
                             </div>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">

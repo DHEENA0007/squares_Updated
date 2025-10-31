@@ -1,0 +1,94 @@
+[
+  {
+    "_id": "68f9e256fabae925b343afb6",
+    "name": "Basic Plan",
+    "description": "Perfect for new agents getting started",
+    "price": 999,
+    "currency": "INR",
+    "billingPeriod": "monthly",
+    "features": [
+      "Up to 10 property listings",
+      "Basic lead management",
+      "Email support",
+      "Standard property photos",
+      "Basic analytics",
+      "Property status updates"
+    ],
+    "limits": {
+      "properties": 10,
+      "featuredListings": 0,
+      "photos": 15,
+      "videoTours": 0
+    },
+    "isActive": true,
+    "isPopular": false,
+    "sortOrder": 1,
+    "createdAt": "2025-10-23T08:07:50.692Z",
+    "updatedAt": "2025-10-23T11:25:31.744Z",
+    "__v": 0
+  },
+  {
+    "_id": "68f9e256fabae925b343afb8",
+    "name": "Premium Plan",
+    "description": "Advanced features for professional agents",
+    "price": 2499,
+    "currency": "INR",
+    "billingPeriod": "monthly",
+    "features": [
+      "Up to 50 property listings",
+      "Advanced lead management",
+      "Priority email & phone support",
+      "HD property photos & videos",
+      "Detailed analytics & insights",
+      "Featured listings (5 per month)",
+      "Custom property brochures",
+      "Lead scoring & tracking"
+    ],
+    "limits": {
+      "properties": 50,
+      "featuredListings": 5,
+      "photos": 50,
+      "videoTours": 3
+    },
+    "isActive": true,
+    "isPopular": true,
+    "sortOrder": 2,
+    "createdAt": "2025-10-23T08:07:50.745Z",
+    "updatedAt": "2025-10-23T11:56:12.944Z",
+    "__v": 0
+  },
+  {
+    "_id": "68f9e256fabae925b343afba",
+    "name": "Enterprise Plan",
+    "description": "Complete solution for large real estate businesses",
+    "price": 0,
+    "currency": "INR",
+    "billingPeriod": "monthly",
+    "features": [
+      "Unlimited property listings",
+      "Complete CRM integration",
+      "24/7 dedicated support",
+      "Professional photography service",
+      "Advanced analytics & reports",
+      "Unlimited featured listings",
+      "Custom branding & themes",
+      "API access",
+      "Multi-user accounts",
+      "White-label solutions",
+      "Virtual tour creation",
+      "Marketing automation"
+    ],
+    "limits": {
+      "properties": 0,
+      "featuredListings": 0,
+      "photos": 0,
+      "videoTours": 0
+    },
+    "isActive": true,
+    "isPopular": false,
+    "sortOrder": 3,
+    "createdAt": "2025-10-23T08:07:50.790Z",
+    "updatedAt": "2025-10-23T08:07:50.790Z",
+    "__v": 0
+  }
+]

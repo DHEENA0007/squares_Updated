@@ -13,7 +13,7 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
   const primaryImage = propertyService.getPrimaryImage(property);
   const formattedPrice = propertyService.formatPrice(property.price, property.listingType);
   const formattedArea = propertyService.formatArea(property.area);
-  const location = `${property.address.locality}, ${property.address.city}`;
+  const location = `${property.address.city}, ${property.address.state}`;
 
   return (
     <Card className="group overflow-hidden hover:shadow-[var(--shadow-large)] transition-all duration-300">

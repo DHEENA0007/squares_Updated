@@ -119,7 +119,11 @@ const VendorProperties = () => {
   };
 
   const getLocationString = (property: Property) => {
-    return `${property.address.locality}, ${property.address.city}, ${property.address.state}`;
+    const parts = [];
+    if (property.address.locationName) parts.push(property.address.locationName);
+    if (property.address.city) parts.push(property.address.city);
+    if (property.address.state) parts.push(property.address.state);
+    return parts.join(', ') || 'Location not specified';
   };
 
   if (isLoading) {
@@ -297,13 +301,17 @@ const VendorProperties = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Details
+                        <DropdownMenuItem asChild>
+                          <Link to={`/vendor/properties/details/${property._id}`}>
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Details
+                          </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Edit3 className="w-4 h-4 mr-2" />
-                          Edit Property
+                        <DropdownMenuItem asChild>
+                          <Link to={`/vendor/properties/edit/${property._id}`}>
+                            <Edit3 className="w-4 h-4 mr-2" />
+                            Edit Property
+                          </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleToggleFeatured(property._id, property.featured)}>
                           <TrendingUp className="w-4 h-4 mr-2" />
@@ -361,14 +369,18 @@ const VendorProperties = () => {
                   </div>
 
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline">
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Details
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      <Edit3 className="w-4 h-4 mr-2" />
-                      Edit
-                    </Button>
+                    <Link to={`/vendor/properties/details/${property._id}`}>
+                      <Button size="sm" variant="outline">
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Details
+                      </Button>
+                    </Link>
+                    <Link to={`/vendor/properties/edit/${property._id}`}>
+                      <Button size="sm" variant="outline">
+                        <Edit3 className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
+                    </Link>
                     <Button size="sm" onClick={() => handleToggleFeatured(property._id, property.featured)}>
                       <TrendingUp className="w-4 h-4 mr-2" />
                       {property.featured ? 'Unfeature' : 'Promote'}
