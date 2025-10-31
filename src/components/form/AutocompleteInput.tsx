@@ -18,11 +18,13 @@ interface AutocompleteInputProps {
   onChange: (value: string, suggestion?: Suggestion) => void;
   placeholder?: string;
   className?: string;
-  type: 'country' | 'state' | 'district' | 'city';
+  type: 'country' | 'state' | 'district' | 'city' | 'pincode';
   dependentValues?: {
     country?: string;
     stateCode?: string;
     districtId?: string;
+    state?: string;
+    district?: string;
   };
   disabled?: boolean;
   required?: boolean;
@@ -90,6 +92,13 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
             dependentValues.districtId
           );
           break;
+        case 'pincode':
+          response = await locationService.getPincodeSuggestions(
+            query,
+            dependentValues.state,
+            dependentValues.district
+          );
+          break;
         default:
           response = { success: false, suggestions: [] };
       }
@@ -151,6 +160,8 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
         return 'Type district name (e.g., Bangalore Urban)';
       case 'city':
         return 'Type city name (e.g., Bangalore)';
+      case 'pincode':
+        return 'Type pincode (e.g., 560001)';
       default:
         return 'Type to search...';
     }

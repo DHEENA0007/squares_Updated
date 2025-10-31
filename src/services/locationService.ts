@@ -1,5 +1,7 @@
 import { Country as CSCCountry, State as CSCState, City as CSCCity } from 'country-state-city';
 import { toast } from '@/hooks/use-toast';
+import { pincodeService } from './pincodeService';
+import { locaService } from './locaService';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -58,10 +60,13 @@ export interface PincodeData {
   pincode: string;
   country: string;
   state: string;
+  stateCode?: string;
   city: string;
   locality: string;
   area?: string;
   district?: string;
+  taluk?: string;
+  locationName?: string;
   latitude?: number;
   longitude?: number;
 }
@@ -446,45 +451,7 @@ class LocationService {
     return pincode;
   }
 
-  // Get location data by pincode using external API
-  async getLocationByPincode(pincode: string): Promise<PincodeData | null> {
-    try {
-      // First try our backend API
-      try {
-        const response = await this.makeRequest<PincodeData>(`/locations/pincode/${pincode}`);
-        return response;
-      } catch (backendError) {
-        console.log('Backend pincode API failed, trying external API...');
-      }
-
-      // Fallback to external pincode API
-      const externalResponse = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
-      
-      if (!externalResponse.ok) {
-        throw new Error('External pincode API failed');
-      }
-
-      const data = await externalResponse.json();
-      
-      if (data && data[0] && data[0].Status === 'Success' && data[0].PostOffice && data[0].PostOffice.length > 0) {
-        const postOffice = data[0].PostOffice[0];
-        return {
-          pincode: pincode,
-          country: 'India',
-          state: postOffice.State,
-          city: postOffice.District,
-          locality: postOffice.Name,
-          area: postOffice.Block,
-          district: postOffice.District
-        };
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error fetching pincode data:', error);
-      return null;
-    }
-  }
+  // Removed old getLocationByPincode - now using the new one with locaService integration
 
   // Search location names by query and taluk
   async searchLocationNames(query: string, talukId: string): Promise<LocationName[]> {
@@ -647,6 +614,48 @@ class LocationService {
     }
   }
 
+  async getPincodeSuggestions(query: string, state?: string, district?: string, limit: number = 10): Promise<{success: boolean; suggestions: any[]}> {
+    try {
+      // Initialize locaService if not already initialized
+      if (!locaService.isReady()) {
+        await locaService.initialize();
+      }
+
+      // Use locaService for pincode suggestions
+      const pincodes = locaService.getPincodeSuggestions(state, district, undefined, query);
+      
+      if (pincodes && pincodes.length > 0) {
+        const suggestions = pincodes.slice(0, limit).map(p => ({
+          id: p.pincode,
+          pincode: p.pincode,
+          name: p.pincode,
+          code: p.pincode,
+          displayName: `${p.pincode} - ${p.city}, ${p.district}`,
+          officename: p.city,
+          district: p.district,
+          state: p.state,
+          relevance: query && p.pincode.startsWith(query) ? 2 : 1,
+          category: 'pincode',
+          extra: {
+            district: p.district,
+            state: p.state,
+            officename: p.city
+          }
+        }));
+
+        return { success: true, suggestions };
+      }
+
+      // Fallback to old pincode service if no results
+      console.log('No results from locaService, trying legacy pincodeService');
+      const result = await pincodeService.getPincodeSuggestions(query, state, district, limit);
+      return result;
+    } catch (error) {
+      console.error('Error fetching pincode suggestions:', error);
+      return { success: false, suggestions: [] };
+    }
+  }
+
   async searchAddress(query: string, limit: number = 10): Promise<{success: boolean; results: any[]}> {
     try {
       const response = await this.makeRequest<{success: boolean; results: any[]}>(`/locations/address-search?q=${encodeURIComponent(query)}&limit=${limit}`);
@@ -657,10 +666,55 @@ class LocationService {
     }
   }
 
+  async getLocationByPincode(pincode: string): Promise<any> {
+    try {
+      // Initialize locaService if not already initialized
+      if (!locaService.isReady()) {
+        await locaService.initialize();
+      }
+
+      // Use locaService to get location by pincode
+      const locations = locaService.getLocationByPincode(pincode);
+      
+      if (locations && locations.length > 0) {
+        const location = locations[0];
+        return {
+          country: 'India',
+          countryCode: 'IN',
+          state: location.state,
+          stateCode: location.state.substring(0, 2).toUpperCase(),
+          district: location.district,
+          city: location.city,
+          locality: location.city,
+          area: location.city,
+          pincode: location.pincode,
+          // Optional: add coordinates if available
+          latitude: undefined,
+          longitude: undefined
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error getting location by pincode:', error);
+      return null;
+    }
+  }
+
   async validatePincode(pincode: string): Promise<{success: boolean; valid: boolean; message: string}> {
     try {
-      const response = await this.makeRequest<{success: boolean; valid: boolean; message: string}>(`/locations/validate-pincode/${pincode}`);
-      return response;
+      // Initialize locaService if not already initialized
+      if (!locaService.isReady()) {
+        await locaService.initialize();
+      }
+
+      const isValid = locaService.validatePincode(pincode);
+      
+      return {
+        success: true,
+        valid: isValid,
+        message: isValid ? 'Pincode is valid' : 'Pincode not found'
+      };
     } catch (error) {
       console.error('Error validating pincode:', error);
       return { success: false, valid: false, message: 'Validation failed' };

@@ -417,33 +417,90 @@ const PostProperty = () => {
                   
                   <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                      Enter location details or start with pincode for instant auto-completion
+                      Select location details step by step for accurate autocomplete
                     </p>
                     
-                    <EnhancedAddressInput
-                      onLocationChange={(locationData) => {
-                        // Update form fields based on location data
-                        if (locationData.pincode) {
-                          form.setValue('pincode', locationData.pincode);
-                        }
-                        if (locationData.state) {
-                          form.setValue('state', locationData.state);
-                        }
-                        if (locationData.city || locationData.district) {
-                          form.setValue('city', locationData.city || locationData.district || '');
-                        }
-                        if (locationData.locationName) {
-                          form.setValue('locality', locationData.locationName);
-                        }
-                      }}
-                      initialData={{
-                        pincode: form.watch('pincode') || '',
-                        state: form.watch('state') || '',
-                        city: form.watch('city') || '',
-                        locationName: form.watch('locality') || ''
-                      }}
-                      showPincodeFirst={true}
-                    />
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="state"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State *</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="Enter state name" 
+                                {...field}
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  // Clear dependent fields when state changes
+                                  form.setValue('city', '');
+                                  form.setValue('pincode', '');
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="city"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City/District *</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="Enter city or district name" 
+                                {...field}
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  // Clear pincode when city changes
+                                  form.setValue('pincode', '');
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="locality"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Locality/Area *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter locality or area name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="pincode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Pincode *</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="tel"
+                                placeholder="Enter 6-digit pincode"
+                                maxLength={6}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
                 </div>
 

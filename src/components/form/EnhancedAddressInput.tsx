@@ -41,6 +41,11 @@ interface Suggestion {
   flag?: string;
   priority?: number;
   category?: string;
+  extra?: {
+    district?: string;
+    state?: string;
+    officename?: string;
+  };
 }
 
 interface EnhancedAddressInputProps {
@@ -80,6 +85,149 @@ const EnhancedAddressInput: React.FC<EnhancedAddressInputProps> = ({
   const orderedFields = showPincodeFirst 
     ? [locationFields[6], ...locationFields.slice(0, 6)] // Move pincode to first
     : locationFields;
+
+  // Auto-fill pincode based on location selection
+  const autoFillPincode = useCallback(async (newLocationData: LocationData) => {
+    // Only auto-fill if we have state, district, and city but no pincode
+    if (newLocationData.state && newLocationData.district && newLocationData.city && !newLocationData.pincode) {
+      try {
+        console.log('Attempting to auto-fill pincode for:', newLocationData.state, newLocationData.district, newLocationData.city);
+        
+        // Try with city name as query to get more relevant results
+        let pincodeResponse = await locationService.getPincodeSuggestions(
+          newLocationData.city, // Use city name as query
+          newLocationData.state,
+          newLocationData.district
+        );
+        
+        // If no results with city name, try with district name
+        if (!pincodeResponse.success || pincodeResponse.suggestions.length === 0) {
+          console.log('No results with city name, trying district name');
+          pincodeResponse = await locationService.getPincodeSuggestions(
+            newLocationData.district, // Use district name as query
+            newLocationData.state,
+            newLocationData.district
+          );
+        }
+        
+        // If still no results, try with just first few letters of city
+        if (!pincodeResponse.success || pincodeResponse.suggestions.length === 0) {
+          const cityPrefix = newLocationData.city.substring(0, 3);
+          console.log('Trying with city prefix:', cityPrefix);
+          pincodeResponse = await locationService.getPincodeSuggestions(
+            cityPrefix,
+            newLocationData.state,
+            newLocationData.district
+          );
+        }
+        
+        console.log('Pincode response:', pincodeResponse);
+        
+        if (pincodeResponse.success && pincodeResponse.suggestions.length > 0) {
+          console.log('Found', pincodeResponse.suggestions.length, 'pincode suggestions');
+          
+          // Filter by city with multiple matching strategies
+          const cityMatchedPincodes = pincodeResponse.suggestions.filter(p => {
+            const cityLower = newLocationData.city.toLowerCase();
+            const districtLower = newLocationData.district.toLowerCase();
+            
+            const matches = (
+              p.extra?.district?.toLowerCase().includes(cityLower) ||
+              p.displayName?.toLowerCase().includes(cityLower) ||
+              p.extra?.officename?.toLowerCase().includes(cityLower) ||
+              // Also try matching city with district
+              p.displayName?.toLowerCase().includes(districtLower) ||
+              p.extra?.district?.toLowerCase() === districtLower ||
+              // Match if city is part of office name
+              p.extra?.officename?.toLowerCase().includes(cityLower.split(' ')[0]) ||
+              // Additional matching strategies
+              p.name?.toLowerCase().includes(cityLower) ||
+              p.pincode?.toString().includes(cityLower) ||
+              // Try partial matches
+              cityLower.includes(p.extra?.district?.toLowerCase() || '') ||
+              cityLower.includes(p.extra?.officename?.toLowerCase() || '')
+            );
+            
+            if (matches) {
+              console.log('Matched pincode:', p.pincode, 'for', cityLower);
+            }
+            
+            return matches;
+          });
+          
+          console.log('City matched pincodes:', cityMatchedPincodes.length);
+          
+          const relevantPincodes = cityMatchedPincodes.length > 0 ? cityMatchedPincodes : pincodeResponse.suggestions.slice(0, 10);
+          
+          if (relevantPincodes.length === 1) {
+            // If only one pincode matches, auto-fill it
+            const updatedData = {
+              ...newLocationData,
+              pincode: relevantPincodes[0].pincode
+            };
+            
+            setLocationData(updatedData);
+            onLocationChange(updatedData);
+            
+            toast({
+              title: "Pincode Auto-Filled ✓",
+              description: `Found pincode: ${relevantPincodes[0].pincode} for ${newLocationData.city}, ${newLocationData.district}`,
+            });
+          } else if (relevantPincodes.length > 1 && relevantPincodes.length <= 8) {
+            // Multiple pincodes found but manageable number, show suggestions
+            toast({
+              title: "Multiple Pincodes Available",
+              description: `Found ${relevantPincodes.length} pincodes for ${newLocationData.city}. Click on pincode field to see options.`,
+            });
+            
+            // Auto-trigger pincode suggestions
+            setSuggestions(prev => ({ 
+              ...prev, 
+              pincode: relevantPincodes.map(p => ({
+                id: p.pincode || p.id,
+                name: p.pincode || p.name,
+                code: p.pincode || p.code,
+                displayName: p.displayName || `${p.pincode || p.name} - ${p.extra?.officename || p.extra?.district || 'Unknown Area'}`,
+                relevance: p.relevance || 1,
+                category: 'pincode',
+                extra: p.extra
+              }))
+            }));
+            setShowSuggestions(prev => ({ ...prev, pincode: true }));
+          } else if (relevantPincodes.length > 8) {
+            // Too many pincodes, just notify user
+            toast({
+              title: "Multiple Pincodes Found",
+              description: `${relevantPincodes.length} pincodes found for ${newLocationData.city}. Please type in the pincode field to search.`,
+            });
+          } else {
+            // No specific matches found, try with broader district search
+            const districtPincodes = pincodeResponse.suggestions.slice(0, 5);
+            if (districtPincodes.length > 0) {
+              toast({
+                title: "Pincodes Available",
+                description: `Found pincodes for ${newLocationData.district} district. Please type in the pincode field to search.`,
+              });
+            }
+          }
+        } else {
+          console.log('No pincode suggestions found for the location');
+          // Try a more generic approach - notify user they can manually enter pincode
+          toast({
+            title: "Manual Pincode Entry",
+            description: `Please enter the pincode for ${newLocationData.city}, ${newLocationData.district} manually.`,
+          });
+        }
+      } catch (error) {
+        console.error('Error auto-filling pincode:', error);
+        // Show a helpful message to the user
+        toast({
+          title: "Pincode Not Found",
+          description: `Please enter the pincode for ${newLocationData.city}, ${newLocationData.district} manually.`,
+        });
+      }
+    }
+  }, [onLocationChange, toast, setSuggestions, setShowSuggestions, setLocationData]);
 
   // Debounced search function
   const debouncedSearch = useCallback((fieldType: string, query: string) => {
@@ -153,7 +301,29 @@ const EnhancedAddressInput: React.FC<EnhancedAddressInputProps> = ({
             break;
 
           case 'pincode':
-            // Handle pincode auto-detection
+            // Get pincode suggestions
+            const pincodeResponse = await locationService.getPincodeSuggestions(
+              query, 
+              locationData.state, 
+              locationData.district
+            );
+            if (pincodeResponse.success) {
+              results = pincodeResponse.suggestions.map(p => ({
+                id: p.pincode,
+                name: p.pincode,
+                code: p.pincode,
+                displayName: p.displayName || `${p.pincode} - ${p.officename || p.district}`,
+                relevance: p.relevance || 1,
+                category: 'pincode',
+                extra: {
+                  district: p.district,
+                  state: p.state,
+                  officename: p.officename
+                }
+              }));
+            }
+
+            // Also handle complete 6-digit pincode auto-detection
             if (/^\d{6}$/.test(query)) {
               const pincodeData = await locationService.getLocationByPincode(query);
               if (pincodeData) {
@@ -168,10 +338,10 @@ const EnhancedAddressInput: React.FC<EnhancedAddressInputProps> = ({
                   district: pincodeData.district,
                   city: pincodeData.city,
                   taluk: pincodeData.taluk,
-                  locationName: pincodeData.locationName,
+                  locationName: pincodeData.locationName || pincodeData.locality,
                   latitude: pincodeData.latitude,
                   longitude: pincodeData.longitude,
-                  formattedAddress: pincodeData.formattedAddress
+                  formattedAddress: `${pincodeData.locality || pincodeData.area}, ${pincodeData.district}, ${pincodeData.state}, India - ${query}`
                 };
                 
                 setLocationData(newLocationData);
@@ -179,7 +349,7 @@ const EnhancedAddressInput: React.FC<EnhancedAddressInputProps> = ({
                 
                 toast({
                   title: "Address Auto-Detected ✓",
-                  description: `Location found: ${pincodeData.area || pincodeData.locationName}, ${pincodeData.district}, ${pincodeData.state}`,
+                  description: `Location found: ${pincodeData.area || pincodeData.locality}, ${pincodeData.district}, ${pincodeData.state}`,
                 });
                 
                 return;
@@ -214,64 +384,106 @@ const EnhancedAddressInput: React.FC<EnhancedAddressInputProps> = ({
     }, 300);
   }, [locationData, onLocationChange, toast]);
 
-  const handleInputChange = (fieldType: string, value: string) => {
-    const newLocationData = { ...locationData, [fieldType]: value };
-    
-    // Handle special cases
-    if (fieldType === 'country' && value) {
-      // Reset dependent fields when country changes
-      newLocationData.state = '';
-      newLocationData.district = '';
-      newLocationData.city = '';
-      newLocationData.taluk = '';
-      newLocationData.locationName = '';
-      
-      // Set country code
-      if (value.toLowerCase().includes('india') || value === 'IN') {
-        newLocationData.countryCode = 'IN';
-      }
-    }
-
-    if (fieldType === 'state' && value) {
-      // Reset dependent fields when state changes
-      newLocationData.district = '';
-      newLocationData.city = '';
-      newLocationData.taluk = '';
-      newLocationData.locationName = '';
-    }
-
-    setLocationData(newLocationData);
-    onLocationChange(newLocationData);
-    
-    // Trigger search
-    debouncedSearch(fieldType, value);
-  };
-
-  const handleSuggestionSelect = (fieldType: string, suggestion: Suggestion) => {
+  // Handle suggestion selection
+  const handleSuggestionSelect = useCallback(async (fieldType: string, suggestion: Suggestion) => {
     const newLocationData = { ...locationData };
     
-    // Set the selected value
     switch (fieldType) {
       case 'country':
         newLocationData.country = suggestion.name;
-        newLocationData.countryCode = suggestion.code;
+        newLocationData.countryCode = suggestion.code || suggestion.id;
+        // Clear dependent fields
+        newLocationData.state = '';
+        newLocationData.stateCode = '';
+        newLocationData.district = '';
+        newLocationData.city = '';
+        newLocationData.taluk = '';
+        newLocationData.locationName = '';
+        newLocationData.pincode = '';
         break;
+        
       case 'state':
         newLocationData.state = suggestion.name;
-        newLocationData.stateCode = suggestion.code;
+        newLocationData.stateCode = suggestion.code || suggestion.id;
+        // Clear dependent fields
+        newLocationData.district = '';
+        newLocationData.city = '';
+        newLocationData.taluk = '';
+        newLocationData.locationName = '';
+        newLocationData.pincode = '';
+        break;
+        
+      case 'district':
+        newLocationData.district = suggestion.name;
+        // Clear dependent fields
+        newLocationData.city = '';
+        newLocationData.taluk = '';
+        newLocationData.locationName = '';
+        newLocationData.pincode = '';
+        break;
+        
+      case 'city':
+        newLocationData.city = suggestion.name;
+        // Clear dependent fields
+        newLocationData.taluk = '';
+        newLocationData.locationName = '';
+        newLocationData.pincode = '';
+        break;
+        
+      case 'taluk':
+        newLocationData.taluk = suggestion.name;
+        // Clear dependent fields
+        newLocationData.locationName = '';
+        break;
+        
+      case 'locationName':
+        newLocationData.locationName = suggestion.name;
+        break;
+        
+      case 'pincode':
+        newLocationData.pincode = suggestion.name;
+        // Auto-detect location if extra data is available
+        if (suggestion.extra) {
+          newLocationData.district = suggestion.extra.district || newLocationData.district;
+          newLocationData.state = suggestion.extra.state || newLocationData.state;
+        }
         break;
       default:
-        newLocationData[fieldType as keyof LocationData] = suggestion.name;
+        (newLocationData as any)[fieldType] = suggestion.name;
     }
+    
+    setLocationData(newLocationData);
+    onLocationChange(newLocationData);
+    setShowSuggestions(prev => ({ ...prev, [fieldType]: false }));
+    setActiveSuggestionIndex(prev => ({ ...prev, [fieldType]: 0 }));
+    
+    // Auto-fill pincode after city or district selection
+    if (fieldType === 'city' || (fieldType === 'district' && newLocationData.city)) {
+      console.log('Triggering pincode auto-fill for fieldType:', fieldType, 'with data:', newLocationData);
+      setTimeout(() => autoFillPincode(newLocationData), 500);
+    }
+  }, [locationData, onLocationChange, autoFillPincode]);
 
+  // Handle input changes
+  const handleInputChange = useCallback((fieldType: string, value: string) => {
+    const newLocationData = { ...locationData, [fieldType]: value };
     setLocationData(newLocationData);
     onLocationChange(newLocationData);
     
-    // Hide suggestions
-    setShowSuggestions(prev => ({ ...prev, [fieldType]: false }));
-  };
+    // Trigger search with debounce
+    debouncedSearch(fieldType, value);
+  }, [locationData, onLocationChange, debouncedSearch]);
 
-  const handleKeyDown = (fieldType: string, e: React.KeyboardEvent) => {
+  // Handle input focus
+  const handleInputFocus = useCallback((fieldType: string) => {
+    const currentValue = locationData[fieldType as keyof LocationData] as string;
+    if (currentValue && currentValue.length > 1) {
+      debouncedSearch(fieldType, currentValue);
+    }
+  }, [locationData, debouncedSearch]);
+
+  // Handle keyboard navigation
+  const handleKeyDown = useCallback((fieldType: string, e: React.KeyboardEvent) => {
     const fieldSuggestions = suggestions[fieldType] || [];
     const activeIndex = activeSuggestionIndex[fieldType] || 0;
 
@@ -300,7 +512,7 @@ const EnhancedAddressInput: React.FC<EnhancedAddressInputProps> = ({
         setShowSuggestions(prev => ({ ...prev, [fieldType]: false }));
         break;
     }
-  };
+  }, [suggestions, activeSuggestionIndex, handleSuggestionSelect]);
 
   const renderField = (field: LocationField) => {
     const fieldSuggestions = suggestions[field.type] || [];
@@ -325,11 +537,7 @@ const EnhancedAddressInput: React.FC<EnhancedAddressInputProps> = ({
             value={field.value}
             onChange={(e) => handleInputChange(field.type, e.target.value)}
             onKeyDown={(e) => handleKeyDown(field.type, e)}
-            onFocus={() => {
-              if (fieldSuggestions.length > 0) {
-                setShowSuggestions(prev => ({ ...prev, [field.type]: true }));
-              }
-            }}
+            onFocus={() => handleInputFocus(field.type)}
             className="pr-10"
             maxLength={field.type === 'pincode' ? 6 : undefined}
           />
@@ -376,10 +584,23 @@ const EnhancedAddressInput: React.FC<EnhancedAddressInputProps> = ({
 
         {/* Special message for pincode */}
         {field.type === 'pincode' && (
-          <p className="text-xs text-gray-500 flex items-center gap-1">
-            <MapPin className="w-3 h-3" />
-            Enter 6-digit pincode to auto-fill all location fields above
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-500 flex items-center gap-1">
+              <MapPin className="w-3 h-3" />
+              Enter 6-digit pincode to auto-fill all location fields above
+            </p>
+            {locationData.state && locationData.district && locationData.city && !locationData.pincode && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => autoFillPincode(locationData)}
+                className="text-xs px-2 py-1 h-6"
+              >
+                Find Pincodes
+              </Button>
+            )}
+          </div>
         )}
       </div>
     );

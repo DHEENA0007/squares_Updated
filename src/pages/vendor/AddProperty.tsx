@@ -29,7 +29,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { vendorService } from "@/services/vendorService";
 import { locationService, type Country, type State, type District, type City, type Taluk, type LocationName } from "@/services/locationService";
+import AutocompleteInput from "@/components/form/AutocompleteInput";
 import EnhancedLocationSelector from "@/components/vendor/EnhancedLocationSelector";
+import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
 import { toast } from "@/hooks/use-toast";
 
 const AddProperty = () => {
@@ -54,6 +56,8 @@ const AddProperty = () => {
     districtCode: "",
     city: "",
     cityCode: "",
+    taluk: "",
+    locationName: "",
     pincode: "",
     
     // Property Details
@@ -717,13 +721,25 @@ const AddProperty = () => {
 
             <div className="space-y-2">
               <Label htmlFor="pincode">PIN Code</Label>
-              <Input
-                id="pincode"
-                placeholder="Enter 6-digit PIN code (e.g., 400001)"
-                maxLength={6}
-                pattern="[0-9]{6}"
+              <PincodeAutocomplete
                 value={formData.pincode}
-                onChange={(e) => setFormData(prev => ({ ...prev, pincode: e.target.value }))}
+                onChange={(pincode, locationData) => {
+                  setFormData(prev => ({ ...prev, pincode }));
+                  // Auto-fill location fields if suggestion provides data
+                  if (locationData) {
+                    setFormData(prev => ({
+                      ...prev,
+                      state: locationData.state || prev.state,
+                      district: locationData.district || prev.district,
+                      city: locationData.city || prev.city
+                    }));
+                  }
+                }}
+                state={formData.state}
+                district={formData.district}
+                city={formData.city}
+                placeholder="Enter 6-digit PIN code (e.g., 400001)"
+                className="w-full"
               />
             </div>
 

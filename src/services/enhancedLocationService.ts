@@ -33,7 +33,7 @@ export interface City {
 export interface LocationSearchResult {
   id: string;
   name: string;
-  type: 'country' | 'state' | 'district' | 'city';
+  type: 'country' | 'state' | 'district' | 'city' | 'pincode';
   fullPath: string;
   countryCode?: string;
   stateCode?: string;
