@@ -417,12 +417,36 @@ class PropertyService {
     }
   }
 
+  async togglePropertyStatus(propertyId: string, status: string): Promise<SinglePropertyResponse> {
+    try {
+      const response = await this.makeRequest<SinglePropertyResponse>(`/properties/${propertyId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+
+      toast({
+        title: "Success",
+        description: "Property status updated successfully!",
+      });
+
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update property status";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
   async togglePropertyFeatured(propertyId: string, featured: boolean): Promise<void> {
     try {
       const response = await this.makeRequest<{
         success: boolean;
         message: string;
-      }>(`/properties/${propertyId}`, {
+      }>(`/properties/${propertyId}/featured`, {
         method: "PATCH",
         body: JSON.stringify({ featured }),
       });

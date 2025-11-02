@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import PropertyStatusDialog from "@/components/PropertyStatusDialog";
 import {
   Building2,
   Search,
@@ -36,6 +37,8 @@ const VendorProperties = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [stats, setStats] = useState({
     totalProperties: 0,
     totalViews: 0,
@@ -108,6 +111,30 @@ const VendorProperties = () => {
     } catch (error) {
       console.error('Failed to toggle featured status:', error);
     }
+  };
+
+  const handleUpdatePropertyStatus = async (propertyId: string, newStatus: string, reason?: string) => {
+    try {
+      await propertyService.togglePropertyStatus(propertyId, newStatus);
+      loadProperties(); // Refresh the list
+      loadStats(); // Refresh stats
+      toast({
+        title: "Success",
+        description: `Property status updated to ${newStatus}!`,
+      });
+    } catch (error) {
+      console.error('Failed to update property status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update property status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openStatusDialog = (property: Property) => {
+    setSelectedProperty(property);
+    setStatusDialogOpen(true);
   };
 
   const formatDate = (dateString: string) => {
@@ -317,6 +344,12 @@ const VendorProperties = () => {
                           <TrendingUp className="w-4 h-4 mr-2" />
                           {property.featured ? 'Unfeature' : 'Promote'}
                         </DropdownMenuItem>
+                        
+                        {/* Status Update Option */}
+                        <DropdownMenuItem onClick={() => openStatusDialog(property)}>
+                          <Users className="w-4 h-4 mr-2" />
+                          Update Status
+                        </DropdownMenuItem>
                         <DropdownMenuItem 
                           className="text-red-600"
                           onClick={() => handleDeleteProperty(property._id)}
@@ -385,6 +418,11 @@ const VendorProperties = () => {
                       <TrendingUp className="w-4 h-4 mr-2" />
                       {property.featured ? 'Unfeature' : 'Promote'}
                     </Button>
+                    
+                    {/* Status Update Button */}
+                    <Button size="sm" variant="outline" onClick={() => openStatusDialog(property)}>
+                      Update Status
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -413,6 +451,14 @@ const VendorProperties = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Property Status Dialog */}
+      <PropertyStatusDialog
+        property={selectedProperty}
+        open={statusDialogOpen}
+        onOpenChange={setStatusDialogOpen}
+        onUpdateStatus={handleUpdatePropertyStatus}
+      />
     </div>
   );
 };

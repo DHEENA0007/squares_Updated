@@ -144,11 +144,42 @@ class AdminPropertyService {
   getStatusOptions() {
     return [
       { label: "Active", value: "active" },
-      { label: "Inactive", value: "inactive" },
+      { label: "Available", value: "available" },
       { label: "Pending", value: "pending" },
       { label: "Sold", value: "sold" },
       { label: "Rented", value: "rented" },
+      { label: "Rejected", value: "rejected" },
     ];
+  }
+
+  getStatusColor(status: string): string {
+    switch (status.toLowerCase()) {
+      case 'active':
+      case 'available':
+        return 'bg-green-500';
+      case 'pending':
+        return 'bg-yellow-500';
+      case 'sold':
+        return 'bg-blue-500';
+      case 'rented':
+        return 'bg-purple-500';
+      case 'rejected':
+        return 'bg-red-500';
+      default:
+        return 'bg-gray-500';
+    }
+  }
+
+  getStatusText(status: string): string {
+    const statusMap: Record<string, string> = {
+      'active': 'Active',
+      'available': 'Available',
+      'pending': 'Pending Review',
+      'sold': 'Sold',
+      'rented': 'Rented',
+      'rejected': 'Rejected'
+    };
+    return statusMap[status.toLowerCase()] || status.charAt(0).toUpperCase() + status.slice(1);
   }
 
   getPropertyTypeOptions() {

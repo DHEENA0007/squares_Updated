@@ -34,13 +34,14 @@ export interface Favorite {
     bathrooms: number;
     propertyType: string;
     listingType: string;
+    status: 'available' | 'sold' | 'rented' | 'pending' | 'active' | 'inactive';
     amenities: string[];
     images: Array<{
       url: string;
       caption?: string;
       isPrimary: boolean;
     }> | string[];
-    isAvailable: boolean;
+    isAvailable?: boolean; // Legacy field support
     owner: {
       _id: string;
       name?: string;
@@ -260,10 +261,23 @@ class FavoriteService {
   }
 
   getPropertyStatusBadge(property: any): { variant: string; label: string } {
-    if (!property?.isAvailable) {
-      return { variant: "destructive", label: "Sold" };
+    const status = property?.status || 'available';
+    
+    switch (status.toLowerCase()) {
+      case 'sold':
+        return { variant: "destructive", label: "Sold" };
+      case 'rented':
+        return { variant: "secondary", label: "Rented" };
+      case 'pending':
+        return { variant: "outline", label: "Under Review" };
+      case 'rejected':
+        return { variant: "destructive", label: "Rejected" };
+      case 'active':
+      case 'available':
+        return { variant: "default", label: "Available" };
+      default:
+        return { variant: "outline", label: status.charAt(0).toUpperCase() + status.slice(1) };
     }
-    return { variant: "default", label: "Available" };
   }
 
   getTimeAgo(dateString: string): string {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import PropertyFilters from "@/components/PropertyFilters";
 import PropertyCard from "@/components/PropertyCard";
 import { Link } from "react-router-dom";
@@ -9,39 +9,39 @@ import { toast } from "@/hooks/use-toast";
 const Index = () => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<PropertyFilterType>({});
 
-  useEffect(() => {
-    const fetchFeaturedProperties = async () => {
-      try {
-        setLoading(true);
-        // Fetch featured properties or latest properties for homepage
-        const response = await propertyService.getProperties({
-          limit: 6,
-          page: 1,
-        });
-        
-        if (response.success) {
-          setProperties(response.data.properties);
-        }
-      } catch (error) {
-        console.error("Failed to fetch properties:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load properties. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
+  const fetchProperties = useCallback(async (currentFilters: PropertyFilterType = {}) => {
+    try {
+      setLoading(true);
+      // Fetch properties with filters applied
+      const response = await propertyService.getProperties({
+        limit: 12, // Increased limit to show more properties
+        page: 1,
+        ...currentFilters,
+      });
+      
+      if (response.success) {
+        setProperties(response.data.properties);
       }
-    };
-
-    fetchFeaturedProperties();
+    } catch (error) {
+      console.error("Failed to fetch properties:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load properties. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const handleFilterChange = (filters: PropertyFilterType) => {
-    // For the index page, we might want to redirect to products page with filters
-    // For now, we'll just show all properties
-    console.log("Filters changed:", filters);
+  useEffect(() => {
+    fetchProperties(filters);
+  }, [fetchProperties, filters]);
+
+  const handleFilterChange = (newFilters: PropertyFilterType) => {
+    setFilters(newFilters);
   };
 
   return (
@@ -51,9 +51,15 @@ const Index = () => {
       <section className="mt-12">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-3xl font-bold">Latest Properties</h2>
+            <h2 className="text-3xl font-bold">
+              {Object.keys(filters).some(key => filters[key as keyof PropertyFilterType] !== undefined) 
+                ? "Filtered Properties" 
+                : "Latest Properties"}
+            </h2>
             <p className="text-muted-foreground mt-1">
-              Discover our newest property listings
+              {Object.keys(filters).some(key => filters[key as keyof PropertyFilterType] !== undefined)
+                ? `Found ${properties.length} properties matching your criteria`
+                : "Discover our newest property listings"}
             </p>
           </div>
           <Link
@@ -76,7 +82,7 @@ const Index = () => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {properties.map((property) => (
               <PropertyCard key={property._id} property={property} />
             ))}

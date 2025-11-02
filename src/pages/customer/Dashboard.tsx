@@ -423,19 +423,18 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {recommendedProperties.map((property) => (
                   <div key={property._id} className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
-                    <div className="aspect-video bg-muted flex items-center justify-center">
-                      {property.image ? (
+                    <div className="aspect-video bg-muted flex items-center justify-center relative">
+                      <Home className="w-12 h-12 text-muted-foreground" />
+                      {property.image && (
                         <img 
                           src={property.image} 
                           alt={property.title}
-                          className="w-full h-full object-cover"
+                          className="absolute top-0 left-0 w-full h-full object-fill"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
-                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
                           }}
                         />
-                      ) : null}
-                      <Home className="w-12 h-12 text-muted-foreground" />
+                      )}
                     </div>
                     <div className="p-4">
                       <div className="flex items-start justify-between mb-2">

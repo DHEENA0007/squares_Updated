@@ -94,7 +94,7 @@ const CustomerSidebar = ({ isCollapsed, onToggle, isMobileOpen, onMobileClose }:
               >
                 <Icon className={cn("w-5 h-5 flex-shrink-0")} />
                 {!isCollapsed && (
-                  <span className="font-medium truncate">{item.label}</span>
+                  <span className="font-medium truncate" style={{ fontSize: 'var(--sidebar-font-size)' }}>{item.label}</span>
                 )}
               </Link>
             );

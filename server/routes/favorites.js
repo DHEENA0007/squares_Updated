@@ -182,7 +182,7 @@ router.get('/stats', asyncHandler(async (req, res) => {
       { $match: { user: userId } },
       { $lookup: { from: 'properties', localField: 'property', foreignField: '_id', as: 'property' } },
       { $unwind: '$property' },
-      { $match: { 'property.isAvailable': true } },
+      { $match: { 'property.status': { $in: ['available', 'active'] } } },
       { $count: 'available' }
     ])
   ]);

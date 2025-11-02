@@ -150,8 +150,9 @@ const MyFavorites: React.FC = () => {
       cityStr.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesFilter = !filterType || filterType === 'all' ||
-      (filterType === 'available' && property.isAvailable) ||
-      (filterType === 'sold' && !property.isAvailable) ||
+      (filterType === 'available' && (property.status === 'available' || property.status === 'active')) ||
+      (filterType === 'sold' && property.status === 'sold') ||
+      (filterType === 'rented' && property.status === 'rented') ||
       (filterType === 'recent' && new Date(favorite.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
 
     return matchesSearch && matchesFilter;
@@ -245,6 +246,7 @@ const MyFavorites: React.FC = () => {
                 <SelectItem value="all">All Properties</SelectItem>
                 <SelectItem value="available">Available</SelectItem>
                 <SelectItem value="sold">Sold</SelectItem>
+                <SelectItem value="rented">Rented</SelectItem>
                 <SelectItem value="recent">Recently Added</SelectItem>
               </SelectContent>
             </Select>

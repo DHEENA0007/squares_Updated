@@ -215,4 +215,232 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
   }
 }));
 
+// @desc    Update property
+// @route   PUT /api/properties/:id
+// @access  Private
+router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    // Find property and check ownership
+    const property = await Property.findById(id);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Check if user owns this property or is admin
+    if (property.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this property'
+      });
+    }
+
+    // Update property
+    const updatedProperty = await Property.findByIdAndUpdate(
+      id,
+      { ...req.body, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    ).populate('owner', 'profile.firstName profile.lastName email');
+
+    res.json({
+      success: true,
+      data: { property: updatedProperty },
+      message: 'Property updated successfully'
+    });
+  } catch (error) {
+    console.error('Update property error:', error);
+    
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update property'
+    });
+  }
+}));
+
+// @desc    Update property status
+// @route   PATCH /api/properties/:id/status
+// @access  Private
+router.patch('/:id/status', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    // Find property and check ownership
+    const property = await Property.findById(id);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Check if user owns this property or is admin
+    if (property.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this property'
+      });
+    }
+
+    // Validate status for vendors/customers (they can't set to pending)
+    const validStatusesForOwner = ['available', 'sold', 'rented'];
+    if (req.user.role !== 'admin' && !validStatusesForOwner.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Available options: available, sold, rented'
+      });
+    }
+
+    // Update property status
+    const updatedProperty = await Property.findByIdAndUpdate(
+      id,
+      { status, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    ).populate('owner', 'profile.firstName profile.lastName email');
+
+    res.json({
+      success: true,
+      data: { property: updatedProperty },
+      message: 'Property status updated successfully'
+    });
+  } catch (error) {
+    console.error('Update property status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update property status'
+    });
+  }
+}));
+
+// @desc    Toggle property featured status  
+// @route   PATCH /api/properties/:id/featured
+// @access  Private
+router.patch('/:id/featured', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { featured } = req.body;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    // Find property and check ownership
+    const property = await Property.findById(id);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Check if user owns this property or is admin
+    if (property.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this property'
+      });
+    }
+
+    // Update property featured status
+    const updatedProperty = await Property.findByIdAndUpdate(
+      id,
+      { featured, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    ).populate('owner', 'profile.firstName profile.lastName email');
+
+    res.json({
+      success: true,
+      data: { property: updatedProperty },
+      message: `Property ${featured ? 'promoted' : 'unpromoted'} successfully`
+    });
+  } catch (error) {
+    console.error('Update property featured status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update property featured status'
+    });
+  }
+}));
+
+// @desc    Delete property
+// @route   DELETE /api/properties/:id
+// @access  Private
+router.delete('/:id', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    // Find property and check ownership
+    const property = await Property.findById(id);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Check if user owns this property or is admin
+    if (property.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to delete this property'
+      });
+    }
+
+    // Delete property
+    await Property.findByIdAndDelete(id);
+
+    res.json({
+      success: true,
+      message: 'Property deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete property error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete property'
+    });
+  }
+}));
+
 module.exports = router;

@@ -46,7 +46,10 @@ const Navbar = () => {
 
             <div className="flex items-center gap-4">
               <Link to="/vendor/login">
-                <Button variant="ghost" className="hover:bg-accent/10 hidden sm:flex">
+                <Button
+                  variant="ghost"
+                  className="hover:bg-accent/10 hidden sm:flex bg-primary text-primary-foreground hover:bg-primary/90"
+                >
                   Become a Vendor
                 </Button>
               </Link>
@@ -92,7 +95,7 @@ const Navbar = () => {
               >
                 <Button
                   variant="ghost"
-                  className="w-full mb-2"
+                  className="w-full mb-2 bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   Become a Vendor
                 </Button>
