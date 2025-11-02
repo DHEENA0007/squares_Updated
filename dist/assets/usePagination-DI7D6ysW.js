@@ -1,0 +1,1 @@
+import{r}from"./router-2SVJvIbS.js";function h(o,e=10){const[t,s]=r.useState(1),a=Math.ceil(o.length/e),c=r.useMemo(()=>{const n=(t-1)*e,g=n+e;return o.slice(n,g)},[o,t,e]);return{currentPage:t,totalPages:a,paginatedItems:c,goToPage:n=>{s(Math.max(1,Math.min(n,a)))},nextPage:()=>{t<a&&s(t+1)},previousPage:()=>{t>1&&s(t-1)},hasNextPage:t<a,hasPreviousPage:t>1}}export{h as u};
