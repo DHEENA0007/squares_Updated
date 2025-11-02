@@ -171,41 +171,42 @@ const Profile = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, []); // Empty deps - this function is stable
 
   // Refresh data
   const refreshData = useCallback(async () => {
     setRefreshing(true);
     await loadUserData();
     setRefreshing(false);
-  }, [loadUserData]);
+  }, []); // Empty deps - loadUserData is stable
 
-  // Load data on component mount
+    // Load data on component mount
   useEffect(() => {
     loadUserData();
   }, [loadUserData]);
 
-  // Listen to realtime events for profile updates
-  useRealtimeEvent('profile_updated', () => {
+  // Memoize event handlers to prevent infinite loops
+  const handleProfileUpdate = useCallback(() => {
     console.log("Profile updated via realtime");
-    refreshData();
-  });
+    // Directly call loadUserData without going through refreshData
+    loadUserData();
+  }, []); // Empty dependency array since we want this to be stable
 
-  useRealtimeEvent('property_inquiry', (data) => {
+  const handlePropertyInquiry = useCallback(() => {
     setStats(prev => ({
       ...prev,
       inquiriesReceived: prev.inquiriesReceived + 1
     }));
-  });
+  }, []);
 
-  useRealtimeEvent('property_viewed', (data) => {
+  const handlePropertyViewed = useCallback(() => {
     setStats(prev => ({
       ...prev,
       totalViews: prev.totalViews + 1
     }));
-  });
+  }, []);
 
-  useRealtimeEvent('property_favorited', (data) => {
+  const handlePropertyFavorited = useCallback((data: any) => {
     if (data.action === 'add') {
       setStats(prev => ({
         ...prev,
@@ -217,7 +218,13 @@ const Profile = () => {
         totalFavorites: Math.max(0, prev.totalFavorites - 1)
       }));
     }
-  });
+  }, []);
+
+  // Listen to realtime events for profile updates
+  useRealtimeEvent('profile_updated', handleProfileUpdate);
+  useRealtimeEvent('property_inquiry', handlePropertyInquiry);
+  useRealtimeEvent('property_viewed', handlePropertyViewed);
+  useRealtimeEvent('property_favorited', handlePropertyFavorited);
 
   const handleSave = async () => {
     if (!user) return;

@@ -1,19 +1,32 @@
-import { Heart, MapPin, Bed, Bath, Square } from "lucide-react";
+import { Heart, MapPin, Bed, Bath, Square, MessageSquare, Phone } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Property, propertyService } from "@/services/propertyService";
 import { DEFAULT_PROPERTY_IMAGE } from "@/utils/imageUtils";
+import { getPropertyListingLabel } from "@/utils/propertyUtils";
+import { useState } from "react";
+import PropertyMessageDialog from "@/components/PropertyMessageDialog";
+import PropertyContactDialog from "@/components/PropertyContactDialog";
+import { useNavigate } from "react-router-dom";
 
 interface PropertyCardProps {
   property: Property;
 }
 
 const PropertyCard = ({ property }: PropertyCardProps) => {
+  const navigate = useNavigate();
+  const [showMessageDialog, setShowMessageDialog] = useState(false);
+  const [showContactDialog, setShowContactDialog] = useState(false);
+  
   const primaryImage = propertyService.getPrimaryImage(property);
   const formattedPrice = propertyService.formatPrice(property.price, property.listingType);
   const formattedArea = propertyService.formatArea(property.area);
   const location = `${property.address.city}, ${property.address.state}`;
+
+  const handleViewDetails = () => {
+    navigate(`/property/${property._id}`);
+  };
 
   return (
     <Card className="group overflow-hidden hover:shadow-[var(--shadow-large)] transition-all duration-300">
@@ -70,7 +83,11 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
         </div>
 
         <div className="text-xs text-muted-foreground mb-3 capitalize">
-          {property.type.replace('_', ' ')}
+          {property.type ? property.type.replace('_', ' ') : 'property'}
+        </div>
+
+        <div className="text-xs text-muted-foreground mb-3">
+          {getPropertyListingLabel(property)}
         </div>
         
         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
@@ -111,11 +128,46 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
       </CardContent>
       
       <CardFooter className="p-4 pt-0 flex gap-2">
-        <Button variant="outline" className="flex-1">
-          Contact {property.agent ? 'Agent' : 'Owner'}
+        <Button 
+          variant="outline" 
+          className="flex-1"
+          onClick={() => setShowMessageDialog(true)}
+        >
+          <MessageSquare className="w-4 h-4 mr-2" />
+          Message
         </Button>
-        <Button className="flex-1">View Details</Button>
+        <Button 
+          variant="outline" 
+          className="flex-1"
+          onClick={() => setShowContactDialog(true)}
+        >
+          <Phone className="w-4 h-4 mr-2" />
+          Contact
+        </Button>
+        <Button 
+          className="flex-1"
+          onClick={handleViewDetails}
+        >
+          View Details
+        </Button>
       </CardFooter>
+
+      {/* Message Dialog */}
+      <PropertyMessageDialog
+        open={showMessageDialog}
+        onOpenChange={setShowMessageDialog}
+        property={property}
+        onMessageSent={() => {
+          console.log("Message sent for property:", property._id);
+        }}
+      />
+
+      {/* Contact Dialog */}
+      <PropertyContactDialog
+        open={showContactDialog}
+        onOpenChange={setShowContactDialog}
+        property={property}
+      />
     </Card>
   );
 };

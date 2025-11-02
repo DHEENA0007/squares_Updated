@@ -16,10 +16,10 @@ router.get('/', asyncHandler(async (req, res) => {
   const skip = (parseInt(page) - 1) * parseInt(limit);
 
   // Get total count for pagination
-  const totalCount = await Favorite.countDocuments({ user: req.user._id });
+  const totalCount = await Favorite.countDocuments({ user: req.user.id });
 
   // Get favorites with populated property data
-  const favorites = await Favorite.find({ user: req.user._id })
+  const favorites = await Favorite.find({ user: req.user.id })
     .populate({
       path: 'property',
       populate: {
@@ -70,7 +70,7 @@ router.post('/:propertyId', asyncHandler(async (req, res) => {
 
   // Check if already in favorites
   const existingFavorite = await Favorite.findOne({
-    user: req.user._id,
+    user: req.user.id,
     property: propertyId
   });
 
@@ -83,7 +83,7 @@ router.post('/:propertyId', asyncHandler(async (req, res) => {
 
   // Add to favorites
   const favorite = await Favorite.create({
-    user: req.user._id,
+    user: req.user.id,
     property: propertyId
   });
 
@@ -103,7 +103,7 @@ router.delete('/:propertyId', asyncHandler(async (req, res) => {
   const { propertyId } = req.params;
 
   const result = await Favorite.deleteOne({
-    user: req.user._id,
+    user: req.user.id,
     property: propertyId
   });
 
@@ -127,7 +127,7 @@ router.get('/check/:propertyId', asyncHandler(async (req, res) => {
   const { propertyId } = req.params;
 
   const favorite = await Favorite.findOne({
-    user: req.user._id,
+    user: req.user.id,
     property: propertyId
   });
 
@@ -153,7 +153,7 @@ router.delete('/bulk', asyncHandler(async (req, res) => {
   }
 
   const result = await Favorite.deleteMany({
-    user: req.user._id,
+    user: req.user.id,
     property: { $in: propertyIds }
   });
 

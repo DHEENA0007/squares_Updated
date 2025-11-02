@@ -102,10 +102,19 @@ const Dashboard = () => {
       ]);
 
       if (dashboardResponse.success) {
-        setStats(dashboardResponse.data.stats);
-        setRecentActivities(dashboardResponse.data.recentActivities);
-        setRecommendedProperties(dashboardResponse.data.recommendedProperties);
-        setQuickStats(dashboardResponse.data.quickStats);
+        // Ensure stats is never undefined
+        if (dashboardResponse.data.stats) {
+          setStats(dashboardResponse.data.stats);
+        }
+        if (dashboardResponse.data.recentActivities) {
+          setRecentActivities(dashboardResponse.data.recentActivities);
+        }
+        if (dashboardResponse.data.recommendedProperties) {
+          setRecommendedProperties(dashboardResponse.data.recommendedProperties);
+        }
+        if (dashboardResponse.data.quickStats) {
+          setQuickStats(dashboardResponse.data.quickStats);
+        }
       } else {
         // Fallback to individual API calls
         setRecentActivities(activitiesData);
@@ -114,7 +123,9 @@ const Dashboard = () => {
         
         // Load stats separately
         const statsData = await customerDashboardService.getCustomerStats();
-        setStats(statsData);
+        if (statsData) {
+          setStats(statsData);
+        }
       }
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
@@ -135,28 +146,32 @@ const Dashboard = () => {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // Realtime integration for dashboard updates
+  // Realtime integration for dashboard updates - memoize callbacks
+  const handleStatsUpdate = useCallback(() => {
+    console.log("Stats updated via realtime");
+    refreshDashboard();
+  }, [refreshDashboard]);
+
+  const handlePropertiesUpdate = useCallback(() => {
+    console.log("Properties updated via realtime");
+    refreshDashboard();
+  }, [refreshDashboard]);
+
   usePropertyRealtime({
-    refreshStats: () => {
-      console.log("Stats updated via realtime");
-      refreshDashboard();
-    },
-    refreshProperties: () => {
-      console.log("Properties updated via realtime");
-      refreshDashboard();
-    }
+    refreshStats: handleStatsUpdate,
+    refreshProperties: handlePropertiesUpdate
   });
 
   // Listen to specific realtime events for immediate updates
-  useRealtimeEvent('property_viewed', (data) => {
+  useRealtimeEvent('property_viewed', useCallback((data) => {
     setStats(prev => ({
       ...prev,
       propertiesViewed: prev.propertiesViewed + 1,
       propertiesViewedChange: '+1 new view'
     }));
-  });
+  }, []));
 
-  useRealtimeEvent('favorite_added', (data) => {
+  useRealtimeEvent('favorite_added', useCallback((data) => {
     setStats(prev => ({
       ...prev,
       savedFavorites: prev.savedFavorites + 1,
@@ -166,9 +181,9 @@ const Dashboard = () => {
       ...prev,
       favoritesCount: prev.favoritesCount + 1
     }));
-  });
+  }, []));
 
-  useRealtimeEvent('favorite_removed', (data) => {
+  useRealtimeEvent('favorite_removed', useCallback((data) => {
     setStats(prev => ({
       ...prev,
       savedFavorites: Math.max(0, prev.savedFavorites - 1),
@@ -178,15 +193,15 @@ const Dashboard = () => {
       ...prev,
       favoritesCount: Math.max(0, prev.favoritesCount - 1)
     }));
-  });
+  }, []));
 
-  useRealtimeEvent('property_inquiry', (data) => {
+  useRealtimeEvent('property_inquiry', useCallback((data) => {
     setStats(prev => ({
       ...prev,
       activeInquiries: prev.activeInquiries + 1,
       activeInquiriesChange: '+1 new inquiry'
     }));
-  });
+  }, []));
 
   useRealtimeEvent('new_message', (data) => {
     setQuickStats(prev => ({

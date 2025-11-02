@@ -3,22 +3,57 @@ import { toast } from "@/hooks/use-toast";
 
 export interface Plan {
   _id: string;
+  identifier?: string;
   name: string;
   description: string;
   price: number;
   currency: string;
-  billingPeriod: 'monthly' | 'yearly' | 'lifetime';
-  features: string[];
+  billingPeriod: 'monthly' | 'yearly' | 'lifetime' | 'one-time';
+  features: Array<{
+    name: string;
+    description?: string;
+    enabled: boolean;
+  }> | string[];
   limits: {
     properties: number;
     featuredListings: number;
     photos: number;
     videoTours: number;
+    videos?: number;
+    leads: number;
+    posters: number;
+    topRated: boolean;
+    verifiedBadge: boolean;
+    messages: number;
+    marketingManager?: boolean;
+    commissionBased?: boolean;
+    support?: 'none' | 'email' | 'priority' | 'phone' | 'dedicated';
+    leadManagement?: 'none' | 'basic' | 'advanced' | 'premium' | 'enterprise';
+  };
+  benefits?: {
+    topRatedInWebsite: boolean;
+    verifiedOwnerBadge: boolean;
+    marketingConsultation: boolean;
+    commissionBased: boolean;
   };
   isActive: boolean;
   isPopular: boolean;
   sortOrder: number;
   subscriberCount?: number;
+  priceHistory?: Array<{
+    price: number;
+    changedAt: string;
+    changedBy?: string;
+    reason?: string;
+  }>;
+  featureHistory?: Array<{
+    action: 'added' | 'removed' | 'modified';
+    featureName: string;
+    previousValue?: any;
+    newValue?: any;
+    changedAt: string;
+    changedBy?: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -241,12 +276,48 @@ class PlanService {
     return 'secondary';
   }
 
+  // Helper method to extract feature names from features array
+  getFeatureNames(features: Array<{name: string; description?: string; enabled: boolean}> | string[]): string[] {
+    return Array.isArray(features)
+      ? features.map(f => typeof f === 'string' ? f : f.name)
+      : [];
+  }
+
   // Helper method to format features for display
-  formatFeatures(features: string[]): string {
-    if (features.length <= 3) {
-      return features.join(', ');
+  formatFeatures(features: Array<{name: string; description?: string; enabled: boolean}> | string[]): string {
+    const featureNames = this.getFeatureNames(features);
+      
+    if (featureNames.length <= 3) {
+      return featureNames.join(', ');
     }
-    return `${features.slice(0, 2).join(', ')} and ${features.length - 2} more`;
+    return `${featureNames.slice(0, 2).join(', ')} and ${featureNames.length - 2} more`;
+  }
+
+  // Get price history for a plan
+  async getPriceHistory(id: string): Promise<{
+    success: boolean;
+    data: {
+      planName: string;
+      priceHistory: Array<{
+        price: number;
+        changedAt: string;
+        changedBy?: { name: string; email: string };
+        reason?: string;
+      }>;
+    };
+  }> {
+    try {
+      const response = await this.makeRequest<any>(`/plans/${id}/price-history`);
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch price history";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
   }
 }
 

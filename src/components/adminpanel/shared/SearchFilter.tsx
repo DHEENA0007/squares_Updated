@@ -9,6 +9,7 @@ interface SearchFilterProps {
   onFilterChange?: (value: string) => void;
   filterOptions?: { label: string; value: string }[];
   filterPlaceholder?: string;
+  hideSearch?: boolean;
 }
 
 export function SearchFilter({
@@ -18,21 +19,24 @@ export function SearchFilter({
   onFilterChange,
   filterOptions,
   filterPlaceholder = "Filter by...",
+  hideSearch = false,
 }: SearchFilterProps) {
   return (
     <div className="flex flex-col sm:flex-row gap-4 mb-6">
-      <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search..."
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      {!hideSearch && (
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      )}
       {filterOptions && onFilterChange && (
         <Select value={filterValue} onValueChange={onFilterChange}>
-          <SelectTrigger className="w-full sm:w-48">
+          <SelectTrigger className={hideSearch ? "w-full" : "w-full sm:w-48"}>
             <SelectValue placeholder={filterPlaceholder} />
           </SelectTrigger>
           <SelectContent>

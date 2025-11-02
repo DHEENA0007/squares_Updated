@@ -88,10 +88,12 @@ const AddonManagement: React.FC = () => {
   const handleCreateAddon = async () => {
     try {
       setSubmitting(true);
-      await adminAddonService.createAddon(formData);
+      const newAddon = await adminAddonService.createAddon(formData);
       setIsCreateDialogOpen(false);
       resetForm();
-      loadAddons();
+      // Realtime update: Add the new addon to the state
+      setAddons(prev => [newAddon, ...prev]);
+      setTotal(prev => prev + 1);
     } catch (error) {
       console.error('Failed to create addon:', error);
     } finally {
@@ -104,11 +106,14 @@ const AddonManagement: React.FC = () => {
     
     try {
       setSubmitting(true);
-      await adminAddonService.updateAddon(selectedAddon._id, formData);
+      const updatedAddon = await adminAddonService.updateAddon(selectedAddon._id, formData);
       setIsEditDialogOpen(false);
       setSelectedAddon(null);
       resetForm();
-      loadAddons();
+      // Realtime update: Update the addon in state
+      setAddons(prev => prev.map(addon => 
+        addon._id === updatedAddon._id ? updatedAddon : addon
+      ));
     } catch (error) {
       console.error('Failed to update addon:', error);
     } finally {
@@ -123,8 +128,11 @@ const AddonManagement: React.FC = () => {
       setSubmitting(true);
       await adminAddonService.deleteAddon(selectedAddon._id);
       setIsDeleteDialogOpen(false);
+      const deletedId = selectedAddon._id;
       setSelectedAddon(null);
-      loadAddons();
+      // Realtime update: Remove the addon from state
+      setAddons(prev => prev.filter(addon => addon._id !== deletedId));
+      setTotal(prev => prev - 1);
     } catch (error) {
       console.error('Failed to delete addon:', error);
     } finally {
@@ -134,8 +142,11 @@ const AddonManagement: React.FC = () => {
 
   const handleToggleStatus = async (addon: AdminAddonService) => {
     try {
-      await adminAddonService.toggleAddonStatus(addon._id);
-      loadAddons();
+      const updatedAddon = await adminAddonService.toggleAddonStatus(addon._id);
+      // Realtime update: Update the addon status in state
+      setAddons(prev => prev.map(a => 
+        a._id === updatedAddon._id ? updatedAddon : a
+      ));
     } catch (error) {
       console.error('Failed to toggle addon status:', error);
     }

@@ -493,78 +493,156 @@ const EditProperty = () => {
               <CardTitle>Property Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Price *</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => handleInputChange('price', e.target.value)}
-                    placeholder="Enter price"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="bedrooms">Bedrooms</Label>
-                  <Input
-                    id="bedrooms"
-                    type="number"
-                    value={formData.bedrooms}
-                    onChange={(e) => handleInputChange('bedrooms', e.target.value)}
-                    placeholder="Number of bedrooms"
-                    min="0"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="bathrooms">Bathrooms</Label>
-                  <Input
-                    id="bathrooms"
-                    type="number"
-                    value={formData.bathrooms}
-                    onChange={(e) => handleInputChange('bathrooms', e.target.value)}
-                    placeholder="Number of bathrooms"
-                    min="0"
-                  />
-                </div>
+              {/* Price - Common for all types */}
+              <div className="space-y-2">
+                <Label htmlFor="price">Price *</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  value={formData.price}
+                  onChange={(e) => handleInputChange('price', e.target.value)}
+                  placeholder="Enter price"
+                  required
+                />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="builtUpArea">Built-up Area (sq ft)</Label>
-                  <Input
-                    id="builtUpArea"
-                    type="number"
-                    value={formData.builtUpArea}
-                    onChange={(e) => handleInputChange('builtUpArea', e.target.value)}
-                    placeholder="Built-up area"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="carpetArea">Carpet Area (sq ft)</Label>
-                  <Input
-                    id="carpetArea"
-                    type="number"
-                    value={formData.carpetArea}
-                    onChange={(e) => handleInputChange('carpetArea', e.target.value)}
-                    placeholder="Carpet area"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="plotArea">Plot Area (sq ft)</Label>
-                  <Input
-                    id="plotArea"
-                    type="number"
-                    value={formData.plotArea}
-                    onChange={(e) => handleInputChange('plotArea', e.target.value)}
-                    placeholder="Plot area"
-                  />
-                </div>
-              </div>
+              {/* Residential Properties - Apartment, Villa, House, PG */}
+              {['apartment', 'villa', 'house', 'pg'].includes(formData.type) && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="bedrooms">{formData.type === 'pg' ? 'Room Sharing' : 'Bedrooms'}</Label>
+                      <Input
+                        id="bedrooms"
+                        type="number"
+                        value={formData.bedrooms}
+                        onChange={(e) => handleInputChange('bedrooms', e.target.value)}
+                        placeholder={formData.type === 'pg' ? 'Number of people per room' : 'Number of bedrooms'}
+                        min="0"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="bathrooms">{formData.type === 'pg' ? 'Bathroom Type' : 'Bathrooms'}</Label>
+                      <Input
+                        id="bathrooms"
+                        type="number"
+                        value={formData.bathrooms}
+                        onChange={(e) => handleInputChange('bathrooms', e.target.value)}
+                        placeholder={formData.type === 'pg' ? '0 for Common, 1 for Attached' : 'Number of bathrooms'}
+                        min="0"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="builtUpArea">{formData.type === 'pg' ? 'Room Area (sq ft)' : 'Built-up Area (sq ft)'}</Label>
+                      <Input
+                        id="builtUpArea"
+                        type="number"
+                        value={formData.builtUpArea}
+                        onChange={(e) => handleInputChange('builtUpArea', e.target.value)}
+                        placeholder={formData.type === 'pg' ? 'Room area' : 'Built-up area'}
+                      />
+                    </div>
+                  </div>
+
+                  {formData.type !== 'pg' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="carpetArea">Carpet Area (sq ft)</Label>
+                        <Input
+                          id="carpetArea"
+                          type="number"
+                          value={formData.carpetArea}
+                          onChange={(e) => handleInputChange('carpetArea', e.target.value)}
+                          placeholder="Carpet area"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="plotArea">Plot Area (sq ft)</Label>
+                        <Input
+                          id="plotArea"
+                          type="number"
+                          value={formData.plotArea}
+                          onChange={(e) => handleInputChange('plotArea', e.target.value)}
+                          placeholder="Plot area (for villa/house)"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Commercial Properties - Office, Commercial */}
+              {['commercial', 'office'].includes(formData.type) && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="builtUpArea">Built-up Area (sq ft) *</Label>
+                      <Input
+                        id="builtUpArea"
+                        type="number"
+                        value={formData.builtUpArea}
+                        onChange={(e) => handleInputChange('builtUpArea', e.target.value)}
+                        placeholder="Total built-up area"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="carpetArea">Carpet Area (sq ft)</Label>
+                      <Input
+                        id="carpetArea"
+                        type="number"
+                        value={formData.carpetArea}
+                        onChange={(e) => handleInputChange('carpetArea', e.target.value)}
+                        placeholder="Usable carpet area"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="bathrooms">Washrooms</Label>
+                      <Input
+                        id="bathrooms"
+                        type="number"
+                        value={formData.bathrooms}
+                        onChange={(e) => handleInputChange('bathrooms', e.target.value)}
+                        placeholder="Number of washrooms"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Land/Plot Properties */}
+              {['plot', 'land'].includes(formData.type) && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="plotArea">Plot Area (sq ft) *</Label>
+                      <Input
+                        id="plotArea"
+                        type="number"
+                        value={formData.plotArea}
+                        onChange={(e) => handleInputChange('plotArea', e.target.value)}
+                        placeholder="Total plot area"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="builtUpArea">Total Area (sq ft) *</Label>
+                      <Input
+                        id="builtUpArea"
+                        type="number"
+                        value={formData.builtUpArea}
+                        onChange={(e) => handleInputChange('builtUpArea', e.target.value)}
+                        placeholder="Same as plot area"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 

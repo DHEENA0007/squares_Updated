@@ -389,12 +389,15 @@ const VendorSubscriptionPlans: React.FC = () => {
             </CardHeader>
             <CardContent>
               <ul className="space-y-4">
-                {plan.features.map((feature, index) => (
-                  <li key={index} className="flex items-center">
-                    <CheckCircle className="w-5 h-5 text-green-600 mr-3 flex-shrink-0" />
-                    <span className="text-sm text-foreground">{feature}</span>
-                  </li>
-                ))}
+                {plan.features.map((feature, index) => {
+                  const featureName = typeof feature === 'string' ? feature : feature.name;
+                  return (
+                    <li key={index} className="flex items-center">
+                      <CheckCircle className="w-5 h-5 text-green-600 mr-3 flex-shrink-0" />
+                      <span className="text-sm text-foreground">{featureName}</span>
+                    </li>
+                  );
+                })}
               </ul>
             </CardContent>
           </Card>

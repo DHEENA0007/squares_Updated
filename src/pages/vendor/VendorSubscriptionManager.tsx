@@ -8,6 +8,14 @@ import { useNavigate } from 'react-router-dom';
 import { addonService } from '@/services/addonService';
 import { paymentService } from '@/services/paymentService';
 
+interface Feature {
+  name: string;
+  description?: string;
+  enabled?: boolean;
+  _id?: string;
+  id?: string;
+}
+
 interface Subscription {
   id: string;
   planName: string;
@@ -15,7 +23,7 @@ interface Subscription {
   status: string;
   startDate: string;
   endDate: string;
-  features: string[];
+  features: (string | Feature)[]; // Support both string and object features
   billingCycle: string;
   addons?: AddonService[]; // Add addons to the interface
   amount?: number;
@@ -280,12 +288,21 @@ const VendorSubscriptionManager: React.FC = () => {
             <div>
               <h3 className="text-lg font-semibold mb-3">Plan Features</h3>
               <div className="grid md:grid-cols-2 gap-3">
-                {subscription.features.map((feature, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                    <span className="text-sm">{feature}</span>
-                  </div>
-                ))}
+                {subscription.features.map((feature, index) => {
+                  // Handle both string features and object features
+                  const featureName = typeof feature === 'string' 
+                    ? feature 
+                    : (typeof feature === 'object' && feature !== null && 'name' in feature) 
+                      ? feature.name 
+                      : String(feature);
+                  
+                  return (
+                    <div key={index} className="flex items-center space-x-2">
+                      <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      <span className="text-sm">{String(featureName)}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

@@ -84,9 +84,18 @@ const MyProperties = () => {
       });
 
       if (response.success) {
-        setProperties(response.data.properties);
-        setStats(response.data.stats);
-        setPagination(response.data.pagination);
+        setProperties(response.data.properties || []);
+        // Ensure stats is never undefined
+        if (response.data.stats) {
+          setStats(response.data.stats);
+        }
+        setPagination(response.data.pagination || {
+          currentPage: 1,
+          totalPages: 0,
+          totalProperties: 0,
+          hasNextPage: false,
+          hasPrevPage: false,
+        });
       } else {
         toast({
           title: "Error",
@@ -276,12 +285,12 @@ const MyProperties = () => {
       </div>
 
       {/* Stats Cards */}
-      {!loading && (
+      {!loading && stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-primary">{stats.totalProperties}</p>
+                <p className="text-2xl font-bold text-primary">{stats.totalProperties || 0}</p>
                 <p className="text-sm text-muted-foreground">Total Properties</p>
               </div>
             </CardContent>
@@ -290,7 +299,7 @@ const MyProperties = () => {
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">{stats.activeProperties}</p>
+                <p className="text-2xl font-bold text-green-600">{stats.activeProperties || 0}</p>
                 <p className="text-sm text-muted-foreground">Active</p>
               </div>
             </CardContent>
@@ -299,7 +308,7 @@ const MyProperties = () => {
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-blue-600">{stats.rentedProperties}</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.rentedProperties || 0}</p>
                 <p className="text-sm text-muted-foreground">Rented</p>
               </div>
             </CardContent>
@@ -308,7 +317,7 @@ const MyProperties = () => {
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">{stats.soldProperties}</p>
+                <p className="text-2xl font-bold text-purple-600">{stats.soldProperties || 0}</p>
                 <p className="text-sm text-muted-foreground">Sold</p>
               </div>
             </CardContent>
@@ -317,7 +326,7 @@ const MyProperties = () => {
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold">{stats.totalViews.toLocaleString()}</p>
+                <p className="text-2xl font-bold">{(stats.totalViews || 0).toLocaleString()}</p>
                 <p className="text-sm text-muted-foreground">Total Views</p>
               </div>
             </CardContent>
@@ -326,7 +335,7 @@ const MyProperties = () => {
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold">{stats.totalInquiries}</p>
+                <p className="text-2xl font-bold">{stats.totalInquiries || 0}</p>
                 <p className="text-sm text-muted-foreground">Inquiries</p>
               </div>
             </CardContent>
@@ -335,7 +344,7 @@ const MyProperties = () => {
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold">{stats.totalFavorites}</p>
+                <p className="text-2xl font-bold">{stats.totalFavorites || 0}</p>
                 <p className="text-sm text-muted-foreground">Favorites</p>
               </div>
             </CardContent>

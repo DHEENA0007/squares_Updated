@@ -42,6 +42,7 @@ export interface Property {
   owner: {
     _id: string;
     email: string;
+    role?: string;
     profile: {
       firstName: string;
       lastName: string;
@@ -51,15 +52,25 @@ export interface Property {
   agent?: {
     _id: string;
     email: string;
+    role?: string;
     profile: {
       firstName: string;
       lastName: string;
       phone: string;
     };
   };
+  vendor?: {
+    _id: string;
+    name?: string;
+  };
   views: number;
   featured: boolean;
   verified: boolean;
+  rejectionReason?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -46,38 +46,53 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { adminPropertyService } from "@/services/adminPropertyService";
 import { useToast } from "@/hooks/use-toast";
+import { ViewPropertyDialog } from "@/components/adminpanel/ViewPropertyDialog";
+import authService from "@/services/authService";
 
 const Properties = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
-    const fetchProperties = async () => {
-      try {
-        const response = await propertyService.getProperties({
-          limit: 1000, // Get all properties for admin view
-        });
-        
-        if (response.success) {
-          setProperties(response.data.properties);
-        }
-      } catch (error) {
-        console.error("Failed to fetch properties:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
+    // Get current user info
+    const user = authService.getCurrentUser();
+    setCurrentUser(user);
     fetchProperties();
   }, []);
+
+  const fetchProperties = async () => {
+    try {
+      setLoading(true);
+      // Use admin property service to get ALL properties including pending ones
+      const response = await adminPropertyService.getProperties({
+        limit: 1000, // Get all properties for admin view
+      });
+      
+      if (response.success) {
+        setProperties(response.data.properties);
+      }
+    } catch (error) {
+      console.error("Failed to fetch properties:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load properties",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredProperties = useMemo(() => {
     return properties.filter((property) => {
@@ -86,9 +101,10 @@ const Properties = () => {
         property.address.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
         property.address.state.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesType = typeFilter === "all" || property.type === typeFilter;
-      return matchesSearch && matchesType;
+      const matchesStatus = statusFilter === "all" || property.status === statusFilter;
+      return matchesSearch && matchesType && matchesStatus;
     });
-  }, [properties, searchTerm, typeFilter]);
+  }, [properties, searchTerm, typeFilter, statusFilter]);
 
   const { paginatedItems, currentPage, totalPages, goToPage, nextPage, previousPage } =
     usePagination(filteredProperties, 10);
@@ -98,28 +114,49 @@ const Properties = () => {
     
     try {
       await adminPropertyService.deleteProperty(selectedProperty._id);
+      // Realtime update: Remove from state
       setProperties(properties.filter(p => p._id !== selectedProperty._id));
       setDeleteDialogOpen(false);
       setSelectedProperty(null);
+      toast({
+        title: "Success",
+        description: "Property deleted successfully",
+      });
     } catch (error) {
       console.error("Failed to delete property:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete property",
+        variant: "destructive",
+      });
     }
   };
 
   const handleToggleFeatured = async (property: Property) => {
     try {
       await adminPropertyService.togglePropertyFeatured(property._id, !property.featured);
+      // Realtime update: Update in state
       setProperties(properties.map(p => 
         p._id === property._id ? { ...p, featured: !p.featured } : p
       ));
+      toast({
+        title: "Success",
+        description: `Property ${!property.featured ? 'marked as' : 'removed from'} featured`,
+      });
     } catch (error) {
       console.error("Failed to toggle featured status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update featured status",
+        variant: "destructive",
+      });
     }
   };
 
   const handleApproveProperty = async (property: Property) => {
     try {
       await adminPropertyService.updatePropertyStatus(property._id, 'active');
+      // Realtime update: Update in state
       setProperties(properties.map(p => 
         p._id === property._id ? { ...p, status: 'active', verified: true } : p
       ));
@@ -129,6 +166,11 @@ const Properties = () => {
       });
     } catch (error) {
       console.error("Failed to approve property:", error);
+      toast({
+        title: "Error",
+        description: "Failed to approve property",
+        variant: "destructive",
+      });
     }
   };
 
@@ -137,6 +179,7 @@ const Properties = () => {
     
     try {
       await adminPropertyService.updatePropertyStatus(selectedProperty._id, 'rejected', rejectionReason);
+      // Realtime update: Update in state
       setProperties(properties.map(p => 
         p._id === selectedProperty._id ? { ...p, status: 'rejected' } : p
       ));
@@ -149,6 +192,11 @@ const Properties = () => {
       });
     } catch (error) {
       console.error("Failed to reject property:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reject property",
+        variant: "destructive",
+      });
     }
   };
 
@@ -160,6 +208,27 @@ const Properties = () => {
   const openRejectDialog = (property: Property) => {
     setSelectedProperty(property);
     setRejectDialogOpen(true);
+  };
+
+  const openViewDialog = (property: Property) => {
+    setSelectedProperty(property);
+    setViewDialogOpen(true);
+  };
+
+  // Helper function to check if property was created by admin
+  const isAdminCreated = (property: Property): boolean => {
+    // If property has owner with admin or superadmin role, it was created by admin
+    // Properties created by vendors/agents will have owner with 'agent' role
+    if (!property.owner) return false;
+    
+    // Check if the owner is the current admin user
+    if (currentUser && property.owner._id === currentUser.id) {
+      return true;
+    }
+    
+    // For safety, also check if vendor field is empty (admin-created properties won't have vendor)
+    // and status is 'active' or 'available' (admin properties don't go through approval)
+    return !property.vendor && (property.status === 'active' || property.status === 'available');
   };
 
   // Create extended type for DataTable
@@ -183,7 +252,7 @@ const Properties = () => {
       label: "Type",
       render: (property) => (
         <Badge variant="secondary" className="capitalize">
-          {property.type.replace('_', ' ')}
+          {property.type ? property.type.replace('_', ' ') : 'property'}
         </Badge>
       ),
     },
@@ -241,64 +310,90 @@ const Properties = () => {
     {
       key: "actions",
       label: "Actions",
-      render: (property) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm">
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate(`/admin/properties/edit/${property._id}`)}>
-              <Edit className="w-4 h-4 mr-2" />
-              Edit
-            </DropdownMenuItem>
-            
-            {/* Approval Actions for Pending Properties */}
-            {property.status === 'pending' && (
-              <>
-                <DropdownMenuItem onClick={() => handleApproveProperty(property)}>
+      render: (property) => {
+        const adminCreated = isAdminCreated(property);
+        const isPending = property.status === 'pending';
+        
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm">
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              
+              {/* If property created by admin - show Edit */}
+              {adminCreated && (
+                <DropdownMenuItem onClick={() => navigate(`/admin/properties/edit/${property._id}`)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Property
+                </DropdownMenuItem>
+              )}
+              
+              {/* If property created by vendor/agent - show View Details */}
+              {!adminCreated && (
+                <DropdownMenuItem onClick={() => openViewDialog(property)}>
                   <Eye className="w-4 h-4 mr-2" />
-                  Approve & List
+                  View Details
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openRejectDialog(property)} className="text-red-600">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Reject
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
+              )}
+              
+              {/* Approval Actions for Pending Vendor Properties */}
+              {!adminCreated && isPending && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => handleApproveProperty(property)}
+                    className="text-green-600"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    Approve & Publish
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => openRejectDialog(property)} 
+                    className="text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Reject
+                  </DropdownMenuItem>
+                </>
+              )}
 
-            {/* Featured Toggle for Active Properties */}
-            {property.status === 'active' && (
-              <DropdownMenuItem onClick={() => handleToggleFeatured(property)}>
-                {property.featured ? (
-                  <>
-                    <StarOff className="w-4 h-4 mr-2" />
-                    Remove Featured
-                  </>
-                ) : (
-                  <>
-                    <Star className="w-4 h-4 mr-2" />
-                    Mark Featured
-                  </>
-                )}
+              {/* Featured Toggle for Active Properties */}
+              {property.status === 'active' && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleToggleFeatured(property)}>
+                    {property.featured ? (
+                      <>
+                        <StarOff className="w-4 h-4 mr-2" />
+                        Remove Featured
+                      </>
+                    ) : (
+                      <>
+                        <Star className="w-4 h-4 mr-2" />
+                        Mark Featured
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                </>
+              )}
+
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => openDeleteDialog(property)}
+                className="text-red-600"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
               </DropdownMenuItem>
-            )}
-
-            <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              onClick={() => openDeleteDialog(property)}
-              className="text-red-600"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 
@@ -326,6 +421,48 @@ const Properties = () => {
         </Button>
       </div>
 
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Properties</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{properties.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approval</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">
+              {properties.filter(p => p.status === 'pending').length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Active Properties</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {properties.filter(p => p.status === 'active').length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Featured</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {properties.filter(p => p.featured).length}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>All Properties</CardTitle>
@@ -334,26 +471,49 @@ const Properties = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SearchFilter
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            filterValue={typeFilter}
-            onFilterChange={setTypeFilter}
-            filterOptions={[
-              { label: "Apartment", value: "apartment" },
-              { label: "House", value: "house" },
-              { label: "Villa", value: "villa" },
-              { label: "Plot", value: "plot" },
-              { label: "Commercial", value: "commercial" },
-              { label: "Office", value: "office" },
-            ]}
-            filterPlaceholder="Filter by type"
-          />
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <SearchFilter
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                  filterValue={typeFilter}
+                  onFilterChange={setTypeFilter}
+                  filterOptions={[
+                    { label: "Apartment", value: "apartment" },
+                    { label: "House", value: "house" },
+                    { label: "Villa", value: "villa" },
+                    { label: "Plot", value: "plot" },
+                    { label: "Commercial", value: "commercial" },
+                    { label: "Office", value: "office" },
+                  ]}
+                  filterPlaceholder="Filter by type"
+                />
+              </div>
+              <div className="w-full sm:w-48">
+                <SearchFilter
+                  searchTerm=""
+                  onSearchChange={() => {}}
+                  filterValue={statusFilter}
+                  onFilterChange={setStatusFilter}
+                  filterOptions={[
+                    { label: "Pending", value: "pending" },
+                    { label: "Active", value: "active" },
+                    { label: "Rejected", value: "rejected" },
+                    { label: "Sold", value: "sold" },
+                    { label: "Rented", value: "rented" },
+                  ]}
+                  filterPlaceholder="Filter by status"
+                  hideSearch
+                />
+              </div>
+            </div>
+          </div>
 
           <DataTable
             columns={columns}
             data={paginatedItems.map(property => ({ ...property, id: property._id }))}
-            editPath={(property) => `/admin/properties/edit/${property._id}`}
+            hideDefaultActions
           />
 
           {totalPages > 1 && (
@@ -407,6 +567,48 @@ const Properties = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Rejection Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Property</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting "{selectedProperty?.title}". The vendor will be notified.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="rejection-reason">Rejection Reason</Label>
+            <Textarea
+              id="rejection-reason"
+              placeholder="Enter the reason for rejection..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="mt-2"
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleRejectProperty}
+              disabled={!rejectionReason.trim()}
+            >
+              Reject Property
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Property Dialog */}
+      <ViewPropertyDialog
+        property={selectedProperty}
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
+      />
     </div>
   );
 };

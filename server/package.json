@@ -6,9 +6,12 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "build": "chmod +x scripts/build.sh && ./scripts/build.sh",
     "test": "jest",
     "migrate": "node scripts/migrate.js",
-    "create-admin": "node scripts/create-admin-user.js"
+    "create-admin": "node scripts/create-admin-user.js",
+    "postinstall": "echo 'Dependencies installed successfully'",
+    "heroku-postbuild": "npm run build"
   },
   "keywords": [
     "real-estate",

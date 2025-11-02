@@ -10,6 +10,7 @@ import {
   PropertySearch,
   MyFavorites,
   PropertyComparison,
+  PropertyDetails,
   MyProperties,
   ServiceRequests,
   CustomerProfile,
@@ -44,6 +45,11 @@ const CustomerRoutes = () => {
           <Route path="compare" element={
             <Suspense fallback={<PageLoader />}>
               <PropertyComparison />
+            </Suspense>
+          } />
+          <Route path="property/:id" element={
+            <Suspense fallback={<PageLoader />}>
+              <PropertyDetails />
             </Suspense>
           } />
           <Route path="my-properties" element={

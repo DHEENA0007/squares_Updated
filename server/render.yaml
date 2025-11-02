@@ -1,0 +1,68 @@
+services:
+  - type: web
+    name: ninety-nine-acres-server
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    plan: starter
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        fromService:
+          type: web
+          name: ninety-nine-acres-server
+          property: port
+      - key: CLIENT_URL
+        value: https://squares-swart.vercel.app
+      - key: JWT_SECRET
+        value: ninety_nine_acres_super_secret_jwt_key_2024_production_render_deployment_secure_long_key
+      - key: JWT_EXPIRE
+        value: 7d
+      - key: MONGODB_URI
+        value: mongodb+srv://squares:HbpqwfWiJvR00bG7@cluster0.loonmqw.mongodb.net/ninety-nine-acres
+      - key: CLOUDINARY_CLOUD_NAME
+        value: dm87kok62
+      - key: CLOUDINARY_API_KEY
+        value: 999277858519233
+      - key: CLOUDINARY_API_SECRET
+        value: d4Wl2DMwVPlM4gkXWpzcNOv_ePY
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        value: noreply@ninety-nine-acres.com
+      - key: SMTP_PASS
+        value: temp_password
+      - key: RAZORPAY_KEY_ID
+        value: rzp_test_RMylhPWMBGHzdi
+      - key: RAZORPAY_KEY_SECRET
+        value: UhEfD2dXPxob6Y44b12mdB4W
+      - key: GOOGLE_MAPS_API_KEY
+        value: temp_google_maps_key
+      - key: LOCATIONIQ_ACCESS_TOKEN
+        value: pk.096ab7d96764c78d3e10b44167e54608
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 100
+      - key: ENABLE_RATE_LIMIT
+        value: true
+      - key: MAX_FILE_SIZE
+        value: 10485760
+      - key: ALLOWED_FILE_TYPES
+        value: jpg,jpeg,png,pdf,doc,docx
+      - key: LOG_LEVEL
+        value: info
+      - key: ENABLE_REQUEST_LOGGING
+        value: true
+      - key: ENABLE_ERROR_TRACKING
+        value: true
+      - key: TRUST_PROXY
+        value: true
+      - key: SECURE_COOKIES
+        value: true
+      - key: SESSION_SECURE
+        value: true

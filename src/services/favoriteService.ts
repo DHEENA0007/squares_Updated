@@ -14,22 +14,43 @@ export interface Favorite {
     title: string;
     description: string;
     price: number;
-    address: string;
-    city: string;
-    state: string;
+    address: {
+      street: string;
+      district?: string;
+      city: string;
+      taluk?: string;
+      locationName?: string;
+      state: string;
+      pincode: string;
+      coordinates?: {
+        latitude: number;
+        longitude: number;
+      };
+    };
+    city?: string; // Legacy field support
+    state?: string; // Legacy field support
     area: number;
     bedrooms: number;
     bathrooms: number;
     propertyType: string;
     listingType: string;
     amenities: string[];
-    images: string[];
+    images: Array<{
+      url: string;
+      caption?: string;
+      isPrimary: boolean;
+    }> | string[];
     isAvailable: boolean;
     owner: {
       _id: string;
-      name: string;
+      name?: string;
       email: string;
-      phone: string;
+      phone?: string;
+      profile?: {
+        firstName: string;
+        lastName: string;
+        phone: string;
+      };
     };
   };
 }
@@ -147,9 +168,8 @@ class FavoriteService {
 
   async addToFavorites(propertyId: string): Promise<SingleFavoriteResponse> {
     try {
-      const response = await this.makeRequest<SingleFavoriteResponse>("/favorites", {
+      const response = await this.makeRequest<SingleFavoriteResponse>(`/favorites/${propertyId}`, {
         method: "POST",
-        body: JSON.stringify({ propertyId }),
       });
 
       toast({

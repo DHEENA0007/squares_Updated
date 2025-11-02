@@ -25,7 +25,9 @@ const paymentRoutes = require('./routes/payments');
 const uploadRoutes = require('./routes/upload');
 const locationRoutes = require('./routes/locations');
 const localLocationRoutes = require('./routes/localLocations');
-// const serviceRoutes = require('./routes/services');
+const serviceRoutes = require('./routes/services');
+const customerReviewsRoutes = require('./routes/customerReviews');
+const customerRoutes = require('./routes/customer');
 
 // Import middleware
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
@@ -56,30 +58,96 @@ const PORT = process.env.PORT || 8000;
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for now to avoid issues with frontend
+  crossOriginEmbedderPolicy: false
+}));
 app.use(compression());
 app.use(cors({
-  origin: true, // Allow all origins
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if the origin is in the allowed list or if it's a localhost for development
+    if (allowedOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+    
+    // For production, you might want to be more strict
+    if (process.env.NODE_ENV === 'production') {
+      console.log('Blocked origin:', origin);
+      return callback(new Error('Not allowed by CORS'));
+    }
+    
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
-app.use(morgan('combined'));
+
+// Use combined format in production, dev format in development
+const logFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
+app.use(morgan(logFormat));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(limiter);
+
+// Apply rate limiting only in production or if explicitly enabled
+if (process.env.NODE_ENV === 'production' || process.env.ENABLE_RATE_LIMIT === 'true') {
+  app.use(limiter);
+}
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({
+  const healthCheck = {
     status: 'OK',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    memory: process.memoryUsage(),
+    version: process.version,
+    platform: process.platform
+  };
+
+  try {
+    // Check database connection
+    const mongoose = require('mongoose');
+    healthCheck.database = {
+      status: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      host: mongoose.connection.host,
+      name: mongoose.connection.name
+    };
+  } catch (error) {
+    healthCheck.database = {
+      status: 'error',
+      error: error.message
+    };
+  }
+
+  res.status(200).json(healthCheck);
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Ninety Nine Acres API Server',
+    version: '1.0.0',
+    status: 'Running',
+    environment: process.env.NODE_ENV || 'development',
+    endpoints: {
+      health: '/health',
+      api: '/api',
+      docs: '/api-docs'
+    }
   });
 });
 
@@ -100,7 +168,9 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/local-locations', localLocationRoutes);
-// app.use('/api/services', authenticateToken, serviceRoutes);
+app.use('/api/services', serviceRoutes);
+app.use('/api/customer/reviews', customerReviewsRoutes);
+app.use('/api/customer', customerRoutes);
 
 // Import admin real-time service
 const adminRealtimeService = require('./services/adminRealtimeService');
@@ -263,11 +333,49 @@ const startServer = async () => {
 startServer();
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    console.log('Process terminated');
+const gracefulShutdown = (signal) => {
+  console.log(`${signal} received, shutting down gracefully`);
+  
+  server.close(async () => {
+    console.log('HTTP server closed');
+    
+    try {
+      // Close database connection
+      await mongoose.connection.close();
+      console.log('Database connection closed');
+      
+      // Close Socket.IO connections
+      io.close();
+      console.log('Socket.IO connections closed');
+      
+      console.log('Process terminated gracefully');
+      process.exit(0);
+    } catch (error) {
+      console.error('Error during graceful shutdown:', error);
+      process.exit(1);
+    }
   });
+  
+  // Force close server after 30 seconds
+  setTimeout(() => {
+    console.error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 30000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
 });
 
 module.exports = app;

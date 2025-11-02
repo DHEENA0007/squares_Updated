@@ -115,7 +115,10 @@ const PropertyFilters = ({ onFilterChange }: PropertyFiltersProps) => {
         
         <Select 
           value={filters.bedrooms?.toString() || 'any'} 
-          onValueChange={(value) => handleFilterChange('bedrooms', value === 'any' ? undefined : parseInt(value))}
+          onValueChange={(value) => {
+            const bedroomValue = value === 'any' ? undefined : parseInt(value);
+            handleFilterChange('bedrooms', bedroomValue && !isNaN(bedroomValue) ? bedroomValue : undefined);
+          }}
         >
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="BHK" />

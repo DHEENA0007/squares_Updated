@@ -20,17 +20,23 @@ import {
   Bath,
   Square,
   SlidersHorizontal,
-  RefreshCw
+  RefreshCw,
+  MessageSquare
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useRealtime, usePropertyRealtime, useRealtimeEvent } from "@/contexts/RealtimeContext";
 import { propertyService, Property, PropertyFilters } from "@/services/propertyService";
 import { favoriteService } from "@/services/favoriteService";
+import { getPropertyListingLabel } from "@/utils/propertyUtils";
 import { toast } from "@/hooks/use-toast";
+import PropertyMessageDialog from "@/components/PropertyMessageDialog";
+import PropertyContactDialog from "@/components/PropertyContactDialog";
+import { useNavigate } from "react-router-dom";
 
 const PropertySearch = () => {
   const { isConnected } = useRealtime();
+  const navigate = useNavigate();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState("all");
@@ -42,6 +48,12 @@ const PropertySearch = () => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favoritedProperties, setFavoritedProperties] = useState<Set<string>>(new Set());
+  
+  // Dialog states
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [showMessageDialog, setShowMessageDialog] = useState(false);
+  const [showContactDialog, setShowContactDialog] = useState(false);
   
   // Amenities filter
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
@@ -69,11 +81,13 @@ const PropertySearch = () => {
 
   // Build filters object for API
   const buildFilters = useCallback((): PropertyFilters => {
+    const bedroomsValue = bedrooms !== "any" && bedrooms ? parseInt(bedrooms) : undefined;
+    
     return {
       minPrice: priceRange[0],
       maxPrice: priceRange[1],
       propertyType: propertyType !== "all" ? propertyType : undefined,
-      bedrooms: bedrooms !== "any" ? parseInt(bedrooms) : undefined,
+      bedrooms: bedroomsValue && !isNaN(bedroomsValue) ? bedroomsValue : undefined,
       location: selectedCity !== "all" ? selectedCity : undefined,
       search: searchQuery || undefined
     };
@@ -89,8 +103,24 @@ const PropertySearch = () => {
       if (response.success) {
         setProperties(response.data.properties);
         setFilteredProperties(response.data.properties);
+        
+        // Load favorite status for all properties
+        const favoriteChecks = await Promise.all(
+          response.data.properties.map(p => favoriteService.isFavorite(p._id))
+        );
+        const newFavorites = new Set<string>();
+        response.data.properties.forEach((p, index) => {
+          if (favoriteChecks[index]) {
+            newFavorites.add(p._id);
+          }
+        });
+        setFavoritedProperties(newFavorites);
       } else {
-        throw new Error('Failed to fetch properties');
+        toast({
+          title: "Error",
+          description: "Failed to load properties",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error loading properties:', error);
@@ -102,9 +132,7 @@ const PropertySearch = () => {
     } finally {
       setLoading(false);
     }
-  }, [buildFilters]);
-
-  // Handle real-time property updates
+  }, [buildFilters]);  // Handle real-time property updates
   useRealtimeEvent('property_updated', (data) => {
     setProperties(prev => prev.map(p => 
       p._id === data.propertyId ? { ...p, ...data.updates } : p
@@ -136,6 +164,23 @@ const PropertySearch = () => {
     ));
   });
 
+  // Handle favorite events via realtime
+  useRealtimeEvent('favorite_added', (data) => {
+    if (data.propertyId) {
+      setFavoritedProperties(prev => new Set(prev).add(data.propertyId));
+    }
+  });
+
+  useRealtimeEvent('favorite_removed', (data) => {
+    if (data.propertyId) {
+      setFavoritedProperties(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(data.propertyId);
+        return newSet;
+      });
+    }
+  });
+
   // Initial load and reloading on filter changes
   useEffect(() => {
     loadProperties();
@@ -154,34 +199,53 @@ const PropertySearch = () => {
 
   // Property interaction handlers
   const handlePropertyView = async (propertyId: string) => {
-    // Property viewing is typically handled by navigation to the property detail page
-    // For now, we just simulate the view increment via realtime
-    console.log(`Viewing property: ${propertyId}`);
+    // Navigate to property detail page
+    navigate(`/customer/property/${propertyId}`);
   };
 
   const handlePropertyFavorite = async (propertyId: string) => {
     try {
-      await favoriteService.addToFavorites(propertyId);
-      toast({
-        title: "Success",
-        description: "Property added to favorites",
-      });
+      const isFavorited = favoritedProperties.has(propertyId);
+      
+      if (isFavorited) {
+        // Remove from favorites
+        await favoriteService.removeFromFavorites(propertyId);
+        setFavoritedProperties(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(propertyId);
+          return newSet;
+        });
+        toast({
+          title: "Removed from favorites",
+          description: "Property has been removed from your favorites",
+        });
+      } else {
+        // Add to favorites
+        await favoriteService.addToFavorites(propertyId);
+        setFavoritedProperties(prev => new Set(prev).add(propertyId));
+        toast({
+          title: "Added to favorites",
+          description: "Property has been added to your favorites",
+        });
+      }
     } catch (error) {
-      console.error('Error adding favorite:', error);
+      console.error("Error toggling favorite:", error);
       toast({
         title: "Error",
-        description: "Failed to add to favorites",
+        description: "Failed to update favorites. Please try again.",
         variant: "destructive",
       });
     }
   };
 
   const handlePropertyContact = (property: Property) => {
-    // This would typically open a contact modal or navigate to contact page
-    toast({
-      title: "Contact Information",
-      description: `Contact details for ${property.title} would be shown here`,
-    });
+    setSelectedProperty(property);
+    setShowContactDialog(true);
+  };
+
+  const handlePropertyMessage = (property: Property) => {
+    setSelectedProperty(property);
+    setShowMessageDialog(true);
   };
 
   const formatPrice = (price: number) => {
@@ -301,10 +365,10 @@ const PropertySearch = () => {
         className="w-full"
         onClick={() => {
           setSearchQuery("");
-          setSelectedCity("");
+          setSelectedCity("all");
           setPriceRange([0, 10000000]);
-          setPropertyType("");
-          setBedrooms("");
+          setPropertyType("all");
+          setBedrooms("any");
           setSelectedAmenities([]);
         }}
       >
@@ -401,24 +465,24 @@ const PropertySearch = () => {
               <p className="text-sm text-muted-foreground">
                 {filteredProperties.length} properties found
               </p>
-              {(selectedAmenities.length > 0 || selectedCity || propertyType || bedrooms) && (
+              {(selectedAmenities.length > 0 || (selectedCity && selectedCity !== "all") || (propertyType && propertyType !== "all") || (bedrooms && bedrooms !== "any")) && (
                 <div className="flex flex-wrap gap-2">
-                  {selectedCity && (
+                  {selectedCity && selectedCity !== "all" && (
                     <Badge variant="secondary" className="text-xs">
                       {selectedCity}
-                      <button className="ml-1" onClick={() => setSelectedCity("")}>×</button>
+                      <button className="ml-1" onClick={() => setSelectedCity("all")}>×</button>
                     </Badge>
                   )}
-                  {propertyType && (
+                  {propertyType && propertyType !== "all" && (
                     <Badge variant="secondary" className="text-xs">
                       {propertyType}
-                      <button className="ml-1" onClick={() => setPropertyType("")}>×</button>
+                      <button className="ml-1" onClick={() => setPropertyType("all")}>×</button>
                     </Badge>
                   )}
-                  {bedrooms && (
+                  {bedrooms && bedrooms !== "any" && (
                     <Badge variant="secondary" className="text-xs">
                       {bedrooms} BHK
-                      <button className="ml-1" onClick={() => setBedrooms("")}>×</button>
+                      <button className="ml-1" onClick={() => setBedrooms("any")}>×</button>
                     </Badge>
                   )}
                 </div>
@@ -533,6 +597,11 @@ const PropertySearch = () => {
                           )}
                         </div>
 
+                        {/* Listing Information */}
+                        <div className="text-xs text-muted-foreground mb-4">
+                          {getPropertyListingLabel(property)}
+                        </div>
+
                         {/* Actions and Meta */}
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -547,13 +616,23 @@ const PropertySearch = () => {
                           <div className="flex gap-2">
                             <Button 
                               size="sm" 
-                              variant="outline"
+                              variant={favoritedProperties.has(property._id) ? "default" : "outline"}
                               onClick={() => handlePropertyFavorite(property._id)}
                             >
-                              <Heart className="w-4 h-4" />
+                              <Heart 
+                                className={`w-4 h-4 ${favoritedProperties.has(property._id) ? 'fill-current' : ''}`} 
+                              />
                             </Button>
                             <Button size="sm" variant="outline">
                               <Share className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handlePropertyMessage(property)}
+                            >
+                              <MessageSquare className="w-4 h-4 mr-1" />
+                              Message
                             </Button>
                             <Button 
                               size="sm" 
@@ -596,6 +675,27 @@ const PropertySearch = () => {
           </Tabs>
         </div>
       </div>
+
+      {/* Message Dialog */}
+      {selectedProperty && (
+        <PropertyMessageDialog
+          open={showMessageDialog}
+          onOpenChange={setShowMessageDialog}
+          property={selectedProperty}
+          onMessageSent={() => {
+            console.log("Message sent for property:", selectedProperty._id);
+          }}
+        />
+      )}
+
+      {/* Contact Dialog */}
+      {selectedProperty && (
+        <PropertyContactDialog
+          open={showContactDialog}
+          onOpenChange={setShowContactDialog}
+          property={selectedProperty}
+        />
+      )}
     </div>
   );
 };

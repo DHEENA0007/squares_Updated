@@ -22,7 +22,12 @@ router.get('/', asyncHandler(async (req, res) => {
     } = req.query;
 
     const skip = (page - 1) * limit;
-    let queryFilter = { status: 'available' };
+    // Show properties that are available or active (both are valid for customer viewing)
+    // Exclude pending, rejected, sold, and rented properties
+    let queryFilter = { 
+      status: { $in: ['available', 'active'] },
+      verified: true  // Only show verified properties to customers
+    };
 
     // Apply filters
     if (location) {
@@ -45,12 +50,19 @@ router.get('/', asyncHandler(async (req, res) => {
     }
 
     if (bedrooms) {
-      queryFilter.bedrooms = parseInt(bedrooms);
+      const bedroomsNum = parseInt(bedrooms);
+      if (!isNaN(bedroomsNum) && bedroomsNum > 0) {
+        queryFilter.bedrooms = bedroomsNum;
+      } else {
+        console.warn(`Invalid bedrooms filter value: ${bedrooms}`);
+      }
     }
 
     if (listingType) {
       queryFilter.listingType = listingType;
     }
+
+    console.log('Property query filter:', JSON.stringify(queryFilter, null, 2));
 
     const totalProperties = await Property.countDocuments(queryFilter);
     const properties = await Property.find(queryFilter)
@@ -58,6 +70,8 @@ router.get('/', asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
+
+    console.log(`Found ${properties.length} properties out of ${totalProperties} total`);
 
     res.json({
       success: true,
@@ -71,6 +85,7 @@ router.get('/', asyncHandler(async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Get properties error:', error);
     throw error;
   }
 }));

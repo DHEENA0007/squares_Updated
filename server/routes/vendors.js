@@ -1549,20 +1549,34 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
     ]); // Changed from planId to plan and added addons population
 
     if (activeSubscription) {
+      // Ensure plan exists
+      if (!activeSubscription.plan) {
+        return res.json({
+          success: true,
+          data: {
+            hasActiveSubscription: false,
+            subscription: null,
+            message: 'Subscription plan not found'
+          }
+        });
+      }
+
       res.json({
         success: true,
         data: {
           hasActiveSubscription: true,
           subscription: {
             id: activeSubscription._id,
-            planName: activeSubscription.plan.name, // Changed from planId to plan
-            planId: activeSubscription.plan._id, // Changed from planId to plan
+            planName: activeSubscription.plan.name,
+            planId: activeSubscription.plan._id,
             status: activeSubscription.status,
             startDate: activeSubscription.startDate,
             endDate: activeSubscription.endDate,
-            features: activeSubscription.plan.features, // Changed from planId to plan
+            features: (activeSubscription.plan.features || []).map(f => 
+              typeof f === 'string' ? f : f.name
+            ),
             billingCycle: activeSubscription.billingCycle || 'monthly',
-            addons: activeSubscription.addons || [], // Include purchased addons
+            addons: activeSubscription.addons || [],
             amount: activeSubscription.amount,
             currency: activeSubscription.currency
           }

@@ -138,6 +138,9 @@ router.get('/dashboard', async (req, res) => {
       .populate('plan', 'name')
       .select('user plan amount status createdAt');
 
+    // Filter out subscriptions with null plans or users
+    const validRecentSubscriptions = recentSubscriptions.filter(sub => sub.user && sub.plan);
+
     // Calculate growth percentages
     const calculateGrowth = (current, previous) => {
       if (previous === 0) return current > 0 ? 100 : 0;
@@ -210,16 +213,16 @@ router.get('/dashboard', async (req, res) => {
             status: property.status
           }
         })),
-        ...recentSubscriptions.map(subscription => ({
+        ...validRecentSubscriptions.map(subscription => ({
           id: subscription._id,
           type: 'subscription_created',
           title: 'New Subscription',
-          description: `${subscription.plan?.name} - ₹${subscription.amount}`,
+          description: `${subscription.plan?.name || 'Unknown Plan'} - ₹${subscription.amount}`,
           date: subscription.createdAt,
           status: subscription.status,
           metadata: {
             user: subscription.user?.email,
-            plan: subscription.plan?.name,
+            plan: subscription.plan?.name || 'Unknown',
             amount: subscription.amount
           }
         }))
@@ -1577,8 +1580,10 @@ router.get('/messages', asyncHandler(async (req, res) => {
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    // Build filter query
-    let filter = {};
+    // Build filter query - only show messages where current admin is the recipient
+    let filter = {
+      recipient: req.user.id  // Only show messages intended for this admin
+    };
     if (status && status !== 'all') filter.status = status;
     if (type && type !== 'all') filter.type = type;
     if (priority && priority !== 'all') filter.priority = priority;
@@ -1649,16 +1654,17 @@ router.get('/messages/stats', asyncHandler(async (req, res) => {
       messagesByPriority,
       responseTimeData
     ] = await Promise.all([
-      Message.countDocuments(),
-      Message.countDocuments({ status: 'unread' }),
-      Message.countDocuments({ status: 'replied' }),
-      Message.countDocuments({ status: 'flagged' }),
-      Message.countDocuments({ createdAt: { $gte: today } }),
-      Message.countDocuments({ createdAt: { $gte: last7Days } }),
-      Message.countDocuments({ createdAt: { $gte: last30Days } }),
+      Message.countDocuments({ recipient: req.user.id }),
+      Message.countDocuments({ recipient: req.user.id, status: 'unread' }),
+      Message.countDocuments({ recipient: req.user.id, status: 'replied' }),
+      Message.countDocuments({ recipient: req.user.id, status: 'flagged' }),
+      Message.countDocuments({ recipient: req.user.id, createdAt: { $gte: today } }),
+      Message.countDocuments({ recipient: req.user.id, createdAt: { $gte: last7Days } }),
+      Message.countDocuments({ recipient: req.user.id, createdAt: { $gte: last30Days } }),
       
       // Messages by type
       Message.aggregate([
+        { $match: { recipient: req.user.id } },
         {
           $group: {
             _id: '$type',
@@ -1670,6 +1676,7 @@ router.get('/messages/stats', asyncHandler(async (req, res) => {
       
       // Messages by priority
       Message.aggregate([
+        { $match: { recipient: req.user.id } },
         {
           $group: {
             _id: '$priority',
@@ -1683,6 +1690,7 @@ router.get('/messages/stats', asyncHandler(async (req, res) => {
       Message.aggregate([
         {
           $match: {
+            recipient: req.user.id,
             status: 'replied',
             repliedAt: { $exists: true },
             createdAt: { $exists: true }
@@ -1852,12 +1860,13 @@ router.post('/messages/:messageId/reply', asyncHandler(async (req, res) => {
     const replyMessage = new Message({
       sender: req.user.id, // Admin user
       recipient: originalMessage.sender._id,
-      subject: subject || `Re: ${originalMessage.subject || 'Your Inquiry'}`,
+      subject: subject || `Re: ${originalMessage.subject || originalMessage.message || 'Your Inquiry'}`,
       content: content.trim(),
       type: 'general',
       status: 'read', // Admin messages are automatically read
       priority: originalMessage.priority || 'medium',
-      parentMessage: messageId
+      parentMessage: messageId,
+      // Don't set conversationId for admin messages
     });
 
     await replyMessage.save();

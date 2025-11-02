@@ -26,8 +26,10 @@ import { Separator } from "@/components/ui/separator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { messageService, type Message, type Conversation } from "@/services/messageService";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const VendorMessages = () => {
+  const { user } = useAuth();
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -35,6 +37,11 @@ const VendorMessages = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const imageInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadConversations();
@@ -64,7 +71,7 @@ const VendorMessages = () => {
       
       // Auto-select first conversation if none selected
       if (!selectedChat && response.conversations.length > 0) {
-        setSelectedChat(response.conversations[0]._id);
+        setSelectedChat(response.conversations[0].id || response.conversations[0]._id || '');
       }
     } catch (error) {
       console.error('Failed to load conversations:', error);
@@ -81,45 +88,65 @@ const VendorMessages = () => {
   const loadMessages = async (conversationId: string) => {
     try {
       setIsLoadingMessages(true);
-      const response = await messageService.getConversationMessages(conversationId);
-      setMessages(response.messages);
+      // Auto-mark messages as read when opening conversation
+      const response = await messageService.getConversationMessages(conversationId, 1, 50, true);
       
-      // Mark conversation as read
-      await messageService.markConversationAsRead(conversationId);
-      
-      // Update conversation unread count in local state
-      setConversations(prev => 
-        prev.map(conv => 
-          conv._id === conversationId 
-            ? { ...conv, unreadCount: 0 }
-            : conv
-        )
-      );
+      if (response) {
+        setMessages(response.messages);
+        
+        // Update active status to online when opening conversation
+        await messageService.updateActiveStatus(conversationId, 'online');
+        
+        // Refresh conversations to update unread count
+        loadConversations();
+        
+        toast({
+          title: "Messages loaded",
+          description: `${response.messages.length} messages loaded and marked as read`,
+        });
+      }
     } catch (error) {
-      console.error('Failed to load messages:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load messages. Please try again.",
-        variant: "destructive",
-      });
+      console.error("Failed to load messages:", error);
     } finally {
       setIsLoadingMessages(false);
     }
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedChat) return;
+    if ((!newMessage.trim() && selectedFiles.length === 0) || !selectedChat) return;
+
+    const activeConversation = conversations.find(c => (c.id || c._id) === selectedChat);
+    if (!activeConversation) return;
 
     try {
-      const sentMessage = await messageService.sendMessage(selectedChat, newMessage.trim());
+      setIsUploading(true);
+      
+      // Clear typing status before sending
+      await messageService.updateActiveStatus(selectedChat, 'online');
+      
+      // Upload attachments first
+      const uploadedAttachments = [];
+      for (const file of selectedFiles) {
+        const uploaded = await messageService.uploadAttachment(file);
+        uploadedAttachments.push(uploaded);
+      }
+
+      const sentMessage = await messageService.sendMessage(
+        selectedChat, 
+        newMessage.trim() || "(Attachment)",
+        activeConversation.otherUser._id,
+        uploadedAttachments
+      );
+      
       setMessages(prev => [...prev, sentMessage]);
       setNewMessage("");
+      setSelectedFiles([]);
       
       // Update last message in conversations list
       setConversations(prev =>
         prev.map(conv =>
-          conv._id === selectedChat
-            ? { ...conv, lastMessage: sentMessage, updatedAt: sentMessage.createdAt }
+          (conv.id || conv._id) === selectedChat
+            ? { ...conv, lastMessage: { _id: sentMessage._id, message: sentMessage.message, createdAt: sentMessage.createdAt, isFromMe: true }, updatedAt: sentMessage.createdAt }
             : conv
         )
       );
@@ -135,14 +162,118 @@ const VendorMessages = () => {
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsUploading(false);
     }
   };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, type: 'document' | 'image') => {
+    const files = event.target.files;
+    if (!files) return;
+
+    const fileArray = Array.from(files);
+    const validFiles: File[] = [];
+
+    for (const file of fileArray) {
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: `${file.name} exceeds 10MB limit`,
+          variant: "destructive"
+        });
+        continue;
+      }
+
+      // Validate file type
+      if (type === 'image') {
+        if (!file.type.startsWith('image/')) {
+          toast({
+            title: "Invalid file type",
+            description: `${file.name} is not an image`,
+            variant: "destructive"
+          });
+          continue;
+        }
+      } else {
+        const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        if (!validTypes.includes(file.type)) {
+          toast({
+            title: "Invalid file type",
+            description: `${file.name} is not a supported document type`,
+            variant: "destructive"
+          });
+          continue;
+        }
+      }
+
+      validFiles.push(file);
+    }
+
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+    
+    // Reset input
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Handle typing status
+  const handleTypingStart = async () => {
+    if (selectedChat) {
+      await messageService.updateActiveStatus(selectedChat, 'typing');
+    }
+  };
+
+  const handleTypingStop = async () => {
+    if (selectedChat) {
+      await messageService.updateActiveStatus(selectedChat, 'online');
+    }
+  };
+
+  // Debounced typing indicators
+  useEffect(() => {
+    let typingTimer: NodeJS.Timeout;
+
+    if (newMessage.trim()) {
+      // User is typing
+      handleTypingStart();
+      
+      // Clear previous timer
+      if (typingTimer) clearTimeout(typingTimer);
+      
+      // Set timer to stop typing status after 2 seconds of inactivity
+      typingTimer = setTimeout(() => {
+        handleTypingStop();
+      }, 2000);
+    } else {
+      // User cleared message, stop typing immediately
+      handleTypingStop();
+    }
+
+    return () => {
+      if (typingTimer) clearTimeout(typingTimer);
+    };
+  }, [newMessage]);
+
+  // Set offline status when component unmounts or conversation changes
+  useEffect(() => {
+    return () => {
+      if (selectedChat) {
+        messageService.updateActiveStatus(selectedChat, 'offline');
+      }
+    };
+  }, [selectedChat]);
 
   const handleDeleteConversation = async (conversationId: string) => {
     if (window.confirm('Are you sure you want to delete this conversation?')) {
       try {
         await messageService.deleteConversation(conversationId);
-        setConversations(prev => prev.filter(conv => conv._id !== conversationId));
+        setConversations(prev => prev.filter(conv => (conv.id || conv._id) !== conversationId));
         
         if (selectedChat === conversationId) {
           setSelectedChat(null);
@@ -151,7 +282,7 @@ const VendorMessages = () => {
 
         toast({
           title: "Success",
-          description: "Conversation deleted successfully.",
+          description: "Conversation deleted successfully!",
         });
       } catch (error) {
         console.error('Failed to delete conversation:', error);
@@ -164,9 +295,32 @@ const VendorMessages = () => {
     }
   };
 
+  const handleDeleteMessage = async (messageId: string) => {
+    if (window.confirm('Are you sure you want to delete this message? This action cannot be undone.')) {
+      try {
+        await messageService.deleteMessage(messageId);
+        
+        // Remove from local state
+        setMessages(prev => prev.filter(msg => msg._id !== messageId));
+
+        toast({
+          title: "Success",
+          description: "Message deleted successfully!",
+        });
+      } catch (error) {
+        console.error('Failed to delete message:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete message. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   const getOtherParticipant = (conversation: Conversation) => {
-    const currentUserId = JSON.parse(localStorage.getItem("user") || "{}")?.id;
-    return conversation.participants.find(p => p._id !== currentUserId);
+    // Return the otherUser from the conversation
+    return conversation.otherUser;
   };
 
   // Helper functions
@@ -188,7 +342,7 @@ const VendorMessages = () => {
     }
   };
 
-  const selectedConversation = conversations.find(conv => conv._id === selectedChat);
+  const selectedConversation = conversations.find(conv => (conv.id || conv._id) === selectedChat);
   const otherParticipant = selectedConversation ? getOtherParticipant(selectedConversation) : null;
 
   if (isLoading) {
@@ -208,7 +362,7 @@ const VendorMessages = () => {
     const otherParticipant = getOtherParticipant(conv);
     if (!otherParticipant) return false;
     
-    const participantName = messageService.formatName(otherParticipant);
+    const participantName = otherParticipant.name || 'Unknown User';
     return participantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
            conv.lastMessage?.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
            conv.property?.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -235,20 +389,22 @@ const VendorMessages = () => {
           <div className="p-2">
             {filteredConversations.map((conversation) => {
               const otherParticipant = getOtherParticipant(conversation);
-              const participantName = messageService.formatName(otherParticipant);
+              const participantName = otherParticipant?.name || 'Unknown User';
+              const conversationId = conversation.id || conversation._id || '';
+              
               return (
               <div
-                key={conversation._id}
+                key={conversationId}
                 className={`p-3 rounded-lg cursor-pointer transition-colors hover:bg-muted ${
-                  selectedChat === conversation._id ? 'bg-muted' : ''
+                  selectedChat === conversationId ? 'bg-muted' : ''
                 }`}
-                onClick={() => setSelectedChat(conversation._id)}
+                onClick={() => setSelectedChat(conversationId)}
               >
                 <div className="flex items-start space-x-3">
                   <div className="relative">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={otherParticipant?.profile?.avatar} />
-                      <AvatarFallback>{participantName.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={undefined} />
+                      <AvatarFallback>{participantName.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                   </div>
                   
@@ -295,12 +451,12 @@ const VendorMessages = () => {
                 <div className="flex items-center space-x-3">
                   <div className="relative">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={otherParticipant?.profile?.avatar} />
-                      <AvatarFallback>{messageService.formatName(otherParticipant).charAt(0)}</AvatarFallback>
+                      <AvatarImage src={undefined} />
+                      <AvatarFallback>{otherParticipant?.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                     </Avatar>
                   </div>
                   <div>
-                    <h3 className="font-semibold">{messageService.formatName(otherParticipant)}</h3>
+                    <h3 className="font-semibold">{otherParticipant?.name || 'Unknown User'}</h3>
                     <p className="text-sm text-muted-foreground">
                       Interested in property
                     </p>
@@ -329,7 +485,7 @@ const VendorMessages = () => {
                         <Archive className="w-4 h-4 mr-2" />
                         Archive
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteConversation(selectedConversation._id)}>
+                      <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteConversation(selectedConversation.id || selectedConversation._id || '')}>
                         <Trash className="w-4 h-4 mr-2" />
                         Delete Conversation
                       </DropdownMenuItem>
@@ -358,40 +514,174 @@ const VendorMessages = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message._id}
-                      className={`flex ${message.sender._id === otherParticipant?._id ? 'justify-start' : 'justify-end'}`}
-                    >
+                  {messages.map((message) => {
+                    // Check if current user is the sender
+                    const senderId = typeof message.sender === 'string' ? message.sender : message.sender._id;
+                    const isOwnMessage = user?.id === senderId;
+                    
+                    return (
                       <div
-                        className={`max-w-[70%] rounded-lg p-3 ${
-                          message.sender._id === otherParticipant?._id
-                            ? 'bg-muted'
-                            : 'bg-primary text-primary-foreground'
-                        }`}
+                        key={message._id}
+                        className={`group flex ${isOwnMessage ? 'justify-end' : 'justify-start'} hover:bg-muted/30 rounded-lg p-1 transition-colors`}
                       >
+                        <div
+                          className={`max-w-[70%] rounded-lg p-3 ${
+                            isOwnMessage
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted'
+                          }`}
+                        >
                         <p className="text-sm whitespace-pre-wrap">{message.message}</p>
-                        <div className={`flex items-center justify-end mt-1 space-x-1 ${
-                          message.sender._id === otherParticipant?._id ? 'text-muted-foreground' : 'text-primary-foreground/70'
+                        
+                        {/* Attachments */}
+                        {message.attachments && message.attachments.length > 0 && (
+                          <div className="mt-2 space-y-2">
+                            {message.attachments.map((attachment, idx) => (
+                              <div key={idx}>
+                                {attachment.type === 'image' ? (
+                                  <a href={attachment.url} target="_blank" rel="noopener noreferrer">
+                                    <img 
+                                      src={attachment.url} 
+                                      alt={attachment.name}
+                                      className="max-w-full rounded border border-border cursor-pointer hover:opacity-90"
+                                      style={{ maxHeight: '200px' }}
+                                    />
+                                  </a>
+                                ) : (
+                                  <a 
+                                    href={attachment.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className={`flex items-center gap-2 p-2 rounded border ${
+                                      isOwnMessage
+                                        ? 'border-primary-foreground/20 hover:bg-primary-foreground/10'
+                                        : 'border-border bg-background hover:bg-muted'
+                                    }`}
+                                  >
+                                    <Paperclip className="w-4 h-4" />
+                                    <span className="text-sm truncate">{attachment.name}</span>
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        <div className={`flex items-center justify-between mt-1 ${
+                          isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'
                         }`}>
-                          <span className="text-xs">{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                          {message.sender._id !== otherParticipant?._id && getStatusIcon(message.status)}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs">{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            {isOwnMessage && (
+                              <Badge variant="outline" className="text-xs px-1 py-0">You</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {isOwnMessage && getStatusIcon(message.status)}
+                            {isOwnMessage && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-5 w-5 p-0 opacity-50 group-hover:opacity-100 transition-opacity hover:bg-destructive/10"
+                                    title="Message options"
+                                  >
+                                    <MoreVertical className="w-3 h-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem 
+                                    className="text-red-600 focus:text-red-600"
+                                    onClick={() => handleDeleteMessage(message._id)}
+                                  >
+                                    <Trash className="w-4 h-4 mr-2" />
+                                    Delete Message
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  ))}
+                  );
+                  })}
+                  
+                  {/* Typing Indicator */}
+                  {otherUserTyping && (
+                    <div className="flex justify-start mt-4">
+                      <div className="bg-muted p-3 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1">
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {otherParticipant?.name} is typing...
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </ScrollArea>
 
             {/* Message Input */}
             <div className="p-4 border-t border-border">
+              {/* Selected Files Preview */}
+              {selectedFiles.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center gap-2 bg-muted px-3 py-1 rounded-lg">
+                      <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-5 w-5 p-0"
+                        onClick={() => removeFile(index)}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
               <div className="flex items-end space-x-2">
                 <div className="flex space-x-1">
-                  <Button size="sm" variant="outline">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => handleFileSelect(e, 'document')}
+                    multiple
+                  />
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(e) => handleFileSelect(e, 'image')}
+                    multiple
+                  />
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                  >
                     <Paperclip className="w-4 h-4" />
                   </Button>
-                  <Button size="sm" variant="outline">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={isUploading}
+                  >
                     <Image className="w-4 h-4" />
                   </Button>
                 </div>
@@ -408,14 +698,15 @@ const VendorMessages = () => {
                         handleSendMessage();
                       }
                     }}
+                    disabled={isUploading}
                   />
                 </div>
                 
                 <Button 
                   onClick={handleSendMessage}
-                  disabled={!newMessage.trim()}
+                  disabled={(!newMessage.trim() && selectedFiles.length === 0) || isUploading}
                 >
-                  <Send className="w-4 h-4" />
+                  {isUploading ? <Clock className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </Button>
               </div>
             </div>

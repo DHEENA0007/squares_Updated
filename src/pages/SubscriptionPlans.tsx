@@ -80,12 +80,15 @@ const SubscriptionPlans = () => {
             </div>
 
             <ul className="space-y-4 mb-8">
-              {plan.features.map((feature) => (
-                <li key={feature} className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                  <span className="text-sm">{feature}</span>
-                </li>
-              ))}
+              {plan.features.map((feature, index) => {
+                const featureName = typeof feature === 'string' ? feature : feature.name || feature;
+                return (
+                  <li key={index} className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                    <span className="text-sm">{featureName}</span>
+                  </li>
+                );
+              })}
             </ul>
 
             <Button

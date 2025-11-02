@@ -1,18 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Heart, MapPin, Search, Filter, Calendar, Share, SortAsc } from 'lucide-react';
+import { Trash2, Heart, MapPin, Search, Filter, Calendar, Share, SortAsc, GitCompare } from 'lucide-react';
 import { favoriteService, type Favorite, type FavoriteStats } from '@/services/favoriteService';
 import { toast } from '@/hooks/use-toast';
 import { useRealtime, useRealtimeEvent } from '@/contexts/RealtimeContext';
+import { getPropertyListingLabel } from '@/utils/propertyUtils';
 
 const MyFavorites: React.FC = () => {
   const { isConnected } = useRealtime();
+  const navigate = useNavigate();
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [stats, setStats] = useState<FavoriteStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -20,25 +22,7 @@ const MyFavorites: React.FC = () => {
   const [filterType, setFilterType] = useState('all');
   const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
 
-  // Listen for real-time favorite events
-  useRealtimeEvent('favorite_added', (data) => {
-    console.log('Favorite added:', data);
-    loadFavorites();
-    loadStats();
-  });
-
-  useRealtimeEvent('favorite_removed', (data) => {
-    console.log('Favorite removed:', data);
-    loadFavorites();
-    loadStats();
-  });
-
-  useEffect(() => {
-    loadFavorites();
-    loadStats();
-  }, []);
-
-  const loadFavorites = async () => {
+  const loadFavorites = useCallback(async () => {
     try {
       const response = await favoriteService.getFavorites();
       setFavorites(response.data.favorites);
@@ -52,16 +36,34 @@ const MyFavorites: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const response = await favoriteService.getFavoriteStats();
       setStats(response.data);
     } catch (error) {
       console.error('Error loading stats:', error);
     }
-  };
+  }, []);
+
+  // Listen for real-time favorite events
+  useRealtimeEvent('favorite_added', useCallback((data) => {
+    console.log('Favorite added:', data);
+    loadFavorites();
+    loadStats();
+  }, [loadFavorites, loadStats]));
+
+  useRealtimeEvent('favorite_removed', useCallback((data) => {
+    console.log('Favorite removed:', data);
+    loadFavorites();
+    loadStats();
+  }, [loadFavorites, loadStats]));
+
+  useEffect(() => {
+    loadFavorites();
+    loadStats();
+  }, []); // Only load on mount
 
   const removeFavorite = async (propertyId: string) => {
     try {
@@ -114,15 +116,38 @@ const MyFavorites: React.FC = () => {
     }
   };
 
+  const compareSelectedProperties = () => {
+    if (selectedProperties.length < 1) {
+      toast({
+        title: "Select Properties",
+        description: "Please select at least 1 property to compare",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Navigate to compare page with selected property IDs (unlimited)
+    navigate(`/customer/compare?properties=${selectedProperties.join(',')}`);
+  };
+
   // Filter favorites based on search and filter criteria
   const filteredFavorites = favorites.filter(favorite => {
     const property = favorite.property;
     if (!property) return false;
 
+    // Handle address being an object or string
+    const addressStr = typeof property.address === 'string' 
+      ? property.address 
+      : `${property.address.street || ''} ${property.address.city || ''} ${property.address.state || ''}`.trim();
+    
+    const cityStr = typeof property.city === 'string' 
+      ? property.city 
+      : (property.address?.city || '');
+
     const matchesSearch = !searchQuery || 
       property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      property.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      property.city.toLowerCase().includes(searchQuery.toLowerCase());
+      addressStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      cityStr.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesFilter = !filterType || filterType === 'all' ||
       (filterType === 'available' && property.isAvailable) ||
@@ -156,14 +181,25 @@ const MyFavorites: React.FC = () => {
             </p>
           </div>
           {selectedProperties.length > 0 && (
-            <Button
-              variant="destructive"
-              onClick={removeSelectedFavorites}
-              className="w-fit"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Remove Selected ({selectedProperties.length})
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={compareSelectedProperties}
+                disabled={selectedProperties.length < 1}
+                className="w-fit"
+              >
+                <GitCompare className="w-4 h-4 mr-2" />
+                Compare ({selectedProperties.length})
+              </Button>
+                            <Button
+                variant="destructive"
+                onClick={removeSelectedFavorites}
+                className="w-fit"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Remove Selected ({selectedProperties.length})
+              </Button>
+            </div>
           )}
         </div>
 
@@ -185,17 +221,34 @@ const MyFavorites: React.FC = () => {
               className="w-full"
             />
           </div>
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-full md:w-48">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Properties</SelectItem>
-              <SelectItem value="available">Available</SelectItem>
-              <SelectItem value="sold">Sold</SelectItem>
-              <SelectItem value="recent">Recently Added</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2">
+            {filteredFavorites.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (selectedProperties.length === filteredFavorites.length) {
+                    setSelectedProperties([]);
+                  } else {
+                    setSelectedProperties(filteredFavorites.map(f => f.property!._id));
+                  }
+                }}
+              >
+                {selectedProperties.length === filteredFavorites.length ? 'Deselect All' : 'Select All'}
+              </Button>
+            )}
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Properties</SelectItem>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="sold">Sold</SelectItem>
+                <SelectItem value="recent">Recently Added</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Stats */}
@@ -249,6 +302,18 @@ const MyFavorites: React.FC = () => {
           </div>
         )}
 
+        {/* Helper Text for Comparison */}
+        {filteredFavorites.length > 0 && selectedProperties.length === 0 && (
+          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <GitCompare className="w-5 h-5 text-blue-600" />
+              <span className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Tip:</strong> Select properties using the checkboxes to compare them side-by-side (unlimited selection)
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Favorites List */}
         <div className="space-y-4">
           {filteredFavorites.length === 0 ? (
@@ -277,15 +342,26 @@ const MyFavorites: React.FC = () => {
               
               const statusInfo = favoriteService.getPropertyStatusBadge(property);
               
+              // Handle images being array of objects or strings
+              const firstImage = property.images && property.images.length > 0 
+                ? (typeof property.images[0] === 'string' 
+                    ? property.images[0] 
+                    : property.images[0].url)
+                : null;
+              
               return (
-                <Card key={favorite._id} className="hover:shadow-lg transition-shadow">
+                <Card key={favorite._id} className={`hover:shadow-lg transition-all ${
+                  selectedProperties.includes(property._id) 
+                    ? 'ring-2 ring-primary bg-primary/5' 
+                    : ''
+                }`}>
                   <CardContent className="p-0">
                     <div className="flex flex-col md:flex-row">
                       {/* Property Image */}
                       <div className="md:w-80 h-64 md:h-48 bg-muted flex items-center justify-center relative">
-                        {property.images && property.images.length > 0 ? (
+                        {firstImage ? (
                           <img 
-                            src={property.images[0]} 
+                            src={firstImage} 
                             alt={property.title}
                             className="w-full h-full object-cover"
                           />
@@ -319,28 +395,65 @@ const MyFavorites: React.FC = () => {
                             <h3 className="text-xl font-semibold mb-2">{property.title}</h3>
                             <div className="flex items-center text-muted-foreground mb-2">
                               <MapPin className="w-4 h-4 mr-1" />
-                              <span className="text-sm">{property.address}, {property.city}, {property.state}</span>
+                              <span className="text-sm">
+                                {typeof property.address === 'string' 
+                                  ? property.address 
+                                  : `${property.address.street || ''}, ${property.address.city || ''}, ${property.address.state || ''}`}
+                              </span>
                             </div>
                           </div>
                           <div className="text-right">
                             <p className="text-2xl font-bold text-primary">
                               {favoriteService.formatPrice(property.price)}
                             </p>
-                            {property.area && (
-                              <p className="text-sm text-muted-foreground">
-                                ₹{Math.round(property.price / property.area)}/sq ft
-                              </p>
-                            )}
+                            {(() => {
+                              const area = property?.area;
+                              if (!area) return null;
+                              if (typeof area === 'object' && area !== null) {
+                                const areaValue = (area as any).builtUp || (area as any).carpet || (area as any).plot || 1;
+                                return (
+                                  <p className="text-sm text-muted-foreground">
+                                    ₹{Math.round(property.price / areaValue)}/sq ft
+                                  </p>
+                                );
+                              }
+                              if (typeof area === 'number') {
+                                return (
+                                  <p className="text-sm text-muted-foreground">
+                                    ₹{Math.round(property.price / area)}/sq ft
+                                  </p>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                         </div>
 
                         {/* Property Features */}
                         <div className="flex flex-wrap gap-4 mb-4 text-sm text-muted-foreground">
-                          {property.area && (
-                            <div className="flex items-center gap-1">
-                              <span>{property.area} sq ft</span>
-                            </div>
-                          )}
+                          {(() => {
+                            const area = property?.area;
+                            if (!area) return null;
+                            if (typeof area === 'object' && area !== null) {
+                              const areaValue = (area as any).builtUp || (area as any).carpet || (area as any).plot || 0;
+                              const unitValue = (area as any).unit || 'sq ft';
+                              return (
+                                <div className="flex items-center gap-1">
+                                  <span>
+                                    {areaValue} {unitValue}
+                                  </span>
+                                </div>
+                              );
+                            }
+                            if (typeof area === 'number') {
+                              return (
+                                <div className="flex items-center gap-1">
+                                  <span>{area} sq ft</span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                           {property.bedrooms && (
                             <div className="flex items-center gap-1">
                               <span>{property.bedrooms} bed</span>
@@ -377,7 +490,9 @@ const MyFavorites: React.FC = () => {
                           </div>
                           {property.owner && (
                             <div className="flex items-center gap-1">
-                              <span>Owner: {property.owner.name}</span>
+                              <span>
+                                {getPropertyListingLabel(property as any)}
+                              </span>
                             </div>
                           )}
                         </div>
@@ -401,9 +516,22 @@ const MyFavorites: React.FC = () => {
                             >
                               <Share className="w-4 h-4" />
                             </Button>
-                            <Button size="sm" variant="outline" disabled={!property.isAvailable}>
-                              View Details
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                const selected = [property._id];
+                                navigate(`/customer/compare?properties=${selected.join(',')}`);
+                              }}
+                            >
+                              <GitCompare className="w-4 h-4 mr-1" />
+                              Compare
                             </Button>
+                            <Link to={`/customer/property/${property._id}`}>
+                              <Button size="sm" variant="outline">
+                                View Details
+                              </Button>
+                            </Link>
                           </div>
                           <Button size="sm" variant="destructive" onClick={() => removeFavorite(property._id)}>
                             <Trash2 className="w-4 h-4 mr-2" />

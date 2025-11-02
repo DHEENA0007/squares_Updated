@@ -74,6 +74,7 @@ const AdminMessages = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [replyText, setReplyText] = useState("");
+  const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -197,9 +198,12 @@ const AdminMessages = () => {
   const deleteMessage = async (messageId: string) => {
     try {
       await adminMessageService.deleteMessage(messageId);
-      setSelectedMessage(null);
+      if (selectedMessage?._id === messageId) {
+        setSelectedMessage(null);
+      }
       loadMessages();
       loadStats();
+      setMessageToDelete(null);
     } catch (error) {
       console.error("Failed to delete message:", error);
     }
@@ -230,7 +234,7 @@ const AdminMessages = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative top-[60px]">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -309,275 +313,306 @@ const AdminMessages = () => {
         </div>
       )}
 
-      {/* Tabs and Filters */}
-      <div className="space-y-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="all">All Messages</TabsTrigger>
-            <TabsTrigger value="unread">
-              Unread {stats && stats.unreadMessages > 0 && (
-                <Badge className="ml-2 text-xs">{stats.unreadMessages}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="flagged">
-              Flagged {stats && stats.flaggedMessages > 0 && (
-                <Badge className="ml-2 text-xs bg-red-500">{stats.flaggedMessages}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="inquiries">Property Inquiries</TabsTrigger>
-            <TabsTrigger value="support">Support</TabsTrigger>
-          </TabsList>
+      {/* Chat Interface */}
+      <div className="h-[calc(100vh-16rem)] flex gap-6">
+        {/* Conversations List */}
+        <div className="w-1/3 border-r border-border">
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="w-full grid grid-cols-3">
+              <TabsTrigger value="all" className="text-xs">
+                All {stats && stats.totalMessages > 0 && (
+                  <Badge className="ml-1 text-xs" variant="secondary">{stats.totalMessages}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="unread" className="text-xs">
+                Unread {stats && stats.unreadMessages > 0 && (
+                  <Badge className="ml-1 text-xs bg-red-500 text-white">{stats.unreadMessages}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="flagged" className="text-xs">
+                Flagged {stats && stats.flaggedMessages > 0 && (
+                  <Badge className="ml-1 text-xs bg-orange-500 text-white">{stats.flaggedMessages}</Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-          {/* Filters */}
-          <div className="flex gap-4 items-center">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          {/* Search and Filters */}
+          <div className="p-4 border-b border-border space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search messages..."
+                placeholder="Search conversations..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
             </div>
             
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="unread">Unread</SelectItem>
-                <SelectItem value="read">Read</SelectItem>
-                <SelectItem value="replied">Replied</SelectItem>
-                <SelectItem value="flagged">Flagged</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="inquiry">Inquiry</SelectItem>
-                <SelectItem value="property_inquiry">Property</SelectItem>
-                <SelectItem value="support">Support</SelectItem>
-                <SelectItem value="complaint">Complaint</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priority</SelectItem>
-                <SelectItem value="urgent">Urgent</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="inquiry">Inquiry</SelectItem>
+                  <SelectItem value="property_inquiry">Property</SelectItem>
+                  <SelectItem value="support">Support</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Messages List */}
-          <TabsContent value={activeTab} className="space-y-4">
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* Messages List */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>Messages ({filteredMessages.length})</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <ScrollArea className="h-[600px]">
-                    <div className="space-y-2 p-4">
-                      {filteredMessages.map((message) => (
-                        <div
-                          key={message._id}
-                          className={`p-4 border rounded-lg cursor-pointer transition-colors hover:bg-accent/50 ${
-                            selectedMessage?._id === message._id ? 'bg-accent' : ''
-                          }`}
-                          onClick={() => setSelectedMessage(message)}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start space-x-3 flex-1">
-                              <Avatar className="w-8 h-8">
-                                <AvatarImage src={message.sender.profile?.avatar} />
-                                <AvatarFallback>
-                                  {getSenderName(message).charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-medium text-sm truncate">
-                                    {getSenderName(message)}
-                                  </span>
-                                  <Badge className={`text-xs ${getPriorityColor(message.priority)}`}>
-                                    {message.priority}
-                                  </Badge>
-                                </div>
-                                <p className="text-sm text-muted-foreground truncate">
-                                  {message.subject || message.content}
-                                </p>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <Badge className={`text-xs ${getStatusColor(message.status)}`}>
-                                    {message.status}
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground">
-                                    {formatDate(message.createdAt)}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => markAsRead(message._id)}>
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  Mark as Read
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => flagMessage(message._id)}>
-                                  <AlertTriangle className="w-4 h-4 mr-2" />
-                                  Flag Message
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem className="text-red-600">
-                                      <Trash2 className="w-4 h-4 mr-2" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Delete Message</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Are you sure you want to delete this message? This action cannot be undone.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => deleteMessage(message._id)}>
-                                        Delete
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-
-              {/* Message Detail */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    {selectedMessage ? "Message Details" : "Select a Message"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {selectedMessage ? (
-                    <div className="space-y-4">
-                      {/* Message Header */}
-                      <div className="border-b pb-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center space-x-3">
-                            <Avatar>
-                              <AvatarImage src={selectedMessage.sender.profile?.avatar} />
-                              <AvatarFallback>
-                                {getSenderName(selectedMessage).charAt(0).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{getSenderName(selectedMessage)}</p>
-                              <p className="text-sm text-muted-foreground">{selectedMessage.sender.email}</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <Badge className={`${getPriorityColor(selectedMessage.priority)} mb-1`}>
-                              {selectedMessage.priority}
-                            </Badge>
-                            <p className="text-sm text-muted-foreground">
-                              {formatDate(selectedMessage.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        {selectedMessage.subject && (
-                          <h3 className="font-semibold text-lg mb-2">{selectedMessage.subject}</h3>
-                        )}
-                        
-                        <div className="flex gap-2">
-                          <Badge className={getStatusColor(selectedMessage.status)}>
-                            {selectedMessage.status}
-                          </Badge>
-                          <Badge variant="outline">
-                            {selectedMessage.type.replace('_', ' ')}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      {/* Message Content */}
-                      <div className="bg-muted/30 p-4 rounded-lg">
-                        <p className="whitespace-pre-wrap">{selectedMessage.content}</p>
-                      </div>
-
-                      {/* Property Info if applicable */}
-                      {selectedMessage.property && (
-                        <div className="border p-3 rounded-lg bg-blue-50">
-                          <p className="font-medium text-sm">Related Property:</p>
-                          <p className="text-sm text-muted-foreground">{selectedMessage.property.title}</p>
-                        </div>
+          <ScrollArea className="h-[calc(100%-12rem)]">
+            <div className="p-2 space-y-1">
+              {filteredMessages.map((message) => (
+                <div
+                  key={message._id}
+                  className={`p-3 rounded-lg cursor-pointer transition-colors hover:bg-accent/50 ${
+                    selectedMessage?._id === message._id ? 'bg-accent' : ''
+                  }`}
+                  onClick={() => {
+                    setSelectedMessage(message);
+                    if (message.status === 'unread') {
+                      markAsRead(message._id);
+                    }
+                  }}
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className="relative">
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={message.sender.profile?.avatar} />
+                        <AvatarFallback>
+                          {getSenderName(message).charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      {message.status === 'unread' && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500" />
                       )}
-
-                      {/* Reply Section */}
-                      <div className="space-y-3">
-                        <Label htmlFor="reply">Reply</Label>
-                        <Textarea
-                          id="reply"
-                          placeholder="Type your reply..."
-                          value={replyText}
-                          onChange={(e) => setReplyText(e.target.value)}
-                          rows={4}
-                        />
-                        <div className="flex gap-2">
-                          <Button onClick={sendReply} disabled={!replyText.trim()}>
-                            <Send className="w-4 h-4 mr-2" />
-                            Send Reply
-                          </Button>
-                          <Button variant="outline" onClick={() => setReplyText("")}>
-                            Clear
-                          </Button>
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-sm truncate">
+                          {getSenderName(message)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(message.createdAt)}
+                        </span>
+                      </div>
+                      
+                      {message.subject && (
+                        <p className="text-xs font-medium text-primary mb-1 truncate">
+                          {message.subject}
+                        </p>
+                      )}
+                      
+                      <p className="text-xs text-muted-foreground truncate">
+                        {message.content}
+                      </p>
+                      
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="flex gap-1">
+                          <Badge className={`text-xs ${getPriorityColor(message.priority)}`}>
+                            {message.priority}
+                          </Badge>
+                          <Badge className={`text-xs ${getStatusColor(message.status)}`}>
+                            {message.status}
+                          </Badge>
                         </div>
+                        
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                              <MoreVertical className="w-3 h-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => flagMessage(message._id)}>
+                              <AlertTriangle className="w-4 h-4 mr-2" />
+                              Flag
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-red-600"
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                setMessageToDelete(message._id);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <MessageSquare className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-xl font-semibold mb-2">No Message Selected</h3>
-                      <p className="text-muted-foreground">
-                        Select a message from the list to view details and reply
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col">
+          {selectedMessage ? (
+            <>
+              {/* Chat Header */}
+              <div className="p-4 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={selectedMessage.sender.profile?.avatar} />
+                      <AvatarFallback>
+                        {getSenderName(selectedMessage).charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="font-semibold">
+                        {getSenderName(selectedMessage)}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedMessage.sender.email}
                       </p>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Badge className={getPriorityColor(selectedMessage.priority)}>
+                      {selectedMessage.priority}
+                    </Badge>
+                    <Badge className={getStatusColor(selectedMessage.status)}>
+                      {selectedMessage.status}
+                    </Badge>
+                  </div>
+                </div>
+                
+                {/* Property Info */}
+                {selectedMessage.property && (
+                  <div className="mt-3 p-3 bg-muted rounded-lg">
+                    <p className="text-sm font-medium">Related Property:</p>
+                    <p className="text-xs text-muted-foreground">{selectedMessage.property.title}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Chat Messages */}
+              <ScrollArea className="flex-1 p-4">
+                <div className="space-y-4">
+                  {/* Original Message */}
+                  <div className="flex justify-start">
+                    <div className="max-w-[70%] bg-muted p-3 rounded-lg">
+                      {selectedMessage.subject && (
+                        <p className="font-medium text-sm mb-2">{selectedMessage.subject}</p>
+                      )}
+                      <p className="text-sm whitespace-pre-wrap">{selectedMessage.content}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(selectedMessage.createdAt)}
+                        </span>
+                        <Badge variant="outline" className="text-xs">
+                          {selectedMessage.type?.replace('_', ' ') || 'general'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Admin replies would go here */}
+                  {/* TODO: Load and display conversation replies */}
+                </div>
+              </ScrollArea>
+
+              {/* Reply Input */}
+              <div className="p-4 border-t border-border">
+                <div className="space-y-3">
+                  <Textarea
+                    placeholder="Type your reply..."
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    rows={3}
+                    className="resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={sendReply} 
+                      disabled={!replyText.trim()}
+                      className="flex-1"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Send Reply
+                    </Button>
+                    <Button variant="outline" onClick={() => setReplyText("")}>
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <MessageSquare className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-semibold mb-2">Select a Conversation</h3>
+                <p className="text-muted-foreground">
+                  Choose a message from the list to start chatting
+                </p>
+              </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog 
+        open={!!messageToDelete} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setMessageToDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent className="sm:max-w-[425px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Message</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this message? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => setMessageToDelete(null)}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (messageToDelete) {
+                  deleteMessage(messageToDelete);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete Message
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -15,70 +15,78 @@ interface DataTableProps<T> {
   data: T[];
   onEdit?: (item: T) => void;
   editPath?: (item: T & { id: string }) => string;
+  hideDefaultActions?: boolean;
 }
 
 export function DataTable<T extends { id: string }>({ 
   columns, 
   data, 
   onEdit, 
-  editPath 
+  editPath,
+  hideDefaultActions = false 
 }: DataTableProps<T>) {
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/50">
-            {columns.map((column) => (
-              <TableHead key={column.key} className="font-semibold">
-                {column.label}
-              </TableHead>
-            ))}
-            <TableHead className="font-semibold text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={columns.length + 1} className="text-center py-8 text-muted-foreground">
-                No data found
-              </TableCell>
+    <div className="rounded-lg border border-border bg-card">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              {columns.map((column) => (
+                <TableHead key={column.key} className="font-semibold">
+                  {column.label}
+                </TableHead>
+              ))}
+              {!hideDefaultActions && (
+                <TableHead className="font-semibold text-right">Actions</TableHead>
+              )}
             </TableRow>
-          ) : (
-            data.map((item) => (
-              <TableRow key={item.id} className="hover:bg-muted/30 transition-colors">
-                {columns.map((column) => (
-                  <TableCell key={column.key}>
-                    {column.render ? column.render(item) : (item as any)[column.key]}
-                  </TableCell>
-                ))}
-                <TableCell className="text-right">
-                  {editPath ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      asChild
-                    >
-                      <Link to={editPath(item)}>
-                        <Edit className="w-4 h-4" />
-                        <span className="ml-2">Edit</span>
-                      </Link>
-                    </Button>
-                  ) : onEdit ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onEdit(item)}
-                    >
-                      <Edit className="w-4 h-4" />
-                      <span className="ml-2">Edit</span>
-                    </Button>
-                  ) : null}
+          </TableHeader>
+          <TableBody>
+            {data.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={columns.length + (hideDefaultActions ? 0 : 1)} className="text-center py-8 text-muted-foreground">
+                  No data found
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ) : (
+              data.map((item) => (
+                <TableRow key={item.id} className="hover:bg-muted/30 transition-colors">
+                  {columns.map((column) => (
+                    <TableCell key={column.key}>
+                      {column.render ? column.render(item) : (item as any)[column.key]}
+                    </TableCell>
+                  ))}
+                  {!hideDefaultActions && (
+                    <TableCell className="text-right">
+                      {editPath ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          asChild
+                        >
+                          <Link to={editPath(item)}>
+                            <Edit className="w-4 h-4" />
+                            <span className="ml-2">Edit</span>
+                          </Link>
+                        </Button>
+                      ) : onEdit ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEdit(item)}
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span className="ml-2">Edit</span>
+                        </Button>
+                      ) : null}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

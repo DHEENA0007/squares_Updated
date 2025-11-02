@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { usePagination } from "@/hooks/usePagination";
 import {
   Pagination,
@@ -13,9 +15,10 @@ import {
 import { Plan, planService } from "@/services/planService";
 import { Column, DataTable } from "@/components/adminpanel/shared/DataTable";
 import { SearchFilter } from "@/components/adminpanel/shared/SearchFilter";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 
 const Plans = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [billingFilter, setBillingFilter] = useState("all");
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -80,20 +83,26 @@ const Plans = () => {
     {
       key: "features",
       label: "Features",
-      render: (plan) => (
-        <div className="flex flex-wrap gap-1">
-          {plan.features.slice(0, 2).map((feature, idx) => (
-            <Badge key={idx} variant="secondary" className="text-xs">
-              {feature}
-            </Badge>
-          ))}
-          {plan.features.length > 2 && (
-            <Badge variant="secondary" className="text-xs">
-              +{plan.features.length - 2}
-            </Badge>
-          )}
-        </div>
-      ),
+      render: (plan) => {
+        const features = Array.isArray(plan.features)
+          ? plan.features.map(f => typeof f === 'string' ? f : f.name)
+          : [];
+        
+        return (
+          <div className="flex flex-wrap gap-1">
+            {features.slice(0, 2).map((feature, idx) => (
+              <Badge key={idx} variant="secondary" className="text-xs">
+                {feature}
+              </Badge>
+            ))}
+            {features.length > 2 && (
+              <Badge variant="secondary" className="text-xs">
+                +{features.length - 2}
+              </Badge>
+            )}
+          </div>
+        );
+      },
     },
     { 
       key: "subscriberCount", 
@@ -126,11 +135,17 @@ const Plans = () => {
 
   return (
       <div className="space-y-6 relative top-[60px]">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Plan Management</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage subscription plans and pricing
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Plan Management</h1>
+            <p className="text-muted-foreground mt-2">
+              Manage subscription plans and pricing
+            </p>
+          </div>
+          <Button onClick={() => navigate("/admin/plans/create")}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Plan
+          </Button>
         </div>
 
         <Card>

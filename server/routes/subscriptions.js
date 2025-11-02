@@ -73,10 +73,13 @@ router.get('/', authenticateToken, async (req, res) => {
 
     const result = await Subscription.paginate(filter, options);
 
+    // Filter out subscriptions with null plans or users (safety check)
+    const validSubscriptions = result.docs.filter(sub => sub.user && sub.plan);
+
     res.json({
       success: true,
       data: {
-        subscriptions: result.docs,
+        subscriptions: validSubscriptions,
         pagination: {
           page: result.page,
           limit: result.limit,
@@ -461,6 +464,14 @@ router.patch('/:id/renew', authenticateToken, async (req, res) => {
     const startDate = new Date();
     const endDate = new Date(startDate);
     
+    // Check if plan exists
+    if (!subscription.plan) {
+      return res.status(400).json({
+        success: false,
+        message: 'Subscription plan not found'
+      });
+    }
+
     if (subscription.plan.billingPeriod === 'monthly') {
       endDate.setMonth(endDate.getMonth() + 1);
     } else if (subscription.plan.billingPeriod === 'yearly') {

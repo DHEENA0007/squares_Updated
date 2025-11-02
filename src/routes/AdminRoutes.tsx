@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Suspense } from "react";
-import { HomePage, UsersPage, AddUserPage, MessagesPage, ProfilePage, SettingsPage, RoleListPage,RoleEditPage,AddRolePage,ClientListPage,PlanListPage,PropertyListPage,PropertyEditPage,AddPropertyPage,PlanEditPage,ClientEditPage,AddonManagementPage } from "@/routes/AdminLazyImports";
+import { HomePage, UsersPage, AddUserPage, MessagesPage, ProfilePage, SettingsPage, RoleListPage,RoleEditPage,AddRolePage,ClientListPage,PlanListPage,PropertyListPage,PropertyEditPage,AddPropertyPage,PlanEditPage,PlanCreatePage,ClientEditPage,AddonManagementPage } from "@/routes/AdminLazyImports";
 import DashboardLayout from "@/components/adminpanel/DashboardLayout";
 import AdminProtectedRoute from "@/components/auth/AdminProtectedRoute";
 import { PageLoader } from "@/components/ui/loader/PageLoader";
@@ -25,6 +25,7 @@ const AdminRoutes = () => {
             <Route path="/clients" element={<ClientListPage/>} />
             <Route path="/clients/edit/:id" element={<ClientEditPage/>} />
             <Route path="/plans" element={<PlanListPage/>} />
+            <Route path="/plans/create" element={<PlanCreatePage/>} />
             <Route path="/plans/edit/:id" element={<PlanEditPage/>} />
             <Route path="/properties" element={<PropertyListPage/>} />
             <Route path="/properties/add" element={<AddPropertyPage/>} />

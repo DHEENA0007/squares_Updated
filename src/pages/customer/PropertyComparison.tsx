@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Home
 } from "lucide-react";
+import { isAdminUser, getOwnerDisplayName, getPropertyOwnerDisplayName } from "@/utils/propertyUtils";
 import { useSearchParams, Link } from "react-router-dom";
 import { useRealtime, useRealtimeEvent } from "@/contexts/RealtimeContext";
 import { propertyService, Property } from "@/services/propertyService";
@@ -77,9 +78,9 @@ const PropertyComparison = () => {
   useEffect(() => {
     // Get property IDs from URL params if coming from favorites
     const ids = searchParams.get('properties')?.split(',').filter(Boolean) || [];
-    const limitedIds = ids.slice(0, 3); // Max 3 properties for comparison
-    setSelectedProperties(limitedIds);
-    loadProperties(limitedIds);
+    // Allow unlimited properties for comparison
+    setSelectedProperties(ids);
+    loadProperties(ids);
   }, [searchParams, loadProperties]);
 
   // Listen to realtime events for property updates
@@ -264,7 +265,13 @@ const PropertyComparison = () => {
       ) : !loading && (
         <div className="space-y-6">
           {/* Property Cards Overview */}
-          <div className={`grid gap-4 ${properties.length === 1 ? 'grid-cols-1 max-w-md mx-auto' : properties.length === 2 ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 lg:grid-cols-3'}`}>
+          <div className={`grid gap-4 ${
+            properties.length === 1 ? 'grid-cols-1 max-w-md mx-auto' : 
+            properties.length === 2 ? 'grid-cols-1 lg:grid-cols-2' : 
+            properties.length === 3 ? 'grid-cols-1 lg:grid-cols-3' : 
+            properties.length === 4 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' : 
+            'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+          }`}>
             {properties.map((property) => (
               <Card key={property._id} className="relative">
                 <button
@@ -309,20 +316,18 @@ const PropertyComparison = () => {
               </Card>
             ))}
             
-            {properties.length < 3 && (
-              <Card className="border-dashed border-2">
-                <CardContent className="p-4 h-full flex items-center justify-center">
-                  <Button 
-                    variant="ghost" 
-                    className="h-full w-full flex flex-col gap-2"
-                    onClick={addProperty}
-                  >
-                    <Plus className="w-8 h-8 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Add Property</span>
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+            <Card className="border-dashed border-2">
+              <CardContent className="p-4 h-full flex items-center justify-center">
+                <Button 
+                  variant="ghost" 
+                  className="h-full w-full flex flex-col gap-2"
+                  onClick={addProperty}
+                >
+                  <Plus className="w-8 h-8 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Add Property</span>
+                </Button>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Detailed Comparison Table */}
@@ -518,26 +523,39 @@ const PropertyComparison = () => {
                   <div key={property._id} className="p-4 border rounded-lg">
                     <h4 className="font-medium mb-2">{property.title}</h4>
                     <div className="space-y-2">
-                      {property.owner && (
+                      {property.owner && property.owner.profile && (
                         <div>
-                          <p className="text-sm font-medium">Owner</p>
-                          <p className="text-sm text-muted-foreground">
-                            {property.owner.profile.firstName} {property.owner.profile.lastName}
+                          <p className="text-sm font-medium">
+                            {isAdminUser(property.owner) ? 'Listed by' : 'Owner'}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {property.owner.profile.phone}
+                            {getPropertyOwnerDisplayName(property)}
                           </p>
+                          {property.owner.profile.phone && !isAdminUser(property.owner) && (
+                            <p className="text-sm text-muted-foreground">
+                              {property.owner.profile.phone}
+                            </p>
+                          )}
                         </div>
                       )}
-                      {property.agent && (
+                      {property.agent && property.agent.profile && (
                         <div>
-                          <p className="text-sm font-medium">Agent</p>
-                          <p className="text-sm text-muted-foreground">
-                            {property.agent.profile.firstName} {property.agent.profile.lastName}
+                          <p className="text-sm font-medium">
+                            {isAdminUser(property.agent) ? 'Listed by' : 'Agent'}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {property.agent.profile.phone}
+                            {getOwnerDisplayName(property.agent)}
                           </p>
+                          {property.agent.profile.phone && !isAdminUser(property.agent) && (
+                            <p className="text-sm text-muted-foreground">
+                              {property.agent.profile.phone}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {!property.owner?.profile && !property.agent?.profile && (
+                        <div className="text-sm text-muted-foreground">
+                          Contact information not available
                         </div>
                       )}
                     </div>

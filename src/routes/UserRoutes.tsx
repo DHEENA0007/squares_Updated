@@ -11,7 +11,6 @@ import {
   Contact,
   PrivacyPolicy,
   RefundPolicy,
-  PostProperty,
 } from "@/routes/UserLazyImports";
 import UserLayout from "@/layout/UserLayout";
 import { PageLoader } from "@/components/ui/loader/PageLoader";
@@ -29,7 +28,6 @@ const UserRoutes = () => {
           <Route path="/contact" element={<Contact />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/refund-policy" element={<RefundPolicy />} />
-          <Route path="/post-property" element={<PostProperty />} />
         </Route>
       </Routes>
     </Suspense>

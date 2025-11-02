@@ -13,6 +13,7 @@ export const ClientListPage = lazy(() => import("@/pages/admin/Clients"));
 export const ClientEditPage = lazy(() => import("@/pages/admin/EditClient"));
 export const PlanListPage = lazy(() => import("@/pages/admin/Plans"));
 export const PlanEditPage = lazy(() => import("@/pages/admin/EditPlan"));
+export const PlanCreatePage = lazy(() => import("@/pages/admin/CreatePlan"));
 export const PropertyListPage = lazy(() => import("@/pages/admin/Properties"));
 export const PropertyEditPage = lazy(() => import("@/pages/admin/EditProperty"));
 export const AddPropertyPage = lazy(() => import("@/pages/admin/AddProperty"));

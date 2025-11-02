@@ -262,8 +262,8 @@ const Clients = () => {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{subscription.plan.name}</div>
-                            <div className="text-sm text-muted-foreground">{subscription.plan.billingPeriod}</div>
+                            <div className="font-medium">{subscription.plan?.name || 'N/A'}</div>
+                            <div className="text-sm text-muted-foreground">{subscription.plan?.billingPeriod || 'N/A'}</div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -421,28 +421,31 @@ const Clients = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Plan Name</p>
-                        <p className="text-base font-semibold">{selectedSubscription.plan.name}</p>
+                        <p className="text-base font-semibold">{selectedSubscription.plan?.name || 'N/A'}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Description</p>
-                        <p className="text-base">{selectedSubscription.plan.description}</p>
+                        <p className="text-base">{selectedSubscription.plan?.description || 'N/A'}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Plan Price</p>
                         <p className="text-base font-semibold">
-                          {subscriptionService.formatAmount({
-                            ...selectedSubscription,
-                            amount: selectedSubscription.plan.price
-                          })}
+                          {selectedSubscription.plan?.price 
+                            ? subscriptionService.formatAmount({
+                                ...selectedSubscription,
+                                amount: selectedSubscription.plan.price
+                              })
+                            : 'N/A'
+                          }
                         </p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Billing Period</p>
-                        <p className="text-base">{selectedSubscription.plan.billingPeriod}</p>
+                        <p className="text-base">{selectedSubscription.plan?.billingPeriod || 'N/A'}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Plan ID</p>
-                        <p className="text-base font-mono text-sm">{selectedSubscription.plan._id}</p>
+                        <p className="text-base font-mono text-sm">{selectedSubscription.plan?._id || 'N/A'}</p>
                       </div>
                     </div>
                   </CardContent>

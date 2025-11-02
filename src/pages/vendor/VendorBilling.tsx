@@ -238,7 +238,7 @@ const VendorBilling: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-lg font-semibold">{subscription.plan.name}</h3>
+                      <h3 className="text-lg font-semibold">{subscription.plan?.name || 'N/A'}</h3>
                       <p className="text-muted-foreground">
                         {subscription.billingCycle === 'monthly' ? 'Monthly' : 'Yearly'} Plan
                       </p>

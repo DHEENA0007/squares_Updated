@@ -381,12 +381,15 @@ const VendorServices = () => {
                       </div>
 
                       <div className="space-y-2 mb-4">
-                        {service.features.slice(0, 2).map((feature, index) => (
-                          <div key={index} className="flex items-center text-sm">
-                            <div className="w-1.5 h-1.5 bg-primary rounded-full mr-2" />
-                            <span>{feature}</span>
-                          </div>
-                        ))}
+                        {service.features.slice(0, 2).map((feature, index) => {
+                          const featureName = typeof feature === 'string' ? feature : (feature as any).name || String(feature);
+                          return (
+                            <div key={index} className="flex items-center text-sm">
+                              <div className="w-1.5 h-1.5 bg-primary rounded-full mr-2" />
+                              <span>{featureName}</span>
+                            </div>
+                          );
+                        })}
                       </div>
 
                       <div className="flex justify-between items-center">

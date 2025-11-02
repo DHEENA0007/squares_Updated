@@ -97,11 +97,35 @@ router.post('/', asyncHandler(async (req, res) => {
     });
   }
 
+  // Validate required fields
+  const { name, description, price, billingPeriod, features } = req.body;
+  
+  if (!name || !description || price === undefined || !billingPeriod) {
+    return res.status(400).json({
+      success: false,
+      message: 'Missing required fields: name, description, price, billingPeriod'
+    });
+  }
+
+  // Generate identifier from name if not provided
+  if (!req.body.identifier) {
+    req.body.identifier = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  }
+
+  // Initialize price history
+  req.body.priceHistory = [{
+    price: price,
+    changedAt: new Date(),
+    changedBy: req.user.id,
+    reason: 'Initial price'
+  }];
+
   const plan = await Plan.create(req.body);
 
   res.status(201).json({
     success: true,
-    data: { plan }
+    data: { plan },
+    message: 'Plan created successfully'
   });
 }));
 
@@ -116,12 +140,71 @@ router.put('/:id', asyncHandler(async (req, res) => {
     });
   }
 
-  const plan = await Plan.findByIdAndUpdate(
-    req.params.id,
-    req.body,
-    { new: true, runValidators: true }
-  );
+  const plan = await Plan.findById(req.params.id);
+  
+  if (!plan) {
+    return res.status(404).json({
+      success: false,
+      message: 'Plan not found'
+    });
+  }
 
+  // Track price changes
+  if (req.body.price && req.body.price !== plan.price) {
+    await plan.updatePrice(req.body.price, req.user.id, req.body.priceChangeReason);
+    delete req.body.price; // Remove from update object since it's already updated
+    delete req.body.priceChangeReason;
+  }
+
+  // Track feature changes
+  if (req.body.features) {
+    const oldFeatures = plan.features || [];
+    const newFeatures = req.body.features || [];
+    
+    // Log feature additions/removals
+    newFeatures.forEach(feature => {
+      const featureName = typeof feature === 'string' ? feature : feature.name;
+      const oldFeature = oldFeatures.find(f => 
+        (typeof f === 'string' ? f : f.name) === featureName
+      );
+      
+      if (!oldFeature) {
+        plan.updateFeature(featureName, 'added', feature, req.user.id);
+      }
+    });
+  }
+
+  // Update other fields
+  Object.keys(req.body).forEach(key => {
+    if (key !== 'price' && key !== 'priceHistory' && key !== 'featureHistory') {
+      plan[key] = req.body[key];
+    }
+  });
+
+  await plan.save();
+
+  res.json({
+    success: true,
+    data: { plan },
+    message: 'Plan updated successfully'
+  });
+}));
+
+// @desc    Get plan price history (Admin only)
+// @route   GET /api/plans/:id/price-history
+// @access  Private/Admin
+router.get('/:id/price-history', asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Admin access required'
+    });
+  }
+
+  const plan = await Plan.findById(req.params.id)
+    .populate('priceHistory.changedBy', 'name email')
+    .select('name priceHistory');
+  
   if (!plan) {
     return res.status(404).json({
       success: false,
@@ -131,7 +214,10 @@ router.put('/:id', asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: { plan }
+    data: {
+      planName: plan.name,
+      priceHistory: plan.priceHistory || []
+    }
   });
 }));
 

@@ -27,14 +27,15 @@ export interface Message {
   };
   subject?: string;
   message: string;
-  type: 'inquiry' | 'lead' | 'property_inquiry' | 'contact' | 'general';
-  status: 'unread' | 'read' | 'responded';
-  priority: 'low' | 'medium' | 'high';
+  type?: 'inquiry' | 'lead' | 'property_inquiry' | 'contact' | 'general';
+  status?: 'unread' | 'read' | 'responded';
+  priority?: 'low' | 'medium' | 'high';
+  read: boolean;
   property?: {
     _id: string;
     title: string;
     price: number;
-    listingType: 'sale' | 'rent';
+    listingType?: 'sale' | 'rent';
     address: {
       locality: string;
       city: string;
@@ -52,27 +53,30 @@ export interface Message {
 }
 
 export interface Conversation {
-  _id: string;
-  participants: Array<{
-    _id: string;
-    email: string;
-    profile: {
-      firstName: string;
-      lastName: string;
-      phone?: string;
-      avatar?: string;
-    };
-  }>;
-  lastMessage: Message;
-  unreadCount: number;
+  id: string; // This is the conversationId
+  _id?: string; // Alias for id
   property?: {
     _id: string;
     title: string;
     price: number;
-    listingType: 'sale' | 'rent';
+    address: string;
+    city: string;
+    state: string;
+    images?: string[];
   };
-  createdAt: string;
-  updatedAt: string;
+  otherUser: {
+    _id: string;
+    name: string;
+    email: string;
+    phone?: string;
+  };
+  lastMessage: {
+    _id: string;
+    message: string;
+    createdAt: string;
+    isFromMe: boolean;
+  };
+  unreadCount: number;
 }
 
 export interface MessageFilters {
@@ -172,7 +176,7 @@ class MessageService {
     }
   }
 
-  async getConversationMessages(conversationId: string, page: number = 1, limit: number = 50): Promise<{
+  async getConversationMessages(conversationId: string, page: number = 1, limit: number = 50, markAsRead: boolean = true): Promise<{
     messages: Message[];
     pagination: {
       currentPage: number;
@@ -186,8 +190,9 @@ class MessageService {
       const queryParams = new URLSearchParams();
       queryParams.append('page', page.toString());
       queryParams.append('limit', limit.toString());
+      queryParams.append('markAsRead', markAsRead.toString());
 
-      const endpoint = `/messages/conversations/${conversationId}/messages?${queryParams.toString()}`;
+      const endpoint = `/messages/conversation/${conversationId}?${queryParams.toString()}`;
       
       const response = await this.makeRequest<{
         success: boolean;
@@ -213,14 +218,34 @@ class MessageService {
     }
   }
 
-  async sendMessage(conversationId: string, message: string, type: Message['type'] = 'general'): Promise<Message> {
+  async sendMessage(conversationId: string, content: string, recipientId?: string, attachments?: Array<{type: 'image' | 'document'; url: string; name: string; size?: number}>): Promise<Message> {
     try {
+      // If recipientId is not provided, we need to extract it from the conversationId
+      let recipient = recipientId;
+      
+      if (!recipient) {
+        // Extract the other user ID from conversationId (format: userId1_userId2)
+        const userIds = conversationId.split('_');
+        const currentUserId = localStorage.getItem('userId'); // Assuming userId is stored
+        
+        recipient = userIds.find(id => id !== currentUserId);
+        
+        if (!recipient) {
+          throw new Error('Unable to determine recipient');
+        }
+      }
+
       const response = await this.makeRequest<{
         success: boolean;
         data: { message: Message };
-      }>(`/messages/conversations/${conversationId}/messages`, {
+      }>(`/messages`, {
         method: "POST",
-        body: JSON.stringify({ message, type }),
+        body: JSON.stringify({ 
+          conversationId,
+          recipientId: recipient,
+          content,
+          attachments: attachments || []
+        }),
       });
 
       if (response.success && response.data) {
@@ -238,6 +263,112 @@ class MessageService {
         title: "Error",
         description: errorMessage,
         variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  async uploadAttachment(file: File): Promise<{type: 'image' | 'document'; url: string; name: string; size: number}> {
+    const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+    
+    try {
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        throw new Error("File size must be less than 10MB");
+      }
+
+      // Validate file type
+      const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      const documentTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      
+      const isImage = imageTypes.includes(file.type);
+      const isDocument = documentTypes.includes(file.type);
+      
+      if (!isImage && !isDocument) {
+        throw new Error("File type not supported. Please upload images (jpg, png, gif) or documents (pdf, doc, docx)");
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'messages');
+
+      const token = localStorage.getItem("token");
+      
+      const response = await fetch(`${API_BASE_URL}/upload/single`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to upload file');
+      }
+
+      return {
+        type: isImage ? 'image' : 'document',
+        url: result.data.url,
+        name: file.name,
+        size: file.size
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload file";
+      toast({
+        title: "Upload Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  // Send a property inquiry message (creates conversation if needed)
+  static async sendPropertyInquiry(propertyId: string, subject: string, message: string) {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast({
+          title: 'Error',
+          description: 'Please login to send messages',
+          variant: 'destructive'
+        });
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/messages/property-inquiry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          propertyId,
+          subject,
+          content: message
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send message');
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Message sent successfully'
+      });
+      return data.data;
+    } catch (error: any) {
+      console.error('Error sending property inquiry:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to send message',
+        variant: 'destructive'
       });
       throw error;
     }
@@ -266,7 +397,7 @@ class MessageService {
       const response = await this.makeRequest<{
         success: boolean;
         message: string;
-      }>(`/messages/conversations/${conversationId}/read`, {
+      }>(`/messages/conversation/${conversationId}/read`, {
         method: "PATCH",
       });
 
@@ -276,6 +407,89 @@ class MessageService {
     } catch (error) {
       console.error("Failed to mark conversation as read:", error);
       // Don't show toast for this - it should be silent
+    }
+  }
+
+  async markSingleMessageAsRead(messageId: string): Promise<{ messageId: string; read: boolean; readAt: string } | undefined> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        message: string;
+        data: {
+          messageId: string;
+          read: boolean;
+          readAt: string;
+        };
+      }>(`/messages/${messageId}/read`, {
+        method: "PATCH",
+      });
+
+      if (!response.success) {
+        throw new Error("Failed to mark message as read");
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error("Failed to mark message as read:", error);
+      // Don't show toast for this - it should be silent
+    }
+  }
+
+  async updateActiveStatus(conversationId: string, status: 'typing' | 'online' | 'offline'): Promise<void> {
+    try {
+      // Skip active status updates if conversationId is missing or empty
+      if (!conversationId) {
+        console.log("Skipping active status update: No conversation ID provided");
+        return;
+      }
+
+      const response = await this.makeRequest<{
+        success: boolean;
+        message: string;
+        data: {
+          userId: string;
+          conversationId: string;
+          status: string;
+          timestamp: string;
+        };
+      }>(`/messages/active-status`, {
+        method: "POST",
+        body: JSON.stringify({ conversationId, status }),
+      });
+
+      if (!response.success) {
+        throw new Error("Failed to update active status");
+      }
+    } catch (error) {
+      // Check if the error is about admin conversations (different architecture)
+      if (error.message?.includes('Conversation ID and status are required') || 
+          error.message?.includes('not part of this conversation')) {
+        console.log("Skipping active status update for admin conversation");
+        return;
+      }
+      
+      console.error("Failed to update active status:", error);
+      // Don't show toast for this - it should be silent
+    }
+  }
+
+  async getActiveStatus(conversationId: string): Promise<Record<string, { status: string; lastSeen: string }>> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: {
+          statuses: Record<string, { status: string; lastSeen: string }>;
+        };
+      }>(`/messages/active-status/${conversationId}`);
+
+      if (response.success) {
+        return response.data.statuses;
+      }
+
+      return {};
+    } catch (error) {
+      console.error("Failed to get active status:", error);
+      return {};
     }
   }
 
@@ -390,4 +604,5 @@ class MessageService {
 }
 
 export const messageService = new MessageService();
+export { MessageService };
 export default messageService;

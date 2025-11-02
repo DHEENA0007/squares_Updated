@@ -96,7 +96,7 @@ class CustomerDashboardService {
 
   async getCustomerDashboardData(): Promise<CustomerDashboardResponse> {
     try {
-      const response = await this.makeRequest<CustomerDashboardResponse>('/dashboard/customer');
+      const response = await this.makeRequest<CustomerDashboardResponse>('/customer/dashboard');
       return response;
     } catch (error) {
       console.error('Failed to fetch customer dashboard data:', error);
@@ -163,11 +163,11 @@ class CustomerDashboardService {
     try {
       const response = await this.makeRequest<{
         success: boolean;
-        data: { activities: CustomerActivity[] };
-      }>('/dashboard/customer/activities');
+        data: CustomerActivity[];
+      }>('/customer/activities');
       
       if (response.success && response.data) {
-        return response.data.activities;
+        return response.data;
       }
       
       throw new Error('Failed to fetch recent activities');
@@ -181,11 +181,11 @@ class CustomerDashboardService {
     try {
       const response = await this.makeRequest<{
         success: boolean;
-        data: { properties: RecommendedProperty[] };
-      }>(`/dashboard/customer/recommended-properties?limit=${limit}`);
+        data: RecommendedProperty[];
+      }>(`/customer/recommended-properties?limit=${limit}`);
       
       if (response.success && response.data) {
-        return response.data.properties;
+        return response.data;
       }
       
       throw new Error('Failed to fetch recommended properties');
@@ -210,7 +210,7 @@ class CustomerDashboardService {
           propertiesCount: number;
           unreadMessages: number;
         };
-      }>('/dashboard/customer/quick-stats');
+      }>('/customer/quick-stats');
       
       if (response.success && response.data) {
         return response.data;
