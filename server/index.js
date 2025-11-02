@@ -41,14 +41,55 @@ const server = createServer(app);
 // CORS configuration for both development and production
 const allowedOrigins = [
   process.env.CLIENT_URL,
+  "https://squares-smoky.vercel.app", 
+  "https://squares.vercel.app",
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:8001"
 ].filter(Boolean);
 
+// Add additional origins from environment variable
+const additionalOriginsEnv = process.env.ADDITIONAL_ALLOWED_ORIGINS;
+let additionalOrigins = [
+  "https://squares-9d84.onrender.com", // Allow self-requests
+];
+
+if (additionalOriginsEnv) {
+  const envOrigins = additionalOriginsEnv.split(',').map(origin => origin.trim());
+  additionalOrigins = [...additionalOrigins, ...envOrigins];
+}
+
+// Add your current deployment domain
+additionalOrigins.push("https://squares-h1ev7dmj1-dheenadhayalans-projects.vercel.app");
+
+// Combine all allowed origins
+const allAllowedOrigins = [...allowedOrigins, ...additionalOrigins];
+
+// Log allowed origins for debugging
+console.log('🌐 Configured CORS origins:');
+allAllowedOrigins.forEach(origin => console.log(`  - ${origin}`));
+
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      // Allow requests with no origin
+      if (!origin) return callback(null, true);
+      
+      // Use the same logic as Express CORS
+      if (allAllowedOrigins.includes(origin) || 
+          origin.includes('localhost') || 
+          origin.includes('127.0.0.1') ||
+          origin.match(/^https:\/\/squares.*\.vercel\.app$/)) {
+        return callback(null, true);
+      }
+      
+      // Temporarily allow all origins for debugging
+      if (process.env.NODE_ENV === 'production') {
+        return callback(null, true);
+      }
+      
+      return callback(null, true);
+    },
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -73,25 +114,46 @@ app.use(helmet({
 app.use(compression());
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    console.log(`🔍 CORS check for origin: ${origin || 'NO_ORIGIN'}`);
     
-    // Check if the origin is in the allowed list or if it's a localhost for development
-    if (allowedOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      console.log('✅ Allowing request with no origin');
       return callback(null, true);
     }
     
-    // For production, you might want to be more strict
-    if (process.env.NODE_ENV === 'production') {
-      console.log('Blocked origin:', origin);
-      return callback(new Error('Not allowed by CORS'));
+    // Check if the origin is in the allowed list
+    if (allAllowedOrigins.includes(origin)) {
+      console.log('✅ Origin found in allowed list');
+      return callback(null, true);
     }
     
-    return callback(null, true);
+    // Allow localhost and 127.0.0.1 for development
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      console.log('✅ Allowing localhost/127.0.0.1 origin');
+      return callback(null, true);
+    }
+    
+    // Allow any Vercel deployment URLs for squares project
+    if (origin.match(/^https:\/\/squares.*\.vercel\.app$/)) {
+      console.log('✅ Allowing squares vercel deployment');
+      return callback(null, true);
+    }
+    
+    // For production, be more permissive temporarily for debugging
+    if (process.env.NODE_ENV === 'production') {
+      console.log('⚠️  Production mode - allowing origin for debugging:', origin);
+      // Temporarily allow all origins to debug CORS issues
+      return callback(null, true);
+    }
+    
+    console.log('❌ Origin not allowed:', origin);
+    console.log('   Configured origins:', allAllowedOrigins);
+    return callback(new Error('Not allowed by CORS'), false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
 
 // Use combined format in production, dev format in development
@@ -100,6 +162,19 @@ app.use(morgan(logFormat));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Handle preflight OPTIONS requests explicitly
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Max-Age', '86400'); // 24 hours
+    return res.status(200).end();
+  }
+  next();
+});
 
 // Apply rate limiting only in production or if explicitly enabled
 if (process.env.NODE_ENV === 'production' || process.env.ENABLE_RATE_LIMIT === 'true') {

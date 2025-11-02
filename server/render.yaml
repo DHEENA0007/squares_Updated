@@ -16,6 +16,8 @@ services:
           property: port
       - key: CLIENT_URL
         value: https://squares-smoky.vercel.app
+      - key: ADDITIONAL_ALLOWED_ORIGINS
+        value: https://squares.vercel.app,https://squares-git-main.vercel.app,https://squares-h1ev7dmj1-dheenadhayalans-projects.vercel.app
       - key: JWT_SECRET
         value: ninety_nine_acres_super_secret_jwt_key_2024_production_render_deployment_secure_long_key
       - key: JWT_EXPIRE
