@@ -70,6 +70,18 @@ const propertySchema = new mongoose.Schema({
   securityDeposit: Number,
   availability: String,
   possession: String,
+  // Land/Plot specific fields
+  roadWidth: String,
+  cornerPlot: String,
+  plotType: String,
+  landType: String,
+  boundaryWall: String,
+  areaUnit: String,
+  commercialType: String,
+  cabins: Number,
+  workstations: Number,
+  foodAvailability: String,
+  gender: String,
   address: {
     street: {
       type: String,

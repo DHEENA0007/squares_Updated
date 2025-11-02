@@ -509,6 +509,14 @@ const AddProperty = () => {
       if (formData.possession?.trim()) {
         propertyData.possession = formData.possession.trim();
       }
+      
+      // Add land/plot specific fields
+      if (formData.roadWidth?.trim()) {
+        propertyData.roadWidth = formData.roadWidth.trim();
+      }
+      if (formData.cornerPlot) {
+        propertyData.cornerPlot = formData.cornerPlot;
+      }
 
       // Log the data being sent for debugging
       console.log('Property data being sent:', JSON.stringify(propertyData, null, 2));
