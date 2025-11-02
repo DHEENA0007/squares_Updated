@@ -15,6 +15,7 @@ export interface PaymentOrder {
   keyId: string;
   planName: string;
   userEmail: string;
+  isMockPayment?: boolean;
 }
 
 export interface PaymentOptions {
@@ -349,13 +350,10 @@ class PaymentService {
     totalAmount: number;
   }): Promise<{ success: boolean; message?: string; data?: any }> {
     try {
-      // Load Razorpay script
-      await this.loadRazorpayScript();
-
       // Create payment order for addons only
       const response = await this.makeRequest<{
         success: boolean;
-        data: PaymentOrder & { addons?: any[] };
+        data: PaymentOrder & { addons?: any[]; isMockPayment?: boolean };
       }>('/payments/create-addon-order', {
         method: 'POST',
         body: JSON.stringify(paymentData)
@@ -366,6 +364,44 @@ class PaymentService {
       }
 
       const order = response.data;
+      console.log('Addon payment order created:', order);
+
+      // Handle mock payment for development
+      if (order.isMockPayment || order.keyId === 'mock_key_for_development') {
+        console.log('Processing mock addon payment for development');
+        
+        // Simulate successful payment for development
+        try {
+          const verificationData = await this.verifyAddonPayment({
+            razorpay_order_id: order.orderId,
+            razorpay_payment_id: `mock_payment_${Date.now()}`,
+            razorpay_signature: 'mock_signature',
+            addons: paymentData.addons,
+            totalAmount: paymentData.totalAmount
+          });
+          
+          console.log('Mock addon payment verification result:', verificationData);
+
+          toast({
+            title: "Payment Successful!",
+            description: "Addons have been added to your subscription successfully.",
+          });
+
+          return {
+            success: true,
+            data: verificationData
+          };
+        } catch (error) {
+          console.error('Mock addon payment verification failed:', error);
+          return {
+            success: false,
+            message: error instanceof Error ? error.message : 'Mock addon payment verification failed'
+          };
+        }
+      }
+
+      // Load Razorpay script for real payments
+      await this.loadRazorpayScript();
 
       return new Promise((resolve, reject) => {
         // Configure Razorpay options
@@ -402,6 +438,11 @@ class PaymentService {
               });
               
               console.log('Addon payment verification result:', verificationData);
+
+              toast({
+                title: "Payment Successful!",
+                description: "Addons have been added to your subscription successfully.",
+              });
 
               resolve({
                 success: true,

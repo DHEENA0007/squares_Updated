@@ -224,12 +224,13 @@
     "plan": "6904e6b518522f63a0653bb7",
     "addons": [
       "68f9e724d75eb0a6ce4ee960",
-      "68f9e724d75eb0a6ce4ee961"
+      "68f9e724d75eb0a6ce4ee961",
+      "68f9e724d75eb0a6ce4ee965"
     ],
-    "status": "active",
+    "status": "cancelled",
     "startDate": "2025-11-02T11:57:17.184Z",
     "endDate": "2025-12-02T11:57:17.184Z",
-    "amount": 9997,
+    "amount": 10996,
     "currency": "INR",
     "paymentMethod": "razorpay",
     "transactionId": "pay_RarZ7z6jSvM9o2_monthly_2addons",
@@ -241,9 +242,46 @@
     "autoRenew": true,
     "renewalAttempts": 0,
     "lastPaymentDate": "2025-11-02T11:57:17.249Z",
-    "paymentHistory": [],
+    "paymentHistory": [
+      {
+        "type": "addon_purchase",
+        "amount": 999,
+        "addons": [
+          "68f9e724d75eb0a6ce4ee965"
+        ],
+        "date": "2025-11-02T12:15:46.341Z",
+        "_id": "69074b7294564c2e83e4c38a"
+      }
+    ],
     "createdAt": "2025-11-02T11:57:17.267Z",
-    "updatedAt": "2025-11-02T11:57:17.267Z",
+    "updatedAt": "2025-11-02T12:22:08.740Z",
+    "__v": 0
+  },
+  {
+    "_id": "69074cf0a26fcc70b60253f3",
+    "user": "68fa18a0c9fa98e30aa7a7ac",
+    "plan": "6904e6b618522f63a0653bc0",
+    "addons": [
+      "68f9e724d75eb0a6ce4ee966"
+    ],
+    "status": "active",
+    "startDate": "2025-11-02T12:22:08.739Z",
+    "endDate": "2025-12-02T12:22:08.739Z",
+    "amount": 7498,
+    "currency": "INR",
+    "paymentMethod": "razorpay",
+    "transactionId": "pay_RarzMZHzKD0TeD_monthly_1addons",
+    "paymentDetails": {
+      "razorpayOrderId": "order_RarzI9Y6aeYefo",
+      "razorpayPaymentId": "pay_RarzMZHzKD0TeD",
+      "razorpaySignature": "ed68cdacc6b8622de04d00c3c1219f91338f47050805db2c8b4766bd1c771d78"
+    },
+    "autoRenew": true,
+    "renewalAttempts": 0,
+    "lastPaymentDate": "2025-11-02T12:22:08.804Z",
+    "paymentHistory": [],
+    "createdAt": "2025-11-02T12:22:08.826Z",
+    "updatedAt": "2025-11-02T12:22:08.826Z",
     "__v": 0
   }
 ]

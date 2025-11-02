@@ -11,11 +11,29 @@ const User = require('../models/User');
 
 const router = express.Router();
 
-// Initialize Razorpay
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
+// Debug environment variables
+console.log('Payment Route - Environment Variables Check:', {
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID ? 'SET' : 'NOT SET',
+  RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET ? 'SET' : 'NOT SET',
+  NODE_ENV: process.env.NODE_ENV
 });
+
+// Initialize Razorpay with error handling
+let razorpay;
+try {
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    console.error('❌ Razorpay credentials not found in environment variables');
+    console.error('Available env keys:', Object.keys(process.env).filter(key => key.includes('RAZOR')));
+  } else {
+    razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+    console.log('✅ Razorpay initialized successfully');
+  }
+} catch (error) {
+  console.error('❌ Failed to initialize Razorpay:', error.message);
+}
 
 // Apply auth middleware to specific routes that need it
 // router.use(authenticateToken);
@@ -292,40 +310,63 @@ router.post('/create-addon-order', authenticateToken, asyncHandler(async (req, r
   const { addons = [], totalAmount } = req.body;
   const userId = req.user.id;
 
+  console.log('🚀 CREATE ADDON ORDER STARTED:', {
+    userId: userId,
+    addons: addons,
+    totalAmount: totalAmount,
+    timestamp: new Date().toISOString()
+  });
+
   try {
     // Validate input
+    console.log('📝 Validating input...');
     if (!addons || addons.length === 0) {
+      console.log('❌ No addons provided');
       return res.status(400).json({
         success: false,
         message: 'At least one addon must be selected'
       });
     }
+    console.log('✅ Input validation passed');
 
     // Get user's active subscription
+    console.log('🔍 Looking for active subscription for user:', userId);
     const activeSubscription = await Subscription.findOne({
       user: userId,
       status: 'active',
       endDate: { $gt: new Date() }
     }).populate('plan');
 
+    console.log('📊 Active subscription lookup result:', {
+      found: !!activeSubscription,
+      subscriptionId: activeSubscription?._id,
+      planName: activeSubscription?.plan?.name,
+      status: activeSubscription?.status,
+      endDate: activeSubscription?.endDate
+    });
+
     if (!activeSubscription) {
+      console.log('❌ No active subscription found');
       return res.status(404).json({
         success: false,
         message: 'No active subscription found. Please subscribe to a plan first.'
       });
     }
+    console.log('✅ Active subscription found');
 
     // Get addon details
+    console.log('🔍 Looking up addon services...');
     const AddonService = require('../models/AddonService');
     const addonServices = await AddonService.find({ _id: { $in: addons }, isActive: true });
     
-    console.log('Create addon order - addon validation:', {
+    console.log('📊 Addon services lookup result:', {
       requestedAddons: addons,
-      foundServices: addonServices.map(a => ({ id: a._id, name: a.name })),
+      foundServices: addonServices.map(a => ({ id: a._id, name: a.name, price: a.price })),
       activeSubscriptionAddons: activeSubscription.addons?.map(id => id.toString()) || []
     });
     
     if (addonServices.length !== addons.length) {
+      console.log('❌ Addon count mismatch');
       return res.status(404).json({
         success: false,
         message: 'One or more addons not found',
@@ -337,58 +378,118 @@ router.post('/create-addon-order', authenticateToken, asyncHandler(async (req, r
         }
       });
     }
+    console.log('✅ All addon services found');
 
     // Calculate total amount from addons
+    console.log('💰 Calculating amounts...');
     const calculatedAmount = addonServices.reduce((total, addon) => total + addon.price, 0);
     const finalAmount = totalAmount || calculatedAmount;
+    console.log('📊 Amount calculation:', {
+      calculatedAmount: calculatedAmount,
+      providedAmount: totalAmount,
+      finalAmount: finalAmount
+    });
 
     // Get user details
+    console.log('👤 Looking up user details...');
     const user = await User.findById(userId);
     if (!user) {
+      console.log('❌ User not found');
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
+    console.log('✅ User found:', { email: user.email });
 
     // Create order with Razorpay
     const orderData = {
       amount: finalAmount * 100, // Convert to paisa
       currency: 'INR',
-      receipt: `addon_${userId}_${Date.now()}`,
+      receipt: `addon_${userId.toString().slice(-8)}_${Date.now()}`,
       notes: {
-        userId: userId,
+        user_id: userId.toString(),
         type: 'addon_purchase',
-        addons: addons.join(','),
-        subscriptionId: activeSubscription._id.toString()
+        addon_ids: addons.join(','),
+        subscription_id: activeSubscription._id.toString()
       }
     };
 
     let order;
     const razorpayKeyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_mock';
 
-    // Create order with Razorpay (or mock for development)
+    // Validate Razorpay credentials and initialization
+    console.log('🔑 Validating Razorpay configuration...');
+    console.log('📊 Environment check:', {
+      RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID ? 'SET' : 'MISSING',
+      RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET ? 'SET' : 'MISSING',
+      razorpayInstance: razorpay ? 'INITIALIZED' : 'NOT INITIALIZED'
+    });
+
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      console.error('❌ Razorpay credentials missing:', {
+        keyId: process.env.RAZORPAY_KEY_ID ? 'SET' : 'MISSING',
+        keySecret: process.env.RAZORPAY_KEY_SECRET ? 'SET' : 'MISSING'
+      });
+      return res.status(500).json({
+        success: false,
+        message: 'Payment gateway not configured properly'
+      });
+    }
+
+    if (!razorpay) {
+      console.error('❌ Razorpay instance not initialized');
+      return res.status(500).json({
+        success: false,
+        message: 'Payment gateway not available'
+      });
+    }
+    console.log('✅ Razorpay configuration valid');
+
+    // Create Razorpay order
+    console.log('💳 Creating Razorpay order...');
+    console.log('📊 Order data:', {
+      amount: orderData.amount,
+      currency: orderData.currency,
+      receipt: orderData.receipt,
+      notes: orderData.notes
+    });
+
     try {
+      console.log('📞 Calling Razorpay API...');
       order = await razorpay.orders.create(orderData);
-      console.log('Razorpay addon order created successfully:', order.id);
+      console.log('✅ Razorpay addon order created successfully:', {
+        orderId: order.id,
+        amount: order.amount,
+        status: order.status,
+        currency: order.currency
+      });
     } catch (razorpayError) {
-      console.log('Razorpay failed for addon order, using mock:', razorpayError.message);
-      // Mock order for development
-      order = {
-        id: `order_mock_${Date.now()}`,
-        amount: orderData.amount,
-        currency: orderData.currency,
-        receipt: orderData.receipt,
-        status: 'created'
-      };
+      console.error('❌ Razorpay order creation failed:', {
+        message: razorpayError.message,
+        code: razorpayError.code,
+        statusCode: razorpayError.statusCode,
+        description: razorpayError.description,
+        stack: razorpayError.stack
+      });
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create payment order',
+        error: razorpayError.message,
+        debug: {
+          code: razorpayError.code,
+          statusCode: razorpayError.statusCode
+        }
+      });
     }
 
     // Prepare response
+    console.log('📤 Preparing response...');
     const responseData = {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
-      keyId: razorpayKeyId,
+      keyId: process.env.RAZORPAY_KEY_ID,
       planName: `${addonServices.length} Addon(s)`,
       userEmail: user.email,
       addons: addonServices.map(addon => ({
@@ -398,15 +499,32 @@ router.post('/create-addon-order', authenticateToken, asyncHandler(async (req, r
       }))
     };
 
+    console.log('✅ Addon order creation completed successfully:', {
+      orderId: responseData.orderId,
+      amount: responseData.amount,
+      addonCount: responseData.addons.length
+    });
+
     res.json({
       success: true,
       data: responseData
     });
   } catch (error) {
-    console.error('Create addon order error:', error);
+    console.error('❌ CREATE ADDON ORDER ERROR:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      userId: userId,
+      addons: addons,
+      timestamp: new Date().toISOString()
+    });
     res.status(500).json({
       success: false,
-      message: 'Failed to create addon payment order'
+      message: 'Failed to create addon payment order',
+      error: error.message,
+      debug: {
+        stack: error.stack
+      }
     });
   }
 }));
