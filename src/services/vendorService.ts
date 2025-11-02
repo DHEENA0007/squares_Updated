@@ -371,6 +371,97 @@ class VendorService {
       };
     }
   }
+
+  async cleanupSubscriptions(): Promise<{
+    success: boolean;
+    activeSubscription: any;
+    deactivatedCount: number;
+  }> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        activeSubscription: any;
+        deactivatedCount: number;
+        message: string;
+      }>("/vendors/subscription/cleanup", {
+        method: "POST",
+      });
+
+      if (response.success) {
+        toast({
+          title: "Subscriptions Cleaned Up",
+          description: `Deactivated ${response.deactivatedCount} old subscriptions. Using latest subscription now.`,
+        });
+        
+        // Refresh subscription data after cleanup
+        await this.refreshSubscriptionData();
+        
+        return {
+          success: true,
+          activeSubscription: response.activeSubscription,
+          deactivatedCount: response.deactivatedCount
+        };
+      }
+
+      return { success: false, activeSubscription: null, deactivatedCount: 0 };
+    } catch (error) {
+      console.error("Failed to cleanup subscriptions:", error);
+      toast({
+        title: "Error",
+        description: "Failed to cleanup subscriptions",
+        variant: "destructive",
+      });
+      return { success: false, activeSubscription: null, deactivatedCount: 0 };
+    }
+  }
+
+  async refreshSubscriptionData(): Promise<{
+    hasActiveSubscription: boolean;
+    subscription: any;
+    limits: any;
+  }> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: {
+          hasActiveSubscription: boolean;
+          subscription: any;
+          limits: any;
+        };
+        message: string;
+      }>("/vendors/subscription/refresh", {
+        method: "POST",
+      });
+
+      if (response.success && response.data) {
+        // Clear any cached subscription data in localStorage
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('subscription') || key.includes('limits') || key.includes('plan'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        
+        toast({
+          title: "Success",
+          description: response.message || "Subscription data refreshed successfully!",
+        });
+        return response.data;
+      }
+
+      throw new Error("Failed to refresh subscription data");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to refresh subscription data";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
 }
 
 export const vendorService = new VendorService();

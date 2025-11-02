@@ -1,1 +1,61 @@
-[]
+[
+  {
+    "_id": "6905b477e411fcb68fc455e7",
+    "conversationId": "68f76792ae8ba267e353c0e9_68f8b1214f4741e752f0e18b",
+    "sender": "68f76792ae8ba267e353c0e9",
+    "recipient": "68f8b1214f4741e752f0e18b",
+    "message": "Inquiry about G1\n\nCan we talk more",
+    "property": "6904dba6db61804738da08f2",
+    "read": true,
+    "createdAt": "2025-11-01T07:19:19.865Z",
+    "updatedAt": "2025-11-01T09:45:49.611Z",
+    "__v": 0,
+    "readAt": "2025-11-01T09:45:49.607Z"
+  },
+  {
+    "_id": "6905dba35c7cf4072b566c46",
+    "conversationId": "68f76792ae8ba267e353c0e9_68f8b1214f4741e752f0e18b",
+    "sender": "68f8b1214f4741e752f0e18b",
+    "recipient": "68f76792ae8ba267e353c0e9",
+    "message": "yeah we can",
+    "property": "6904dba6db61804738da08f2",
+    "read": true,
+    "createdAt": "2025-11-01T10:06:27.697Z",
+    "updatedAt": "2025-11-01T10:07:20.783Z",
+    "__v": 0,
+    "readAt": "2025-11-01T10:07:20.642Z"
+  },
+  {
+    "_id": "6906e83eaf2ba5a8d0aad828",
+    "sender": "68f8857275b9205ce27f8ea5",
+    "recipient": "68f76792ae8ba267e353c0e9",
+    "subject": "Re: Inquiry about G2\n\nhelo can we talk more",
+    "content": "yeah",
+    "type": "general",
+    "status": "read",
+    "priority": "medium",
+    "parentMessage": "6906519697a383626e91d0bd",
+    "read": false,
+    "attachments": [],
+    "createdAt": "2025-11-02T05:12:30.642Z",
+    "updatedAt": "2025-11-02T05:12:30.642Z",
+    "__v": 0
+  },
+  {
+    "_id": "6907123ce573f6cb9163c4e4",
+    "conversationId": "68f76792ae8ba267e353c0e9_68f8b1214f4741e752f0e18b",
+    "sender": "68f76792ae8ba267e353c0e9",
+    "recipient": "68f8b1214f4741e752f0e18b",
+    "message": "when we",
+    "type": "general",
+    "status": "unread",
+    "priority": "medium",
+    "property": "6904dba6db61804738da08f2",
+    "read": true,
+    "attachments": [],
+    "createdAt": "2025-11-02T08:11:40.900Z",
+    "updatedAt": "2025-11-02T08:12:33.565Z",
+    "__v": 0,
+    "readAt": "2025-11-02T08:12:33.564Z"
+  }
+]

@@ -831,47 +831,67 @@ router.get('/subscription/check/:subscriptionName', requireVendorRole, asyncHand
   const { subscriptionName } = req.params;
   const vendorId = req.user.id;
   
-  // For now, we'll simulate checking subscription
-  // In a real implementation, you would check against a Subscription model
-  // that links users to their purchased plans/features
-  
   try {
     const Subscription = require('../models/Subscription');
     const Plan = require('../models/Plan');
     
     // Check if vendor has active subscription
     const activeSubscription = await Subscription.findOne({
-      user: vendorId, // Changed from userId to user
+      user: vendorId,
       status: 'active',
       endDate: { $gt: new Date() }
-    }).populate('plan'); // Changed from planId to plan
+    }).populate('plan').sort({ createdAt: -1 });
     
     let hasSubscription = false;
     
-    if (activeSubscription) {
-      // Check if the active subscription plan includes the requested feature
-      const plan = activeSubscription.plan; // Changed from planId to plan
+    if (activeSubscription && activeSubscription.plan) {
+      const plan = activeSubscription.plan;
       
-      // Map subscription names to plan features and limits
+      // Helper function to check if plan has a specific feature
+      const hasFeature = (featureName) => {
+        if (!plan.features) return false;
+        return plan.features.some(feature => {
+          if (typeof feature === 'string') {
+            return feature.toLowerCase().includes(featureName.toLowerCase());
+          } else if (feature && feature.name && feature.enabled !== false) {
+            return feature.name.toLowerCase().includes(featureName.toLowerCase());
+          }
+          return false;
+        });
+      };
+      
+      // Map subscription names to plan features and limits (updated for new structure)
       const featureMapping = {
         'addPropertySubscription': {
           hasAccess: true, // All plans allow adding properties
           limit: plan.limits?.properties || 0 // 0 means unlimited
         },
         'featuredListingSubscription': {
-          hasAccess: plan.limits?.featuredListings > 0 || plan.name === 'Enterprise Plan',
+          hasAccess: (plan.limits?.featuredListings || 0) > 0 || 
+                    hasFeature('featured') || 
+                    plan.identifier === 'enterprise',
           limit: plan.limits?.featuredListings || 0
         },
         'premiumAnalyticsSubscription': {
-          hasAccess: plan.features?.includes('Detailed analytics & insights') || 
-                    plan.features?.includes('Advanced analytics & reports') ||
-                    plan.name === 'Premium Plan' || plan.name === 'Enterprise Plan',
+          hasAccess: hasFeature('analytics') || 
+                    hasFeature('insights') || 
+                    hasFeature('reports') ||
+                    ['premium', 'enterprise'].includes(plan.identifier),
           limit: 0
         },
         'leadManagementSubscription': {
-          hasAccess: plan.limits?.leadManagement !== undefined,
+          hasAccess: plan.limits?.leadManagement && plan.limits.leadManagement !== 'none',
           limit: plan.limits?.leadManagement === 'enterprise' ? 0 : 
-                 plan.limits?.leadManagement === 'advanced' ? 1000 : 50
+                 plan.limits?.leadManagement === 'advanced' ? 1000 : 
+                 plan.limits?.leadManagement === 'premium' ? 500 : 50
+        },
+        'topRatedSubscription': {
+          hasAccess: plan.limits?.topRated === true,
+          limit: 0
+        },
+        'verifiedBadgeSubscription': {
+          hasAccess: plan.limits?.verifiedBadge === true,
+          limit: 0
         }
       };
       
@@ -879,14 +899,16 @@ router.get('/subscription/check/:subscriptionName', requireVendorRole, asyncHand
       hasSubscription = feature ? feature.hasAccess : false;
     }
     
-    // Remove demo override - now properly check subscriptions
-    // Only allow access if user has an active subscription
-    
     res.json({
       success: true,
       data: {
         hasSubscription,
-        subscriptionName
+        subscriptionName,
+        planDetails: activeSubscription?.plan ? {
+          name: activeSubscription.plan.name,
+          identifier: activeSubscription.plan.identifier,
+          limits: activeSubscription.plan.limits
+        } : null
       }
     });
   } catch (error) {
@@ -1546,7 +1568,7 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
     }).populate([
       { path: 'plan' },
       { path: 'addons', select: 'name description price category billingType' }
-    ]); // Changed from planId to plan and added addons population
+    ]).sort({ createdAt: -1 }); // Changed from planId to plan and added addons population
 
     if (activeSubscription) {
       // Ensure plan exists
@@ -1572,9 +1594,15 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
             status: activeSubscription.status,
             startDate: activeSubscription.startDate,
             endDate: activeSubscription.endDate,
-            features: (activeSubscription.plan.features || []).map(f => 
-              typeof f === 'string' ? f : f.name
-            ),
+            features: (activeSubscription.plan.features || []).map(f => {
+              if (typeof f === 'string') {
+                return f;
+              } else if (f && typeof f === 'object' && f.name) {
+                return f.enabled !== false ? f.name : null;
+              }
+              return null;
+            }).filter(Boolean), // Remove null values
+            limits: activeSubscription.plan.limits || {}, // Include full limits
             billingCycle: activeSubscription.billingCycle || 'monthly',
             addons: activeSubscription.addons || [],
             amount: activeSubscription.amount,
@@ -1715,7 +1743,7 @@ router.get('/subscription-limits', requireVendorRole, asyncHandler(async (req, r
       user: vendorId,
       status: 'active',
       endDate: { $gt: new Date() }
-    }).populate('plan');
+    }).populate('plan').sort({ createdAt: -1 });
 
     // Count current properties
     const currentProperties = await Property.countDocuments({
@@ -1739,13 +1767,27 @@ router.get('/subscription-limits', requireVendorRole, asyncHandler(async (req, r
       const plan = activeSubscription.plan;
       const maxProperties = plan.limits?.properties || 0; // 0 means unlimited
       
+      // Handle both old string array format and new object format for features
+      let planFeatures = [];
+      if (plan.features && Array.isArray(plan.features)) {
+        planFeatures = plan.features.map(feature => {
+          if (typeof feature === 'string') {
+            return feature;
+          } else if (feature && typeof feature === 'object' && feature.name) {
+            return feature.enabled !== false ? feature.name : null;
+          }
+          return null;
+        }).filter(Boolean); // Remove null values
+      }
+      
       subscriptionLimits = {
         maxProperties: maxProperties === 0 ? 999999 : maxProperties, // Use large number for unlimited
         currentProperties,
         canAddMore: maxProperties === 0 || currentProperties < maxProperties,
         planName: plan.name,
-        features: plan.features || [],
-        planId: plan._id
+        features: planFeatures,
+        planId: plan._id,
+        limits: plan.limits || {} // Include full limits for frontend use
       };
     }
 
@@ -1778,7 +1820,7 @@ router.get('/subscription/current', requireVendorRole, asyncHandler(async (req, 
     }).populate([
       { path: 'plan', select: 'name description price billingPeriod features' },
       { path: 'addons', select: 'name description price category billingType' }
-    ]);
+    ]).sort({ createdAt: -1 });
 
     if (!activeSubscription) {
       return res.json({
@@ -1965,7 +2007,7 @@ router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) =>
       user: vendorId,
       status: 'active',
       endDate: { $gt: new Date() }
-    }).populate('plan');
+    }).populate('plan').sort({ createdAt: -1 });
     
     const totalSubscriptions = await Subscription.countDocuments({ user: vendorId });
     const totalRevenue = await Subscription.aggregate([
@@ -2048,7 +2090,7 @@ router.post('/subscription/cancel', requireVendorRole, asyncHandler(async (req, 
       user: vendorId,
       status: 'active',
       endDate: { $gt: new Date() }
-    });
+    }).sort({ createdAt: -1 });
 
     if (!activeSubscription) {
       return res.status(404).json({
@@ -2073,6 +2115,385 @@ router.post('/subscription/cancel', requireVendorRole, asyncHandler(async (req, 
     res.status(500).json({
       success: false,
       message: 'Failed to cancel subscription'
+    });
+  }
+}));
+
+// @desc    Get vendor services
+// @route   GET /api/vendors/services
+// @access  Private/Agent
+router.get('/services', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const { 
+    page = 1, 
+    limit = 10,
+    category,
+    status = 'all',
+    search,
+    sortBy = 'updatedAt',
+    sortOrder = 'desc'
+  } = req.query;
+
+  try {
+    // For now, return mock data until VendorService model is created
+    // This prevents the 404 error and allows the frontend to work
+    const mockServices = [];
+    
+    res.json({
+      success: true,
+      data: {
+        services: mockServices,
+        totalCount: 0,
+        totalPages: 0,
+        currentPage: parseInt(page)
+      }
+    });
+  } catch (error) {
+    console.error('Get vendor services error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch vendor services'
+    });
+  }
+}));
+
+// @desc    Get vendor service stats
+// @route   GET /api/vendors/services/stats
+// @access  Private/Agent
+router.get('/services/stats', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+
+  try {
+    // For now, return mock stats until VendorService model is created
+    const mockStats = {
+      totalServices: 0,
+      activeServices: 0,
+      totalBookings: 0,
+      pendingBookings: 0,
+      completedBookings: 0,
+      totalRevenue: 0,
+      monthlyRevenue: 0,
+      averageRating: 0,
+      popularCategories: []
+    };
+    
+    res.json({
+      success: true,
+      data: mockStats
+    });
+  } catch (error) {
+    console.error('Get vendor service stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch service stats'
+    });
+  }
+}));
+
+// @desc    Create vendor service
+// @route   POST /api/vendors/services
+// @access  Private/Agent
+router.post('/services', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const serviceData = req.body;
+
+  try {
+    // TODO: Implement when VendorService model is created
+    res.status(501).json({
+      success: false,
+      message: 'Service creation not yet implemented. VendorService model needed.'
+    });
+  } catch (error) {
+    console.error('Create vendor service error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create service'
+    });
+  }
+}));
+
+// @desc    Get vendor service by ID
+// @route   GET /api/vendors/services/:id
+// @access  Private/Agent
+router.get('/services/:id', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const { id } = req.params;
+
+  try {
+    // TODO: Implement when VendorService model is created
+    res.status(404).json({
+      success: false,
+      message: 'Service not found'
+    });
+  } catch (error) {
+    console.error('Get vendor service by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch service'
+    });
+  }
+}));
+
+// @desc    Update vendor service
+// @route   PUT /api/vendors/services/:id
+// @access  Private/Agent
+router.put('/services/:id', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const { id } = req.params;
+  const serviceData = req.body;
+
+  try {
+    // TODO: Implement when VendorService model is created
+    res.status(501).json({
+      success: false,
+      message: 'Service update not yet implemented. VendorService model needed.'
+    });
+  } catch (error) {
+    console.error('Update vendor service error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update service'
+    });
+  }
+}));
+
+// @desc    Delete vendor service
+// @route   DELETE /api/vendors/services/:id
+// @access  Private/Agent
+router.delete('/services/:id', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const { id } = req.params;
+
+  try {
+    // TODO: Implement when VendorService model is created
+    res.status(501).json({
+      success: false,
+      message: 'Service deletion not yet implemented. VendorService model needed.'
+    });
+  } catch (error) {
+    console.error('Delete vendor service error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete service'
+    });
+  }
+}));
+
+// @desc    Toggle vendor service status
+// @route   PATCH /api/vendors/services/:id/toggle-status
+// @access  Private/Agent
+router.patch('/services/:id/toggle-status', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const { id } = req.params;
+
+  try {
+    // TODO: Implement when VendorService model is created
+    res.status(501).json({
+      success: false,
+      message: 'Service status toggle not yet implemented. VendorService model needed.'
+    });
+  } catch (error) {
+    console.error('Toggle vendor service status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to toggle service status'
+    });
+  }
+}));
+
+// @desc    Get service bookings
+// @route   GET /api/vendors/services/:id/bookings
+// @access  Private/Agent
+router.get('/services/:id/bookings', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const { id } = req.params;
+
+  try {
+    // TODO: Implement when ServiceBooking model is created
+    res.json({
+      success: true,
+      data: []
+    });
+  } catch (error) {
+    console.error('Get service bookings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch service bookings'
+    });
+  }
+}));
+
+// @desc    Update booking status
+// @route   PATCH /api/vendors/bookings/:id/status
+// @access  Private/Agent
+router.patch('/bookings/:id/status', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const { id } = req.params;
+  const { status } = req.body;
+
+  try {
+    // TODO: Implement when ServiceBooking model is created
+    res.status(501).json({
+      success: false,
+      message: 'Booking status update not yet implemented. ServiceBooking model needed.'
+    });
+  } catch (error) {
+    console.error('Update booking status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update booking status'
+    });
+  }
+}));
+
+// @desc    Refresh vendor subscription data
+// @route   POST /api/vendors/subscription/refresh
+// @access  Private/Agent
+router.post('/subscription/refresh', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  
+  try {
+    const Subscription = require('../models/Subscription');
+    const Property = require('../models/Property');
+    
+    // Get latest subscription data
+    const activeSubscription = await Subscription.findOne({
+      user: vendorId,
+      status: 'active',
+      endDate: { $gt: new Date() }
+    }).populate('plan').sort({ createdAt: -1 });
+    
+    // Count current properties
+    const currentProperties = await Property.countDocuments({
+      $or: [
+        { owner: vendorId },
+        { agent: vendorId },
+        { vendor: new mongoose.Types.ObjectId(vendorId) }
+      ]
+    });
+    
+    let refreshedData = {
+      hasActiveSubscription: false,
+      subscription: null,
+      limits: {
+        maxProperties: 5,
+        currentProperties,
+        canAddMore: currentProperties < 5,
+        planName: 'Free Plan',
+        features: ['5 Property Listings'],
+        planId: null
+      }
+    };
+    
+    if (activeSubscription && activeSubscription.plan) {
+      const plan = activeSubscription.plan;
+      const maxProperties = plan.limits?.properties || 0;
+      
+      // Handle features format
+      let planFeatures = [];
+      if (plan.features && Array.isArray(plan.features)) {
+        planFeatures = plan.features.map(feature => {
+          if (typeof feature === 'string') {
+            return feature;
+          } else if (feature && typeof feature === 'object' && feature.name) {
+            return feature.enabled !== false ? feature.name : null;
+          }
+          return null;
+        }).filter(Boolean);
+      }
+      
+      refreshedData = {
+        hasActiveSubscription: true,
+        subscription: {
+          id: activeSubscription._id,
+          planName: plan.name,
+          planId: plan._id,
+          identifier: plan.identifier,
+          status: activeSubscription.status,
+          startDate: activeSubscription.startDate,
+          endDate: activeSubscription.endDate,
+          features: planFeatures,
+          limits: plan.limits || {},
+          billingCycle: activeSubscription.billingCycle || 'monthly'
+        },
+        limits: {
+          maxProperties: maxProperties === 0 ? 999999 : maxProperties,
+          currentProperties,
+          canAddMore: maxProperties === 0 || currentProperties < maxProperties,
+          planName: plan.name,
+          features: planFeatures,
+          planId: plan._id,
+          limits: plan.limits || {}
+        }
+      };
+    }
+    
+    res.json({
+      success: true,
+      message: 'Subscription data refreshed successfully',
+      data: refreshedData
+    });
+  } catch (error) {
+    console.error('Refresh subscription error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to refresh subscription data'
+    });
+  }
+}));
+
+// @route   POST /api/vendors/subscription/cleanup
+// @desc    Deactivate old subscriptions and keep only the latest one
+// @access  Private/Agent
+router.post('/subscription/cleanup', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  
+  try {
+    const Subscription = require('../models/Subscription');
+    
+    // Get all active subscriptions for this user, sorted by creation date (newest first)
+    const activeSubscriptions = await Subscription.find({
+      user: vendorId,
+      status: 'active',
+      endDate: { $gt: new Date() }
+    }).sort({ createdAt: -1 }).populate('plan');
+    
+    if (activeSubscriptions.length <= 1) {
+      return res.json({
+        success: true,
+        message: 'No cleanup needed. User has 0 or 1 active subscription.',
+        activeSubscription: activeSubscriptions[0] || null
+      });
+    }
+    
+    // Keep the first (latest) subscription, deactivate the rest
+    const latestSubscription = activeSubscriptions[0];
+    const oldSubscriptionIds = activeSubscriptions.slice(1).map(sub => sub._id);
+    
+    // Deactivate old subscriptions
+    const result = await Subscription.updateMany(
+      { _id: { $in: oldSubscriptionIds } },
+      { 
+        status: 'cancelled',
+        updatedAt: new Date()
+      }
+    );
+    
+    console.log(`Deactivated ${result.modifiedCount} old subscriptions for user ${vendorId}`);
+    
+    res.json({
+      success: true,
+      message: `Successfully cleaned up subscriptions. Deactivated ${result.modifiedCount} old subscriptions.`,
+      activeSubscription: latestSubscription,
+      deactivatedCount: result.modifiedCount
+    });
+    
+  } catch (error) {
+    console.error('Subscription cleanup error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cleanup subscriptions',
+      error: error.message
     });
   }
 }));

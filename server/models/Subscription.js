@@ -74,7 +74,28 @@ const subscriptionSchema = new mongoose.Schema({
   },
   cancelledAt: {
     type: Date
-  }
+  },
+  paymentHistory: [{
+    type: {
+      type: String,
+      enum: ['subscription_purchase', 'addon_purchase', 'renewal', 'upgrade'],
+      required: true
+    },
+    amount: {
+      type: Number,
+      required: true
+    },
+    addons: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'AddonService'
+    }],
+    paymentId: String,
+    orderId: String,
+    date: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, {
   timestamps: true
 });

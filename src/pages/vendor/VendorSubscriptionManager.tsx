@@ -152,7 +152,21 @@ const VendorSubscriptionManager: React.FC = () => {
     return Math.max(0, diffDays);
   };
 
+  const isAddonActive = (addonId: string) => {
+    return subscription?.addons?.some(addon => addon._id === addonId) || false;
+  };
+
   const handleAddonToggle = (addon: AddonService) => {
+    // Check if addon is already active
+    if (isAddonActive(addon._id)) {
+      toast({
+        title: "Addon Already Active",
+        description: `${addon.name} is already included in your subscription`,
+        variant: "default",
+      });
+      return;
+    }
+
     setSelectedAddons(prev => {
       const exists = prev.find(a => a._id === addon._id);
       if (exists) {
@@ -177,16 +191,24 @@ const VendorSubscriptionManager: React.FC = () => {
       return;
     }
 
+    if (!subscription) {
+      toast({
+        title: "No active subscription",
+        description: "Please subscribe to a plan first before purchasing addons",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setPaymentLoading(true);
     try {
+      // Use addon-specific payment method for existing subscription holders
       const paymentData = {
-        planId: subscription?.planId || 'basic',
         addons: selectedAddons.map(addon => addon._id),
-        billingCycle: 'monthly' as const,
         totalAmount: calculateAddonTotal()
       };
 
-      const result = await paymentService.processSubscriptionPayment(paymentData);
+      const result = await paymentService.processAddonPayment(paymentData);
       
       if (result.success) {
         toast({
@@ -195,7 +217,16 @@ const VendorSubscriptionManager: React.FC = () => {
         });
         
         setSelectedAddons([]);
-        loadSubscriptionData(); // Refresh subscription data
+        
+        // Refresh subscription data both locally and globally
+        loadSubscriptionData(); // Local refresh
+        
+        try {
+          const { vendorService } = await import('../../services/vendorService');
+          await vendorService.refreshSubscriptionData();
+        } catch (refreshError) {
+          console.warn('Failed to refresh subscription data globally:', refreshError);
+        }
       } else {
         throw new Error(result.message || 'Payment failed');
       }
@@ -394,9 +425,18 @@ const VendorSubscriptionManager: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {availableAddons
-              .filter(addon => !subscription?.addons?.some(purchasedAddon => purchasedAddon._id === addon._id)) // Filter out already purchased addons
-              .map((addon) => {
+            {(() => {
+              const purchasedAddonIds = subscription?.addons?.map(addon => addon._id) || [];
+              console.log('Purchased addon IDs:', purchasedAddonIds);
+              console.log('Available addons:', availableAddons.map(a => ({ id: a._id, name: a.name })));
+              
+              const filteredAddons = availableAddons.filter(addon => 
+                !subscription?.addons?.some(purchasedAddon => purchasedAddon._id === addon._id)
+              );
+              console.log('Filtered addons (after removing purchased):', filteredAddons.map(a => ({ id: a._id, name: a.name })));
+              
+              return filteredAddons;
+            })().map((addon) => {
               const isSelected = selectedAddons.some(a => a._id === addon._id);
               return (
                 <Card 

@@ -143,7 +143,7 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
         user: req.user.id,
         status: 'active',
         endDate: { $gt: new Date() }
-      }).populate('plan');
+      }).populate('plan').sort({ createdAt: -1 });
 
       // Count current properties
       const vendorObjectId = new mongoose.Types.ObjectId(req.user.id);

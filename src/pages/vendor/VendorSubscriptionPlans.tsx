@@ -265,6 +265,14 @@ const VendorSubscriptionPlans: React.FC = () => {
           description: `Successfully subscribed to ${selectedPlan.name}${selectedAddons.length > 0 ? ` with ${selectedAddons.length} addon(s)` : ''}`,
         });
         
+        // Refresh subscription data globally after successful payment
+        try {
+          const { vendorService } = await import('../../services/vendorService');
+          await vendorService.refreshSubscriptionData();
+        } catch (refreshError) {
+          console.warn('Failed to refresh subscription data:', refreshError);
+        }
+        
         navigate("/vendor/subscription-manager");
       } else {
         throw new Error(result.message || 'Payment failed');

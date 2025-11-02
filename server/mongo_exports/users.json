@@ -12,7 +12,7 @@
       "emailVerified": true,
       "avatar": null,
       "bio": null,
-      "lastLogin": "2025-10-24T08:48:12.045Z",
+      "lastLogin": "2025-11-02T08:13:01.819Z",
       "preferences": {
         "notifications": {
           "email": true,
@@ -45,7 +45,7 @@
       }
     },
     "createdAt": "2025-10-21T10:59:31.034Z",
-    "updatedAt": "2025-10-24T08:48:12.060Z",
+    "updatedAt": "2025-11-02T08:13:01.820Z",
     "__v": 1
   },
   {
@@ -79,11 +79,30 @@
         }
       },
       "avatar": null,
-      "lastLogin": "2025-10-22T08:08:05.123Z"
+      "lastLogin": "2025-11-02T09:51:44.911Z",
+      "vendorInfo": {
+        "certifications": [],
+        "experience": 0,
+        "memberSince": "2025-10-27T06:00:50.161Z",
+        "rating": {
+          "average": 0,
+          "count": 0
+        },
+        "responseTime": "Not calculated",
+        "serviceAreas": [],
+        "specializations": [],
+        "vendorPreferences": {
+          "emailNotifications": true,
+          "leadAlerts": true,
+          "marketingEmails": false,
+          "smsNotifications": true,
+          "weeklyReports": true
+        }
+      }
     },
     "createdAt": "2025-10-22T07:19:14.070Z",
-    "updatedAt": "2025-10-22T08:08:05.125Z",
-    "__v": 0
+    "updatedAt": "2025-11-02T09:51:44.913Z",
+    "__v": 1
   },
   {
     "_id": "68f8b1214f4741e752f0e18b",
@@ -116,7 +135,7 @@
         }
       },
       "avatar": null,
-      "lastLogin": "2025-10-26T04:33:54.369Z",
+      "lastLogin": "2025-11-02T09:58:20.873Z",
       "vendorInfo": {
         "certifications": [],
         "experience": 0,
@@ -138,8 +157,9 @@
       }
     },
     "createdAt": "2025-10-22T10:25:37.241Z",
-    "updatedAt": "2025-10-26T04:33:54.384Z",
-    "__v": 1
+    "updatedAt": "2025-11-02T09:58:20.874Z",
+    "__v": 1,
+    "vendorProfile": "68ff5d3d2f4e2406a9c90807"
   },
   {
     "_id": "68f9d919f3de51260fb705f1",
@@ -200,18 +220,19 @@
         "memberSince": "2025-10-23T07:28:25.622Z"
       },
       "avatar": null,
-      "bio": null,
-      "emailVerified": false,
+      "bio": "Professional Real Estate Vendor",
+      "emailVerified": true,
       "lastLogin": "2025-10-23T08:18:41.946Z"
     },
     "createdAt": "2025-10-23T07:28:25.628Z",
-    "updatedAt": "2025-10-23T08:18:41.955Z",
-    "__v": 0
+    "updatedAt": "2025-10-27T11:55:33.463Z",
+    "__v": 0,
+    "vendorProfile": "68ff5d3d2f4e2406a9c9080e"
   },
   {
     "_id": "68fa18a0c9fa98e30aa7a7ac",
     "email": "kanagaraj@gmail.com",
-    "password": "$2b$12$UobqAjSew9oFt6lMFZOpZeACcBZGH1eWRTLtsazty3hQPIY3WSyh.",
+    "password": "$2b$12$cOGLQ6D3qe.GzEE4E0CLcu7oyBjQM6pwgb/mTULqkf23lCTqaejxe",
     "role": "agent",
     "status": "active",
     "profile": {
@@ -267,12 +288,13 @@
         "memberSince": "2025-10-23T11:59:28.450Z"
       },
       "avatar": null,
-      "bio": null,
+      "bio": "Professional Real Estate Vendor",
       "emailVerified": true,
-      "lastLogin": "2025-10-25T04:59:30.772Z"
+      "lastLogin": "2025-11-02T10:13:22.998Z"
     },
     "createdAt": "2025-10-23T11:59:28.457Z",
-    "updatedAt": "2025-10-25T04:59:30.791Z",
-    "__v": 0
+    "updatedAt": "2025-11-02T10:13:22.999Z",
+    "__v": 0,
+    "vendorProfile": "68ff5d3d2f4e2406a9c90815"
   }
 ]

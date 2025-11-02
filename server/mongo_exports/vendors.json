@@ -1,0 +1,491 @@
+[
+  {
+    "_id": "68ff5d3d2f4e2406a9c90807",
+    "user": "68f8b1214f4741e752f0e18b",
+    "businessInfo": {
+      "companyName": "Vendor One",
+      "businessType": "individual"
+    },
+    "professionalInfo": {
+      "experience": 0,
+      "specializations": [],
+      "serviceAreas": [],
+      "languages": [
+        "english"
+      ],
+      "certifications": []
+    },
+    "contactInfo": {
+      "officeAddress": {
+        "street": "123 Business Street",
+        "area": "",
+        "city": "Mumbai",
+        "state": "Maharashtra",
+        "country": "India",
+        "pincode": "400001",
+        "landmark": "",
+        "cityCode": "mumbai",
+        "countryCode": "IN",
+        "district": "Mumbai City",
+        "districtCode": "mumbai-city",
+        "stateCode": "maharashtra"
+      },
+      "officePhone": "+91 9876543210",
+      "whatsappNumber": "+91 9876543210",
+      "socialMedia": {
+        "facebook": "",
+        "instagram": "",
+        "linkedin": "",
+        "twitter": "",
+        "youtube": ""
+      }
+    },
+    "performance": {
+      "rating": {
+        "average": 0,
+        "count": 0,
+        "breakdown": {
+          "five": 0,
+          "four": 0,
+          "three": 0,
+          "two": 0,
+          "one": 0
+        }
+      },
+      "statistics": {
+        "totalProperties": 0,
+        "activeListing": 0,
+        "soldProperties": 0,
+        "rentedProperties": 0,
+        "totalViews": 0,
+        "totalLeads": 0,
+        "totalClients": 0,
+        "responseTime": {
+          "average": 0,
+          "lastCalculated": "2025-10-27T11:53:33.266Z"
+        }
+      },
+      "achievements": []
+    },
+    "settings": {
+      "notifications": {
+        "emailNotifications": true,
+        "smsNotifications": true,
+        "leadAlerts": true,
+        "marketingEmails": false,
+        "weeklyReports": true,
+        "reviewAlerts": true
+      },
+      "privacy": {
+        "showContactInfo": true,
+        "showPerformanceStats": true,
+        "allowDirectContact": true
+      },
+      "businessHours": {
+        "monday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "tuesday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "wednesday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "thursday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "friday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "saturday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "sunday": {
+          "open": "10:00",
+          "close": "17:00",
+          "isOpen": false
+        }
+      },
+      "autoResponder": {
+        "enabled": false,
+        "message": "",
+        "onlyAfterHours": true
+      }
+    },
+    "verification": {
+      "isVerified": true,
+      "verificationDate": "2025-10-22T10:25:37.241Z",
+      "verificationLevel": "basic",
+      "documents": []
+    },
+    "status": "active",
+    "memberSince": "2025-10-22T10:25:37.241Z",
+    "lastActive": "2025-10-27T11:53:33.375Z",
+    "financial": {
+      "accountDetails": {
+        "bankName": "",
+        "accountNumber": "",
+        "ifscCode": "",
+        "accountHolderName": "Vendor One",
+        "branchName": ""
+      },
+      "billingAddress": {
+        "isSameAsOffice": true
+      }
+    },
+    "seo": {
+      "slug": "vendor-one",
+      "metaTitle": "",
+      "metaDescription": "",
+      "keywords": []
+    },
+    "metadata": {
+      "source": "migration",
+      "notes": "Migrated from User model",
+      "tags": [
+        "migrated"
+      ]
+    },
+    "createdAt": "2025-10-27T11:53:33.315Z",
+    "updatedAt": "2025-10-30T03:56:01.276Z",
+    "__v": 0
+  },
+  {
+    "_id": "68ff5d3d2f4e2406a9c9080e",
+    "user": "68f9d919f3de51260fb705f1",
+    "businessInfo": {
+      "companyName": "Test Vendor",
+      "businessType": "individual"
+    },
+    "professionalInfo": {
+      "experience": 0,
+      "specializations": [],
+      "serviceAreas": [],
+      "languages": [
+        "english"
+      ],
+      "certifications": []
+    },
+    "contactInfo": {
+      "officeAddress": {
+        "street": "123 Test Street",
+        "area": "",
+        "city": "Mumbai",
+        "state": "Maharashtra",
+        "country": "India",
+        "pincode": "400001",
+        "landmark": "",
+        "cityCode": "mumbai",
+        "countryCode": "IN",
+        "district": "Mumbai City",
+        "districtCode": "mumbai-city",
+        "stateCode": "maharashtra"
+      },
+      "officePhone": "+91-9876543210",
+      "whatsappNumber": "+91-9876543210",
+      "socialMedia": {
+        "facebook": "",
+        "instagram": "",
+        "linkedin": "",
+        "twitter": "",
+        "youtube": ""
+      }
+    },
+    "performance": {
+      "rating": {
+        "average": 0,
+        "count": 0,
+        "breakdown": {
+          "five": 0,
+          "four": 0,
+          "three": 0,
+          "two": 0,
+          "one": 0
+        }
+      },
+      "statistics": {
+        "totalProperties": 0,
+        "activeListing": 0,
+        "soldProperties": 0,
+        "rentedProperties": 0,
+        "totalViews": 0,
+        "totalLeads": 0,
+        "totalClients": 0,
+        "responseTime": {
+          "average": 0,
+          "lastCalculated": "2025-10-27T11:53:33.515Z"
+        }
+      },
+      "achievements": []
+    },
+    "settings": {
+      "notifications": {
+        "emailNotifications": true,
+        "smsNotifications": true,
+        "leadAlerts": true,
+        "marketingEmails": false,
+        "weeklyReports": true,
+        "reviewAlerts": true
+      },
+      "privacy": {
+        "showContactInfo": true,
+        "showPerformanceStats": true,
+        "allowDirectContact": true
+      },
+      "businessHours": {
+        "monday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "tuesday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "wednesday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "thursday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "friday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "saturday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "sunday": {
+          "open": "10:00",
+          "close": "17:00",
+          "isOpen": false
+        }
+      },
+      "autoResponder": {
+        "enabled": false,
+        "message": "",
+        "onlyAfterHours": true
+      }
+    },
+    "verification": {
+      "isVerified": true,
+      "verificationDate": "2025-10-23T07:28:25.628Z",
+      "verificationLevel": "basic",
+      "documents": []
+    },
+    "status": "active",
+    "memberSince": "2025-10-23T07:28:25.628Z",
+    "lastActive": "2025-10-27T11:53:33.602Z",
+    "financial": {
+      "accountDetails": {
+        "bankName": "",
+        "accountNumber": "",
+        "ifscCode": "",
+        "accountHolderName": "Test Vendor",
+        "branchName": ""
+      },
+      "billingAddress": {
+        "isSameAsOffice": true
+      }
+    },
+    "seo": {
+      "slug": "test-vendor",
+      "metaTitle": "",
+      "metaDescription": "",
+      "keywords": []
+    },
+    "metadata": {
+      "source": "migration",
+      "notes": "Migrated from User model",
+      "tags": [
+        "migrated"
+      ]
+    },
+    "createdAt": "2025-10-27T11:53:33.550Z",
+    "updatedAt": "2025-10-30T03:56:01.331Z",
+    "__v": 0
+  },
+  {
+    "_id": "68ff5d3d2f4e2406a9c90815",
+    "user": "68fa18a0c9fa98e30aa7a7ac",
+    "businessInfo": {
+      "companyName": "Test Vendor",
+      "businessType": "individual"
+    },
+    "professionalInfo": {
+      "experience": 0,
+      "specializations": [],
+      "serviceAreas": [],
+      "languages": [
+        "english"
+      ],
+      "certifications": []
+    },
+    "contactInfo": {
+      "officeAddress": {
+        "street": "123 Test Street",
+        "area": "",
+        "city": "Mumbai",
+        "state": "Maharashtra",
+        "country": "India",
+        "pincode": "400001",
+        "landmark": "",
+        "cityCode": "mumbai",
+        "countryCode": "IN",
+        "district": "Mumbai City",
+        "districtCode": "mumbai-city",
+        "stateCode": "maharashtra"
+      },
+      "officePhone": "+91-9876543210",
+      "whatsappNumber": "+91-9876543210",
+      "socialMedia": {
+        "facebook": "",
+        "instagram": "",
+        "linkedin": "",
+        "twitter": "",
+        "youtube": ""
+      }
+    },
+    "performance": {
+      "rating": {
+        "average": 0,
+        "count": 0,
+        "breakdown": {
+          "five": 0,
+          "four": 0,
+          "three": 0,
+          "two": 0,
+          "one": 0
+        }
+      },
+      "statistics": {
+        "totalProperties": 0,
+        "activeListing": 0,
+        "soldProperties": 0,
+        "rentedProperties": 0,
+        "totalViews": 0,
+        "totalLeads": 0,
+        "totalClients": 0,
+        "responseTime": {
+          "average": 0,
+          "lastCalculated": "2025-10-27T11:53:33.760Z"
+        }
+      },
+      "achievements": []
+    },
+    "settings": {
+      "notifications": {
+        "emailNotifications": true,
+        "smsNotifications": true,
+        "leadAlerts": true,
+        "marketingEmails": false,
+        "weeklyReports": true,
+        "reviewAlerts": true
+      },
+      "privacy": {
+        "showContactInfo": true,
+        "showPerformanceStats": true,
+        "allowDirectContact": true
+      },
+      "businessHours": {
+        "monday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "tuesday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "wednesday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "thursday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "friday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "saturday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "sunday": {
+          "open": "10:00",
+          "close": "17:00",
+          "isOpen": false
+        }
+      },
+      "autoResponder": {
+        "enabled": false,
+        "message": "",
+        "onlyAfterHours": true
+      }
+    },
+    "verification": {
+      "isVerified": true,
+      "verificationDate": "2025-10-23T11:59:28.457Z",
+      "verificationLevel": "basic",
+      "documents": []
+    },
+    "status": "active",
+    "memberSince": "2025-10-23T11:59:28.457Z",
+    "lastActive": "2025-10-27T11:53:33.950Z",
+    "financial": {
+      "accountDetails": {
+        "bankName": "",
+        "accountNumber": "",
+        "ifscCode": "",
+        "accountHolderName": "Test Vendor",
+        "branchName": ""
+      },
+      "billingAddress": {
+        "isSameAsOffice": true
+      }
+    },
+    "seo": {
+      "slug": "test-vendor-1",
+      "metaTitle": "",
+      "metaDescription": "",
+      "keywords": []
+    },
+    "metadata": {
+      "source": "migration",
+      "notes": "Migrated from User model",
+      "tags": [
+        "migrated"
+      ]
+    },
+    "createdAt": "2025-10-27T11:53:33.830Z",
+    "updatedAt": "2025-10-30T03:56:01.371Z",
+    "__v": 0
+  }
+]

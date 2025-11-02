@@ -7,6 +7,7 @@ const Plan = require('../models/Plan');
 const Subscription = require('../models/Subscription');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { authenticateToken } = require('../middleware/authMiddleware');
+const User = require('../models/User');
 
 const router = express.Router();
 
@@ -284,6 +285,132 @@ router.post('/create-subscription-order', authenticateToken, asyncHandler(async 
   }
 }));
 
+// @desc    Create payment order for addon purchase only
+// @route   POST /api/payments/create-addon-order
+// @access  Private
+router.post('/create-addon-order', authenticateToken, asyncHandler(async (req, res) => {
+  const { addons = [], totalAmount } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // Validate input
+    if (!addons || addons.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one addon must be selected'
+      });
+    }
+
+    // Get user's active subscription
+    const activeSubscription = await Subscription.findOne({
+      user: userId,
+      status: 'active',
+      endDate: { $gt: new Date() }
+    }).populate('plan');
+
+    if (!activeSubscription) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active subscription found. Please subscribe to a plan first.'
+      });
+    }
+
+    // Get addon details
+    const AddonService = require('../models/AddonService');
+    const addonServices = await AddonService.find({ _id: { $in: addons }, isActive: true });
+    
+    console.log('Create addon order - addon validation:', {
+      requestedAddons: addons,
+      foundServices: addonServices.map(a => ({ id: a._id, name: a.name })),
+      activeSubscriptionAddons: activeSubscription.addons?.map(id => id.toString()) || []
+    });
+    
+    if (addonServices.length !== addons.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'One or more addons not found',
+        debug: {
+          requestedCount: addons.length,
+          foundCount: addonServices.length,
+          requestedAddons: addons,
+          foundAddons: addonServices.map(a => a._id)
+        }
+      });
+    }
+
+    // Calculate total amount from addons
+    const calculatedAmount = addonServices.reduce((total, addon) => total + addon.price, 0);
+    const finalAmount = totalAmount || calculatedAmount;
+
+    // Get user details
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Create order with Razorpay
+    const orderData = {
+      amount: finalAmount * 100, // Convert to paisa
+      currency: 'INR',
+      receipt: `addon_${userId}_${Date.now()}`,
+      notes: {
+        userId: userId,
+        type: 'addon_purchase',
+        addons: addons.join(','),
+        subscriptionId: activeSubscription._id.toString()
+      }
+    };
+
+    let order;
+    const razorpayKeyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_mock';
+
+    // Create order with Razorpay (or mock for development)
+    try {
+      order = await razorpay.orders.create(orderData);
+      console.log('Razorpay addon order created successfully:', order.id);
+    } catch (razorpayError) {
+      console.log('Razorpay failed for addon order, using mock:', razorpayError.message);
+      // Mock order for development
+      order = {
+        id: `order_mock_${Date.now()}`,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        receipt: orderData.receipt,
+        status: 'created'
+      };
+    }
+
+    // Prepare response
+    const responseData = {
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: razorpayKeyId,
+      planName: `${addonServices.length} Addon(s)`,
+      userEmail: user.email,
+      addons: addonServices.map(addon => ({
+        id: addon._id,
+        name: addon.name,
+        price: addon.price
+      }))
+    };
+
+    res.json({
+      success: true,
+      data: responseData
+    });
+  } catch (error) {
+    console.error('Create addon order error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create addon payment order'
+    });
+  }
+}));
+
 // @desc    Verify subscription payment with addons and create subscription
 // @route   POST /api/payments/verify-subscription-payment
 // @access  Private
@@ -364,6 +491,18 @@ router.post('/verify-subscription-payment', authenticateToken, asyncHandler(asyn
     // Add addon costs
     const addonCost = addonServices.reduce((total, addon) => total + addon.price, 0);
     amount += addonCost;
+
+    // Deactivate existing active subscriptions for this user
+    await Subscription.updateMany(
+      { 
+        user: req.user.id, 
+        status: 'active' 
+      },
+      { 
+        status: 'cancelled',
+        updatedAt: new Date()
+      }
+    );
 
     // Create subscription
     const subscription = new Subscription({
@@ -478,6 +617,18 @@ router.post('/verify-payment', asyncHandler(async (req, res) => {
       amount = plan.price * 12 * 0.83; // 17% discount for yearly
     }
 
+    // Deactivate existing active subscriptions for this user
+    await Subscription.updateMany(
+      { 
+        user: req.user.id, 
+        status: 'active' 
+      },
+      { 
+        status: 'cancelled',
+        updatedAt: new Date()
+      }
+    );
+
     // Create subscription
     const subscription = new Subscription({
       user: req.user.id, // Changed from userId to user
@@ -588,6 +739,183 @@ router.post('/:paymentId/refund', asyncHandler(async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to process refund'
+    });
+  }
+}));
+
+
+
+// @desc    Verify addon-only payment and update existing subscription
+// @route   POST /api/payments/verify-addon-payment
+// @access  Private
+router.post('/verify-addon-payment', authenticateToken, asyncHandler(async (req, res) => {
+  const { 
+    razorpay_order_id, 
+    razorpay_payment_id, 
+    razorpay_signature,
+    addons = [],
+    totalAmount
+  } = req.body;
+
+  // Verify signature (skip for mock payments)
+  if (!razorpay_order_id.includes('mock')) {
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'mock_secret')
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex');
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid payment signature'
+      });
+    }
+  }
+
+  try {
+    console.log('Addon payment verification request:', {
+      userId: req.user.id,
+      addons,
+      totalAmount,
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id
+    });
+
+    // Find user's active subscription
+    const activeSubscription = await Subscription.findOne({
+      user: req.user.id,
+      status: 'active',
+      endDate: { $gt: new Date() }
+    }).populate('plan').sort({ createdAt: -1 });
+    
+    console.log('Found active subscription:', {
+      id: activeSubscription?._id,
+      planName: activeSubscription?.plan?.name,
+      existingAddons: activeSubscription?.addons?.length || 0
+    });
+
+    if (!activeSubscription) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active subscription found to add addons to'
+      });
+    }
+
+    // Get addon details
+    const AddonService = require('../models/AddonService');
+    const validAddonIds = addons.filter(id => mongoose.Types.ObjectId.isValid(id));
+    
+    console.log('Addon validation:', {
+      requestedAddons: addons,
+      validAddonIds: validAddonIds
+    });
+    
+    const addonServices = await AddonService.find({ 
+      _id: { $in: validAddonIds }, 
+      isActive: true 
+    });
+
+    console.log('Found addon services:', addonServices.map(a => ({ id: a._id, name: a.name, price: a.price })));
+
+    if (addonServices.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid addons found',
+        debug: {
+          requestedAddons: addons,
+          validAddonIds: validAddonIds
+        }
+      });
+    }
+
+    // Add new addons to existing subscription (avoid duplicates)
+    const existingAddonIds = (activeSubscription.addons || []).map(id => id.toString());
+    const newAddonIds = addons.filter(id => !existingAddonIds.includes(id) && mongoose.Types.ObjectId.isValid(id));
+    
+    console.log('Existing addon IDs:', existingAddonIds);
+    console.log('Requested addon IDs:', addons);
+    console.log('New addon IDs to add:', newAddonIds);
+    
+    if (newAddonIds.length === 0) {
+      console.log('No new addons to add - all are already active');
+      return res.status(400).json({
+        success: false,
+        message: 'All selected addons are already active',
+        existingAddons: existingAddonIds,
+        requestedAddons: addons
+      });
+    }
+
+    const updatedAddons = [...(activeSubscription.addons || []), ...newAddonIds];
+
+    // Calculate addon cost
+    const addonCost = addonServices.reduce((total, addon) => total + addon.price, 0);
+
+    // Update subscription with new addons
+    const updatedSubscription = await Subscription.findByIdAndUpdate(
+      activeSubscription._id,
+      {
+        addons: updatedAddons,
+        $inc: { amount: addonCost }, // Add addon cost to existing amount
+        $push: {
+          paymentHistory: {
+            type: 'addon_purchase',
+            amount: totalAmount || addonCost,
+            paymentMethod: 'razorpay',
+            transactionId: razorpay_payment_id || `mock_payment_${Date.now()}`,
+            paymentDetails: {
+              razorpayOrderId: razorpay_order_id,
+              razorpayPaymentId: razorpay_payment_id || `mock_payment_${Date.now()}`,
+              razorpaySignature: razorpay_signature || 'mock_signature'
+            },
+            addons: newAddonIds,
+            date: new Date()
+          }
+        },
+        updatedAt: new Date()
+      },
+      { new: true }
+    ).populate([
+      { path: 'plan', select: 'name description price billingPeriod features' },
+      { path: 'addons', select: 'name description price category billingType' }
+    ]);
+
+    console.log(`Added ${newAddonIds.length} addon(s) to subscription ${activeSubscription._id} for user ${req.user.id}`);
+
+    res.json({
+      success: true,
+      message: 'Addon payment verified and subscription updated successfully',
+      data: {
+        subscription: {
+          id: updatedSubscription._id,
+          planName: updatedSubscription.plan.name,
+          status: updatedSubscription.status,
+          startDate: updatedSubscription.startDate,
+          endDate: updatedSubscription.endDate,
+          addons: updatedSubscription.addons,
+          amount: updatedSubscription.amount,
+          currency: updatedSubscription.currency || 'INR'
+        },
+        payment: {
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          amount: totalAmount || addonCost,
+          currency: 'INR'
+        },
+        addedAddons: addonServices.map(addon => ({
+          id: addon._id,
+          name: addon.name,
+          price: addon.price,
+          category: addon.category
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('Addon payment verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify addon payment and update subscription'
     });
   }
 }));
