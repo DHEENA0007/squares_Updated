@@ -130,7 +130,11 @@ const AddProperty = () => {
     availability: "",
     possession: "",
     facing: "",
-    parkingSpaces: ""
+    parkingSpaces: "",
+    
+    // Land/Plot specific
+    roadWidth: "",
+    cornerPlot: ""
   });
 
   const [uploadedImages, setUploadedImages] = useState([]);
@@ -1202,18 +1206,18 @@ const AddProperty = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="age">Road Width (ft)</Label>
+                    <Label htmlFor="roadWidth">Road Width (ft)</Label>
                     <Input
-                      id="age"
+                      id="roadWidth"
                       placeholder="e.g., 30"
-                      value={formData.age}
-                      onChange={(e) => setFormData(prev => ({ ...prev, age: e.target.value }))}
+                      value={formData.roadWidth}
+                      onChange={(e) => setFormData(prev => ({ ...prev, roadWidth: e.target.value }))}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="parkingSpaces">Corner Plot</Label>
-                    <Select value={formData.parkingSpaces} onValueChange={(value) => setFormData(prev => ({ ...prev, parkingSpaces: value }))}>
+                    <Label htmlFor="cornerPlot">Corner Plot</Label>
+                    <Select value={formData.cornerPlot} onValueChange={(value) => setFormData(prev => ({ ...prev, cornerPlot: value }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>

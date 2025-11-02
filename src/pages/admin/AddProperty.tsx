@@ -29,6 +29,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { propertyService } from "@/services/propertyService";
 import { locaService, type PincodeSuggestion } from "@/services/locaService";
 import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
+import { DynamicPropertyDetails } from "@/components/property/DynamicPropertyDetails";
+import { usePropertyTypeConfig } from "@/hooks/usePropertyTypeConfig";
 import { toast } from "@/hooks/use-toast";
 
 // Upload function using server-side endpoint
@@ -118,6 +120,10 @@ const AddProperty = () => {
     facing: "",
     parkingSpaces: "",
     
+    // Land/Plot specific
+    roadWidth: "",
+    cornerPlot: "",
+    
     // Admin specific
     isVerified: true, // Admin properties are verified by default
     isFeatured: false,
@@ -126,6 +132,9 @@ const AddProperty = () => {
 
   const [uploadedImages, setUploadedImages] = useState([]);
   const [uploadedVideos, setUploadedVideos] = useState([]);
+
+  // Get property type configuration
+  const { getAmenities } = usePropertyTypeConfig(formData.propertyType);
 
   // Store selected location names for display
   const [selectedLocationNames, setSelectedLocationNames] = useState({
@@ -790,162 +799,14 @@ const AddProperty = () => {
         );
 
       case 3:
-        // Similar to vendor but simplified property details step
-        const isResidential = ['apartment', 'villa', 'house', 'pg'].includes(formData.propertyType);
-        const isCommercial = ['commercial', 'office'].includes(formData.propertyType);
-        const isLand = ['plot', 'land'].includes(formData.propertyType);
-        const isPG = formData.propertyType === 'pg';
-        
+        // Use dynamic property details component
         return (
-          <div className="space-y-6">
-            {/* Residential Properties - Apartment, Villa, House, PG */}
-            {isResidential && (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  <div className="space-y-3">
-                    <Label htmlFor="bedrooms" className="text-base font-medium">Bedrooms {!isPG && '*'}</Label>
-                    <Select value={formData.bedrooms} onValueChange={(value) => setFormData(prev => ({ ...prev, bedrooms: value }))}>
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {isPG ? (
-                          <>
-                            <SelectItem value="1">Single Sharing</SelectItem>
-                            <SelectItem value="2">Double Sharing</SelectItem>
-                            <SelectItem value="3">Triple Sharing</SelectItem>
-                            <SelectItem value="4">4+ Sharing</SelectItem>
-                          </>
-                        ) : (
-                          <>
-                            <SelectItem value="1">1 BHK</SelectItem>
-                            <SelectItem value="2">2 BHK</SelectItem>
-                            <SelectItem value="3">3 BHK</SelectItem>
-                            <SelectItem value="4">4 BHK</SelectItem>
-                            <SelectItem value="5">5+ BHK</SelectItem>
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="bathrooms">Bathrooms</Label>
-                    <Select value={formData.bathrooms} onValueChange={(value) => setFormData(prev => ({ ...prev, bathrooms: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1</SelectItem>
-                        <SelectItem value="2">2</SelectItem>
-                        <SelectItem value="3">3</SelectItem>
-                        <SelectItem value="4">4+</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="furnishing">Furnishing</Label>
-                    <Select value={formData.furnishing} onValueChange={(value) => setFormData(prev => ({ ...prev, furnishing: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fully-furnished">Fully Furnished</SelectItem>
-                        <SelectItem value="semi-furnished">Semi Furnished</SelectItem>
-                        <SelectItem value="unfurnished">Unfurnished</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="builtUpArea">{isPG ? 'Room Area (sq ft)' : 'Built-up Area (sq ft)'} *</Label>
-                    <Input
-                      id="builtUpArea"
-                      placeholder={isPG ? "e.g., 150" : "e.g., 1200"}
-                      value={formData.builtUpArea}
-                      onChange={(e) => setFormData(prev => ({ ...prev, builtUpArea: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="carpetArea">Carpet Area (sq ft)</Label>
-                    <Input
-                      id="carpetArea"
-                      placeholder="e.g., 1000"
-                      value={formData.carpetArea}
-                      onChange={(e) => setFormData(prev => ({ ...prev, carpetArea: e.target.value }))}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Commercial Properties */}
-            {isCommercial && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="builtUpArea">Built-up Area (sq ft) *</Label>
-                  <Input
-                    id="builtUpArea"
-                    placeholder="e.g., 2500"
-                    value={formData.builtUpArea}
-                    onChange={(e) => setFormData(prev => ({ ...prev, builtUpArea: e.target.value }))}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="furnishing">Furnishing</Label>
-                  <Select value={formData.furnishing} onValueChange={(value) => setFormData(prev => ({ ...prev, furnishing: value }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fully-furnished">Fully Furnished</SelectItem>
-                      <SelectItem value="semi-furnished">Semi Furnished</SelectItem>
-                      <SelectItem value="unfurnished">Bare Shell</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-
-            {/* Land/Plot Properties */}
-            {isLand && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="plotArea">Plot Area (sq ft) *</Label>
-                  <Input
-                    id="plotArea"
-                    placeholder="e.g., 5000"
-                    value={formData.plotArea}
-                    onChange={(e) => setFormData(prev => ({ ...prev, plotArea: e.target.value }))}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="builtUpArea">Total Area (sq ft) *</Label>
-                  <Input
-                    id="builtUpArea"
-                    placeholder="e.g., 5000"
-                    value={formData.builtUpArea}
-                    onChange={(e) => setFormData(prev => ({ ...prev, builtUpArea: e.target.value }))}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Show message if no property type selected */}
-            {!formData.propertyType && (
-              <Alert>
-                <AlertDescription>
-                  Please select a property type in the Basic Details step to see relevant property specifications.
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
+          <DynamicPropertyDetails
+            propertyType={formData.propertyType}
+            formData={formData}
+            setFormData={setFormData}
+            showValidationErrors={false}
+          />
         );
 
       case 4:
@@ -1019,7 +880,7 @@ const AddProperty = () => {
               </p>
               
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {amenitiesList.map((amenity) => (
+                {(formData.propertyType ? getAmenities() : amenitiesList).map((amenity) => (
                   <div key={amenity} className="flex items-center space-x-2">
                     <Checkbox
                       id={amenity}
