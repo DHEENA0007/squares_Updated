@@ -1,6 +1,21 @@
 import authService from './authService';
 import { toast } from '@/hooks/use-toast';
 
+export interface PaymentHistoryItem {
+  _id: string;
+  type: 'subscription_purchase' | 'addon_purchase' | 'renewal' | 'upgrade';
+  amount: number;
+  addons?: string[];
+  date: string;
+  paymentMethod?: string;
+  transactionId?: string;
+  paymentDetails?: {
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    razorpaySignature?: string;
+  };
+}
+
 export interface Subscription {
   _id: string;
   user: {
@@ -16,6 +31,15 @@ export interface Subscription {
     price: number;
     billingPeriod: string;
   };
+  addons?: Array<{
+    _id: string;
+    name: string;
+    description: string;
+    price: number;
+    currency: string;
+    category: string;
+    billingType: string;
+  }>;
   status: 'active' | 'cancelled' | 'expired' | 'pending';
   startDate: string;
   endDate: string;
@@ -23,6 +47,7 @@ export interface Subscription {
   currency: string;
   paymentMethod?: string;
   autoRenew: boolean;
+  paymentHistory?: PaymentHistoryItem[];
   createdAt: string;
   updatedAt: string;
 }

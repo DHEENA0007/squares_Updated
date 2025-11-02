@@ -744,5 +744,46 @@
     "createdAt": "2025-11-02T10:47:57.350Z",
     "updatedAt": "2025-11-02T10:47:57.350Z",
     "__v": 0
+  },
+  {
+    "_id": "6907501a80cbd807b471c38b",
+    "title": "Z1",
+    "description": "1Z",
+    "type": "house",
+    "status": "pending",
+    "listingType": "rent",
+    "price": 2000000,
+    "area": {
+      "builtUp": 12222,
+      "carpet": 10000,
+      "unit": "sqft"
+    },
+    "bedrooms": 4,
+    "bathrooms": 3,
+    "furnishing": "unfurnished",
+    "age": "3-5",
+    "floor": "0",
+    "totalFloors": "0",
+    "facing": "west",
+    "priceNegotiable": true,
+    "address": {
+      "street": "TAMIL NADU",
+      "district": "KANNIYAKUMARI",
+      "city": "Alancode",
+      "state": "TAMIL NADU",
+      "pincode": "629802"
+    },
+    "amenities": [],
+    "images": [],
+    "videos": [],
+    "owner": "68fa18a0c9fa98e30aa7a7ac",
+    "vendor": "68ff5d3d2f4e2406a9c90815",
+    "agent": "68fa18a0c9fa98e30aa7a7ac",
+    "views": 0,
+    "featured": false,
+    "verified": false,
+    "createdAt": "2025-11-02T12:35:38.687Z",
+    "updatedAt": "2025-11-02T12:35:38.687Z",
+    "__v": 0
   }
 ]

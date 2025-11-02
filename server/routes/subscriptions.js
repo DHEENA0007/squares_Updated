@@ -66,7 +66,9 @@ router.get('/', authenticateToken, async (req, res) => {
       limit: parseInt(limit),
       populate: [
         { path: 'user', select: 'name email phone' },
-        { path: 'plan', select: 'name description price billingPeriod' }
+        { path: 'plan', select: 'name description price billingPeriod' },
+        { path: 'addons', select: 'name description price currency category billingType' },
+        { path: 'paymentHistory.addons', select: 'name description price currency category billingType' }
       ],
       sort: { createdAt: -1 }
     };
@@ -200,7 +202,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const subscription = await Subscription.findById(req.params.id)
       .populate('user', 'name email phone')
-      .populate('plan', 'name description price billingPeriod');
+      .populate('plan', 'name description price billingPeriod')
+      .populate('addons', 'name description price currency category billingType')
+      .populate('paymentHistory.addons', 'name description price currency category billingType');
 
     if (!subscription) {
       return res.status(404).json({
