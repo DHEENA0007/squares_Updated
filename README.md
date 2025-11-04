@@ -107,3 +107,4 @@ Use the variables from `server/.env.production` with your actual values.
 3. **Testing**: Use the live URLs above to test the deployed version
 
 > **Note**: All services use fallbacks to localhost, so local development works without any configuration.
+# Squares-V2
