@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -26,9 +26,12 @@ import {
   Lock,
   CheckCircle,
   Clock,
-  Shield
+  Shield,
+  AlertCircle
 } from "lucide-react";
-import EnhancedLocationSelector from "@/components/vendor/EnhancedLocationSelector";
+import { locaService, type PincodeSuggestion } from "@/services/locaService";
+import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
+import EnhancedLocationSelector from "../../components/vendor/EnhancedLocationSelector";
 
 const VendorRegister = () => {
   const navigate = useNavigate();
@@ -36,6 +39,9 @@ const VendorRegister = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [otpStep, setOtpStep] = useState<"none" | "sent" | "verified">("none");
+  const [otp, setOtp] = useState("");
+  const [otpExpiry, setOtpExpiry] = useState<number>(0);
 
   const [formData, setFormData] = useState({
     // Personal Information
@@ -83,6 +89,201 @@ const VendorRegister = () => {
     identityProof: null
   });
 
+  // Location service states
+  const [states, setStates] = useState<string[]>([]);
+  const [districts, setDistricts] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  
+  // Loading states for location fields
+  const [locationLoading, setLocationLoading] = useState({
+    states: false,
+    districts: false,
+    cities: false,
+    pincode: false
+  });
+  
+  // Store selected location names for display
+  const [selectedLocationNames, setSelectedLocationNames] = useState({
+    country: 'India',
+    state: '',
+    district: '',
+    city: ''
+  });
+  const steps = [
+    { id: 1, title: "Personal Info", description: "Basic details" },
+    { id: 2, title: "Business Info", description: "Company details" },
+    { id: 3, title: "Address", description: "Location details" },
+    { id: 4, title: "Documents", description: "Verification" },
+    { id: 5, title: "Complete", description: "Verify & Submit" }
+  ];
+
+  // Initialize locaService on component mount
+  useEffect(() => {
+    const initLocaService = async () => {
+      setLocationLoading(prev => ({ ...prev, states: true }));
+      try {
+        await locaService.initialize();
+        const statesData = locaService.getStates();
+        setStates(statesData);
+        console.log(`Loaded ${statesData.length} states from loca.json`);
+      } catch (error) {
+        console.error('Error initializing loca service:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load location data. Please refresh the page.",
+          variant: "destructive",
+        });
+      } finally {
+        setLocationLoading(prev => ({ ...prev, states: false }));
+      }
+    };
+
+    initLocaService();
+  }, []);
+
+  // Load districts when state changes
+  useEffect(() => {
+    if (!formData.state) {
+      setDistricts([]);
+      return;
+    }
+
+    setLocationLoading(prev => ({ ...prev, districts: true }));
+    try {
+      const districtsData = locaService.getDistricts(formData.state);
+      setDistricts(districtsData);
+      console.log(`Loaded ${districtsData.length} districts for ${formData.state}`);
+      
+      // Reset dependent fields
+      setFormData(prev => ({ 
+        ...prev, 
+        district: '',
+        city: '', 
+        pincode: '' 
+      }));
+      setSelectedLocationNames(prev => ({
+        ...prev,
+        district: '',
+        city: ''
+      }));
+      setCities([]);
+    } catch (error) {
+      console.error('Error loading districts:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load districts. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLocationLoading(prev => ({ ...prev, districts: false }));
+    }
+  }, [formData.state]);
+
+  // Load cities when district changes
+  useEffect(() => {
+    if (!formData.state || !formData.district) {
+      setCities([]);
+      return;
+    }
+
+    setLocationLoading(prev => ({ ...prev, cities: true }));
+    try {
+      const citiesData = locaService.getCities(formData.state, formData.district);
+      setCities(citiesData);
+      console.log(`Loaded ${citiesData.length} cities for ${formData.district}`);
+      
+      // Reset dependent fields
+      setFormData(prev => ({ 
+        ...prev, 
+        city: '', 
+        pincode: '' 
+      }));
+      setSelectedLocationNames(prev => ({
+        ...prev,
+        city: ''
+      }));
+    } catch (error) {
+      console.error('Error loading cities:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load cities. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLocationLoading(prev => ({ ...prev, cities: false }));
+    }
+  }, [formData.state, formData.district]);
+
+  // Update selectedLocationNames when form data changes
+  useEffect(() => {
+    if (formData.state) {
+      const stateName = formData.state;
+      setSelectedLocationNames(prev => ({
+        ...prev,
+        state: stateName
+      }));
+    }
+  }, [formData.state]);
+
+  useEffect(() => {
+    if (formData.district) {
+      const districtName = formData.district;
+      setSelectedLocationNames(prev => ({
+        ...prev,
+        district: districtName
+      }));
+    }
+  }, [formData.district]);
+
+  useEffect(() => {
+    if (formData.city) {
+      const cityName = formData.city;
+      setSelectedLocationNames(prev => ({
+        ...prev,
+        city: cityName
+      }));
+    }
+  }, [formData.city]);
+
+  // Auto-populate address field when location details are selected
+  useEffect(() => {
+    const addressParts = [];
+    if (selectedLocationNames.city) addressParts.push(selectedLocationNames.city);
+    if (selectedLocationNames.district) addressParts.push(selectedLocationNames.district);
+    if (selectedLocationNames.state) addressParts.push(selectedLocationNames.state);
+    if (formData.pincode) addressParts.push(formData.pincode);
+    
+    if (addressParts.length > 0 && !formData.address.trim()) {
+      const generatedAddress = addressParts.join(', ');
+      setFormData(prev => ({
+        ...prev,
+        address: generatedAddress
+      }));
+    }
+  }, [selectedLocationNames, formData.pincode]);;
+
+  // Password validation functions
+  const validatePassword = (password: string): string[] => {
+    const errors: string[] = [];
+    if (password.length < 8) errors.push("At least 8 characters");
+    if (!/[a-z]/.test(password)) errors.push("One lowercase letter");
+    if (!/[A-Z]/.test(password)) errors.push("One uppercase letter");
+    if (!/[0-9]/.test(password)) errors.push("One number");
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) errors.push("One special character");
+    return errors;
+  };
+
+  const passwordStrength = (password: string): { score: number; label: string; color: string; bgColor: string } => {
+    const errors = validatePassword(password);
+    const score = Math.max(0, 5 - errors.length);
+    
+    if (score === 5) return { score, label: "Very Strong", color: "text-green-600", bgColor: "bg-green-500" };
+    if (score >= 4) return { score, label: "Strong", color: "text-green-500", bgColor: "bg-green-400" };
+    if (score >= 3) return { score, label: "Medium", color: "text-yellow-500", bgColor: "bg-yellow-400" };
+    if (score >= 2) return { score, label: "Weak", color: "text-orange-500", bgColor: "bg-orange-400" };
+    return { score, label: "Very Weak", color: "text-red-500", bgColor: "bg-red-500" };
+  };
+
   const businessTypes = [
     "Real Estate Agent",
     "Property Developer",
@@ -95,12 +296,11 @@ const VendorRegister = () => {
     "Other"
   ];
 
-  const steps = [
-    { id: 1, title: "Personal Info", description: "Basic details" },
-    { id: 2, title: "Business Info", description: "Company details" },
-    { id: 3, title: "Address", description: "Location details" },
-    { id: 4, title: "Documents", description: "Verification" },
-    { id: 5, title: "Review", description: "Confirm details" }
+  const experienceOptions = [
+    "0-1 years",
+    "2-5 years",
+    "6-10 years",
+    "10+ years"
   ];
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -108,6 +308,101 @@ const VendorRegister = () => {
       ...prev,
       [field]: value
     }));
+  };
+
+  // Validation functions
+  const validateStep = (step: number): boolean => {
+    switch (step) {
+      case 1:
+        return !!(
+          formData.firstName.trim() &&
+          formData.lastName.trim() &&
+          formData.email.trim() &&
+          formData.phone.trim() &&
+          formData.password &&
+          formData.confirmPassword &&
+          formData.password === formData.confirmPassword &&
+          validatePassword(formData.password).length === 0 &&
+          /\S+@\S+\.\S+/.test(formData.email) &&
+          /^[+]?[1-9]\d{1,14}$/.test(formData.phone)
+        );
+      case 2:
+        return !!(
+          formData.businessName.trim() &&
+          formData.businessType &&
+          formData.businessDescription.trim() &&
+          formData.businessDescription.trim().length >= 50 &&
+          formData.experience
+        );
+      case 3:
+        return !!(
+          formData.address.trim() &&
+          formData.state &&
+          formData.district &&
+          formData.city &&
+          formData.pincode &&
+          formData.pincode.length === 6
+        );
+      case 4:
+        return !!(
+          formData.panNumber.trim() &&
+          uploadedDocuments.businessRegistration &&
+          uploadedDocuments.identityProof
+        );
+      case 5:
+        return otpStep === "sent";
+      default:
+        return true;
+    }
+  };
+
+  const getValidationErrors = (step: number): string[] => {
+    const errors: string[] = [];
+    
+    switch (step) {
+      case 1:
+        if (!formData.firstName.trim()) errors.push("First name is required");
+        if (!formData.lastName.trim()) errors.push("Last name is required");
+        if (!formData.email.trim()) errors.push("Email is required");
+        else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.push("Valid email is required");
+        if (!formData.phone.trim()) errors.push("Phone number is required");
+        else if (!/^[+]?[1-9]\d{1,14}$/.test(formData.phone)) errors.push("Valid phone number is required");
+        if (!formData.password) errors.push("Password is required");
+        else {
+          const passwordErrors = validatePassword(formData.password);
+          if (passwordErrors.length > 0) {
+            errors.push(`Password requirements: ${passwordErrors.join(', ')}`);
+          }
+        }
+        if (!formData.confirmPassword) errors.push("Confirm password is required");
+        else if (formData.password !== formData.confirmPassword) errors.push("Passwords do not match");
+        break;
+      case 2:
+        if (!formData.businessName.trim()) errors.push("Business name is required");
+        if (!formData.businessType) errors.push("Business type is required");
+        if (!formData.businessDescription.trim()) errors.push("Business description is required");
+        else if (formData.businessDescription.trim().length < 50) errors.push("Business description must be at least 50 characters");
+        if (!formData.experience) errors.push("Experience is required");
+        break;
+      case 3:
+        if (!formData.address.trim()) errors.push("Address is required");
+        if (!formData.state) errors.push("State is required");
+        if (!formData.district) errors.push("District is required");
+        if (!formData.city) errors.push("City is required");
+        if (!formData.pincode) errors.push("PIN code is required");
+        else if (formData.pincode.length !== 6) errors.push("PIN code must be 6 digits");
+        break;
+      case 4:
+        if (!formData.panNumber.trim()) errors.push("PAN number is required");
+        if (!uploadedDocuments.businessRegistration) errors.push("Business registration certificate is required");
+        if (!uploadedDocuments.identityProof) errors.push("Identity proof is required");
+        break;
+      case 5:
+        if (otpStep === "none") errors.push("Please request OTP first");
+        break;
+    }
+    
+    return errors;
   };
 
   const handleDocumentUpload = async (documentType: string, file: File) => {
@@ -152,8 +447,46 @@ const VendorRegister = () => {
     }
   };
 
-  const handleNext = () => {
-    if (currentStep < 5) {
+  const handleNext = async () => {
+    // Validate current step before proceeding
+    if (!validateStep(currentStep)) {
+      const errors = getValidationErrors(currentStep);
+      toast({
+        title: "Please complete required fields",
+        description: errors[0] || "Please fill in all required information before proceeding.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Special handling for step 4 (Documents) -> step 5 (OTP)
+    if (currentStep === 4 && otpStep === "none") {
+      // Send OTP when moving from Documents to Email Verification
+      try {
+        setIsLoading(true);
+        const { authService } = await import("@/services/authService");
+        
+        const response = await authService.sendOTP(formData.email, formData.firstName);
+        if (response.success) {
+          setOtpStep("sent");
+          setOtpExpiry(response.expiryMinutes || 10);
+          setCurrentStep(currentStep + 1);
+          toast({
+            title: "OTP Sent",
+            description: `Verification code sent to ${formData.email}`,
+          });
+        }
+      } catch (error) {
+        console.error("OTP sending error:", error);
+        toast({
+          title: "Error",
+          description: "Failed to send OTP. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (currentStep < 5) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -164,13 +497,91 @@ const VendorRegister = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOtpSubmit = async () => {
+    if (otp.length !== 6) {
+      toast({
+        title: "Error",
+        description: "Please enter the 6-digit OTP",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Immediately register like customer flow to avoid OTP expiry
+    // Set terms as accepted since it's required for vendors
+    setFormData(prev => ({ ...prev, termsAccepted: true }));
     
+    // Proceed directly to registration
+    await handleRegistration();
+  };
+
+  const handleRegistration = async () => {
     if (!formData.termsAccepted) {
       toast({
         title: "Terms Required",
         description: "Please accept the terms and conditions to continue",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate required fields
+    const requiredFields = {
+      firstName: "First name",
+      lastName: "Last name",
+      email: "Email",
+      phone: "Phone number",
+      password: "Password",
+      businessName: "Business name",
+      businessType: "Business type",
+      businessDescription: "Business description",
+      experience: "Experience",
+      address: "Address",
+      city: "City",
+      state: "State",
+      pincode: "Pincode"
+    };
+
+    for (const [field, label] of Object.entries(requiredFields)) {
+      if (!formData[field]?.trim()) {
+        toast({
+          title: "Missing Information",
+          description: `${label} is required`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate phone number format
+    const phoneRegex = /^[+]?[1-9]\d{1,14}$/;
+    const cleanPhone = formData.phone.trim().replace(/[^\d+]/g, '');
+    if (!phoneRegex.test(cleanPhone) && !phoneRegex.test('+91' + cleanPhone)) {
+      toast({
+        title: "Invalid Phone Number",
+        description: "Please enter a valid phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate password strength
+    const passwordErrors = validatePassword(formData.password);
+    if (passwordErrors.length > 0) {
+      toast({
+        title: "Weak Password",
+        description: `Password requirements: ${passwordErrors.join(", ")}`,
         variant: "destructive",
       });
       return;
@@ -186,49 +597,125 @@ const VendorRegister = () => {
       return;
     }
 
+    // Validate pincode format (6 digits for India)
+    if (!/^[0-9]{6}$/.test(formData.pincode)) {
+      toast({
+        title: "Invalid Pincode",
+        description: "Please enter a valid 6-digit pincode",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate location selection - ensure we have proper location codes
+    if (!formData.state || !formData.city) {
+      toast({
+        title: "Location Required",
+        description: "Please select your complete location (State and City)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate that we have a valid OTP
+    if (!otp || otp.length !== 6) {
+      toast({
+        title: "OTP Required",
+        description: "Please provide a valid 6-digit OTP for registration.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('OTP validation passed:', {
+      otp: otp,
+      otpStep: otpStep,
+      email: formData.email
+    });
+
     setIsLoading(true);
 
     try {
       // Import authService
       const { authService } = await import("@/services/authService");
       
-      const registrationData = {
-        email: formData.email,
-        password: formData.password,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone,
-        role: "agent", // Vendors are agents in the system
-        agreeToTerms: formData.termsAccepted,
-        // Additional vendor-specific data
-        businessInfo: {
-          businessName: formData.businessName,
-          businessType: formData.businessType,
-          businessDescription: formData.businessDescription,
-          experience: formData.experience,
-          address: formData.address,
-          country: formData.country,
-          countryCode: formData.countryCode,
-          state: formData.state,
-          stateCode: formData.stateCode,
-          district: formData.district,
-          districtCode: formData.districtCode,
-          city: formData.city,
-          cityCode: formData.cityCode,
-          pincode: formData.pincode,
-          licenseNumber: formData.licenseNumber,
-          gstNumber: formData.gstNumber,
-          panNumber: formData.panNumber
-        },
-        documents: uploadedDocuments
+      // Clean and validate phone number
+      let cleanPhone = formData.phone.trim().replace(/[^\d+]/g, '');
+      
+      // Ensure phone number starts with + or a digit
+      if (!cleanPhone.startsWith('+') && !cleanPhone.match(/^[1-9]/)) {
+        // Add country code for India if no + prefix and doesn't start with valid digit
+        cleanPhone = '+91' + cleanPhone;
+      }
+      
+      // Prepare business info - only include non-empty fields
+      const businessInfo: {
+        businessName: string;
+        businessType: string;
+        businessDescription: string;
+        experience: string;
+        address: string;
+        city: string;
+        state: string;
+        pincode: string;
+        licenseNumber?: string;
+        gstNumber?: string;
+        panNumber?: string;
+      } = {
+        businessName: formData.businessName.trim(),
+        businessType: formData.businessType,
+        businessDescription: formData.businessDescription.trim(),
+        experience: formData.experience,
+        address: formData.address.trim(),
+        city: formData.city,
+        state: formData.state,
+        pincode: formData.pincode.trim()
       };
+      
+      // Only add optional fields if they have values
+      if (formData.licenseNumber?.trim()) {
+        businessInfo.licenseNumber = formData.licenseNumber.trim();
+      }
+      if (formData.gstNumber?.trim()) {
+        businessInfo.gstNumber = formData.gstNumber.trim();
+      }
+      if (formData.panNumber?.trim()) {
+        businessInfo.panNumber = formData.panNumber.trim();
+      }
+      
+      // Prepare documents - only include documents that are actually uploaded
+      const documents = {};
+      Object.entries(uploadedDocuments).forEach(([key, doc]) => {
+        if (doc && doc.url) {
+          documents[key] = {
+            name: doc.name,
+            url: doc.url,
+            size: doc.size
+          };
+        }
+      });
+      
+      const registrationData = {
+        email: formData.email.trim(),
+        password: formData.password,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        phone: cleanPhone,
+        role: "agent", // Vendors are agents in the system
+        agreeToTerms: true, // Must be true as per backend validation
+        otp: otp.trim(), // Include verified OTP
+        businessInfo: businessInfo,
+        ...(Object.keys(documents).length > 0 && { documents }) // Only include documents if any exist
+      };
+
+      console.log('Submitting registration data:', JSON.stringify(registrationData, null, 2));
 
       const response = await authService.register(registrationData);
       
       if (response.success) {
         toast({
           title: "Registration Successful!",
-          description: "Your vendor account has been created. Please log in to access your dashboard.",
+          description: "Your vendor account has been created. Please wait for admin approval to start offering services.",
         });
         
         // Redirect to login after successful registration
@@ -239,14 +726,83 @@ const VendorRegister = () => {
       
     } catch (error) {
       console.error("Vendor registration error:", error);
+      
+      // Extract more specific error information
+      let errorMessage = "An error occurred during registration";
+      let shouldRetryOTP = false;
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        
+        // Handle specific validation errors
+        if (error.message.toLowerCase().includes('validation')) {
+          errorMessage = "Please check all required fields and try again";
+        } else if (error.message.toLowerCase().includes('email')) {
+          errorMessage = "Email validation failed. Please check your email format";
+        } else if (error.message.toLowerCase().includes('phone')) {
+          errorMessage = "Phone number validation failed. Please check your phone number format";
+        } else if (error.message.toLowerCase().includes('otp')) {
+          if (error.message.includes('expired') || error.message.includes('not found')) {
+            errorMessage = "Your OTP has expired. Please request a new OTP and try again.";
+            shouldRetryOTP = true;
+          } else {
+            errorMessage = "OTP validation failed. Please verify your OTP";
+          }
+        } else if (error.message.toLowerCase().includes('password')) {
+          errorMessage = "Password validation failed. Please check password requirements";
+        }
+      }
+      
       toast({
         title: "Registration Failed",
-        description: "An error occurred during registration. Please try again.",
+        description: errorMessage,
+        variant: "destructive",
+      });
+
+      // If OTP expired, reset the flow to allow getting a new OTP
+      if (shouldRetryOTP) {
+        setOtpStep("none");
+        setOtp("");
+        setCurrentStep(5); // Back to OTP step
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resendOtp = async () => {
+    try {
+      setIsLoading(true);
+      const { authService } = await import("@/services/authService");
+      
+      const response = await authService.sendOTP(formData.email, formData.firstName);
+      if (response.success) {
+        setOtp("");
+        setOtpStep("sent"); // Reset to sent state
+        setOtpExpiry(response.expiryMinutes || 10);
+        toast({
+          title: "OTP Resent",
+          description: "A new verification code has been sent to your email.",
+        });
+      }
+    } catch (error) {
+      console.error("Resend OTP error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to resend OTP. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // This function is called from the review step
+    // Just delegate to the registration handler
+    await handleRegistration();
   };
 
   const renderStepContent = () => {
@@ -256,53 +812,209 @@ const VendorRegister = () => {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  value={formData.firstName}
-                  onChange={(e) => handleInputChange("firstName", e.target.value)}
-                  placeholder="John"
-                  required
-                />
+                <Label htmlFor="firstName" className="flex items-center gap-1">
+                  First Name <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="firstName"
+                    value={formData.firstName}
+                    onChange={(e) => handleInputChange("firstName", e.target.value)}
+                    placeholder="Enter your first name"
+                    className="pl-10"
+                    required
+                  />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  value={formData.lastName}
-                  onChange={(e) => handleInputChange("lastName", e.target.value)}
-                  placeholder="Doe"
-                  required
-                />
+                <Label htmlFor="lastName" className="flex items-center gap-1">
+                  Last Name <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="lastName"
+                    value={formData.lastName}
+                    onChange={(e) => handleInputChange("lastName", e.target.value)}
+                    placeholder="Enter your last name"
+                    className="pl-10"
+                    required
+                  />
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="flex items-center gap-1">
+                Email Address <span className="text-red-500">*</span>
+              </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
-                  placeholder="john@example.com"
+                  placeholder="Enter your email address"
                   className="pl-10"
                   required
                 />
               </div>
+              {formData.email && !/\S+@\S+\.\S+/.test(formData.email) && (
+                <p className="text-xs text-red-500">Please enter a valid email address</p>
+              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone" className="flex items-center gap-1">
+                Phone Number <span className="text-red-500">*</span>
+              </Label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="phone"
-                  type="tel"
                   value={formData.phone}
-                  onChange={(e) => handleInputChange("phone", e.target.value)}
-                  placeholder="+91 98765 43210"
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^\d+]/g, ''); // Allow digits and +
+                    if (value.length <= 15) { // Max 15 characters for international numbers
+                      handleInputChange("phone", value);
+                    }
+                  }}
+                  placeholder="Enter phone number (e.g., +919876543210 or 9876543210)"
+                  className="pl-10"
+                  maxLength={15}
+                  required
+                />
+              </div>
+              {formData.phone && formData.phone.length > 0 && !/^[+]?[1-9]\d{1,14}$/.test(formData.phone) && (
+                <p className="text-xs text-red-500">Please enter a valid phone number</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="password" className="flex items-center gap-1">
+                  Password <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={(e) => handleInputChange("password", e.target.value)}
+                    placeholder="Enter your password"
+                    className="pl-10 pr-10"
+                    minLength={8}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                
+                {/* Password Strength Indicator */}
+                {formData.password && formData.password.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Password Strength:</span>
+                      <span className={`text-xs font-medium ${passwordStrength(formData.password).color}`}>
+                        {passwordStrength(formData.password).label}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-300 ${passwordStrength(formData.password).bgColor}`}
+                        style={{ width: `${(passwordStrength(formData.password).score / 5) * 100}%` }}
+                      />
+                    </div>
+                    
+                    {/* Password Requirements */}
+                    <div className="space-y-1">
+                      {validatePassword(formData.password).map((requirement, index) => (
+                        <div key={index} className="flex items-center gap-2 text-xs text-red-500">
+                          <AlertCircle className="w-3 h-3" />
+                          {requirement}
+                        </div>
+                      ))}
+                      {validatePassword(formData.password).length === 0 && formData.password.length >= 8 && (
+                        <div className="flex items-center gap-2 text-xs text-green-600">
+                          <CheckCircle className="w-3 h-3" />
+                          All requirements met
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="flex items-center gap-1">
+                  Confirm Password <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={formData.confirmPassword}
+                    onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                    placeholder="Confirm your password"
+                    className="pl-10 pr-10"
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                
+                {/* Password Match Validation */}
+                {formData.confirmPassword && formData.confirmPassword.length > 0 && (
+                  <div className="space-y-1">
+                    {formData.password === formData.confirmPassword ? (
+                      <div className="flex items-center gap-2 text-xs text-green-600">
+                        <CheckCircle className="w-3 h-3" />
+                        Passwords match
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-red-500">
+                        <AlertCircle className="w-3 h-3" />
+                        Passwords do not match
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="businessName" className="flex items-center gap-1">
+                Business Name <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="businessName"
+                  value={formData.businessName}
+                  onChange={(e) => handleInputChange("businessName", e.target.value)}
+                  placeholder="Enter your business name"
                   className="pl-10"
                   required
                 />
@@ -310,50 +1022,312 @@ const VendorRegister = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="businessType" className="flex items-center gap-1">
+                Business Type <span className="text-red-500">*</span>
+              </Label>
+              <Select 
+                value={formData.businessType} 
+                onValueChange={(value) => handleInputChange("businessType", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your business type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {businessTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="experience" className="flex items-center gap-1">
+                Years of Experience <span className="text-red-500">*</span>
+              </Label>
+              <Select 
+                value={formData.experience} 
+                onValueChange={(value) => handleInputChange("experience", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your experience level" />
+                </SelectTrigger>
+                <SelectContent>
+                  {experienceOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="businessDescription" className="flex items-center gap-1">
+                Business Description <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                id="businessDescription"
+                value={formData.businessDescription}
+                onChange={(e) => handleInputChange("businessDescription", e.target.value)}
+                placeholder="Describe your business, services, and expertise..."
+                rows={4}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Minimum 50 characters ({formData.businessDescription.length}/50)
+              </p>
+            </div>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="address" className="flex items-center gap-1">
+                Street Address <span className="text-red-500">*</span>
+              </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) => handleInputChange("password", e.target.value)}
-                  placeholder="Create a strong password"
-                  className="pl-10 pr-10"
+                <MapPin className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                <Textarea
+                  id="address"
+                  value={formData.address}
+                  onChange={(e) => handleInputChange("address", e.target.value)}
+                  placeholder="Complete business address (building, street, area)"
+                  className="pl-10"
+                  rows={3}
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
+              </div>
+            </div>
+
+            <div className="border border-primary/20 rounded-lg p-6 bg-transparent">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-primary" />
+                  Business Location
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Select your business location for proper verification
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* State Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="state" className="flex items-center gap-1">
+                    State <span className="text-red-500">*</span>
+                  </Label>
+                  <Select 
+                    value={formData.state} 
+                    onValueChange={(value) => {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        state: value, 
+                        stateCode: value,
+                        district: '',
+                        districtCode: '',
+                        city: '',
+                        cityCode: '',
+                        pincode: ''
+                      }));
+                    }}
+                    disabled={locationLoading.states}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={locationLoading.states ? "Loading states..." : "Select state"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {states.map((state) => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* District Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="district" className="flex items-center gap-1">
+                    District <span className="text-red-500">*</span>
+                  </Label>
+                  <Select 
+                    value={formData.district} 
+                    onValueChange={(value) => {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        district: value, 
+                        districtCode: value,
+                        city: '',
+                        cityCode: '',
+                        pincode: ''
+                      }));
+                    }}
+                    disabled={!formData.state || locationLoading.districts}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        !formData.state 
+                          ? "Select state first" 
+                          : locationLoading.districts 
+                            ? "Loading districts..." 
+                            : "Select district"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {districts.map((district) => (
+                        <SelectItem key={district} value={district}>
+                          {district}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* City Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="city" className="flex items-center gap-1">
+                    City <span className="text-red-500">*</span>
+                  </Label>
+                  <Select 
+                    value={formData.city} 
+                    onValueChange={(value) => {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        city: value, 
+                        cityCode: value
+                      }));
+                    }}
+                    disabled={!formData.district || locationLoading.cities}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        !formData.district 
+                          ? "Select district first" 
+                          : locationLoading.cities 
+                            ? "Loading cities..." 
+                            : "Select city"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cities.map((city) => (
+                        <SelectItem key={city} value={city}>
+                          {city}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                  placeholder="Confirm your password"
-                  className="pl-10 pr-10"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
+              <Label htmlFor="pincode" className="flex items-center gap-1">
+                PIN Code <span className="text-red-500">*</span>
+              </Label>
+              <PincodeAutocomplete
+                value={formData.pincode}
+                onChange={(pincode, locationData) => {
+                  console.log('Pincode selected:', pincode, locationData);
+                  setFormData(prev => ({ ...prev, pincode }));
+                  
+                  // Auto-fill location fields if suggestion provides data
+                  if (locationData) {
+                    console.log('Auto-filling location from pincode:', locationData);
+                    
+                    // Set state if available and matches our states list
+                    if (locationData.state && states.includes(locationData.state.toUpperCase())) {
+                      const stateValue = locationData.state.toUpperCase();
+                      setFormData(prev => ({
+                        ...prev,
+                        state: stateValue,
+                        stateCode: stateValue
+                      }));
+                      
+                      // Load districts and set district if available
+                      setTimeout(() => {
+                        if (locationData.district) {
+                          const districtsForState = locaService.getDistricts(stateValue);
+                          const matchingDistrict = districtsForState.find(d => 
+                            d.toUpperCase() === locationData.district.toUpperCase()
+                          );
+                          
+                          if (matchingDistrict) {
+                            setFormData(prev => ({
+                              ...prev,
+                              district: matchingDistrict,
+                              districtCode: matchingDistrict
+                            }));
+                            
+                            // Load cities and set city if available
+                            setTimeout(() => {
+                              if (locationData.city) {
+                                const citiesForDistrict = locaService.getCities(stateValue, matchingDistrict);
+                                const matchingCity = citiesForDistrict.find(c => 
+                                  c.toUpperCase() === locationData.city.toUpperCase()
+                                );
+                                
+                                if (matchingCity) {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    city: matchingCity,
+                                    cityCode: matchingCity
+                                  }));
+                                }
+                              }
+                            }, 100);
+                          }
+                        }
+                      }, 100);
+                    }
+                    
+                    // Show success toast
+                    toast({
+                      title: "Location Auto-filled",
+                      description: `Location details populated from PIN code ${pincode}`,
+                    });
+                  }
+                }}
+                state={formData.state}
+                district={formData.district}
+                city={formData.city}
+                placeholder="Enter or select PIN code"
+              />
+              {formData.pincode && formData.pincode.length === 6 && locaService.isReady() && (
+                <div className="text-xs">
+                  {locaService.validatePincode(formData.pincode) ? (
+                    <span className="text-green-600 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Valid PIN code
+                    </span>
+                  ) : (
+                    <span className="text-amber-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      PIN code not found in our database
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* Location Summary */}
+            {(formData.state || formData.district || formData.city) && (
+              <div className="bg-muted/50 border border-border rounded-lg p-4">
+                <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Selected Location:
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {[formData.city, formData.district, formData.state, formData.country]
+                    .filter(Boolean)
+                    .join(', ')}
+                  {formData.pincode && ` - ${formData.pincode}`}
+                </p>
+              </div>
+            )}
           </div>
         );
 
@@ -521,6 +1495,9 @@ const VendorRegister = () => {
                     onChange={(e) => handleInputChange("licenseNumber", e.target.value)}
                     placeholder="RERA/Professional License Number"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    If applicable (RERA registration, broker license, etc.)
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="gstNumber">GST Number (Optional)</Label>
@@ -534,19 +1511,38 @@ const VendorRegister = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="panNumber">PAN Number</Label>
+                <Label htmlFor="panNumber" className="flex items-center gap-1">
+                  PAN Number <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="panNumber"
                   value={formData.panNumber}
-                  onChange={(e) => handleInputChange("panNumber", e.target.value)}
-                  placeholder="PAN Card Number"
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    if (value.length <= 10) {
+                      handleInputChange("panNumber", value);
+                    }
+                  }}
+                  placeholder="ABCDE1234F"
+                  maxLength={10}
+                  pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}"
                   required
                 />
+                {formData.panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber) && formData.panNumber.length === 10 && (
+                  <p className="text-xs text-red-500">Please enter a valid PAN number format</p>
+                )}
               </div>
 
-              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
-                <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                <p className="font-medium mb-1">Business Registration Certificate</p>
+              <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                uploadedDocuments.businessRegistration ? 'border-green-300 bg-green-50' : 'border-border hover:border-primary/50'
+              }`}>
+                <FileText className={`w-8 h-8 mx-auto mb-2 ${
+                  uploadedDocuments.businessRegistration ? 'text-green-600' : 'text-muted-foreground'
+                }`} />
+                <p className="font-medium mb-1 flex items-center justify-center gap-2">
+                  Business Registration Certificate
+                  <span className="text-red-500">*</span>
+                </p>
                 <p className="text-sm text-muted-foreground mb-3">
                   Upload your business registration or incorporation certificate
                 </p>
@@ -561,17 +1557,22 @@ const VendorRegister = () => {
                   }}
                 />
                 <Button 
-                  variant="outline" 
+                  variant={uploadedDocuments.businessRegistration ? "secondary" : "outline"}
                   size="sm"
                   onClick={() => document.getElementById('business-registration')?.click()}
                 >
-                  Choose File
+                  <Upload className="w-4 h-4 mr-2" />
+                  {uploadedDocuments.businessRegistration ? 'Change File' : 'Choose File'}
                 </Button>
                 {uploadedDocuments.businessRegistration && (
-                  <div className="mt-2 text-sm text-green-600">
-                    ✓ {uploadedDocuments.businessRegistration.name}
+                  <div className="mt-2 text-sm text-green-600 flex items-center justify-center gap-1">
+                    <CheckCircle className="w-4 h-4" />
+                    {uploadedDocuments.businessRegistration.name}
                   </div>
                 )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Supported: PDF, JPG, JPEG, PNG (Max 10MB)
+                </p>
               </div>
 
               <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
@@ -604,9 +1605,16 @@ const VendorRegister = () => {
                 )}
               </div>
 
-              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
-                <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                <p className="font-medium mb-1">Identity Proof</p>
+              <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                uploadedDocuments.identityProof ? 'border-green-300 bg-green-50' : 'border-border hover:border-primary/50'
+              }`}>
+                <FileText className={`w-8 h-8 mx-auto mb-2 ${
+                  uploadedDocuments.identityProof ? 'text-green-600' : 'text-muted-foreground'
+                }`} />
+                <p className="font-medium mb-1 flex items-center justify-center gap-2">
+                  Identity Proof
+                  <span className="text-red-500">*</span>
+                </p>
                 <p className="text-sm text-muted-foreground mb-3">
                   Upload Aadhaar card, PAN card, or passport
                 </p>
@@ -621,17 +1629,22 @@ const VendorRegister = () => {
                   }}
                 />
                 <Button 
-                  variant="outline" 
+                  variant={uploadedDocuments.identityProof ? "secondary" : "outline"}
                   size="sm"
                   onClick={() => document.getElementById('identity-proof')?.click()}
                 >
-                  Choose File
+                  <Upload className="w-4 h-4 mr-2" />
+                  {uploadedDocuments.identityProof ? 'Change File' : 'Choose File'}
                 </Button>
                 {uploadedDocuments.identityProof && (
-                  <div className="mt-2 text-sm text-green-600">
-                    ✓ {uploadedDocuments.identityProof.name}
+                  <div className="mt-2 text-sm text-green-600 flex items-center justify-center gap-1">
+                    <CheckCircle className="w-4 h-4" />
+                    {uploadedDocuments.identityProof.name}
                   </div>
                 )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Supported: PDF, JPG, JPEG, PNG (Max 10MB)
+                </p>
               </div>
             </div>
 
@@ -655,98 +1668,67 @@ const VendorRegister = () => {
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Review Your Application</h3>
+              <Mail className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Verify Your Email</h3>
               <p className="text-muted-foreground">
-                Please review all information before submitting
+                Enter the 6-digit OTP sent to {formData.email}
               </p>
             </div>
 
             <div className="space-y-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Personal Information</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0 space-y-2 text-sm">
-                  <p><span className="font-medium">Name:</span> {formData.firstName} {formData.lastName}</p>
-                  <p><span className="font-medium">Email:</span> {formData.email}</p>
-                  <p><span className="font-medium">Phone:</span> {formData.phone}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Business Information</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0 space-y-2 text-sm">
-                  <p><span className="font-medium">Business Name:</span> {formData.businessName}</p>
-                  <p><span className="font-medium">Type:</span> {formData.businessType}</p>
-                  <p><span className="font-medium">Experience:</span> {formData.experience}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Address</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0 space-y-2 text-sm">
-                  <p>{formData.address}</p>
-                  <p>
-                    {[formData.city, formData.district, formData.state, formData.country]
-                      .filter(Boolean)
-                      .join(', ')
-                    }
-                    {formData.pincode && ` - ${formData.pincode}`}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Legal Information</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0 space-y-2 text-sm">
-                  {formData.licenseNumber && (
-                    <p><span className="font-medium">License Number:</span> {formData.licenseNumber}</p>
-                  )}
-                  {formData.gstNumber && (
-                    <p><span className="font-medium">GST Number:</span> {formData.gstNumber}</p>
-                  )}
-                  {formData.panNumber && (
-                    <p><span className="font-medium">PAN Number:</span> {formData.panNumber}</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="terms" 
-                  checked={formData.termsAccepted}
-                  onCheckedChange={(checked) => handleInputChange("termsAccepted", checked)}
+              <div className="space-y-2">
+                <Label htmlFor="otp">Verification Code</Label>
+                <Input
+                  id="otp"
+                  type="text"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="Enter 6-digit OTP"
+                  className="text-center text-lg tracking-wider"
+                  required
                 />
-                <Label htmlFor="terms" className="text-sm">
-                  I agree to the{" "}
-                  <Link to="/terms" className="text-primary hover:underline">
-                    Terms and Conditions
-                  </Link>{" "}
-                  and{" "}
-                  <Link to="/privacy" className="text-primary hover:underline">
-                    Privacy Policy
-                  </Link>
-                </Label>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="marketing" 
-                  checked={formData.marketingConsent}
-                  onCheckedChange={(checked) => handleInputChange("marketingConsent", checked)}
-                />
-                <Label htmlFor="marketing" className="text-sm">
-                  I consent to receive marketing communications and updates
-                </Label>
+              <Button
+                type="button"
+                onClick={handleOtpSubmit}
+                disabled={isLoading || otp.length !== 6}
+                className="w-full"
+              >
+                {isLoading ? "Registering..." : "Complete Registration"}
+              </Button>
+
+              <div className="text-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={resendOtp}
+                  disabled={isLoading}
+                  className="text-sm"
+                >
+                  Didn't receive OTP? Resend
+                </Button>
+              </div>
+
+              {otpExpiry > 0 && (
+                <p className="text-xs text-muted-foreground text-center">
+                  OTP expires in {otpExpiry} minutes
+                </p>
+              )}
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-950 dark:border-blue-800">
+              <div className="flex items-start gap-3">
+                <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Email Verification Required
+                  </p>
+                  <p className="text-sm text-blue-700 dark:text-blue-200">
+                    We need to verify your email address before completing your vendor registration.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -832,15 +1814,45 @@ const VendorRegister = () => {
                   </Button>
 
                   {currentStep < 5 ? (
-                    <Button type="button" onClick={handleNext}>
-                      Next
+                    <Button 
+                      type="button" 
+                      onClick={handleNext} 
+                      disabled={isLoading || !validateStep(currentStep)}
+                      className={validateStep(currentStep) ? "" : "opacity-50"}
+                    >
+                      {isLoading && currentStep === 4 ? "Sending OTP..." : "Next"}
+                      {!validateStep(currentStep) && (
+                        <AlertCircle className="w-4 h-4 ml-2" />
+                      )}
                     </Button>
+                  ) : currentStep === 5 ? (
+                    null // OTP step has its own submit button
                   ) : (
-                    <Button type="submit" disabled={isLoading || !formData.termsAccepted}>
+                    <Button 
+                      type="submit" 
+                      disabled={isLoading || !formData.termsAccepted || otpStep !== "verified"}
+                    >
                       {isLoading ? "Submitting..." : "Submit Application"}
                     </Button>
                   )}
                 </div>
+
+                {/* Step validation indicators */}
+                {!validateStep(currentStep) && currentStep < 5 && (
+                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-800">Please complete the following:</p>
+                        <ul className="text-sm text-amber-700 mt-1 list-disc list-inside">
+                          {getValidationErrors(currentStep).map((error, index) => (
+                            <li key={index}>{error}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </form>
             </CardContent>
           </Card>

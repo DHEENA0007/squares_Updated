@@ -825,7 +825,7 @@ router.get('/:paymentId/status', asyncHandler(async (req, res) => {
 // @route   POST /api/payments/:paymentId/refund
 // @access  Private/Admin
 router.post('/:paymentId/refund', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'

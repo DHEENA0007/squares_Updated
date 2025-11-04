@@ -266,7 +266,7 @@ router.get('/customer', asyncHandler(async (req, res) => {
 // @access  Private/Admin
 router.get('/', asyncHandler(async (req, res) => {
   // Only admin can access dashboard
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'

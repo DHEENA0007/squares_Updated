@@ -132,7 +132,6 @@ const VendorNavbar = ({ setSidebarOpen }: VendorNavbarProps) => {
                           : "Vendor User"
                         }
                       </div>
-                      <div className="text-xs text-muted-foreground">Premium Agent</div>
                     </div>
                   </Button>
                 </DropdownMenuTrigger>

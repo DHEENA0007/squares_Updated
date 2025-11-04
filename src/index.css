@@ -110,3 +110,745 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* ============================================
+   COMPREHENSIVE MEDIA QUERIES FOR APPLICATION
+   ============================================ */
+
+/* ===========================================
+   1. GLOBAL RESPONSIVE UTILITIES
+   =========================================== */
+
+@layer utilities {
+  /* Container and Layout Responsive Classes */
+  .container-responsive {
+    width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-responsive {
+      max-width: 640px;
+      margin-left: auto;
+      margin-right: auto;
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .container-responsive {
+      max-width: 768px;
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-responsive {
+      max-width: 1024px;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .container-responsive {
+      max-width: 1280px;
+    }
+  }
+
+  @media (min-width: 1536px) {
+    .container-responsive {
+      max-width: 1400px;
+    }
+  }
+
+  /* Typography Responsive */
+  .text-responsive-xs {
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+
+  .text-responsive-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  .text-responsive-base {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+
+  .text-responsive-lg {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+
+  .text-responsive-xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+
+  @media (min-width: 640px) {
+    .text-responsive-xs { font-size: 0.875rem; line-height: 1.25rem; }
+    .text-responsive-sm { font-size: 1rem; line-height: 1.5rem; }
+    .text-responsive-base { font-size: 1.125rem; line-height: 1.75rem; }
+    .text-responsive-lg { font-size: 1.25rem; line-height: 1.75rem; }
+    .text-responsive-xl { font-size: 1.5rem; line-height: 2rem; }
+  }
+
+  @media (min-width: 768px) {
+    .text-responsive-xs { font-size: 1rem; line-height: 1.5rem; }
+    .text-responsive-sm { font-size: 1.125rem; line-height: 1.75rem; }
+    .text-responsive-base { font-size: 1.25rem; line-height: 1.75rem; }
+    .text-responsive-lg { font-size: 1.5rem; line-height: 2rem; }
+    .text-responsive-xl { font-size: 1.875rem; line-height: 2.25rem; }
+  }
+}
+
+/* ===========================================
+   2. MOBILE-FIRST BREAKPOINTS (320px - 639px)
+   =========================================== */
+
+/* Extra Small Devices (320px - 479px) */
+@media (max-width: 479px) {
+  :root {
+    --radius: 0.5rem;
+  }
+
+  /* Global adjustments for very small screens */
+  body {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  /* Layout adjustments */
+  .h-screen {
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile */
+  }
+
+  /* Sidebar adjustments */
+  .sidebar {
+    width: 100% !important;
+    position: fixed !important;
+    z-index: 50 !important;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* Navigation adjustments */
+  .nav-item {
+    padding: 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  /* Form adjustments */
+  .form-input {
+    padding: 0.75rem;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  /* Button adjustments */
+  .btn {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    min-height: 44px; /* Touch-friendly minimum */
+  }
+
+  /* Card adjustments */
+  .card {
+    margin: 0.5rem;
+    padding: 1rem;
+    border-radius: 0.5rem;
+  }
+
+  /* Grid adjustments */
+  .grid-responsive {
+    grid-template-columns: 1fr !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Property cards */
+  .property-card {
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+
+  /* Dashboard stats */
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+}
+
+/* Small Devices (480px - 639px) */
+@media (min-width: 480px) and (max-width: 639px) {
+  /* Layout improvements for small phones */
+  .container-responsive {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  /* Grid adjustments */
+  .grid-responsive {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+  }
+
+  /* Property cards in 1 column but larger */
+  .property-card {
+    width: 100%;
+  }
+
+  /* Button improvements */
+  .btn {
+    padding: 0.875rem 1.25rem;
+  }
+}
+
+/* ===========================================
+   3. TABLET BREAKPOINTS (640px - 1023px)
+   =========================================== */
+
+/* Small Tablets (640px - 767px) */
+@media (min-width: 640px) and (max-width: 767px) {
+  /* Sidebar adjustments */
+  .sidebar {
+    width: 240px;
+  }
+
+  /* Main content adjustments */
+  .main-content {
+    margin-left: 0;
+    padding: 1.5rem;
+  }
+
+  .main-content.with-sidebar {
+    margin-left: 240px;
+  }
+
+  /* Grid improvements */
+  .grid-responsive {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Property cards in 2 columns */
+  .property-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+  }
+
+  /* Navigation */
+  .nav-item {
+    padding: 1rem;
+  }
+
+  /* Forms */
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Dashboard adjustments */
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Medium Tablets (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Sidebar improvements */
+  .sidebar {
+    width: 260px;
+  }
+
+  .main-content.with-sidebar {
+    margin-left: 260px;
+  }
+
+  /* Grid improvements */
+  .grid-responsive {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1.25rem !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Property cards */
+  .property-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Form improvements */
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1.25rem !important;
+  }
+
+  /* Dashboard */
+  .dashboard-grid {
+    grid-template-columns: 2fr 1fr !important;
+  }
+
+  /* Tables */
+  .table-responsive {
+    display: table;
+  }
+
+  .table-responsive thead {
+    display: table-header-group;
+  }
+
+  .table-responsive tbody {
+    display: table-row-group;
+  }
+
+  .table-responsive tr {
+    display: table-row;
+  }
+
+  .table-responsive td,
+  .table-responsive th {
+    display: table-cell;
+    padding: 0.75rem;
+  }
+}
+
+/* ===========================================
+   4. DESKTOP BREAKPOINTS (1024px+)
+   =========================================== */
+
+/* Small Desktop (1024px - 1279px) */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  /* Sidebar full functionality */
+  .sidebar {
+    width: 280px;
+    position: relative;
+    transform: translateX(0);
+  }
+
+  .sidebar.collapsed {
+    width: 80px;
+  }
+
+  .main-content.with-sidebar {
+    margin-left: 280px;
+    transition: margin-left 0.3s ease-in-out;
+  }
+
+  .main-content.with-sidebar.sidebar-collapsed {
+    margin-left: 80px;
+  }
+
+  /* Grid optimizations */
+  .grid-responsive {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 1.5rem !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+
+  .property-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Form optimizations */
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .form-grid-large {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Dashboard layout */
+  .dashboard-grid {
+    grid-template-columns: 2fr 1fr !important;
+    gap: 2rem !important;
+  }
+
+  /* Typography improvements */
+  h1 { font-size: 2.25rem; line-height: 2.5rem; }
+  h2 { font-size: 1.875rem; line-height: 2.25rem; }
+  h3 { font-size: 1.5rem; line-height: 2rem; }
+  h4 { font-size: 1.25rem; line-height: 1.75rem; }
+}
+
+/* Large Desktop (1280px - 1535px) */
+@media (min-width: 1280px) and (max-width: 1535px) {
+  /* Enhanced sidebar */
+  .sidebar {
+    width: 300px;
+  }
+
+  .sidebar.collapsed {
+    width: 80px;
+  }
+
+  .main-content.with-sidebar {
+    margin-left: 300px;
+  }
+
+  .main-content.with-sidebar.sidebar-collapsed {
+    margin-left: 80px;
+  }
+
+  /* Optimal grid layouts */
+  .grid-responsive {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 2rem !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+
+  .property-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+
+  /* Enhanced forms */
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .form-grid-large {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Dashboard enhancements */
+  .dashboard-grid {
+    grid-template-columns: 3fr 1fr !important;
+  }
+
+  /* Content padding */
+  .main-content {
+    padding: 2rem 3rem;
+  }
+}
+
+/* Extra Large Desktop (1536px+) */
+@media (min-width: 1536px) {
+  /* Maximum layout optimization */
+  .sidebar {
+    width: 320px;
+  }
+
+  .main-content.with-sidebar {
+    margin-left: 320px;
+  }
+
+  /* Large screen grids */
+  .grid-responsive {
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 2.5rem !important;
+  }
+
+  .property-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
+  }
+
+  .form-grid-large {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+
+  /* Enhanced typography for large screens */
+  h1 { font-size: 3rem; line-height: 1.1; }
+  h2 { font-size: 2.25rem; line-height: 2.5rem; }
+  h3 { font-size: 1.875rem; line-height: 2.25rem; }
+
+  /* Generous spacing */
+  .main-content {
+    padding: 3rem 4rem;
+  }
+
+  /* Dashboard for large screens */
+  .dashboard-grid {
+    grid-template-columns: 3fr 1fr !important;
+    gap: 3rem !important;
+  }
+}
+
+/* ===========================================
+   5. LANDSCAPE ORIENTATION
+   =========================================== */
+
+@media (orientation: landscape) and (max-width: 1023px) {
+  /* Landscape mobile/tablet adjustments */
+  .sidebar {
+    width: 200px;
+  }
+
+  .main-content.with-sidebar {
+    margin-left: 200px;
+  }
+
+  /* Optimize vertical space */
+  .nav-item {
+    padding: 0.5rem 1rem;
+  }
+
+  /* Compact headers */
+  .header {
+    padding: 0.75rem 1rem;
+  }
+
+  .dashboard-stats {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+/* ===========================================
+   6. HIGH DPI / RETINA DISPLAYS
+   =========================================== */
+
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* Enhance visual elements for high DPI */
+  .logo, .icon {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+
+  /* Thinner borders on high DPI */
+  .border {
+    border-width: 0.5px;
+  }
+
+  /* Enhanced shadows */
+  .shadow-sm {
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.1);
+  }
+
+  .shadow {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.15), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  }
+}
+
+/* ===========================================
+   7. REDUCED MOTION PREFERENCES
+   =========================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .sidebar {
+    transition: none !important;
+  }
+
+  .main-content {
+    transition: none !important;
+  }
+}
+
+/* ===========================================
+   8. PRINT STYLES
+   =========================================== */
+
+@media print {
+  * {
+    color: black !important;
+    background: white !important;
+    box-shadow: none !important;
+  }
+
+  .sidebar {
+    display: none !important;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    padding: 1rem !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .page-break {
+    page-break-after: always;
+  }
+
+  .property-card,
+  .stats-card {
+    break-inside: avoid;
+    border: 1px solid #ccc !important;
+    margin-bottom: 1rem;
+  }
+
+  /* Ensure links show URLs */
+  a[href]:after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #666;
+  }
+
+  /* Hide interactive elements */
+  button,
+  .btn,
+  .form-input,
+  nav,
+  .navigation {
+    display: none !important;
+  }
+}
+
+/* ===========================================
+   9. DARK MODE SPECIFIC RESPONSIVE ADJUSTMENTS
+   =========================================== */
+
+@media (prefers-color-scheme: dark) {
+  .dark {
+    /* Enhanced contrast for smaller screens */
+    --shadow-glow: 0 0 40px hsl(38 92% 50% / 0.5);
+  }
+}
+
+@media (max-width: 768px) and (prefers-color-scheme: dark) {
+  .dark {
+    /* Stronger borders on small dark screens */
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
+  }
+}
+
+/* ===========================================
+   10. COMPONENT-SPECIFIC RESPONSIVE UTILITIES
+   =========================================== */
+
+/* Property Cards Responsive */
+@media (max-width: 640px) {
+  .property-card {
+    min-height: auto;
+    padding: 1rem;
+  }
+  
+  .property-card-image {
+    height: 200px;
+  }
+  
+  .property-card-content {
+    padding: 1rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .property-card {
+    min-height: 350px;
+  }
+  
+  .property-card-image {
+    height: 180px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .property-card {
+    min-height: 400px;
+  }
+  
+  .property-card-image {
+    height: 220px;
+  }
+}
+
+/* Form Responsive */
+@media (max-width: 640px) {
+  .form-container {
+    padding: 1rem;
+  }
+  
+  .form-input,
+  .form-select,
+  .form-textarea {
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+  
+  .form-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+/* Navigation Responsive */
+@media (max-width: 1024px) {
+  .nav-desktop {
+    display: none !important;
+  }
+  
+  .nav-mobile {
+    display: flex !important;
+  }
+  
+  .nav-toggle {
+    display: block !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  .nav-desktop {
+    display: flex !important;
+  }
+  
+  .nav-mobile {
+    display: none !important;
+  }
+  
+  .nav-toggle {
+    display: none !important;
+  }
+}
+
+/* Dashboard Responsive */
+@media (max-width: 768px) {
+  .dashboard-header {
+    padding: 1rem;
+  }
+  
+  .dashboard-title {
+    font-size: 1.5rem;
+  }
+  
+  .dashboard-stats {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .dashboard-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  .dashboard-stats {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+

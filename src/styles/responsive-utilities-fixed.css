@@ -1,0 +1,1011 @@
+/* ============================================
+   RESPONSIVE UTILITIES FOR NINETY NINE ACRES
+   Standard CSS responsive utility classes
+   ============================================ */
+
+/* ===========================================
+   RESPONSIVE CONTAINER CLASSES
+   =========================================== */
+
+.responsive-container {
+  width: 100%;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 475px) {
+  .responsive-container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 640px) {
+  .responsive-container {
+    max-width: 640px;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .responsive-container {
+    max-width: 768px;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-container {
+    max-width: 1024px;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .responsive-container {
+    max-width: 1280px;
+    padding-left: 3rem;
+    padding-right: 3rem;
+  }
+}
+
+@media (min-width: 1536px) {
+  .responsive-container {
+    max-width: 1400px;
+    padding-left: 3rem;
+    padding-right: 3rem;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE GRID CLASSES
+   =========================================== */
+
+.grid-auto-fit {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .grid-auto-fit {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-auto-fit {
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2rem;
+  }
+}
+
+.grid-properties {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(1, 1fr);
+}
+
+@media (min-width: 640px) {
+  .grid-properties {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-properties {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .grid-properties {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 1536px) {
+  .grid-properties {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.grid-dashboard {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(1, 1fr);
+}
+
+@media (min-width: 640px) {
+  .grid-dashboard {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .grid-dashboard {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-dashboard {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ===========================================
+   RESPONSIVE FLEX CLASSES
+   =========================================== */
+
+.flex-responsive {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .flex-responsive {
+    flex-direction: row;
+  }
+}
+
+.flex-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+  .flex-stack {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE SPACING CLASSES
+   =========================================== */
+
+.padding-responsive {
+  padding: 1rem;
+}
+
+@media (min-width: 640px) {
+  .padding-responsive {
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .padding-responsive {
+    padding: 2rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .padding-responsive {
+    padding: 3rem;
+  }
+}
+
+.margin-responsive {
+  margin: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .margin-responsive {
+    margin: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .margin-responsive {
+    margin: 1.5rem;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE TYPOGRAPHY CLASSES
+   =========================================== */
+
+.text-heading-responsive {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+}
+
+@media (min-width: 640px) {
+  .text-heading-responsive {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .text-heading-responsive {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .text-heading-responsive {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+  }
+}
+
+.text-subheading-responsive {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+}
+
+@media (min-width: 640px) {
+  .text-subheading-responsive {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .text-subheading-responsive {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+}
+
+.text-body-responsive {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .text-body-responsive {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .text-body-responsive {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE COMPONENT CLASSES
+   =========================================== */
+
+/* Responsive Cards */
+.card-responsive {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow-soft);
+}
+
+@media (min-width: 640px) {
+  .card-responsive {
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .card-responsive {
+    padding: 2rem;
+  }
+}
+
+/* Responsive Buttons */
+.btn-responsive {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  border-radius: calc(var(--radius) - 2px);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (min-width: 640px) {
+  .btn-responsive {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .btn-responsive {
+    padding: 1rem 2rem;
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+}
+
+/* Responsive Forms */
+.form-responsive {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .form-responsive {
+    gap: 1.5rem;
+  }
+}
+
+.form-grid-responsive {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(1, 1fr);
+}
+
+@media (min-width: 768px) {
+  .form-grid-responsive {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .form-grid-responsive {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.input-responsive {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  border: 1px solid hsl(var(--input));
+  border-radius: calc(var(--radius) - 2px);
+  background-color: transparent;
+  color: hsl(var(--foreground));
+}
+
+@media (min-width: 640px) {
+  .input-responsive {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE NAVIGATION CLASSES
+   =========================================== */
+
+.nav-responsive {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+  .nav-responsive {
+    flex-direction: row;
+  }
+}
+
+.nav-item-responsive {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  border-radius: calc(var(--radius) - 2px);
+  text-decoration: none;
+}
+
+@media (min-width: 1024px) {
+  .nav-item-responsive {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE SIDEBAR CLASSES
+   =========================================== */
+
+.sidebar-responsive {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  width: 16rem;
+  background-color: hsl(var(--sidebar-background));
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (min-width: 1024px) {
+  .sidebar-responsive {
+    position: relative;
+    transform: translateX(0);
+  }
+}
+
+.sidebar-responsive.open {
+  transform: translateX(0);
+}
+
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+@media (min-width: 1024px) {
+  .sidebar-overlay {
+    display: none;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE TABLE CLASSES
+   =========================================== */
+
+.table-responsive-wrapper {
+  overflow-x: auto;
+}
+
+.table-responsive {
+  min-width: 100%;
+}
+
+@media (max-width: 767px) {
+  .table-responsive {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+  
+  .table-responsive th,
+  .table-responsive td {
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .table-responsive th,
+  .table-responsive td {
+    padding: 0.5rem 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .table-responsive th,
+  .table-responsive td {
+    padding: 0.75rem 1.5rem;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE MODAL CLASSES
+   =========================================== */
+
+.modal-responsive {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-content-responsive {
+  background-color: hsl(var(--card));
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 24rem;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-large);
+}
+
+@media (min-width: 640px) {
+  .modal-content-responsive {
+    max-width: 28rem;
+    padding: 2rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .modal-content-responsive {
+    max-width: 32rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .modal-content-responsive {
+    max-width: 36rem;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE IMAGE CLASSES
+   =========================================== */
+
+.image-responsive {
+  width: 100%;
+  height: auto;
+}
+
+.image-cover-responsive {
+  width: 100%;
+  object-fit: cover;
+  height: 200px;
+}
+
+@media (min-width: 640px) {
+  .image-cover-responsive {
+    height: 250px;
+  }
+}
+
+@media (min-width: 768px) {
+  .image-cover-responsive {
+    height: 300px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .image-cover-responsive {
+    height: 350px;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE PROPERTY CARD CLASSES
+   =========================================== */
+
+.property-card-responsive {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.property-card-responsive:hover {
+  transform: scale(1.05);
+}
+
+.property-image-responsive {
+  width: 100%;
+  object-fit: cover;
+  height: 200px;
+}
+
+@media (min-width: 640px) {
+  .property-image-responsive {
+    height: 250px;
+  }
+}
+
+@media (min-width: 768px) {
+  .property-image-responsive {
+    height: 300px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .property-image-responsive {
+    height: 350px;
+  }
+}
+
+.property-content-responsive {
+  padding: 1rem;
+}
+
+@media (min-width: 640px) {
+  .property-content-responsive {
+    padding: 1.5rem;
+  }
+}
+
+.property-title-responsive {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .property-title-responsive {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+}
+
+.property-price-responsive {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+  color: hsl(var(--primary));
+}
+
+@media (min-width: 640px) {
+  .property-price-responsive {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE DASHBOARD CLASSES
+   =========================================== */
+
+.dashboard-header-responsive {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .dashboard-header-responsive {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.dashboard-title-responsive {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 700;
+}
+
+@media (min-width: 640px) {
+  .dashboard-title-responsive {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-title-responsive {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+  }
+}
+
+.stats-card-responsive {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow-soft);
+  text-align: center;
+}
+
+.stats-value-responsive {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 700;
+  color: hsl(var(--primary));
+}
+
+@media (min-width: 640px) {
+  .stats-value-responsive {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .stats-value-responsive {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+  }
+}
+
+.stats-label-responsive {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: hsl(var(--muted-foreground));
+}
+
+@media (min-width: 640px) {
+  .stats-label-responsive {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE SEARCH CLASSES
+   =========================================== */
+
+.search-container-responsive {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .search-container-responsive {
+    flex-direction: row;
+  }
+}
+
+.search-input-responsive {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  border: 1px solid hsl(var(--input));
+  border-radius: calc(var(--radius) - 2px);
+  background-color: transparent;
+  color: hsl(var(--foreground));
+  flex: 1;
+}
+
+@media (min-width: 640px) {
+  .search-input-responsive {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+
+.search-button-responsive {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  border-radius: calc(var(--radius) - 2px);
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.search-button-responsive:hover {
+  opacity: 0.9;
+}
+
+@media (min-width: 640px) {
+  .search-button-responsive {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .search-button-responsive {
+    margin-left: 0.5rem;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE FILTER CLASSES
+   =========================================== */
+
+.filter-container-responsive {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(1, 1fr);
+}
+
+@media (min-width: 640px) {
+  .filter-container-responsive {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .filter-container-responsive {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .filter-container-responsive {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ===========================================
+   RESPONSIVE PAGINATION CLASSES
+   =========================================== */
+
+.pagination-responsive {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .pagination-responsive {
+    gap: 0.75rem;
+  }
+}
+
+.pagination-button-responsive {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  background-color: transparent;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pagination-button-responsive:hover {
+  background-color: hsl(var(--accent));
+}
+
+@media (min-width: 640px) {
+  .pagination-button-responsive {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE UTILITY CLASSES
+   =========================================== */
+
+/* Hide/Show at different breakpoints */
+@media (max-width: 767px) {
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+.show-mobile {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .show-mobile {
+    display: block !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hide-tablet {
+    display: none !important;
+  }
+}
+
+.show-tablet {
+  display: none;
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .show-tablet {
+    display: block !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hide-desktop {
+    display: none !important;
+  }
+}
+
+.show-desktop {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .show-desktop {
+    display: block !important;
+  }
+}
+
+/* Touch-friendly classes */
+@media (pointer: coarse) {
+  .touch-friendly {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* High DPI optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .retina-border {
+    border-width: 0.5px;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .reduce-motion {
+    transition: none !important;
+  }
+  
+  .reduce-motion * {
+    transition: none !important;
+  }
+}
+
+/* Print optimizations */
+@media print {
+  .print-hidden {
+    display: none !important;
+  }
+  
+  .print-visible {
+    display: block !important;
+  }
+  
+  .print-break {
+    page-break-after: always;
+  }
+  
+  .print-no-break {
+    page-break-inside: avoid;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE ANIMATION CLASSES
+   =========================================== */
+
+.animate-fade-in-responsive {
+  opacity: 0;
+  animation: fadeIn 0.3s ease-in-out forwards;
+}
+
+@media (min-width: 1024px) {
+  .animate-fade-in-responsive {
+    animation-duration: 0.5s;
+  }
+}
+
+.animate-slide-up-responsive {
+  opacity: 0;
+  transform: translateY(1rem);
+  animation: slideUp 0.3s ease-in-out forwards;
+}
+
+@media (min-width: 1024px) {
+  .animate-slide-up-responsive {
+    animation-duration: 0.5s;
+  }
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

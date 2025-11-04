@@ -224,12 +224,12 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="space-y-6 pt-16">
+    <div className="space-y-6 animate-fade-in-responsive">
       {/* Realtime Status */}
-      <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
+      <div className="flex-responsive items-center justify-between bg-muted/50 padding-responsive rounded-lg">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body-responsive text-muted-foreground">
             {isConnected ? 'Real-time updates active' : 'Offline mode'}
           </span>
           {lastEvent && (
@@ -243,33 +243,35 @@ const Dashboard = () => {
           size="sm" 
           onClick={refreshDashboard}
           disabled={refreshing}
+          className="btn-responsive touch-friendly"
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Refreshing...' : 'Refresh'}
+          <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+          <span className="sm:hidden">↻</span>
         </Button>
       </div>
 
       {/* Welcome Section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="dashboard-header-responsive">
         <div>
-          <h1 className="text-3xl font-bold">
+          <h1 className="dashboard-title-responsive">
             Welcome back{user?.profile?.firstName ? `, ${user.profile.firstName}` : ''}!
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-body-responsive text-muted-foreground mt-1">
             Here's what's happening with your property journey
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Link to="/customer/search">
-            <Button>
+            <Button className="btn-responsive w-full sm:w-auto touch-friendly">
               <Search className="w-4 h-4 mr-2" />
-              Search Properties
+              <span className="text-responsive-sm">Search Properties</span>
             </Button>
           </Link>
           <Link to="/customer/post-property">
-            <Button variant="outline">
+            <Button variant="outline" className="btn-responsive w-full sm:w-auto touch-friendly">
               <Plus className="w-4 h-4 mr-2" />
-              Post Property
+              <span className="text-responsive-sm">Post Property</span>
             </Button>
           </Link>
         </div>
@@ -289,20 +291,20 @@ const Dashboard = () => {
 
       {/* Stats Grid */}
       {!loading && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid-dashboard animate-slide-up-responsive">
           {displayStats.map((stat) => {
             const Icon = stat.icon;
             return (
-              <Card key={stat.title} className="hover:shadow-lg transition-shadow">
+              <Card key={stat.title} className="stats-card-responsive hover:shadow-lg transition-shadow reduce-motion">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                  <CardTitle className="text-responsive-sm font-medium">{stat.title}</CardTitle>
                   <div className={`p-2 rounded-lg ${stat.bgColor}`}>
                     <Icon className={`w-4 h-4 ${stat.color}`} />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
+                  <div className="stats-value-responsive">{stat.value}</div>
+                  <p className="stats-label-responsive mt-1">{stat.change}</p>
                 </CardContent>
               </Card>
             );

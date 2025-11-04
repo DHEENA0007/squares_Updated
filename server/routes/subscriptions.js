@@ -10,15 +10,13 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 // @access  Private (Admin only)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    // Check if user has admin role
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required'
-      });
-    }
-
-    const { 
+  // Check if user has admin role
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Admin access required'
+    });
+  }    const { 
       page = 1, 
       limit = 10, 
       search = '', 

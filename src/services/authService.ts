@@ -17,6 +17,7 @@ export interface RegisterData {
   agreeToTerms: boolean;
   businessInfo?: any; // For vendor registration
   documents?: any; // For vendor documents
+  otp?: string; // OTP for email verification
 }
 
 export interface OTPResponse {
@@ -78,7 +79,8 @@ class AuthService {
           success: false,
           message: `HTTP ${response.status}: ${response.statusText}`,
         }));
-        throw new Error(errorData.message || "An error occurred");
+        console.error('API Error Response:', errorData);
+        throw new Error(errorData.message || errorData.error || "An error occurred");
       }
 
       return await response.json();

@@ -98,7 +98,7 @@ const Signup = () => {
     setIsLoading(true);
 
     try {
-      // Verify OTP and register user
+      // Register user with OTP verification
       const response = await authService.register({
         email: formData.email,
         password: formData.password,
@@ -112,6 +112,10 @@ const Signup = () => {
 
       if (response.success) {
         setStep("success");
+        toast({
+          title: "Registration Successful!",
+          description: "Your account has been created successfully. Redirecting to login...",
+        });
         // Auto-redirect to login after 3 seconds
         setTimeout(() => {
           navigate("/login");
@@ -119,17 +123,23 @@ const Signup = () => {
       }
     } catch (error) {
       console.error("Registration error:", error);
+      // Reset OTP field on error
+      setOtp("");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const resendOtp = () => {
-    toast({
-      title: "OTP Resent",
-      description: `New verification code sent to ${formData.phone}`,
-    });
-    setOtp("");
+  const resendOtp = async () => {
+    try {
+      setIsLoading(true);
+      await authService.sendOTP(formData.email, formData.firstName);
+      setOtp("");
+    } catch (error) {
+      console.error("Resend OTP error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -152,7 +162,7 @@ const Signup = () => {
                 <p className="text-muted-foreground">
                   {step === "form" 
                     ? "Sign up to get started with BuildHomeMart"
-                    : "Enter the OTP sent to your phone"}
+                    : "Enter the OTP sent to your email"}
                 </p>
               </div>
 
@@ -242,7 +252,7 @@ const Signup = () => {
                     </a>
                   </p>
                 </form>
-              ) : (
+              ) : step === "otp" ? (
                 <form onSubmit={handleOtpSubmit} className="space-y-6">
                   <div className="space-y-4">
                     <Label className="text-center block">Enter 6-Digit OTP</Label>
@@ -263,13 +273,13 @@ const Signup = () => {
                       </InputOTP>
                     </div>
                     <p className="text-xs text-muted-foreground text-center">
-                      OTP sent to {formData.phone}
+                      OTP sent to {formData.email}
                     </p>
                   </div>
 
                   <div className="space-y-3">
-                    <Button type="submit" className="w-full" size="lg">
-                      Register
+                    <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                      {isLoading ? "Verifying..." : "Register"}
                     </Button>
                     
                     <Button 
@@ -277,6 +287,7 @@ const Signup = () => {
                       variant="outline" 
                       className="w-full"
                       onClick={resendOtp}
+                      disabled={isLoading}
                     >
                       Resend OTP
                     </Button>
@@ -295,7 +306,27 @@ const Signup = () => {
                     For demo: Use OTP <span className="font-mono font-semibold">123456</span>
                   </p>
                 </form>
-              )}
+              ) : step === "success" ? (
+                <div className="text-center space-y-6">
+                  <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-green-600 mb-2">Account Created Successfully!</h3>
+                    <p className="text-muted-foreground">
+                      Your account has been created and email verified. Redirecting to login page...
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={() => navigate("/login")} 
+                    className="w-full"
+                  >
+                    Continue to Login
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

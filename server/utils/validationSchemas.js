@@ -61,7 +61,12 @@ const registerSchema = Joi.object({
       url: Joi.string().uri(),
       size: Joi.number()
     }).optional()
-  }).optional()
+  }).optional(),
+  // OTP for email verification
+  otp: Joi.string().pattern(new RegExp('^[0-9]{6}$')).required().messages({
+    'string.pattern.base': 'OTP must be a 6-digit number',
+    'any.required': 'Email verification OTP is required'
+  })
 });
 
 // User login schema

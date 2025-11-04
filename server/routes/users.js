@@ -189,7 +189,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   }
 
   // Only allow users to update their own profile or admin to update any
-  if (req.user.id.toString() !== req.params.id && req.user.role !== 'admin') {
+  if (req.user.id.toString() !== req.params.id && !['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Not authorized to update this user'
@@ -244,7 +244,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   }
 
   // Only admin can update role and status
-  if (req.user.role === 'admin') {
+  if (['admin', 'superadmin'].includes(req.user.role)) {
     if (role) user.role = role;
     if (status) user.status = status;
   }
@@ -353,7 +353,7 @@ router.put('/profile', asyncHandler(async (req, res) => {
 // @route   PATCH /api/users/:id/status
 // @access  Private/Admin
 router.patch('/:id/status', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'
@@ -392,10 +392,10 @@ router.patch('/:id/status', asyncHandler(async (req, res) => {
 // @route   DELETE /api/users/:id
 // @access  Private/Admin
 router.delete('/:id', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Superadmin access required to delete users. Current role: ' + req.user.role
     });
   }
 
