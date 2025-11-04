@@ -17,3 +17,4 @@ export const VendorSubscriptionManager = lazy(() => import("@/pages/vendor/Vendo
 export const VendorBilling = lazy(() => import("@/pages/vendor/VendorBilling"));
 export const VendorReviews = lazy(() => import("@/pages/vendor/VendorReviews"));
 export const VendorProfile = lazy(() => import("@/pages/vendor/VendorProfile"));
+export const VendorNotifications = lazy(() => import("@/pages/vendor/VendorNotifications"));

@@ -7,10 +7,17 @@ import logoDark from "@/assets/logo-dark.png";
 import { useState } from "react";
 import { useTheme } from "next-themes";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useAuth } from "@/contexts/AuthContext";
+import CustomerProfileDropdown from "@/components/customer/CustomerProfileDropdown";
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme } = useTheme();
+  const { user, isAuthenticated } = useAuth();
+
+  // Debug logging
+  console.log('Navbar: isAuthenticated:', isAuthenticated);
+  console.log('Navbar: user:', user);
 
   return (
     <>
@@ -48,16 +55,22 @@ const Navbar = () => {
               <Link to="/vendor/login">
                 <Button
                   variant="ghost"
-                  className="hover:bg-accent/10 hidden sm:flex bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="hidden sm:flex bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   Post Your Property
                 </Button>
               </Link>
-              <Link to="/login">
-                <Button variant="ghost" className="hover:bg-accent/10">
-                  <User className="h-5 w-5" /> <span>Login / Register</span>
-                </Button>
-              </Link>
+              
+              {isAuthenticated ? (
+                <CustomerProfileDropdown />
+              ) : (
+                <Link to="/login">
+                  <Button variant="ghost" className="hover:bg-accent/10">
+                    <User className="h-5 w-5" /> <span>Login / Register</span>
+                  </Button>
+                </Link>
+              )}
+              
               <ThemeToggle />
               <Button 
                 variant="ghost" 

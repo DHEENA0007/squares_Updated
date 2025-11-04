@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import logoLight from "@/assets/logo-light.png";
 import logoDark from "@/assets/logo-dark.png";
 import { useTheme } from "next-themes";
+import { VendorNotificationCenter } from "./VendorNotificationCenter";
 
 interface VendorNavbarProps {
   setSidebarOpen: (open: boolean) => void;
@@ -112,12 +113,7 @@ const VendorNavbar = ({ setSidebarOpen }: VendorNavbarProps) => {
             <div className="flex items-center gap-4">
               <ThemeToggle />
               
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs">
-                  3
-                </Badge>
-              </Button>
+              <VendorNotificationCenter />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

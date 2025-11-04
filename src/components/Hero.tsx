@@ -16,9 +16,11 @@ import { propertyService, type Property, type PropertyFilters } from "@/services
 import { DEFAULT_PROPERTY_IMAGE } from "@/utils/imageUtils";
 import { useDebounce } from "../hooks/use-debounce";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Hero = () => {
     const navigate = useNavigate();
+    const { isAuthenticated } = useAuth();
     const searchContainerRef = useRef<HTMLDivElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
     const lastSearchRef = useRef<string>("");
@@ -315,6 +317,16 @@ const Hero = () => {
 
     // Handle property click
     const handlePropertyClick = (propertyId: string) => {
+      if (!isAuthenticated) {
+        // Redirect to login page for guest users
+        navigate('/login', { 
+          state: { 
+            from: `/property/${propertyId}`,
+            message: 'Please login to view property details' 
+          }
+        });
+        return;
+      }
       navigate(`/property/${propertyId}`);
     };
 

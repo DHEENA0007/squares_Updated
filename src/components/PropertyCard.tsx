@@ -28,7 +28,7 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
 
   const handleViewDetails = () => {
     if (isAuthenticated) {
-      navigate(`/property/${property._id}`);
+      navigate(`/customer/property/${property._id}`);
     } else {
       navigate("/login");
     }

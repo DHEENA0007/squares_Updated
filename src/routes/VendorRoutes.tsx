@@ -17,7 +17,8 @@ import {
   VendorSubscriptionManager,
   VendorBilling,
   VendorReviews,
-  VendorProfile
+  VendorProfile,
+  VendorNotifications
 } from "./VendorLazyImports";
 
 const VendorRoutes = () => {
@@ -104,6 +105,11 @@ const VendorRoutes = () => {
           <Route path="profile" element={
             <Suspense fallback={<div>Loading...</div>}>
               <VendorProfile />
+            </Suspense>
+          } />
+          <Route path="notifications" element={
+            <Suspense fallback={<div>Loading...</div>}>
+              <VendorNotifications />
             </Suspense>
           } />
         </Route>

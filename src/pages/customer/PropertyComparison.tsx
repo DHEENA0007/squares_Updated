@@ -20,18 +20,22 @@ import {
   Home
 } from "lucide-react";
 import { isAdminUser, getOwnerDisplayName, getPropertyOwnerDisplayName } from "@/utils/propertyUtils";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { useRealtime, useRealtimeEvent } from "@/contexts/RealtimeContext";
 import { propertyService, Property } from "@/services/propertyService";
 import { toast } from "@/hooks/use-toast";
+import PropertySelectionDialog from "@/components/customer/PropertySelectionDialog";
 
 const PropertyComparison = () => {
+  const navigate = useNavigate();
   const { isConnected, lastEvent } = useRealtime();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showPropertyDialog, setShowPropertyDialog] = useState(false);
+  const [isInternalUpdate, setIsInternalUpdate] = useState(false);
 
   // Load properties from API
   const loadProperties = useCallback(async (propertyIds: string[]) => {
@@ -76,12 +80,26 @@ const PropertyComparison = () => {
   }, [loadProperties, selectedProperties]);
 
   useEffect(() => {
+    // Skip if this is an internal update (to prevent race conditions)
+    if (isInternalUpdate) {
+      setIsInternalUpdate(false);
+      return;
+    }
+    
     // Get property IDs from URL params if coming from favorites
     const ids = searchParams.get('properties')?.split(',').filter(Boolean) || [];
-    // Allow unlimited properties for comparison
-    setSelectedProperties(ids);
-    loadProperties(ids);
-  }, [searchParams, loadProperties]);
+    console.log('PropertyComparison: useEffect loading from URL params:', ids);
+    
+    // Only update if the IDs are different from current state
+    const currentIds = selectedProperties.join(',');
+    const newIds = ids.join(',');
+    
+    if (currentIds !== newIds) {
+      console.log('PropertyComparison: URL params differ from current state, updating...');
+      setSelectedProperties(ids);
+      loadProperties(ids);
+    }
+  }, [searchParams, loadProperties, selectedProperties, isInternalUpdate]);
 
   // Listen to realtime events for property updates
   useRealtimeEvent('property_updated', (data) => {
@@ -141,16 +159,90 @@ const PropertyComparison = () => {
   };
 
   const removeProperty = (propertyId: string) => {
-    setSelectedProperties(prev => prev.filter(id => id !== propertyId));
+    const newProperties = selectedProperties.filter(id => id !== propertyId);
+    setSelectedProperties(newProperties);
     setProperties(prev => prev.filter(prop => prop._id !== propertyId));
+    
+    // Mark as internal update and update URL
+    setIsInternalUpdate(true);
+    if (newProperties.length > 0) {
+      const searchParams = new URLSearchParams();
+      searchParams.set('properties', newProperties.join(','));
+      setSearchParams(searchParams);
+    } else {
+      // If no properties left, clear the URL params
+      setSearchParams(new URLSearchParams());
+    }
   };
 
   const addProperty = () => {
-    // In real app, this would open a modal to select from favorites or search
-    toast({
-      title: "Feature Coming Soon",
-      description: "Property selection modal will be available soon",
-    });
+    setShowPropertyDialog(true);
+  };
+
+  const handlePropertySelect = async (propertyId: string): Promise<void> => {
+    console.log('PropertyComparison: handlePropertySelect called with:', propertyId);
+    console.log('PropertyComparison: Current selectedProperties:', selectedProperties);
+    console.log('PropertyComparison: Current properties length:', properties.length);
+    
+    try {
+      // Check if property is already selected
+      if (selectedProperties.includes(propertyId)) {
+        console.log('PropertyComparison: Property already selected');
+        toast({
+          title: "Already Selected",
+          description: "This property is already in your comparison list",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Add property to the comparison
+      const newProperties = [...selectedProperties, propertyId];
+      console.log('PropertyComparison: Setting new properties:', newProperties);
+      
+      // Load the new property first
+      console.log('PropertyComparison: Loading property data...');
+      const response = await propertyService.getProperty(propertyId);
+      if (response.success) {
+        console.log('PropertyComparison: Property loaded successfully:', response.data.property.title);
+        
+        // Update state synchronously
+        setSelectedProperties(newProperties);
+        setProperties(prev => {
+          const newPropsList = [...prev, response.data.property];
+          console.log('PropertyComparison: Updated properties list length:', newPropsList.length);
+          return newPropsList;
+        });
+        
+        // Mark as internal update and update URL
+        setIsInternalUpdate(true);
+        const searchParams = new URLSearchParams();
+        searchParams.set('properties', newProperties.join(','));
+        setSearchParams(searchParams);
+        
+        // Show success toast
+        toast({
+          title: "Property Added",
+          description: `${response.data.property.title} has been added to comparison`,
+        });
+        
+        console.log('PropertyComparison: Property successfully added to comparison');
+        
+        // Force a small delay to ensure UI updates
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return;
+      } else {
+        throw new Error('Failed to load property');
+      }
+    } catch (error) {
+      console.error('PropertyComparison: Error adding property:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add property to comparison",
+        variant: "destructive"
+      });
+      throw error;
+    }
   };
 
   const getComparisonValue = (value: any, isNumeric = false) => {
@@ -181,9 +273,9 @@ const PropertyComparison = () => {
       <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span className="text-sm text-muted-foreground">
+          {/* <span className="text-sm text-muted-foreground">
             {isConnected ? 'Real-time property updates active' : 'Offline mode'}
-          </span>
+          </span> */}
           {lastEvent && (
             <Badge variant="secondary" className="text-xs">
               Last update: {new Date(lastEvent.timestamp).toLocaleTimeString()}
@@ -588,6 +680,15 @@ const PropertyComparison = () => {
           </div>
         </div>
       )}
+
+      {/* Property Selection Dialog */}
+      <PropertySelectionDialog
+        open={showPropertyDialog}
+        onOpenChange={setShowPropertyDialog}
+        onPropertySelect={handlePropertySelect}
+        selectedPropertyIds={selectedProperties}
+        maxSelections={10}
+      />
     </div>
   );
 };

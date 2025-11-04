@@ -33,7 +33,7 @@ export const useRealTimeNotifications = () => {
       return;
     }
 
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
     const url = `${baseUrl}/api/notifications/stream`;
 
     const eventSource = new EventSource(url, {
@@ -240,7 +240,7 @@ export const useRealTimeNotifications = () => {
     if (!token) return;
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/test`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/notifications/test`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -276,7 +276,7 @@ export const useRealTimeNotifications = () => {
     if (!token) return;
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/stats`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/notifications/stats`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
