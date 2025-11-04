@@ -3,6 +3,8 @@ const User = require('../models/User');
 const Property = require('../models/Property');
 const Favorite = require('../models/Favorite');
 const Message = require('../models/Message');
+const Subscription = require('../models/Subscription');
+const Notification = require('../models/Notification');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
 const bcrypt = require('bcrypt');
@@ -408,15 +410,97 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     });
   }
 
-  // Instead of deleting, deactivate the account
-  user.status = 'inactive';
-  user.deactivatedAt = new Date();
-  await user.save();
+  // Store user data for email notification before deletion
+  const userData = {
+    email: user.email,
+    firstName: user.profile?.firstName || 'User',
+    lastName: user.profile?.lastName || '',
+    role: user.role
+  };
 
-  res.json({
-    success: true,
-    message: 'User account deactivated successfully'
-  });
+  try {
+    // Import email service
+    const { sendTemplateEmail } = require('../utils/emailService');
+    
+    // Check for active properties or subscriptions before deletion
+    
+    const [properties, subscriptions] = await Promise.all([
+      Property.countDocuments({ owner: req.params.id }),
+      Subscription.countDocuments({ user: req.params.id, status: 'active' })
+    ]);
+
+    // Clean up related data first
+    if (properties > 0) {
+      // Deactivate user's properties instead of deleting them
+      await Property.updateMany(
+        { owner: req.params.id },
+        { status: 'inactive', deactivatedAt: new Date() }
+      );
+    }
+
+    if (subscriptions > 0) {
+      // Cancel active subscriptions
+      await Subscription.updateMany(
+        { user: req.params.id, status: 'active' },
+        { status: 'cancelled', cancelledAt: new Date() }
+      );
+    }
+
+    // Clean up other related data (messages, notifications, etc.)
+    
+    await Promise.all([
+      // Remove user's messages
+      Message.deleteMany({ sender: req.params.id }),
+      // Remove user's notifications
+      Notification.deleteMany({ user: req.params.id })
+    ]);
+
+    // Delete the user completely from the database
+    await User.findByIdAndDelete(req.params.id);
+
+    // Send deletion notification email
+    try {
+      await sendTemplateEmail(
+        userData.email,
+        'account-deleted',
+        {
+          firstName: userData.firstName,
+          email: userData.email,
+          role: userData.role,
+          deletionDate: new Date().toLocaleDateString('en-IN', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          reason: req.body.reason || 'Account deleted by administrator',
+          websiteUrl: process.env.FRONTEND_URL || 'https://buildhomemartsquares.com'
+        }
+      );
+      console.log(`✅ Account deletion notification sent to ${userData.email}`);
+    } catch (emailError) {
+      console.error('❌ Failed to send deletion notification email:', emailError);
+      // Continue with deletion even if email fails
+    }
+
+    res.json({
+      success: true,
+      message: `User account permanently deleted and notification sent to ${userData.email}`,
+      deletedUser: {
+        email: userData.email,
+        name: `${userData.firstName} ${userData.lastName}`.trim(),
+        role: userData.role
+      }
+    });
+
+  } catch (error) {
+    console.error('Error during user deletion:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete user account: ' + error.message
+    });
+  }
 }));
 
 // @desc    Get user activity

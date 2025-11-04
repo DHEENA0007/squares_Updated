@@ -10,3 +10,4 @@ export const PerformanceTracking = lazy(() => import("@/pages/admin/PerformanceT
 export const PromotionApproval = lazy(() => import("@/pages/admin/PromotionApproval"));
 export const SendNotifications = lazy(() => import("@/pages/admin/SendNotifications"));
 export const GenerateReports = lazy(() => import("@/pages/admin/GenerateReports"));
+export const VendorApprovals = lazy(() => import("@/pages/admin/VendorApprovals"));

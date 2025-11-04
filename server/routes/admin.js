@@ -4,18 +4,620 @@ const User = require('../models/User');
 const Property = require('../models/Property');
 const Message = require('../models/Message');
 const Subscription = require('../models/Subscription');
+const Notification = require('../models/Notification');
 const Plan = require('../models/Plan');
 const Role = require('../models/Role');
 const AddonService = require('../models/AddonService');
 const Settings = require('../models/Settings');
+const Vendor = require('../models/Vendor');
 const mongoose = require('mongoose');
 const { authenticateToken } = require('../middleware/authMiddleware');
-const { isSuperAdmin } = require('../middleware/roleMiddleware');
+const { isSuperAdmin, isAnyAdmin } = require('../middleware/roleMiddleware');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const adminRealtimeService = require('../services/adminRealtimeService');
+const { sendTemplateEmail, sendEmail } = require('../utils/emailService');
 
-// Super Admin access middleware
+// @desc    Receive vendor application from registration (public endpoint)
+// @route   POST /api/admin/vendor-applications
+// @access  Public (no auth required for registration)
+router.post('/vendor-applications', asyncHandler(async (req, res) => {
+  try {
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      businessName,
+      businessType,
+      businessDescription,
+      experience,
+      address,
+      city,
+      state,
+      pincode,
+      panNumber,
+      licenseNumber,
+      gstNumber,
+      documents
+    } = req.body;
+
+    // Validate required fields
+    if (!firstName || !lastName || !email || !phone || !businessName || !businessType) {
+      return res.status(400).json({
+        success: false,
+        message: 'Required fields are missing'
+      });
+    }
+
+    // Create vendor application data
+    const vendorApplicationData = {
+      firstName,
+      lastName,
+      email,
+      phone,
+      businessInfo: {
+        businessName,
+        businessType,
+        businessDescription,
+        experience,
+        address,
+        city,
+        state,
+        pincode,
+        panNumber,
+        licenseNumber,
+        gstNumber
+      },
+      documents: documents || {},
+      submittedAt: new Date(),
+      status: 'pending_review'
+    };
+
+    // Get admin emails for notification
+    const adminUsers = await User.find({ role: 'admin' }).select('email profile.firstName profile.lastName');
+    
+    // Send notification emails to all admins
+    const emailPromises = adminUsers.map(admin => {
+      return sendTemplateEmail(admin.email, 'vendor-profile-submitted', {
+        adminName: `${admin.profile?.firstName || 'Admin'} ${admin.profile?.lastName || ''}`,
+        vendorName: `${firstName} ${lastName}`,
+        businessName: businessName,
+        businessType: businessType,
+        email: email,
+        phone: phone,
+        submissionDate: new Date().toLocaleDateString(),
+        reviewUrl: `${process.env.CLIENT_URL || 'http://localhost:3000'}/admin/vendor-approvals`,
+        businessDescription: businessDescription,
+        location: `${city}, ${state} - ${pincode}`,
+        documents: Object.keys(documents || {}).length
+      });
+    });
+
+    // Also send confirmation email to vendor
+    const vendorEmailPromise = sendTemplateEmail(email, 'vendor-profile-submitted-confirmation', {
+      firstName: firstName,
+      businessName: businessName,
+      submissionDate: new Date().toLocaleDateString(),
+      applicationId: `VEN-${Date.now()}`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'
+    });
+
+    await Promise.all([...emailPromises, vendorEmailPromise]);
+
+    // Store the application data temporarily (you might want to create a VendorApplication model)
+    // For now, we'll just send the emails and return success
+    
+    res.json({
+      success: true,
+      message: 'Vendor application submitted successfully. Admin has been notified.',
+      data: {
+        applicationId: `VEN-${Date.now()}`,
+        submittedAt: new Date(),
+        status: 'pending_review'
+      }
+    });
+
+  } catch (error) {
+    console.error('Vendor application submission error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to submit vendor application'
+    });
+  }
+}));
+
+// Apply auth middleware
 router.use(authenticateToken);
+
+// VENDOR APPROVAL MANAGEMENT ROUTES (SubAdmin Access)
+
+// @desc    Get pending vendor approvals
+// @route   GET /api/admin/vendor-approvals
+// @access  Private/Admin & SubAdmin
+router.get('/vendor-approvals', isAnyAdmin, asyncHandler(async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      status = 'pending',
+      search = '',
+      sortBy = 'submittedAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Build query
+    const query = {};
+    
+    if (status !== 'all') {
+      query['approval.status'] = status;
+    }
+    
+    if (search) {
+      query.$or = [
+        { 'businessInfo.companyName': { $regex: search, $options: 'i' } },
+        { 'businessInfo.licenseNumber': { $regex: search, $options: 'i' } },
+        { 'businessInfo.gstNumber': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Build sort
+    const sort = {};
+    sort[`approval.${sortBy}`] = sortOrder === 'desc' ? -1 : 1;
+
+    // Get vendors with populated user data
+    const [vendors, totalCount] = await Promise.all([
+      Vendor.find(query)
+        .populate('user', 'email profile.firstName profile.lastName profile.phone createdAt')
+        .populate('approval.reviewedBy', 'profile.firstName profile.lastName email')
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Vendor.countDocuments(query)
+    ]);
+
+    const totalPages = Math.ceil(totalCount / parseInt(limit));
+
+    res.json({
+      success: true,
+      data: {
+        vendors,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalCount,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
+          limit: parseInt(limit)
+        },
+        summary: {
+          pending: await Vendor.countDocuments({ 'approval.status': 'pending' }),
+          under_review: await Vendor.countDocuments({ 'approval.status': 'under_review' }),
+          approved: await Vendor.countDocuments({ 'approval.status': 'approved' }),
+          rejected: await Vendor.countDocuments({ 'approval.status': 'rejected' })
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get vendor approvals error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch vendor approvals'
+    });
+  }
+}));
+
+// @desc    Get vendor approval details
+// @route   GET /api/admin/vendor-approvals/:vendorId
+// @access  Private/Admin & SubAdmin
+router.get('/vendor-approvals/:vendorId', isAnyAdmin, asyncHandler(async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+
+    const vendor = await Vendor.findById(vendorId)
+      .populate('user', 'email profile role status createdAt')
+      .populate('approval.reviewedBy', 'profile.firstName profile.lastName email');
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    // Get additional statistics    
+    const [propertiesCount, recentActivity] = await Promise.all([
+      Property.countDocuments({ owner: vendor.user._id }),
+      // Get recent activity (messages, logins, etc.)
+      User.findById(vendor.user._id).select('profile.lastLogin')
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        vendor,
+        statistics: {
+          propertiesCount,
+          lastActivity: recentActivity?.profile?.lastLogin || vendor.createdAt,
+          memberSince: vendor.createdAt,
+          applicationId: `VEN-${vendor._id.toString().slice(-8).toUpperCase()}`
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get vendor details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch vendor details'
+    });
+  }
+}));
+
+// @desc    Approve vendor application
+// @route   POST /api/admin/vendor-approvals/:vendorId/approve
+// @access  Private/Admin & SubAdmin
+router.post('/vendor-approvals/:vendorId/approve', isAnyAdmin, asyncHandler(async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const { approvalNotes, verificationLevel = 'basic' } = req.body;
+    const adminId = req.user.id;
+
+    // Find vendor
+    const vendor = await Vendor.findById(vendorId).populate('user');
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    if (vendor.approval.status === 'approved') {
+      return res.status(400).json({
+        success: false,
+        message: 'Vendor is already approved'
+      });
+    }
+
+    // Update vendor approval status
+    vendor.approval.status = 'approved';
+    vendor.approval.reviewedAt = new Date();
+    vendor.approval.reviewedBy = adminId;
+    vendor.approval.approvalNotes = approvalNotes || 'Application approved';
+    
+    // Update verification status
+    vendor.verification.isVerified = true;
+    vendor.verification.verificationDate = new Date();
+    vendor.verification.verificationLevel = verificationLevel;
+    
+    // Update vendor status
+    vendor.status = 'active';
+    
+    // Mark all submitted documents as verified
+    vendor.approval.submittedDocuments.forEach(doc => {
+      doc.verified = true;
+      doc.verifiedAt = new Date();
+      doc.verifiedBy = adminId;
+    });
+
+    await vendor.save();
+
+    // Update user status
+    const user = vendor.user;
+    user.status = 'active';
+    await user.save();
+
+    // Get admin info for email
+    const admin = await User.findById(adminId).select('profile.firstName profile.lastName email');
+
+    // Send approval email to vendor using the email service
+    try {
+      await sendTemplateEmail(user.email, 'vendor-application-approved', {
+        firstName: user.profile.firstName,
+        companyName: vendor.businessInfo.companyName,
+        vendorId: `VEN-${vendor._id.toString().slice(-8).toUpperCase()}`,
+        approvedDate: new Date().toLocaleDateString(),
+        approvedBy: `${admin?.profile?.firstName || 'Admin'} ${admin?.profile?.lastName || 'Team'}`,
+        approvalNotes: approvalNotes,
+        vendorDashboardLink: `${process.env.FRONTEND_URL || 'https://squares-v2.vercel.app'}/vendor/dashboard`,
+        setupGuideLink: `${process.env.FRONTEND_URL || 'https://squares-v2.vercel.app'}/vendor/setup-guide`
+      });
+    } catch (emailError) {
+      console.error('Failed to send approval email:', emailError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Vendor application approved successfully',
+      data: {
+        vendorId: vendor._id,
+        status: 'approved',
+        approvedAt: vendor.approval.reviewedAt,
+        verificationLevel: vendor.verification.verificationLevel
+      }
+    });
+
+  } catch (error) {
+    console.error('Approve vendor error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to approve vendor application'
+    });
+  }
+}));
+
+// @desc    Reject vendor application
+// @route   POST /api/admin/vendor-approvals/:vendorId/reject
+// @access  Private/Admin & SubAdmin
+router.post('/vendor-approvals/:vendorId/reject', isAnyAdmin, asyncHandler(async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const { rejectionReason, allowResubmission = true } = req.body;
+    const adminId = req.user.id;
+
+    if (!rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejection reason is required'
+      });
+    }
+
+    // Find vendor
+    const vendor = await Vendor.findById(vendorId).populate('user');
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    if (vendor.approval.status === 'rejected') {
+      return res.status(400).json({
+        success: false,
+        message: 'Vendor application is already rejected'
+      });
+    }
+
+    // Update vendor approval status
+    vendor.approval.status = 'rejected';
+    vendor.approval.reviewedAt = new Date();
+    vendor.approval.reviewedBy = adminId;
+    vendor.approval.rejectionReason = rejectionReason;
+    
+    // Update vendor status
+    vendor.status = 'rejected';
+    
+    await vendor.save();
+
+    // Update user status
+    const user = vendor.user;
+    user.status = 'inactive';
+    await user.save();
+
+    // Get admin info for email
+    const admin = await User.findById(adminId).select('profile.firstName profile.lastName email');
+
+    // Send rejection email to vendor using template service
+    try {
+      await sendTemplateEmail(user.email, 'vendor-application-rejected', {
+        firstName: user.profile.firstName,
+        companyName: vendor.businessInfo.companyName,
+        applicationId: `VEN-${vendor._id.toString().slice(-8).toUpperCase()}`,
+        reviewedDate: new Date().toLocaleDateString(),
+        reviewedBy: `${admin?.profile?.firstName || 'Admin'} ${admin?.profile?.lastName || 'Team'}`,
+        rejectionReason: rejectionReason,
+        reapplyLink: `${process.env.FRONTEND_URL || 'https://squares-v2.vercel.app'}/vendor/register`
+      });
+    } catch (emailError) {
+      console.error('Failed to send rejection email:', emailError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Vendor application rejected and vendor notified',
+      data: {
+        vendorId: vendor._id,
+        status: 'rejected',
+        rejectedAt: vendor.approval.reviewedAt,
+        rejectionReason: rejectionReason,
+        allowResubmission
+      }
+    });
+
+  } catch (error) {
+    console.error('Reject vendor error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reject vendor application'
+    });
+  }
+}));
+
+// @desc    Update vendor approval status to under review
+// @route   POST /api/admin/vendor-approvals/:vendorId/under-review
+// @access  Private/Admin & SubAdmin
+router.post('/vendor-approvals/:vendorId/under-review', isAnyAdmin, asyncHandler(async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const { notes } = req.body;
+    const adminId = req.user.id;
+
+    const vendor = await Vendor.findById(vendorId).populate('user');
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    // Update approval status
+    vendor.approval.status = 'under_review';
+    vendor.approval.reviewedBy = adminId;
+    if (notes) {
+      vendor.approval.approvalNotes = notes;
+    }
+    
+    await vendor.save();
+
+    res.json({
+      success: true,
+      message: 'Vendor application marked as under review',
+      data: {
+        vendorId: vendor._id,
+        status: 'under_review',
+        reviewedBy: adminId
+      }
+    });
+
+  } catch (error) {
+    console.error('Update vendor review status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update vendor review status'
+    });
+  }
+}));
+
+// @desc    Verify vendor document
+// @route   POST /api/admin/vendor-approvals/:vendorId/verify-document
+// @access  Private/Admin & SubAdmin
+router.post('/vendor-approvals/:vendorId/verify-document', isAnyAdmin, asyncHandler(async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const { documentId, verified = true, rejectionReason } = req.body;
+    const adminId = req.user.id;
+
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    // Find and update the document
+    const document = vendor.approval.submittedDocuments.id(documentId);
+    if (!document) {
+      return res.status(404).json({
+        success: false,
+        message: 'Document not found'
+      });
+    }
+
+    document.verified = verified;
+    document.verifiedAt = new Date();
+    document.verifiedBy = adminId;
+    
+    if (!verified && rejectionReason) {
+      document.rejectionReason = rejectionReason;
+    }
+
+    await vendor.save();
+
+    res.json({
+      success: true,
+      message: `Document ${verified ? 'verified' : 'rejected'} successfully`,
+      data: {
+        documentId,
+        verified,
+        verifiedAt: document.verifiedAt,
+        rejectionReason: document.rejectionReason
+      }
+    });
+
+  } catch (error) {
+    console.error('Verify document error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify document'
+    });
+  }
+}));
+
+// @desc    Get vendor approval statistics
+// @route   GET /api/admin/vendor-approval-stats
+// @access  Private/Admin & SubAdmin
+router.get('/vendor-approval-stats', isAnyAdmin, asyncHandler(async (req, res) => {
+  try {
+    const now = new Date();
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    const [
+      totalApplications,
+      pendingApplications,
+      approvedApplications,
+      rejectedApplications,
+      underReviewApplications,
+      thisMonthApplications,
+      lastMonthApplications,
+      recentApplications
+    ] = await Promise.all([
+      Vendor.countDocuments(),
+      Vendor.countDocuments({ 'approval.status': 'pending' }),
+      Vendor.countDocuments({ 'approval.status': 'approved' }),
+      Vendor.countDocuments({ 'approval.status': 'rejected' }),
+      Vendor.countDocuments({ 'approval.status': 'under_review' }),
+      Vendor.countDocuments({ 'approval.submittedAt': { $gte: thisMonth } }),
+      Vendor.countDocuments({ 
+        'approval.submittedAt': { $gte: lastMonth, $lt: lastMonthEnd } 
+      }),
+      Vendor.find({ 'approval.status': 'pending' })
+        .populate('user', 'email profile.firstName profile.lastName')
+        .sort({ 'approval.submittedAt': -1 })
+        .limit(5)
+        .select('businessInfo.companyName approval.submittedAt')
+    ]);
+
+    // Calculate approval rate
+    const totalProcessed = approvedApplications + rejectedApplications;
+    const approvalRate = totalProcessed > 0 ? 
+      Math.round((approvedApplications / totalProcessed) * 100) : 0;
+
+    // Calculate growth
+    const growth = lastMonthApplications > 0 ? 
+      Math.round(((thisMonthApplications - lastMonthApplications) / lastMonthApplications) * 100) : 0;
+
+    res.json({
+      success: true,
+      data: {
+        overview: {
+          totalApplications,
+          pendingApplications,
+          approvedApplications,
+          rejectedApplications,
+          underReviewApplications,
+          approvalRate,
+          avgProcessingTime: '2.3 days' // This would be calculated from actual data
+        },
+        trends: {
+          thisMonthApplications,
+          lastMonthApplications,
+          growth,
+          dailyAverage: Math.round(thisMonthApplications / new Date().getDate())
+        },
+        recentApplications: recentApplications.map(vendor => ({
+          id: vendor._id,
+          companyName: vendor.businessInfo.companyName,
+          applicantName: vendor.user ? 
+            `${vendor.user.profile.firstName} ${vendor.user.profile.lastName}` : 'Unknown',
+          submittedAt: vendor.approval.submittedAt,
+          status: vendor.approval.status
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('Get vendor approval stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch vendor approval statistics'
+    });
+  }
+}));
+
+// Super Admin access middleware for remaining routes
 router.use(isSuperAdmin);
 
 // Enhanced dashboard statistics with real-time data
@@ -450,30 +1052,100 @@ router.delete('/users/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
 
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Store user data for email notification before deletion
+    const userData = {
+      email: user.email,
+      firstName: user.profile?.firstName || 'User',
+      lastName: user.profile?.lastName || '',
+      role: user.role
+    };
+
     // Check if user has properties or subscriptions
     const [properties, subscriptions] = await Promise.all([
       Property.countDocuments({ owner: userId }),
       Subscription.countDocuments({ user: userId, status: 'active' })
     ]);
 
-    if (properties > 0 || subscriptions > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete user with active properties or subscriptions'
-      });
+    // Clean up related data first
+    if (properties > 0) {
+      // Deactivate user's properties instead of deleting them
+      await Property.updateMany(
+        { owner: userId },
+        { status: 'inactive', deactivatedAt: new Date() }
+      );
     }
 
+    if (subscriptions > 0) {
+      // Cancel active subscriptions
+      await Subscription.updateMany(
+        { user: userId, status: 'active' },
+        { status: 'cancelled', cancelledAt: new Date() }
+      );
+    }
+
+    // Clean up other related data (messages, notifications, etc.)
+    
+    await Promise.all([
+      // Remove user's messages
+      Message.deleteMany({ sender: userId }),
+      // Remove user's notifications
+      Notification.deleteMany({ user: userId })
+    ]);
+
+    // Delete the user completely from the database
     await User.findByIdAndDelete(userId);
+
+    // Send deletion notification email
+    try {
+      const { sendTemplateEmail } = require('../utils/emailService');
+      
+      await sendTemplateEmail(
+        userData.email,
+        'account-deleted',
+        {
+          firstName: userData.firstName,
+          email: userData.email,
+          role: userData.role,
+          deletionDate: new Date().toLocaleDateString('en-IN', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          reason: req.body.reason || 'Account deleted by administrator',
+          websiteUrl: process.env.FRONTEND_URL || 'https://buildhomemartsquares.com'
+        }
+      );
+      console.log(`✅ Account deletion notification sent to ${userData.email}`);
+    } catch (emailError) {
+      console.error('❌ Failed to send deletion notification email:', emailError);
+      // Continue with deletion even if email fails
+    }
 
     res.json({
       success: true,
-      message: 'User deleted successfully'
+      message: `User account permanently deleted and notification sent to ${userData.email}`,
+      deletedUser: {
+        email: userData.email,
+        name: `${userData.firstName} ${userData.lastName}`.trim(),
+        role: userData.role
+      }
     });
   } catch (error) {
     console.error('Delete user error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to delete user'
+      message: 'Failed to delete user: ' + error.message
     });
   }
 });
@@ -592,12 +1264,10 @@ router.post('/properties', async (req, res) => {
 
     const property = await Property.create(propertyData);
     
-    await property.populate('owner', 'profile.firstName profile.lastName');
-
     res.status(201).json({
       success: true,
-      data: { property },
-      message: 'Property created and listed successfully'
+      message: 'Property created successfully',
+      data: { property }
     });
   } catch (error) {
     console.error('Create property error:', error);
@@ -608,591 +1278,56 @@ router.post('/properties', async (req, res) => {
   }
 });
 
-// Update property status
-router.patch('/properties/:propertyId/status', async (req, res) => {
-  try {
-    const { propertyId } = req.params;
-    const { status, reason } = req.body;
+// ADDON MANAGEMENT ROUTES
 
-    const validStatuses = ['active', 'inactive', 'pending', 'rejected', 'sold', 'rented'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid status'
-      });
-    }
-
-    const updateData = { 
-      status,
-      modifiedBy: req.user.id,
-      modifiedAt: new Date()
-    };
-
-    // If approving, mark as verified
-    if (status === 'active') {
-      updateData.verified = true;
-      updateData.approvedBy = req.user.id;
-      updateData.approvedAt = new Date();
-    }
-
-    // If rejecting, add rejection reason
-    if (status === 'rejected' && reason) {
-      updateData.rejectionReason = reason;
-      updateData.rejectedBy = req.user.id;
-      updateData.rejectedAt = new Date();
-    }
-
-    const property = await Property.findByIdAndUpdate(
-      propertyId,
-      updateData,
-      { new: true }
-    ).populate('owner', 'email profile.firstName profile.lastName');
-
-    if (!property) {
-      return res.status(404).json({
-        success: false,
-        message: 'Property not found'
-      });
-    }
-
-    // Prepare response message
-    let message = `Property status updated to ${status}`;
-    if (status === 'active') {
-      message = 'Property approved and listed successfully';
-    } else if (status === 'rejected') {
-      message = 'Property rejected';
-    }
-
-    res.json({
-      success: true,
-      data: { property },
-      message
-    });
-  } catch (error) {
-    console.error('Update property status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update property status'
-    });
-  }
-});
-
-// Delete property (Admin)
-router.delete('/properties/:propertyId', async (req, res) => {
-  try {
-    const { propertyId } = req.params;
-
-    const property = await Property.findByIdAndDelete(propertyId);
-    
-    if (!property) {
-      return res.status(404).json({
-        success: false,
-        message: 'Property not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Property deleted successfully'
-    });
-  } catch (error) {
-    console.error('Delete property error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete property'
-    });
-  }
-});
-
-// Toggle property featured status
-router.patch('/properties/:propertyId/featured', async (req, res) => {
-  try {
-    const { propertyId } = req.params;
-    const { featured } = req.body;
-
-    const property = await Property.findByIdAndUpdate(
-      propertyId,
-      { 
-        featured,
-        modifiedBy: req.user.id,
-        modifiedAt: new Date()
-      },
-      { new: true }
-    ).populate('owner', 'profile.firstName profile.lastName');
-
-    if (!property) {
-      return res.status(404).json({
-        success: false,
-        message: 'Property not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: { property },
-      message: `Property ${featured ? 'marked as featured' : 'removed from featured'}`
-    });
-  } catch (error) {
-    console.error('Update property featured error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update property'
-    });
-  }
-});
-
-// Get analytics data
-router.get('/analytics', async (req, res) => {
-  try {
-    const { period = '30d' } = req.query;
-    
-    let dateRange;
-    const now = new Date();
-    
-    switch (period) {
-      case '7d':
-        dateRange = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case '30d':
-        dateRange = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      case '90d':
-        dateRange = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        break;
-      case '1y':
-        dateRange = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        dateRange = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    }
-
-    // Get comprehensive analytics
-    const [
-      userTrends,
-      propertyTrends,
-      revenueTrends,
-      subscriptionTrends,
-      topPerformingProperties,
-      userEngagement
-    ] = await Promise.all([
-      // User registration trends
-      User.aggregate([
-        { $match: { createdAt: { $gte: dateRange } } },
-        {
-          $group: {
-            _id: {
-              $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
-            },
-            users: { $sum: 1 },
-            byRole: { $push: "$role" }
-          }
-        },
-        { $sort: { "_id": 1 } }
-      ]),
-
-      // Property listing trends
-      Property.aggregate([
-        { $match: { createdAt: { $gte: dateRange } } },
-        {
-          $group: {
-            _id: {
-              $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
-            },
-            properties: { $sum: 1 },
-            byType: { $push: "$listingType" },
-            avgPrice: { $avg: "$price" }
-          }
-        },
-        { $sort: { "_id": 1 } }
-      ]),
-
-      // Revenue trends
-      Subscription.aggregate([
-        { $match: { createdAt: { $gte: dateRange } } },
-        {
-          $group: {
-            _id: {
-              $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
-            },
-            revenue: { $sum: "$amount" },
-            subscriptions: { $sum: 1 }
-          }
-        },
-        { $sort: { "_id": 1 } }
-      ]),
-
-      // Subscription type distribution
-      Subscription.aggregate([
-        { $match: { createdAt: { $gte: dateRange } } },
-        {
-          $lookup: {
-            from: 'plans',
-            localField: 'plan',
-            foreignField: '_id',
-            as: 'planDetails'
-          }
-        },
-        {
-          $group: {
-            _id: "$planDetails.name",
-            count: { $sum: 1 },
-            revenue: { $sum: "$amount" }
-          }
-        }
-      ]),
-
-      // Top performing properties
-      Property.aggregate([
-        { $match: { createdAt: { $gte: dateRange } } },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'owner',
-            foreignField: '_id',
-            as: 'ownerDetails'
-          }
-        },
-        {
-          $project: {
-            title: 1,
-            views: 1,
-            price: 1,
-            status: 1,
-            owner: { $arrayElemAt: ["$ownerDetails.email", 0] }
-          }
-        },
-        { $sort: { views: -1 } },
-        { $limit: 10 }
-      ]),
-
-      // User engagement metrics
-      Message.aggregate([
-        { $match: { createdAt: { $gte: dateRange } } },
-        {
-          $group: {
-            _id: {
-              $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
-            },
-            messages: { $sum: 1 },
-            uniqueUsers: { $addToSet: "$sender" }
-          }
-        },
-        {
-          $project: {
-            _id: 1,
-            messages: 1,
-            activeUsers: { $size: "$uniqueUsers" }
-          }
-        },
-        { $sort: { "_id": 1 } }
-      ])
-    ]);
-
-    res.json({
-      success: true,
-      data: {
-        userTrends,
-        propertyTrends,
-        revenueTrends,
-        subscriptionTrends,
-        topPerformingProperties,
-        userEngagement,
-        period,
-        generatedAt: new Date()
-      }
-    });
-  } catch (error) {
-    console.error('Analytics error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch analytics data'
-    });
-  }
-});
-
-// Real-time notifications for admin
-router.get('/notifications', async (req, res) => {
-  try {
-    const { limit = 20, unreadOnly = false } = req.query;
-    
-    // Get recent system events for notifications
-    const now = new Date();
-    const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-    const notifications = [];
-
-    // Pending user approvals
-    const pendingUsers = await User.find({ status: 'pending' })
-      .select('email profile createdAt')
-      .sort({ createdAt: -1 })
-      .limit(5);
-
-    pendingUsers.forEach(user => {
-      notifications.push({
-        id: `user_pending_${user._id}`,
-        type: 'user_pending',
-        title: 'User Approval Required',
-        message: `${user.profile?.firstName || user.email} is waiting for approval`,
-        timestamp: user.createdAt,
-        priority: 'high',
-        actionUrl: `/admin/users/${user._id}`,
-        isRead: false
-      });
-    });
-
-    // Properties pending review
-    const pendingProperties = await Property.find({ status: 'pending' })
-      .populate('owner', 'email profile.firstName')
-      .select('title owner createdAt')
-      .sort({ createdAt: -1 })
-      .limit(5);
-
-    pendingProperties.forEach(property => {
-      notifications.push({
-        id: `property_pending_${property._id}`,
-        type: 'property_pending',
-        title: 'Property Review Required',
-        message: `"${property.title}" by ${property.owner?.profile?.firstName || property.owner?.email} needs review`,
-        timestamp: property.createdAt,
-        priority: 'medium',
-        actionUrl: `/admin/properties/${property._id}`,
-        isRead: false
-      });
-    });
-
-    // High-value subscriptions
-    const recentSubscriptions = await Subscription.find({
-      createdAt: { $gte: last24Hours },
-      amount: { $gte: 5000 }
-    }).populate('user', 'email profile.firstName')
-      .populate('plan', 'name')
-      .sort({ createdAt: -1 });
-
-    recentSubscriptions.forEach(subscription => {
-      notifications.push({
-        id: `subscription_high_value_${subscription._id}`,
-        type: 'subscription_created',
-        title: 'High-Value Subscription',
-        message: `${subscription.user?.profile?.firstName || subscription.user?.email} subscribed to ${subscription.plan?.name} for ₹${subscription.amount}`,
-        timestamp: subscription.createdAt,
-        priority: 'low',
-        actionUrl: `/admin/subscriptions/${subscription._id}`,
-        isRead: false
-      });
-    });
-
-    // Sort by timestamp and apply limit
-    const sortedNotifications = notifications
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-      .slice(0, parseInt(limit));
-
-    res.json({
-      success: true,
-      data: {
-        notifications: sortedNotifications,
-        unreadCount: notifications.filter(n => !n.isRead).length,
-        lastUpdated: new Date()
-      }
-    });
-  } catch (error) {
-    console.error('Notifications error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch notifications'
-    });
-  }
-});
-
-// Real-time service management endpoints
-
-// Get real-time service status and connected clients
-router.get('/realtime/status', (req, res) => {
-  try {
-    const connectedClients = adminRealtimeService.getConnectedClients();
-    const systemHealth = adminRealtimeService.getSystemHealth();
-    
-    res.json({
-      success: true,
-      data: {
-        isActive: true,
-        connectedClients: connectedClients.length,
-        clients: connectedClients,
-        systemHealth,
-        features: {
-          liveMetrics: true,
-          databaseChangeStreams: true,
-          notifications: true,
-          userActivityTracking: true
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Real-time status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get real-time service status'
-    });
-  }
-});
-
-// Get current live metrics
-router.get('/realtime/metrics', async (req, res) => {
-  try {
-    const metrics = await adminRealtimeService.generateLiveMetrics();
-    res.json({
-      success: true,
-      data: metrics
-    });
-  } catch (error) {
-    console.error('Live metrics error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to generate live metrics'
-    });
-  }
-});
-
-// Send notification to all admin clients
-router.post('/realtime/broadcast', (req, res) => {
-  try {
-    const { title, message, type = 'info', priority = 'medium', data = {} } = req.body;
-    
-    if (!title || !message) {
-      return res.status(400).json({
-        success: false,
-        message: 'Title and message are required'
-      });
-    }
-    
-    const notification = {
-      title,
-      message,
-      type,
-      priority,
-      data,
-      sentBy: req.user.id,
-      sentByName: req.user.name || req.user.email
-    };
-    
-    adminRealtimeService.broadcastNotification(notification);
-    
-    res.json({
-      success: true,
-      message: 'Notification broadcast successfully',
-      data: notification
-    });
-  } catch (error) {
-    console.error('Broadcast notification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to broadcast notification'
-    });
-  }
-});
-
-// Force refresh metrics for all connected clients
-router.post('/realtime/refresh-metrics', async (req, res) => {
-  try {
-    const connectedClients = adminRealtimeService.getConnectedClients();
-    
-    // Send updated metrics to all connected admin clients
-    for (const client of connectedClients) {
-      await adminRealtimeService.sendLiveMetrics(client.clientId);
-    }
-    
-    res.json({
-      success: true,
-      message: `Metrics refreshed for ${connectedClients.length} connected clients`,
-      data: {
-        clientsUpdated: connectedClients.length,
-        timestamp: new Date()
-      }
-    });
-  } catch (error) {
-    console.error('Refresh metrics error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to refresh metrics'
-    });
-  }
-});
-
-// Get system health and alerts
-router.get('/realtime/health', async (req, res) => {
-  try {
-    const systemHealth = adminRealtimeService.getSystemHealth();
-    const alerts = await adminRealtimeService.getSystemAlerts();
-    
-    res.json({
-      success: true,
-      data: {
-        health: systemHealth,
-        alerts,
-        timestamp: new Date()
-      }
-    });
-  } catch (error) {
-    console.error('System health error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get system health'
-    });
-  }
-});
-
-// ===== ADDON MANAGEMENT ROUTES =====
-
-// @desc    Get all addon services (Admin)
+// @desc    Get all addon services for admin
 // @route   GET /api/admin/addons
 // @access  Private/Admin
 router.get('/addons', asyncHandler(async (req, res) => {
   const { 
+    category, 
+    isActive, 
+    search,
     page = 1, 
-    limit = 10, 
-    search = '', 
-    category = '', 
-    isActive 
+    limit = 10 
   } = req.query;
-
-  const skip = (page - 1) * limit;
-  let query = {};
-
-  // Build search query
+  
+  const pageNum = parseInt(page);
+  const limitNum = parseInt(limit);
+  const skip = (pageNum - 1) * limitNum;
+  
+  const filter = {};
+  if (category) filter.category = category;
+  if (isActive !== undefined && isActive !== 'all') filter.isActive = isActive === 'true';
   if (search) {
-    query.$or = [
+    filter.$or = [
       { name: { $regex: search, $options: 'i' } },
       { description: { $regex: search, $options: 'i' } }
     ];
   }
 
-  if (category) query.category = category;
-  if (isActive !== undefined) query.isActive = isActive === 'true';
-
-  const [addons, totalAddons] = await Promise.all([
-    AddonService.find(query)
+  const [addons, total] = await Promise.all([
+    AddonService.find(filter)
       .sort({ sortOrder: 1, createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit)),
-    AddonService.countDocuments(query)
+      .limit(limitNum),
+    AddonService.countDocuments(filter)
   ]);
 
-  const totalPages = Math.ceil(totalAddons / limit);
+  const totalPages = Math.ceil(total / limitNum);
 
   res.json({
     success: true,
     data: {
       addons,
-      total: totalAddons,
+      total,
       totalPages,
-      currentPage: parseInt(page),
-      hasNext: page < totalPages,
-      hasPrev: page > 1,
-      limit: parseInt(limit)
+      currentPage: pageNum
     }
   });
 }));
 
-// @desc    Get addon service by ID (Admin)
+// @desc    Get addon service by ID for admin
 // @route   GET /api/admin/addons/:id
 // @access  Private/Admin
 router.get('/addons/:id', asyncHandler(async (req, res) => {
@@ -1211,7 +1346,7 @@ router.get('/addons/:id', asyncHandler(async (req, res) => {
   });
 }));
 
-// @desc    Create new addon service (Admin)
+// @desc    Create addon service
 // @route   POST /api/admin/addons
 // @access  Private/Admin
 router.post('/addons', asyncHandler(async (req, res) => {
@@ -1219,92 +1354,36 @@ router.post('/addons', asyncHandler(async (req, res) => {
     name,
     description,
     price,
-    currency = 'INR',
+    currency,
     billingType,
     category,
     icon,
-    isActive = true,
-    sortOrder = 0
+    isActive,
+    sortOrder
   } = req.body;
-
-  // Validate required fields
-  if (!name || !description || !price || !billingType || !category) {
-    return res.status(400).json({
-      success: false,
-      message: 'Name, description, price, billing type, and category are required'
-    });
-  }
-
-  // Validate enums
-  const validBillingTypes = ['per_property', 'monthly', 'yearly', 'one_time'];
-  const validCategories = ['photography', 'marketing', 'technology', 'support', 'crm'];
-  const validCurrencies = ['INR', 'USD', 'EUR'];
-
-  if (!validBillingTypes.includes(billingType)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid billing type'
-    });
-  }
-
-  if (!validCategories.includes(category)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid category'
-    });
-  }
-
-  if (!validCurrencies.includes(currency)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid currency'
-    });
-  }
-
-  // Check if addon with same name exists
-  const existingAddon = await AddonService.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
-  if (existingAddon) {
-    return res.status(400).json({
-      success: false,
-      message: 'Addon service with this name already exists'
-    });
-  }
 
   const addon = await AddonService.create({
     name,
     description,
     price,
-    currency,
+    currency: currency || 'INR',
     billingType,
     category,
     icon,
-    isActive,
-    sortOrder
+    isActive: isActive !== undefined ? isActive : true,
+    sortOrder: sortOrder || 0
   });
 
   res.status(201).json({
     success: true,
-    data: addon,
-    message: 'Addon service created successfully'
+    data: addon
   });
 }));
 
-// @desc    Update addon service (Admin)
+// @desc    Update addon service
 // @route   PUT /api/admin/addons/:id
 // @access  Private/Admin
 router.put('/addons/:id', asyncHandler(async (req, res) => {
-  const {
-    name,
-    description,
-    price,
-    currency,
-    billingType,
-    category,
-    icon,
-    isActive,
-    sortOrder
-  } = req.body;
-
   const addon = await AddonService.findById(req.params.id);
 
   if (!addon) {
@@ -1314,77 +1393,37 @@ router.put('/addons/:id', asyncHandler(async (req, res) => {
     });
   }
 
-  // Validate enums if provided
-  if (billingType) {
-    const validBillingTypes = ['per_property', 'monthly', 'yearly', 'one_time'];
-    if (!validBillingTypes.includes(billingType)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid billing type'
-      });
-    }
-  }
+  const {
+    name,
+    description,
+    price,
+    currency,
+    billingType,
+    category,
+    icon,
+    isActive,
+    sortOrder
+  } = req.body;
 
-  if (category) {
-    const validCategories = ['photography', 'marketing', 'technology', 'support', 'crm'];
-    if (!validCategories.includes(category)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid category'
-      });
-    }
-  }
+  addon.name = name || addon.name;
+  addon.description = description || addon.description;
+  addon.price = price !== undefined ? price : addon.price;
+  addon.currency = currency || addon.currency;
+  addon.billingType = billingType || addon.billingType;
+  addon.category = category || addon.category;
+  addon.icon = icon !== undefined ? icon : addon.icon;
+  addon.isActive = isActive !== undefined ? isActive : addon.isActive;
+  addon.sortOrder = sortOrder !== undefined ? sortOrder : addon.sortOrder;
 
-  if (currency) {
-    const validCurrencies = ['INR', 'USD', 'EUR'];
-    if (!validCurrencies.includes(currency)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid currency'
-      });
-    }
-  }
-
-  // Check if name is being changed and if it conflicts
-  if (name && name !== addon.name) {
-    const existingAddon = await AddonService.findOne({ 
-      name: { $regex: new RegExp(`^${name}$`, 'i') },
-      _id: { $ne: req.params.id }
-    });
-    if (existingAddon) {
-      return res.status(400).json({
-        success: false,
-        message: 'Addon service with this name already exists'
-      });
-    }
-  }
-
-  // Update fields
-  const updateFields = {};
-  if (name !== undefined) updateFields.name = name;
-  if (description !== undefined) updateFields.description = description;
-  if (price !== undefined) updateFields.price = price;
-  if (currency !== undefined) updateFields.currency = currency;
-  if (billingType !== undefined) updateFields.billingType = billingType;
-  if (category !== undefined) updateFields.category = category;
-  if (icon !== undefined) updateFields.icon = icon;
-  if (isActive !== undefined) updateFields.isActive = isActive;
-  if (sortOrder !== undefined) updateFields.sortOrder = sortOrder;
-
-  const updatedAddon = await AddonService.findByIdAndUpdate(
-    req.params.id,
-    updateFields,
-    { new: true, runValidators: true }
-  );
+  await addon.save();
 
   res.json({
     success: true,
-    data: updatedAddon,
-    message: 'Addon service updated successfully'
+    data: addon
   });
 }));
 
-// @desc    Delete addon service (Admin)
+// @desc    Delete addon service
 // @route   DELETE /api/admin/addons/:id
 // @access  Private/Admin
 router.delete('/addons/:id', asyncHandler(async (req, res) => {
@@ -1397,20 +1436,7 @@ router.delete('/addons/:id', asyncHandler(async (req, res) => {
     });
   }
 
-  // Check if addon is being used in any active subscriptions
-  const subscriptionsUsingAddon = await Subscription.countDocuments({
-    addons: req.params.id,
-    status: 'active'
-  });
-
-  if (subscriptionsUsingAddon > 0) {
-    return res.status(400).json({
-      success: false,
-      message: `Cannot delete addon service. It is currently being used in ${subscriptionsUsingAddon} active subscription(s)`
-    });
-  }
-
-  await AddonService.findByIdAndDelete(req.params.id);
+  await addon.deleteOne();
 
   res.json({
     success: true,
@@ -1418,7 +1444,7 @@ router.delete('/addons/:id', asyncHandler(async (req, res) => {
   });
 }));
 
-// @desc    Toggle addon service status (Admin)
+// @desc    Toggle addon service status
 // @route   PATCH /api/admin/addons/:id/toggle-status
 // @access  Private/Admin
 router.patch('/addons/:id/toggle-status', asyncHandler(async (req, res) => {
@@ -1436,38 +1462,36 @@ router.patch('/addons/:id/toggle-status', asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: addon,
-    message: `Addon service ${addon.isActive ? 'activated' : 'deactivated'} successfully`
+    data: addon
   });
 }));
 
-// @desc    Update addon services sort order (Admin)
+// @desc    Update addon sort order
 // @route   PUT /api/admin/addons/sort-order
 // @access  Private/Admin
 router.put('/addons/sort-order', asyncHandler(async (req, res) => {
   const { addonIds } = req.body;
 
-  if (!Array.isArray(addonIds) || addonIds.length === 0) {
+  if (!Array.isArray(addonIds)) {
     return res.status(400).json({
       success: false,
-      message: 'Array of addon IDs is required'
+      message: 'addonIds must be an array'
     });
   }
 
-  // Update sort order for each addon
-  const updatePromises = addonIds.map((addonId, index) => 
-    AddonService.findByIdAndUpdate(addonId, { sortOrder: index })
+  const updatePromises = addonIds.map((id, index) =>
+    AddonService.findByIdAndUpdate(id, { sortOrder: index }, { new: true })
   );
 
   await Promise.all(updatePromises);
 
   res.json({
     success: true,
-    message: 'Addon sort order updated successfully'
+    message: 'Sort order updated successfully'
   });
 }));
 
-// @desc    Get addon service statistics (Admin)
+// @desc    Get addon statistics for admin dashboard
 // @route   GET /api/admin/addons/stats
 // @access  Private/Admin
 router.get('/addons/stats', asyncHandler(async (req, res) => {

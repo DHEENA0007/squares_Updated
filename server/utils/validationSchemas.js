@@ -32,36 +32,35 @@ const registerSchema = Joi.object({
   }),
   // Optional business info for vendors
   businessInfo: Joi.object({
-    businessName: Joi.string().min(2).max(100),
-    businessType: Joi.string().max(50),
-    businessDescription: Joi.string().max(500),
-    experience: Joi.string().max(20),
-    address: Joi.string().max(200),
-    city: Joi.string().max(50),
-    state: Joi.string().max(50),
-    pincode: Joi.string().max(10),
-    licenseNumber: Joi.string().max(50),
-    gstNumber: Joi.string().max(15),
-    panNumber: Joi.string().max(10)
+    businessName: Joi.string().min(2).max(100).required(),
+    businessType: Joi.string().valid('real_estate_agent', 'property_developer', 'construction_company', 'interior_designer', 'legal_services', 'home_loan_provider', 'packers_movers', 'property_management', 'other').required(),
+    businessDescription: Joi.string().max(500).required(),
+    experience: Joi.number().min(0).max(50).required(),
+    address: Joi.string().max(200).required(),
+    city: Joi.string().max(50).required(),
+    state: Joi.string().max(50).required(),
+    pincode: Joi.string().length(6).pattern(/^[0-9]{6}$/).required().messages({
+      'string.length': 'PIN code must be exactly 6 digits',
+      'string.pattern.base': 'PIN code must contain only numbers'
+    }),
+    licenseNumber: Joi.string().max(50).optional().allow(''),
+    gstNumber: Joi.string().pattern(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/).optional().allow('').messages({
+      'string.pattern.base': 'Invalid GST number format'
+    }),
+    panNumber: Joi.string().pattern(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/).optional().allow('').messages({
+      'string.pattern.base': 'Invalid PAN number format (should be like: ABCDE1234F)'
+    })
   }).optional(),
-  // Optional documents for vendors
-  documents: Joi.object({
-    businessRegistration: Joi.object({
-      name: Joi.string(),
-      url: Joi.string().uri(),
-      size: Joi.number()
-    }).optional(),
-    professionalLicense: Joi.object({
-      name: Joi.string(),
-      url: Joi.string().uri(),
-      size: Joi.number()
-    }).optional(),
-    identityProof: Joi.object({
-      name: Joi.string(),
-      url: Joi.string().uri(),
-      size: Joi.number()
-    }).optional()
-  }).optional(),
+  // Optional documents for vendors - accepts array format
+  documents: Joi.array().items(
+    Joi.object({
+      type: Joi.string().valid('business_license', 'identity', 'address', 'pan_card', 'gst_certificate', 'other').required(),
+      name: Joi.string().required(),
+      url: Joi.string().uri().required(),
+      status: Joi.string().valid('pending', 'approved', 'rejected').default('pending'),
+      uploadDate: Joi.date().optional()
+    })
+  ).optional().allow(null),
   // OTP for email verification
   otp: Joi.string().pattern(new RegExp('^[0-9]{6}$')).required().messages({
     'string.pattern.base': 'OTP must be a 6-digit number',

@@ -123,8 +123,10 @@ const verifyOTP = async (identifier, code, purpose = 'email_verification') => {
     };
   }
   
-  // Success - remove OTP
-  otpStore.delete(key);
+  // Success - mark as verified but don't delete yet (for multi-step processes)
+  otpData.verified = true;
+  otpData.verifiedAt = Date.now();
+  otpStore.set(key, otpData);
   
   return {
     success: true,
@@ -190,6 +192,87 @@ const getOTPStatus = async (identifier, purpose = 'email_verification') => {
 };
 
 /**
+ * Mark OTP as verified without consuming it (for multi-step processes)
+ * @param {string} identifier - Usually email address
+ * @param {string} purpose - Purpose of OTP
+ * @returns {object} Verification status
+ */
+const markOTPVerified = async (identifier, purpose = 'email_verification') => {
+  const key = `${identifier}:${purpose}`;
+  const otpData = otpStore.get(key);
+  
+  if (!otpData) {
+    return {
+      success: false,
+      error: 'OTP_NOT_FOUND',
+      message: 'OTP not found or has expired'
+    };
+  }
+  
+  // Mark as verified but don't delete
+  otpData.verified = true;
+  otpData.verifiedAt = Date.now();
+  otpStore.set(key, otpData);
+  
+  return {
+    success: true,
+    message: 'OTP marked as verified'
+  };
+};
+
+/**
+ * Check if OTP is verified (for multi-step processes)
+ * @param {string} identifier - Usually email address
+ * @param {string} purpose - Purpose of OTP
+ * @returns {object} Verification status
+ */
+const isOTPVerified = async (identifier, purpose = 'email_verification') => {
+  const key = `${identifier}:${purpose}`;
+  const otpData = otpStore.get(key);
+  
+  if (!otpData) {
+    return { verified: false };
+  }
+  
+  // Check if expired
+  if (Date.now() > otpData.expiryTime) {
+    otpStore.delete(key);
+    return { verified: false, expired: true };
+  }
+  
+  return { 
+    verified: otpData.verified === true,
+    verifiedAt: otpData.verifiedAt 
+  };
+};
+
+/**
+ * Consume verified OTP (delete after successful use)
+ * @param {string} identifier - Usually email address
+ * @param {string} purpose - Purpose of OTP
+ * @returns {object} Consumption result
+ */
+const consumeVerifiedOTP = async (identifier, purpose = 'email_verification') => {
+  const key = `${identifier}:${purpose}`;
+  const otpData = otpStore.get(key);
+  
+  if (!otpData || !otpData.verified) {
+    return {
+      success: false,
+      message: 'OTP not found or not verified'
+    };
+  }
+  
+  // Delete the OTP after consumption
+  otpStore.delete(key);
+  
+  return {
+    success: true,
+    message: 'OTP consumed successfully'
+  };
+};
+
+/**
  * Clear all OTPs for a user (useful for cleanup)
  * @param {string} identifier - Usually email address
  */
@@ -236,6 +319,9 @@ module.exports = {
   generateOTP,
   createOTP,
   verifyOTP,
+  markOTPVerified,
+  isOTPVerified,
+  consumeVerifiedOTP,
   canRequestOTP,
   getOTPStatus,
   clearUserOTPs,

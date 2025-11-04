@@ -1,4 +1,4 @@
-import { Home, CheckCircle, XCircle, Shield, Headphones, BarChart3, Star, Bell, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { Home, CheckCircle, XCircle, Shield, Headphones, BarChart3, Star, Bell, FileText, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 
@@ -13,6 +13,7 @@ const subAdminNavItems = [
   { icon: Home, label: "Dashboard", path: "/admin/dashboard" },
   { icon: CheckCircle, label: "Property Review", path: "/admin/properties/review" },
   { icon: XCircle, label: "Property Approval", path: "/admin/properties/approval" },
+  { icon: UserCheck, label: "Vendor Approvals", path: "/admin/vendor-approvals" },
   { icon: Shield, label: "Content Moderation", path: "/admin/content/moderation" },
   { icon: Headphones, label: "Support Tickets", path: "/admin/support/tickets" },
   { icon: BarChart3, label: "Performance Tracking", path: "/admin/performance" },

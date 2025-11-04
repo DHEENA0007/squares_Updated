@@ -12,7 +12,8 @@ import {
   PerformanceTracking, 
   PromotionApproval, 
   SendNotifications, 
-  GenerateReports 
+  GenerateReports,
+  VendorApprovals 
 } from "./SubAdminLazyImports";
 
 const SubAdminRoutes = () => {
@@ -25,6 +26,7 @@ const SubAdminRoutes = () => {
             <Route path="/dashboard" element={<SubAdminDashboard />} />
             <Route path="/properties/review" element={<PropertyReview />} />
             <Route path="/properties/approval" element={<PropertyApproval />} />
+            <Route path="/vendor-approvals" element={<VendorApprovals />} />
             <Route path="/content/moderation" element={<ContentModeration />} />
             <Route path="/support/tickets" element={<SupportTickets />} />
             <Route path="/performance" element={<PerformanceTracking />} />

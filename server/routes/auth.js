@@ -15,10 +15,25 @@ const {
 const { 
   createOTP, 
   verifyOTP, 
-  canRequestOTP 
+  canRequestOTP,
+  isOTPVerified,
+  consumeVerifiedOTP
 } = require('../utils/otpService');
 
 const router = express.Router();
+
+// Helper function to map document types from registration to approval document types
+const mapDocumentType = (type) => {
+  const typeMap = {
+    'business_license': 'business_license',
+    'identity': 'identity_proof',
+    'address': 'address_proof',
+    'pan_card': 'pan_card',
+    'gst_certificate': 'gst_certificate',
+    'other': 'other'
+  };
+  return typeMap[type] || 'other';
+};
 
 // @desc    Send OTP for email verification
 // @route   POST /api/auth/send-otp
@@ -147,15 +162,25 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
     });
   }
 
-  // Verify OTP first
-  const otpVerification = await verifyOTP(email, otp, 'email_verification');
-  if (!otpVerification.success) {
-    return res.status(400).json({
-      success: false,
-      message: otpVerification.message,
-      error: otpVerification.error,
-      attemptsLeft: otpVerification.attemptsLeft
-    });
+  // Check if OTP is already verified (for multi-step processes)
+  const otpStatus = await isOTPVerified(email, 'email_verification');
+  console.log('OTP Status for', email, ':', otpStatus);
+  
+  if (!otpStatus.verified) {
+    // If not verified, try to verify the provided OTP
+    console.log('Attempting to verify OTP for registration:', email);
+    const otpVerification = await verifyOTP(email, otp, 'email_verification');
+    if (!otpVerification.success) {
+      console.log('OTP verification failed:', otpVerification);
+      return res.status(400).json({
+        success: false,
+        message: otpVerification.message,
+        error: otpVerification.error,
+        attemptsLeft: otpVerification.attemptsLeft
+      });
+    }
+  } else {
+    console.log('OTP already verified for registration:', email);
   }
 
   // Check if user already exists
@@ -182,24 +207,82 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
   }
 
   // Create user
+  // For vendors (agents), set status to 'pending' until admin approves
+  // For customers, set to 'active' since they only need email verification
   const user = new User({
     email,
     password,
     role,
-    status: 'active', // User is active since email is verified through OTP
+    status: role === 'agent' ? 'pending' : 'active', // Vendors need admin approval
     profile
   });
 
   await user.save();
 
+  // Consume the verified OTP now that registration is complete
+  await consumeVerifiedOTP(email, 'email_verification');
+
   // Create vendor profile for agents
   let vendor = null;
   if (role === 'agent') {
+    // Prepare documents array properly - ensure each document has required 'type' field
+    const vendorDocuments = [];
+    
+    if (documents && Array.isArray(documents)) {
+      // Frontend sends documents as array: [{ type, name, url, status, uploadDate }]
+      documents.forEach(doc => {
+        if (doc && doc.type && doc.url) {
+          vendorDocuments.push({
+            type: doc.type,
+            name: doc.name || 'Document',
+            url: doc.url,
+            status: doc.status || 'pending',
+            uploadDate: doc.uploadDate || new Date()
+          });
+        }
+      });
+    } else if (documents && typeof documents === 'object') {
+      // Legacy format: { businessRegistration: {...}, identityProof: {...} }
+      const documentTypeMap = {
+        'businessRegistration': 'business_license',
+        'professionalLicense': 'business_license',
+        'identityProof': 'identity',
+        'addressProof': 'address',
+        'panCard': 'pan_card',
+        'gstCertificate': 'gst_certificate'
+      };
+      
+      Object.entries(documents).forEach(([key, doc]) => {
+        if (doc && doc.url) {
+          vendorDocuments.push({
+            type: documentTypeMap[key] || 'other',
+            name: doc.name || key,
+            url: doc.url,
+            status: 'pending',
+            uploadDate: new Date()
+          });
+        }
+      });
+    }
+    
+    console.log('Vendor documents prepared:', vendorDocuments);
+    
+    // Map documents to approval.submittedDocuments format
+    const submittedDocuments = vendorDocuments.map(doc => ({
+      documentType: mapDocumentType(doc.type),
+      documentName: doc.name,
+      documentUrl: doc.url,
+      uploadedAt: doc.uploadDate || new Date(),
+      verified: false
+    }));
+    
+    console.log('Submitted documents for approval:', submittedDocuments);
+    
     const vendorData = {
       user: user._id,
       businessInfo: {
         companyName: businessInfo?.businessName || `${firstName} ${lastName}`.trim() || 'Unknown Business',
-        businessType: businessInfo?.businessType || 'individual',
+        businessType: businessInfo?.businessType || 'real_estate_agent',
         licenseNumber: businessInfo?.licenseNumber || undefined,
         gstNumber: businessInfo?.gstNumber || undefined,
         panNumber: businessInfo?.panNumber || undefined,
@@ -245,12 +328,17 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
       verification: {
         isVerified: false, // Email verified but business verification pending
         verificationLevel: 'basic', // Email verification completed
-        documents: documents || []
+        documents: vendorDocuments // Store in verification.documents as well
       },
-      status: 'pending_verification', // Awaiting admin approval for business verification
+      approval: {
+        status: 'pending',
+        submittedAt: new Date(),
+        submittedDocuments: submittedDocuments // Documents for admin review
+      },
+      status: 'pending_approval', // Awaiting admin approval for business verification
       metadata: {
         source: 'website',
-        notes: 'Created during registration'
+        notes: 'Created during registration - Awaiting admin approval'
       }
     };
 
@@ -260,22 +348,77 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
     // Link user to vendor profile
     user.vendorProfile = vendor._id;
     await user.save();
+
+    // Send notification to admin about new vendor application
+    try {
+      await sendEmail({
+        to: process.env.ADMIN_EMAIL || 'admin@buildhomemartsquares.com',
+        template: 'admin-new-vendor-application',
+        data: {
+          companyName: businessInfo?.businessName || `${firstName} ${lastName}`.trim(),
+          firstName: firstName,
+          lastName: lastName,
+          email: email,
+          phone: phone,
+          businessType: businessInfo?.businessType || 'individual',
+          experience: businessInfo?.experience || 'Not specified',
+          applicationId: vendor._id.toString(),
+          submittedDate: new Date().toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          documentCount: vendorDocuments ? vendorDocuments.length : 0,
+          adminReviewLink: `${process.env.CLIENT_URL || 'http://localhost:3000'}/admin/vendors/${vendor._id}`,
+          documentsLink: `${process.env.CLIENT_URL || 'http://localhost:3000'}/admin/vendors/${vendor._id}/documents`
+        }
+      });
+      console.log('Admin notification sent for new vendor application:', email);
+    } catch (emailError) {
+      console.error('Failed to send admin notification:', emailError);
+      // Don't fail the registration if admin email fails
+    }
   }
 
-  // Send welcome email instead of verification email (since already verified via OTP)
+  // Send confirmation email (for vendors, confirm profile submission)
   try {
-    const welcomeTemplate = role === 'agent' ? 'vendor-welcome' : 'welcome';
-    await sendEmail({
-      to: email,
-      template: welcomeTemplate,
-      data: {
-        firstName,
-        vendorName: role === 'agent' ? businessInfo?.businessName || `${firstName} ${lastName}` : undefined,
-        dashboardLink: role === 'agent' ? `${process.env.CLIENT_URL}/vendor/dashboard` : `${process.env.CLIENT_URL}/dashboard`
-      }
-    });
+    if (role === 'agent') {
+      // Send profile submission confirmation to vendor
+      await sendEmail({
+        to: email,
+        template: 'vendor-profile-submitted-confirmation',
+        data: {
+          firstName,
+          email,
+          businessName: businessInfo?.businessName || `${firstName} ${lastName}`.trim(),
+          applicationId: vendor._id.toString(),
+          submissionDate: new Date().toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          supportEmail: 'partners@buildhomemartsquares.com'
+        }
+      });
+    } else {
+      // Regular welcome email for customers
+      await sendEmail({
+        to: email,
+        template: 'welcome',
+        data: {
+          firstName,
+          dashboardLink: `${process.env.CLIENT_URL}/dashboard`
+        }
+      });
+    }
   } catch (emailError) {
-    console.error('Failed to send welcome email:', emailError);
+    console.error('Failed to send confirmation email:', emailError);
   }
 
   res.status(201).json({
@@ -329,6 +472,16 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
   }
 
   if (user.status === 'pending') {
+    // For vendors (agents), check if they're awaiting admin approval
+    if (user.role === 'agent') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your vendor profile is under review. You will be notified once approved by our admin team.',
+        reason: 'pending_approval'
+      });
+    }
+    
+    // For other users, it's email verification
     return res.status(401).json({
       success: false,
       message: 'Please verify your email before signing in.'

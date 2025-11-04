@@ -111,11 +111,18 @@ class AuthService {
       return response;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Login failed";
-      toast({
-        title: "Login Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      
+      // Don't show toast for pending approval - let the calling component handle it
+      if (!errorMessage.includes("profile is under review") && 
+          !errorMessage.includes("pending approval") &&
+          !errorMessage.includes("awaiting admin approval")) {
+        toast({
+          title: "Login Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+      
       throw error;
     }
   }

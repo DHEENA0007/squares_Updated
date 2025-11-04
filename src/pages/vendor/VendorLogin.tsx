@@ -55,32 +55,27 @@ const VendorLogin = () => {
       console.log('VendorLogin: Login attempt result:', success);
       
       if (success) {
-        // Get the logged in user to check role
-        const user = authService.getStoredUser();
-        console.log('VendorLogin: User data after login:', user);
+        // Check if user is a vendor and navigate accordingly
+        // Get user from localStorage directly since getCurrentUser is async
+        const userStr = localStorage.getItem('user');
+        const user = userStr ? JSON.parse(userStr) : null;
+        console.log('VendorLogin: Current user after login:', user);
         
         if (user?.role === 'agent') {
           toast({
-            title: "Success",
-            description: "Logged in successfully! Redirecting to vendor dashboard...",
+            title: "Login Successful",
+            description: "Welcome to your vendor dashboard!",
           });
-          console.log('VendorLogin: Navigating to vendor dashboard');
-          // Use timeout to ensure state updates
-          setTimeout(() => {
-            navigate("/vendor/dashboard", { replace: true });
-          }, 100);
+          navigate("/vendor/dashboard");
         } else {
-          console.log('VendorLogin: User role is', user?.role, 'expected agent');
           toast({
             title: "Access Denied",
-            description: "This login is for vendors only. Please use the appropriate login portal.",
+            description: "This is a vendor-only portal. Please use the regular login.",
             variant: "destructive",
           });
-          // Clear the login
           authService.clearAuthData();
         }
       } else {
-        console.log('VendorLogin: Login failed');
         toast({
           title: "Login Failed",
           description: "Invalid email or password. Please try again.",
@@ -90,9 +85,29 @@ const VendorLogin = () => {
       
     } catch (error) {
       console.error("Vendor login error:", error);
+      
+      let errorMessage = "An error occurred during login. Please try again.";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        
+        // Check if it's a pending approval error
+        if (errorMessage.includes("profile is under review") || 
+            errorMessage.includes("pending approval") ||
+            errorMessage.includes("awaiting admin approval")) {
+          toast({
+            title: "Account Pending Approval",
+            description: errorMessage,
+            variant: "default",
+            duration: 5000,
+          });
+          return;
+        }
+      }
+      
       toast({
         title: "Login Failed",
-        description: "Invalid credentials or server error. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

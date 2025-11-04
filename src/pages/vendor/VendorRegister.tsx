@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
+import { authService } from "@/services/authService";
 import { 
   Store, 
   User, 
@@ -42,6 +43,7 @@ const VendorRegister = () => {
   const [otpStep, setOtpStep] = useState<"none" | "sent" | "verified">("none");
   const [otp, setOtp] = useState("");
   const [otpExpiry, setOtpExpiry] = useState<number>(0);
+  const [profileSubmitted, setProfileSubmitted] = useState(false);
 
   const [formData, setFormData] = useState({
     // Personal Information
@@ -114,7 +116,8 @@ const VendorRegister = () => {
     { id: 2, title: "Business Info", description: "Company details" },
     { id: 3, title: "Address", description: "Location details" },
     { id: 4, title: "Documents", description: "Verification" },
-    { id: 5, title: "Complete", description: "Verify & Submit" }
+    { id: 5, title: "Review & Submit", description: "Review profile" },
+    { id: 6, title: "Verify Email", description: "Email verification" }
   ];
 
   // Initialize locaService on component mount
@@ -284,23 +287,26 @@ const VendorRegister = () => {
     return { score, label: "Very Weak", color: "text-red-500", bgColor: "bg-red-500" };
   };
 
+  // Business types - matching backend Vendor model enum values
+  // These represent the type of real estate services the vendor provides
   const businessTypes = [
-    "Real Estate Agent",
-    "Property Developer",
-    "Construction Company",
-    "Interior Designer",
-    "Legal Services",
-    "Home Loan Provider",
-    "Packers & Movers",
-    "Property Management",
-    "Other"
+    { label: "Real Estate Agent", value: "real_estate_agent" },
+    { label: "Property Developer", value: "property_developer" },
+    { label: "Construction Company", value: "construction_company" },
+    { label: "Interior Designer", value: "interior_designer" },
+    { label: "Legal Services", value: "legal_services" },
+    { label: "Home Loan Provider", value: "home_loan_provider" },
+    { label: "Packers & Movers", value: "packers_movers" },
+    { label: "Property Management", value: "property_management" },
+    { label: "Other", value: "other" }
   ];
 
+  // Experience options - will be converted to numbers (in years)
   const experienceOptions = [
-    "0-1 years",
-    "2-5 years",
-    "6-10 years",
-    "10+ years"
+    { label: "0-1 years", value: 0 },
+    { label: "2-5 years", value: 3 },
+    { label: "6-10 years", value: 8 },
+    { label: "10+ years", value: 10 }
   ];
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -350,7 +356,9 @@ const VendorRegister = () => {
           uploadedDocuments.identityProof
         );
       case 5:
-        return otpStep === "sent";
+        return formData.termsAccepted;
+      case 6:
+        return otpStep === "verified";
       default:
         return true;
     }
@@ -393,12 +401,19 @@ const VendorRegister = () => {
         else if (formData.pincode.length !== 6) errors.push("PIN code must be 6 digits");
         break;
       case 4:
-        if (!formData.panNumber.trim()) errors.push("PAN number is required");
+        if (!formData.panNumber.trim()) {
+          errors.push("PAN number is required");
+        } else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber.trim().toUpperCase())) {
+          errors.push("PAN number must be in format: ABCDE1234F (5 letters + 4 digits + 1 letter)");
+        }
         if (!uploadedDocuments.businessRegistration) errors.push("Business registration certificate is required");
         if (!uploadedDocuments.identityProof) errors.push("Identity proof is required");
         break;
       case 5:
-        if (otpStep === "none") errors.push("Please request OTP first");
+        if (!formData.termsAccepted) errors.push("Please accept the terms and conditions");
+        break;
+      case 6:
+        if (otpStep === "none") errors.push("Please verify your email first");
         break;
     }
     
@@ -459,34 +474,11 @@ const VendorRegister = () => {
       return;
     }
 
-    // Special handling for step 4 (Documents) -> step 5 (OTP)
-    if (currentStep === 4 && otpStep === "none") {
-      // Send OTP when moving from Documents to Email Verification
-      try {
-        setIsLoading(true);
-        const { authService } = await import("@/services/authService");
-        
-        const response = await authService.sendOTP(formData.email, formData.firstName);
-        if (response.success) {
-          setOtpStep("sent");
-          setOtpExpiry(response.expiryMinutes || 10);
-          setCurrentStep(currentStep + 1);
-          toast({
-            title: "OTP Sent",
-            description: `Verification code sent to ${formData.email}`,
-          });
-        }
-      } catch (error) {
-        console.error("OTP sending error:", error);
-        toast({
-          title: "Error",
-          description: "Failed to send OTP. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    } else if (currentStep < 5) {
+    // Special handling for step 5 (Review & Submit) -> step 6 (OTP)
+    if (currentStep === 5) {
+      // Submit profile to admin and then send OTP
+      await handleProfileSubmission();
+    } else if (currentStep < 6) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -494,6 +486,38 @@ const VendorRegister = () => {
   const handlePrevious = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
+    }
+  };
+
+  // Handle profile preparation and OTP sending (step 5)
+  const handleProfileSubmission = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Just send OTP, don't submit profile to admin yet
+      const otpResponse = await authService.sendOTP(formData.email, formData.firstName);
+      
+      if (otpResponse.success) {
+        setOtpStep("sent");
+        setOtpExpiry(otpResponse.expiryMinutes || 10);
+        setCurrentStep(6); // Move to OTP step
+        
+        toast({
+          title: "Profile Ready for Submission",
+          description: "Please verify your email to submit profile to admin for approval.",
+        });
+      } else {
+        throw new Error('Failed to send OTP');
+      }
+    } catch (error) {
+      console.error("OTP sending error:", error);
+      toast({
+        title: "OTP Failed",
+        description: "Failed to send verification email. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -507,138 +531,35 @@ const VendorRegister = () => {
       return;
     }
 
-    // Immediately register like customer flow to avoid OTP expiry
-    // Set terms as accepted since it's required for vendors
-    setFormData(prev => ({ ...prev, termsAccepted: true }));
-    
-    // Proceed directly to registration
-    await handleRegistration();
+    try {
+      setIsLoading(true);
+      
+      // Complete registration with OTP verification (same as customer flow)
+      await handleFinalRegistration();
+      
+      setOtpStep("verified");
+      
+    } catch (error) {
+      console.error("Registration error:", error);
+      toast({
+        title: "Registration Failed", 
+        description: error instanceof Error ? error.message : "Failed to complete registration. Please try again.",
+        variant: "destructive",
+      });
+      setOtp(""); // Clear OTP on error
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleRegistration = async () => {
-    if (!formData.termsAccepted) {
-      toast({
-        title: "Terms Required",
-        description: "Please accept the terms and conditions to continue",
-        variant: "destructive",
-      });
-      return;
-    }
+  // This function is no longer needed as the backend handles admin notification
+  // after successful registration
 
-    // Validate required fields
-    const requiredFields = {
-      firstName: "First name",
-      lastName: "Last name",
-      email: "Email",
-      phone: "Phone number",
-      password: "Password",
-      businessName: "Business name",
-      businessType: "Business type",
-      businessDescription: "Business description",
-      experience: "Experience",
-      address: "Address",
-      city: "City",
-      state: "State",
-      pincode: "Pincode"
-    };
-
-    for (const [field, label] of Object.entries(requiredFields)) {
-      if (!formData[field]?.trim()) {
-        toast({
-          title: "Missing Information",
-          description: `${label} is required`,
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      toast({
-        title: "Invalid Email",
-        description: "Please enter a valid email address",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate phone number format
-    const phoneRegex = /^[+]?[1-9]\d{1,14}$/;
-    const cleanPhone = formData.phone.trim().replace(/[^\d+]/g, '');
-    if (!phoneRegex.test(cleanPhone) && !phoneRegex.test('+91' + cleanPhone)) {
-      toast({
-        title: "Invalid Phone Number",
-        description: "Please enter a valid phone number",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate password strength
-    const passwordErrors = validatePassword(formData.password);
-    if (passwordErrors.length > 0) {
-      toast({
-        title: "Weak Password",
-        description: `Password requirements: ${passwordErrors.join(", ")}`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate passwords match
-    if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Password Mismatch",
-        description: "Passwords do not match. Please check and try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate pincode format (6 digits for India)
-    if (!/^[0-9]{6}$/.test(formData.pincode)) {
-      toast({
-        title: "Invalid Pincode",
-        description: "Please enter a valid 6-digit pincode",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate location selection - ensure we have proper location codes
-    if (!formData.state || !formData.city) {
-      toast({
-        title: "Location Required",
-        description: "Please select your complete location (State and City)",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate that we have a valid OTP
-    if (!otp || otp.length !== 6) {
-      toast({
-        title: "OTP Required",
-        description: "Please provide a valid 6-digit OTP for registration.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    console.log('OTP validation passed:', {
-      otp: otp,
-      otpStep: otpStep,
-      email: formData.email
-    });
-
+  // Final registration after OTP verification
+  const handleFinalRegistration = async () => {
     setIsLoading(true);
 
     try {
-      // Import authService
-      const { authService } = await import("@/services/authService");
-      
       // Clean and validate phone number
       let cleanPhone = formData.phone.trim().replace(/[^\d+]/g, '');
       
@@ -653,7 +574,7 @@ const VendorRegister = () => {
         businessName: string;
         businessType: string;
         businessDescription: string;
-        experience: string;
+        experience: number;
         address: string;
         city: string;
         state: string;
@@ -665,35 +586,61 @@ const VendorRegister = () => {
         businessName: formData.businessName.trim(),
         businessType: formData.businessType,
         businessDescription: formData.businessDescription.trim(),
-        experience: formData.experience,
+        experience: Number(formData.experience), // Convert to number
         address: formData.address.trim(),
         city: formData.city,
         state: formData.state,
         pincode: formData.pincode.trim()
       };
       
-      // Only add optional fields if they have values
+      // Only add optional fields if they have values AND are valid
       if (formData.licenseNumber?.trim()) {
         businessInfo.licenseNumber = formData.licenseNumber.trim();
       }
       if (formData.gstNumber?.trim()) {
         businessInfo.gstNumber = formData.gstNumber.trim();
       }
+      // PAN Number: Only include if it's provided AND matches the valid format
       if (formData.panNumber?.trim()) {
-        businessInfo.panNumber = formData.panNumber.trim();
+        const cleanPan = formData.panNumber.trim().toUpperCase();
+        // Validate PAN format: 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)
+        if (/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+          businessInfo.panNumber = cleanPan;
+        } else {
+          // If PAN is provided but invalid, throw an error
+          toast({
+            title: "Invalid PAN Number",
+            description: "PAN number must be in format: ABCDE1234F (5 letters + 4 digits + 1 letter)",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
       }
       
-      // Prepare documents - only include documents that are actually uploaded
-      const documents = {};
-      Object.entries(uploadedDocuments).forEach(([key, doc]) => {
-        if (doc && doc.url) {
-          documents[key] = {
-            name: doc.name,
-            url: doc.url,
-            size: doc.size
-          };
-        }
-      });
+      // Prepare documents - convert to array format expected by backend
+      // Backend expects: verification.documents = [{ type, name, url }]
+      // Map document keys to backend document types
+      const documentTypeMap: { [key: string]: string } = {
+        businessRegistration: 'business_license',
+        professionalLicense: 'business_license',
+        identityProof: 'identity',
+        addressProof: 'address',
+        panCard: 'pan_card',
+        gstCertificate: 'gst_certificate'
+      };
+      
+      const documents = Object.entries(uploadedDocuments)
+        .filter(([_, doc]) => doc && doc.url)
+        .map(([key, doc]) => ({
+          type: documentTypeMap[key] || 'other',
+          name: doc.name,
+          url: doc.url,
+          status: 'pending',
+          uploadDate: new Date().toISOString()
+        }));
+      
+      console.log('Prepared documents for backend:', documents);
       
       const registrationData = {
         email: formData.email.trim(),
@@ -705,52 +652,37 @@ const VendorRegister = () => {
         agreeToTerms: true, // Must be true as per backend validation
         otp: otp.trim(), // Include verified OTP
         businessInfo: businessInfo,
-        ...(Object.keys(documents).length > 0 && { documents }) // Only include documents if any exist
+        documents: documents // Always include documents array (can be empty)
       };
-
-      console.log('Submitting registration data:', JSON.stringify(registrationData, null, 2));
+      
+      console.log('Final registration payload:', JSON.stringify(registrationData, null, 2));
 
       const response = await authService.register(registrationData);
       
       if (response.success) {
+        // Clear any auto-stored tokens - vendors must wait for approval
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
         toast({
           title: "Registration Successful!",
-          description: "Your vendor account has been created. Please wait for admin approval to start offering services.",
+          description: "Your vendor account has been created and submitted for admin approval. You will receive an email notification once approved. You can try logging in after approval.",
+          duration: 6000,
         });
         
         // Redirect to login after successful registration
         setTimeout(() => {
           navigate("/vendor/login");
-        }, 2000);
+        }, 3000);
       }
       
     } catch (error) {
-      console.error("Vendor registration error:", error);
+      console.error("Final registration error:", error);
       
-      // Extract more specific error information
       let errorMessage = "An error occurred during registration";
-      let shouldRetryOTP = false;
       
       if (error instanceof Error) {
         errorMessage = error.message;
-        
-        // Handle specific validation errors
-        if (error.message.toLowerCase().includes('validation')) {
-          errorMessage = "Please check all required fields and try again";
-        } else if (error.message.toLowerCase().includes('email')) {
-          errorMessage = "Email validation failed. Please check your email format";
-        } else if (error.message.toLowerCase().includes('phone')) {
-          errorMessage = "Phone number validation failed. Please check your phone number format";
-        } else if (error.message.toLowerCase().includes('otp')) {
-          if (error.message.includes('expired') || error.message.includes('not found')) {
-            errorMessage = "Your OTP has expired. Please request a new OTP and try again.";
-            shouldRetryOTP = true;
-          } else {
-            errorMessage = "OTP validation failed. Please verify your OTP";
-          }
-        } else if (error.message.toLowerCase().includes('password')) {
-          errorMessage = "Password validation failed. Please check password requirements";
-        }
       }
       
       toast({
@@ -758,22 +690,18 @@ const VendorRegister = () => {
         description: errorMessage,
         variant: "destructive",
       });
-
-      // If OTP expired, reset the flow to allow getting a new OTP
-      if (shouldRetryOTP) {
-        setOtpStep("none");
-        setOtp("");
-        setCurrentStep(5); // Back to OTP step
-      }
     } finally {
       setIsLoading(false);
     }
   };
 
+  // This function has been removed - registration now properly flows through:
+  // Step 5: Review -> handleNext -> handleProfileSubmission (sends OTP)
+  // Step 6: OTP Verification -> handleOtpSubmit -> handleFinalRegistration (creates account)
+
   const resendOtp = async () => {
     try {
       setIsLoading(true);
-      const { authService } = await import("@/services/authService");
       
       const response = await authService.sendOTP(formData.email, formData.firstName);
       if (response.success) {
@@ -800,9 +728,9 @@ const VendorRegister = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // This function is called from the review step
-    // Just delegate to the registration handler
-    await handleRegistration();
+    // Prevent form submission - all actions are handled by specific buttons
+    // Form submission should not trigger any registration logic
+    return false;
   };
 
   const renderStepContent = () => {
@@ -1034,8 +962,8 @@ const VendorRegister = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {businessTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1047,7 +975,7 @@ const VendorRegister = () => {
                 Years of Experience <span className="text-red-500">*</span>
               </Label>
               <Select 
-                value={formData.experience} 
+                value={formData.experience?.toString()} 
                 onValueChange={(value) => handleInputChange("experience", value)}
               >
                 <SelectTrigger>
@@ -1055,8 +983,8 @@ const VendorRegister = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {experienceOptions.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
+                    <SelectItem key={option.value} value={option.value.toString()}>
+                      {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1360,8 +1288,8 @@ const VendorRegister = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {businessTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1378,10 +1306,11 @@ const VendorRegister = () => {
                   <SelectValue placeholder="Select experience" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0-1">0-1 years</SelectItem>
-                  <SelectItem value="2-5">2-5 years</SelectItem>
-                  <SelectItem value="6-10">6-10 years</SelectItem>
-                  <SelectItem value="10+">10+ years</SelectItem>
+                  {experienceOptions.map((option) => (
+                    <SelectItem key={option.value} value={String(option.value)}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1518,18 +1447,33 @@ const VendorRegister = () => {
                   id="panNumber"
                   value={formData.panNumber}
                   onChange={(e) => {
-                    const value = e.target.value.toUpperCase();
+                    // Only allow alphanumeric characters and convert to uppercase
+                    const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
                     if (value.length <= 10) {
                       handleInputChange("panNumber", value);
                     }
                   }}
                   placeholder="ABCDE1234F"
                   maxLength={10}
-                  pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}"
+                  className={formData.panNumber && formData.panNumber.length === 10 && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber) ? 'border-red-500' : ''}
                   required
                 />
-                {formData.panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber) && formData.panNumber.length === 10 && (
-                  <p className="text-xs text-red-500">Please enter a valid PAN number format</p>
+                {formData.panNumber && formData.panNumber.length > 0 && (
+                  <div className="text-xs">
+                    {formData.panNumber.length < 10 ? (
+                      <p className="text-muted-foreground">
+                        {10 - formData.panNumber.length} more character{10 - formData.panNumber.length !== 1 ? 's' : ''} needed
+                      </p>
+                    ) : /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber) ? (
+                      <p className="text-green-600 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> Valid PAN format
+                      </p>
+                    ) : (
+                      <p className="text-red-500">
+                        Invalid format. Must be: 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -1668,10 +1612,174 @@ const VendorRegister = () => {
         return (
           <div className="space-y-6">
             <div className="text-center">
+              <FileText className="w-12 h-12 text-primary mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Review Your Information</h3>
+              <p className="text-muted-foreground">
+                Please review your details before submitting for admin approval
+              </p>
+            </div>
+
+            {/* Personal Information Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Personal Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Name</Label>
+                    <p>{formData.firstName} {formData.lastName}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Email</Label>
+                    <p>{formData.email}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Phone</Label>
+                    <p>{formData.phone}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Business Information Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Business Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Business Name</Label>
+                    <p>{formData.businessName}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Business Type</Label>
+                    <p>{formData.businessType}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Experience</Label>
+                    <p>{formData.experience}</p>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Description</Label>
+                  <p className="text-sm">{formData.businessDescription}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Location Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Location</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Address</Label>
+                  <p>{formData.address}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Location</Label>
+                  <p>{formData.city}, {formData.district}, {formData.state} - {formData.pincode}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Documents Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Documents & Legal Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">PAN Number</Label>
+                    <p>{formData.panNumber}</p>
+                  </div>
+                  {formData.gstNumber && (
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">GST Number</Label>
+                      <p>{formData.gstNumber}</p>
+                    </div>
+                  )}
+                  {formData.licenseNumber && (
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">License Number</Label>
+                      <p>{formData.licenseNumber}</p>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Uploaded Documents</Label>
+                  <div className="space-y-1 mt-1">
+                    {uploadedDocuments.businessRegistration && (
+                      <div className="flex items-center gap-2 text-sm text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        Business Registration: {uploadedDocuments.businessRegistration.name}
+                      </div>
+                    )}
+                    {uploadedDocuments.identityProof && (
+                      <div className="flex items-center gap-2 text-sm text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        Identity Proof: {uploadedDocuments.identityProof.name}
+                      </div>
+                    )}
+                    {uploadedDocuments.professionalLicense && (
+                      <div className="flex items-center gap-2 text-sm text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        Professional License: {uploadedDocuments.professionalLicense.name}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Terms and Conditions */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="terms"
+                checked={formData.termsAccepted}
+                onCheckedChange={(checked) => handleInputChange("termsAccepted", checked)}
+                required
+              />
+              <Label htmlFor="terms" className="text-sm">
+                I agree to the{" "}
+                <Link to="/terms" target="_blank" className="text-primary hover:underline">
+                  Terms and Conditions
+                </Link>{" "}
+                and{" "}
+                <Link to="/privacy" target="_blank" className="text-primary hover:underline">
+                  Privacy Policy
+                </Link>
+              </Label>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-950 dark:border-blue-800">
+              <div className="flex items-start gap-3">
+                <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Next Steps
+                  </p>
+                  <p className="text-sm text-blue-700 dark:text-blue-200">
+                    Click "Proceed to Email Verification" to receive an OTP. After verifying your email, your profile will be submitted to admin for approval.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 6:
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
               <Mail className="w-12 h-12 text-blue-600 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">Verify Your Email</h3>
               <p className="text-muted-foreground">
-                Enter the 6-digit OTP sent to {formData.email}
+                Enter the 6-digit OTP sent to {formData.email} to complete your vendor registration.
               </p>
             </div>
 
@@ -1696,7 +1804,7 @@ const VendorRegister = () => {
                 disabled={isLoading || otp.length !== 6}
                 className="w-full"
               >
-                {isLoading ? "Registering..." : "Complete Registration"}
+                {isLoading ? "Completing Registration..." : "Complete Registration"}
               </Button>
 
               <div className="text-center">
@@ -1720,13 +1828,13 @@ const VendorRegister = () => {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-950 dark:border-blue-800">
               <div className="flex items-start gap-3">
-                <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+                <Mail className="w-5 h-5 text-blue-600 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
                     Email Verification Required
                   </p>
                   <p className="text-sm text-blue-700 dark:text-blue-200">
-                    We need to verify your email address before completing your vendor registration.
+                    Please check your email for the verification code. After verification, your registration will be complete and your profile will be sent to admin for approval.
                   </p>
                 </div>
               </div>
@@ -1808,7 +1916,7 @@ const VendorRegister = () => {
                     type="button"
                     variant="outline"
                     onClick={handlePrevious}
-                    disabled={currentStep === 1}
+                    disabled={currentStep === 1 || (currentStep === 6 && profileSubmitted)}
                   >
                     Previous
                   </Button>
@@ -1820,25 +1928,30 @@ const VendorRegister = () => {
                       disabled={isLoading || !validateStep(currentStep)}
                       className={validateStep(currentStep) ? "" : "opacity-50"}
                     >
-                      {isLoading && currentStep === 4 ? "Sending OTP..." : "Next"}
+                      Next
                       {!validateStep(currentStep) && (
                         <AlertCircle className="w-4 h-4 ml-2" />
                       )}
                     </Button>
                   ) : currentStep === 5 ? (
-                    null // OTP step has its own submit button
-                  ) : (
                     <Button 
-                      type="submit" 
-                      disabled={isLoading || !formData.termsAccepted || otpStep !== "verified"}
+                      type="button" 
+                      onClick={handleNext}
+                      disabled={isLoading || !validateStep(currentStep)}
+                      className={validateStep(currentStep) ? "" : "opacity-50"}
                     >
-                      {isLoading ? "Submitting..." : "Submit Application"}
+                      {isLoading ? "Sending OTP..." : "Proceed to Email Verification"}
+                      {!validateStep(currentStep) && (
+                        <AlertCircle className="w-4 h-4 ml-2" />
+                      )}
                     </Button>
-                  )}
+                  ) : currentStep === 6 ? (
+                    null // OTP step has its own submit button
+                  ) : null}
                 </div>
 
                 {/* Step validation indicators */}
-                {!validateStep(currentStep) && currentStep < 5 && (
+                {!validateStep(currentStep) && currentStep < 6 && (
                   <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                     <div className="flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5" />

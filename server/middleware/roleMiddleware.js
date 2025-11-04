@@ -104,7 +104,10 @@ const SUB_ADMIN_PERMISSIONS = {
   TRACK_PERFORMANCE: 'track_vendor_performance',
   APPROVE_PROMOTIONS: 'approve_promotions',
   SEND_NOTIFICATIONS: 'send_notifications',
-  GENERATE_REPORTS: 'generate_reports'
+  GENERATE_REPORTS: 'generate_reports',
+  APPROVE_VENDORS: 'approve_vendors',
+  REJECT_VENDORS: 'reject_vendors',
+  REVIEW_VENDORS: 'review_vendors'
 };
 
 module.exports = {

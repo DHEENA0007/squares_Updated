@@ -133,7 +133,7 @@ router.post('/', asyncHandler(async (req, res) => {
 // @route   PUT /api/plans/:id
 // @access  Private/Admin
 router.put('/:id', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'
@@ -194,7 +194,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
 // @route   GET /api/plans/:id/price-history
 // @access  Private/Admin
 router.get('/:id/price-history', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'
@@ -225,7 +225,7 @@ router.get('/:id/price-history', asyncHandler(async (req, res) => {
 // @route   PATCH /api/plans/:id/toggle-status
 // @access  Private/Admin
 router.patch('/:id/toggle-status', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'
@@ -254,7 +254,7 @@ router.patch('/:id/toggle-status', asyncHandler(async (req, res) => {
 // @route   DELETE /api/plans/:id
 // @access  Private/Admin
 router.delete('/:id', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'

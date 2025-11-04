@@ -20,11 +20,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Eye, EyeOff } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { userService } from "@/services/userService";
 
@@ -33,12 +29,10 @@ const userSchema = z.object({
   last_name: z.string().min(2, "Last name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   phone: z.string().regex(/^[0-9]{10}$/, "Must be 10 digits"),
-  birthday: z.date().optional(),
-  anniversary: z.date().optional(),
   password: z.string().min(8, "Password must be at least 8 characters"),
   confirm_password: z.string(),
-  role: z.enum(["admin", "moderator", "user"]),
-  status: z.enum(["active", "inactive"]),
+  role: z.enum(["customer", "agent", "admin", "subadmin", "superadmin"]),
+  status: z.enum(["active", "inactive", "suspended", "pending"]),
 }).refine((data) => data.password === data.confirm_password, {
   message: "Passwords don't match",
   path: ["confirm_password"],
@@ -59,7 +53,7 @@ const AddUser = () => {
       last_name: "",
       email: "",
       phone: "",
-      role: "user",
+      role: "customer",
       status: "active",
       password: "",
       confirm_password: "",
@@ -76,8 +70,6 @@ const AddUser = () => {
           firstName: data.first_name,
           lastName: data.last_name,
           phone: data.phone,
-          birthday: data.birthday,
-          anniversary: data.anniversary,
         },
         role: data.role,
         status: data.status,
@@ -101,7 +93,7 @@ const AddUser = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto mt-16">
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Add New User</h1>
         <p className="text-muted-foreground mt-1">Create a new user account</p>
@@ -169,36 +161,24 @@ const AddUser = () => {
 
               <FormField
                 control={form.control}
-                name="birthday"
+                name="role"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Birthday</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy") : <span>dd/mm/yyyy</span>}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) => date > new Date()}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
+                  <FormItem>
+                    <FormLabel>Role *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="customer">Customer</SelectItem>
+                        <SelectItem value="agent">Agent</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="subadmin">Sub Admin</SelectItem>
+                        <SelectItem value="superadmin">Super Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -206,36 +186,23 @@ const AddUser = () => {
 
               <FormField
                 control={form.control}
-                name="anniversary"
+                name="status"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Anniversary</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy") : <span>dd/mm/yyyy</span>}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) => date > new Date()}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
+                  <FormItem>
+                    <FormLabel>Status *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="suspended">Suspended</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -290,51 +257,6 @@ const AddUser = () => {
                         </button>
                       </div>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Role *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="moderator">Moderator</SelectItem>
-                        <SelectItem value="user">User</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

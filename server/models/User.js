@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'active', 'suspended'],
+    enum: ['pending', 'active', 'suspended', 'inactive'],
     default: 'pending'
   },
   profile: {
@@ -55,6 +55,10 @@ const userSchema = new mongoose.Schema({
       country: String
     },
     emailVerified: {
+      type: Boolean,
+      default: false
+    },
+    phoneVerified: {
       type: Boolean,
       default: false
     },

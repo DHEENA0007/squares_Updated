@@ -333,14 +333,14 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Email Verified</p>
-                      <Badge variant={selectedUser.emailVerified ? "default" : "destructive"} className="mt-1">
-                        {selectedUser.emailVerified ? "Verified" : "Not Verified"}
+                      <Badge variant={selectedUser.profile?.emailVerified ? "default" : "destructive"} className="mt-1">
+                        {selectedUser.profile?.emailVerified ? "Verified" : "Not Verified"}
                       </Badge>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Phone Verified</p>
-                      <Badge variant={selectedUser.phoneVerified ? "default" : "destructive"} className="mt-1">
-                        {selectedUser.phoneVerified ? "Verified" : "Not Verified"}
+                      <Badge variant={selectedUser.profile?.phoneVerified ? "default" : "destructive"} className="mt-1">
+                        {selectedUser.profile?.phoneVerified ? "Verified" : "Not Verified"}
                       </Badge>
                     </div>
                   </div>

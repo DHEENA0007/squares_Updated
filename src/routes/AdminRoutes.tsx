@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Suspense } from "react";
-import { HomePage, UsersPage, AddUserPage, MessagesPage, ProfilePage, SettingsPage, RoleListPage,RoleEditPage,AddRolePage,ClientListPage,PlanListPage,PropertyListPage,PropertyEditPage,AddPropertyPage,PlanEditPage,PlanCreatePage,ClientEditPage,AddonManagementPage } from "@/routes/AdminLazyImports";
+import { HomePage, UsersPage, AddUserPage, VendorApprovalsPage, MessagesPage, ProfilePage, SettingsPage, RoleListPage,RoleEditPage,AddRolePage,ClientListPage,PlanListPage,PropertyListPage,PropertyEditPage,AddPropertyPage,PlanEditPage,PlanCreatePage,ClientEditPage,AddonManagementPage } from "@/routes/AdminLazyImports";
 import DashboardLayout from "@/components/adminpanel/DashboardLayout";
 import AdminProtectedRoute from "@/components/auth/AdminProtectedRoute";
 import { PageLoader } from "@/components/ui/loader/PageLoader";
@@ -32,6 +32,7 @@ const AdminRoutes = () => {
             <Route path="/dashboard" element={<HomePage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/users/add" element={<AddUserPage />} />
+            <Route path="/vendor-approvals" element={<VendorApprovalsPage />} />
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />

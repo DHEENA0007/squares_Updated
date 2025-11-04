@@ -18,8 +18,8 @@ const vendorSchema = new mongoose.Schema({
     },
     businessType: {
       type: String,
-      enum: ['individual', 'partnership', 'pvt_ltd', 'llp', 'public_ltd'],
-      default: 'individual'
+      enum: ['real_estate_agent', 'property_developer', 'construction_company', 'interior_designer', 'legal_services', 'home_loan_provider', 'packers_movers', 'property_management', 'other'],
+      default: 'real_estate_agent'
     },
     licenseNumber: {
       type: String,
@@ -343,11 +343,58 @@ const vendorSchema = new mongoose.Schema({
     }]
   },
 
+  // Approval System
+  approval: {
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected', 'under_review'],
+      default: 'pending'
+    },
+    submittedAt: {
+      type: Date,
+      default: Date.now
+    },
+    reviewedAt: Date,
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    approvalNotes: String,
+    rejectionReason: String,
+    requiredDocuments: [{
+      type: String,
+      enum: ['identity_proof', 'address_proof', 'business_license', 'gst_certificate', 'pan_card', 'bank_statement', 'other']
+    }],
+    submittedDocuments: [{
+      documentType: {
+        type: String,
+        enum: ['identity_proof', 'address_proof', 'business_license', 'gst_certificate', 'pan_card', 'bank_statement', 'other'],
+        required: true
+      },
+      documentName: String,
+      documentUrl: String,
+      uploadedAt: {
+        type: Date,
+        default: Date.now
+      },
+      verified: {
+        type: Boolean,
+        default: false
+      },
+      verifiedAt: Date,
+      verifiedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      rejectionReason: String
+    }]
+  },
+
   // Status and Membership
   status: {
     type: String,
-    enum: ['active', 'inactive', 'suspended', 'pending_verification', 'banned'],
-    default: 'pending_verification'
+    enum: ['active', 'inactive', 'suspended', 'pending_verification', 'banned', 'pending_approval', 'rejected'],
+    default: 'pending_approval'
   },
   memberSince: {
     type: Date,

@@ -20,11 +20,6 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { userService } from "@/services/userService";
 
@@ -33,10 +28,8 @@ const userSchema = z.object({
   last_name: z.string().min(2, "Last name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   phone: z.string().regex(/^[0-9]{10}$/, "Must be 10 digits"),
-  birthday: z.date().optional(),
-  anniversary: z.date().optional(),
-  role: z.enum(["admin", "moderator", "user"]),
-  status: z.enum(["active", "inactive"]),
+  role: z.enum(["customer", "agent", "admin", "subadmin", "superadmin"]),
+  status: z.enum(["active", "inactive", "suspended", "pending"]),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -54,7 +47,7 @@ const EditUser = () => {
       last_name: "",
       email: "",
       phone: "",
-      role: "user",
+      role: "customer",
       status: "active",
     },
   });
@@ -85,9 +78,7 @@ const EditUser = () => {
             last_name: user.profile.lastName || "",
             email: user.email,
             phone: user.profile.phone || "",
-            birthday: user.profile.birthday ? new Date(user.profile.birthday) : undefined,
-            anniversary: user.profile.anniversary ? new Date(user.profile.anniversary) : undefined,
-            role: user.role as "admin" | "moderator" | "user",
+            role: user.role as "customer" | "agent" | "admin" | "subadmin" | "superadmin",
             status: user.status,
           });
         }
@@ -118,8 +109,6 @@ const EditUser = () => {
           firstName: data.first_name,
           lastName: data.last_name,
           phone: data.phone,
-          birthday: data.birthday,
-          anniversary: data.anniversary,
         },
         role: data.role,
         status: data.status,
@@ -221,80 +210,6 @@ const EditUser = () => {
 
               <FormField
                 control={form.control}
-                name="birthday"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Birthday</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy") : <span>dd/mm/yyyy</span>}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) => date > new Date()}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="anniversary"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Anniversary</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "dd/MM/yyyy") : <span>dd/mm/yyyy</span>}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) => date > new Date()}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
                 name="role"
                 render={({ field }) => (
                   <FormItem>
@@ -306,9 +221,11 @@ const EditUser = () => {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        <SelectItem value="customer">Customer</SelectItem>
+                        <SelectItem value="agent">Agent</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="moderator">Moderator</SelectItem>
-                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="subadmin">Sub Admin</SelectItem>
+                        <SelectItem value="superadmin">Super Admin</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -331,6 +248,8 @@ const EditUser = () => {
                       <SelectContent>
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="suspended">Suspended</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

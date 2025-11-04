@@ -38,7 +38,7 @@ const requireVendorRole = asyncHandler(async (req, res, next) => {
       });
     }
     req.vendor = vendor;
-  } else if (req.user.role === 'admin') {
+  } else if (['admin', 'superadmin'].includes(req.user.role)) {
     // For admin, we might need to create a mock vendor profile or handle differently
     // For now, let's look for an existing vendor profile or create a basic one
     let vendor = await Vendor.findByUserId(req.user.id);

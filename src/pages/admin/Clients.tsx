@@ -257,17 +257,17 @@ const Clients = () => {
               filterPlaceholder="Filter by status"
             />
 
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="rounded-lg border border-border bg-card overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="font-semibold">Client</TableHead>
-                    <TableHead className="font-semibold">Plan</TableHead>
-                    <TableHead className="font-semibold">Amount</TableHead>
-                    <TableHead className="font-semibold">Start Date</TableHead>
-                    <TableHead className="font-semibold">End Date</TableHead>
-                    <TableHead className="font-semibold">Status</TableHead>
-                    <TableHead className="font-semibold text-right">Actions</TableHead>
+                    <TableHead className="font-semibold w-[250px] min-w-[200px]">Client</TableHead>
+                    <TableHead className="font-semibold w-[200px] min-w-[150px]">Plan</TableHead>
+                    <TableHead className="font-semibold w-[120px] min-w-[100px]">Amount</TableHead>
+                    <TableHead className="font-semibold w-[130px] min-w-[110px]">Start Date</TableHead>
+                    <TableHead className="font-semibold w-[130px] min-w-[110px]">End Date</TableHead>
+                    <TableHead className="font-semibold w-[120px] min-w-[100px]">Status</TableHead>
+                    <TableHead className="font-semibold text-center w-[120px] min-w-[100px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -280,28 +280,36 @@ const Clients = () => {
                   ) : (
                     subscriptions.map((subscription) => (
                       <TableRow key={subscription._id} className="hover:bg-muted/30 transition-colors">
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{subscription.user.name}</div>
-                            <div className="text-sm text-muted-foreground">{subscription.user.email}</div>
+                        <TableCell className="w-[250px] min-w-[200px]">
+                          <div className="space-y-1">
+                            <div className="font-medium truncate">{subscription.user.name}</div>
+                            <div className="text-sm text-muted-foreground truncate">{subscription.user.email}</div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{subscription.plan?.name || 'N/A'}</div>
-                            <div className="text-sm text-muted-foreground">{subscription.plan?.billingPeriod || 'N/A'}</div>
+                        <TableCell className="w-[200px] min-w-[150px]">
+                          <div className="space-y-1">
+                            <div className="font-medium truncate">{subscription.plan?.name || 'N/A'}</div>
+                            <div className="text-sm text-muted-foreground capitalize truncate">
+                              {subscription.plan?.billingPeriod || 'N/A'}
+                            </div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <span className="font-semibold">{subscriptionService.formatAmount(subscription)}</span>
+                        <TableCell className="w-[120px] min-w-[100px]">
+                          <span className="font-semibold whitespace-nowrap">
+                            {subscriptionService.formatAmount(subscription)}
+                          </span>
                         </TableCell>
-                        <TableCell>
-                          {new Date(subscription.startDate).toLocaleDateString()}
+                        <TableCell className="w-[130px] min-w-[110px]">
+                          <span className="whitespace-nowrap">
+                            {new Date(subscription.startDate).toLocaleDateString()}
+                          </span>
                         </TableCell>
-                        <TableCell>
-                          {new Date(subscription.endDate).toLocaleDateString()}
+                        <TableCell className="w-[130px] min-w-[110px]">
+                          <span className="whitespace-nowrap">
+                            {new Date(subscription.endDate).toLocaleDateString()}
+                          </span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="w-[120px] min-w-[100px]">
                           <Badge
                             variant={
                               subscription.status === "active"
@@ -310,45 +318,21 @@ const Clients = () => {
                                 ? "destructive"
                                 : "secondary"
                             }
+                            className="whitespace-nowrap"
                           >
                             {subscriptionService.formatSubscriptionStatus(subscription.status).label}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex gap-2 justify-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewDetails(subscription)}
-                            >
-                              <Eye className="w-4 h-4" />
-                              <span className="ml-2">View</span>
-                            </Button>
-                            
-                            {subscription.status === 'active' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleCancelSubscription(subscription)}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <XCircle className="w-4 h-4" />
-                                <span className="ml-2">Cancel</span>
-                              </Button>
-                            )}
-                            
-                            {(subscription.status === 'expired' || subscription.status === 'cancelled') && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRenewSubscription(subscription)}
-                                className="text-green-600 hover:text-green-700"
-                              >
-                                <RefreshCw className="w-4 h-4" />
-                                <span className="ml-2">Renew</span>
-                              </Button>
-                            )}
-                          </div>
+                        <TableCell className="text-center w-[120px] min-w-[100px]">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewDetails(subscription)}
+                            className="whitespace-nowrap"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span className="ml-2">View</span>
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))

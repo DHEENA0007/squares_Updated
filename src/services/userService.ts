@@ -8,6 +8,8 @@ export interface User {
     firstName: string;
     lastName: string;
     phone?: string;
+    emailVerified?: boolean;
+    phoneVerified?: boolean;
     address?: {
       street?: string;
       city?: string;
@@ -29,8 +31,6 @@ export interface User {
   };
   role: string;
   status: 'active' | 'inactive' | 'pending' | 'suspended';
-  emailVerified: boolean;
-  phoneVerified: boolean;
   createdAt: string;
   updatedAt: string;
 }

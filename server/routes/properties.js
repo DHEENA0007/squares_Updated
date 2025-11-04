@@ -240,7 +240,7 @@ router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
     }
 
     // Check if user owns this property or is admin
-    if (property.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+    if (property.owner.toString() !== req.user.id && !['admin', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this property'
@@ -304,7 +304,7 @@ router.patch('/:id/status', authenticateToken, asyncHandler(async (req, res) => 
     }
 
     // Check if user owns this property or is admin
-    if (property.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+    if (property.owner.toString() !== req.user.id && !['admin', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this property'
@@ -313,7 +313,7 @@ router.patch('/:id/status', authenticateToken, asyncHandler(async (req, res) => 
 
     // Validate status for vendors/customers (they can't set to pending)
     const validStatusesForOwner = ['available', 'sold', 'rented'];
-    if (req.user.role !== 'admin' && !validStatusesForOwner.includes(status)) {
+    if (!['admin', 'superadmin'].includes(req.user.role) && !validStatusesForOwner.includes(status)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid status. Available options: available, sold, rented'
@@ -367,7 +367,7 @@ router.patch('/:id/featured', authenticateToken, asyncHandler(async (req, res) =
     }
 
     // Check if user owns this property or is admin
-    if (property.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+    if (property.owner.toString() !== req.user.id && !['admin', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this property'
@@ -420,7 +420,7 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req, res) => {
     }
 
     // Check if user owns this property or is admin
-    if (property.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+    if (property.owner.toString() !== req.user.id && !['admin', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to delete this property'

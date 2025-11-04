@@ -224,7 +224,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in-responsive">
+    <div className="space-y-6 animate-fade-in-responsive mt-16">
       {/* Realtime Status */}
       <div className="flex-responsive items-center justify-between bg-muted/50 padding-responsive rounded-lg">
         <div className="flex items-center gap-2">

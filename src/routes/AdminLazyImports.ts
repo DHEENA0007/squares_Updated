@@ -3,6 +3,7 @@ import { lazy } from "react";
 export const HomePage = lazy(() => import("@/pages/admin/Dashboard"));
 export const UsersPage = lazy(() => import("@/pages/admin/Users"));
 export const AddUserPage = lazy(() => import("@/pages/admin/AddUser"));
+export const VendorApprovalsPage = lazy(() => import("@/pages/admin/VendorApprovals"));
 export const MessagesPage = lazy(() => import("@/pages/admin/Messages"));
 export const ProfilePage = lazy(() => import("@/pages/admin/Profile"));
 export const SettingsPage = lazy(() => import("@/pages/admin/Settings"));

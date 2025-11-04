@@ -12,7 +12,7 @@ router.use(authenticateToken);
 // @route   GET /api/roles/permissions
 // @access  Private/Admin
 router.get('/permissions', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'
@@ -42,7 +42,11 @@ router.get('/permissions', asyncHandler(async (req, res) => {
     'track_vendor_performance',
     'approve_promotions',
     'send_notifications',
-    'generate_reports'
+    'generate_reports',
+    // Vendor approval permissions
+    'approve_vendors',
+    'reject_vendors',
+    'review_vendors'
   ];
 
   res.json({
@@ -55,7 +59,7 @@ router.get('/permissions', asyncHandler(async (req, res) => {
 // @route   GET /api/roles
 // @access  Private/Admin
 router.get('/', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'
@@ -116,7 +120,7 @@ router.get('/', asyncHandler(async (req, res) => {
 // @route   GET /api/roles/:id
 // @access  Private/Admin
 router.get('/:id', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'
@@ -142,7 +146,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // @route   POST /api/roles
 // @access  Private/Admin
 router.post('/', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'
@@ -161,7 +165,7 @@ router.post('/', asyncHandler(async (req, res) => {
 // @route   PUT /api/roles/:id
 // @access  Private/Admin
 router.put('/:id', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'
@@ -201,7 +205,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
 // @route   PATCH /api/roles/:id/toggle-status
 // @access  Private/Admin
 router.patch('/:id/toggle-status', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'
@@ -238,7 +242,7 @@ router.patch('/:id/toggle-status', asyncHandler(async (req, res) => {
 // @route   DELETE /api/roles/:id
 // @access  Private/Admin
 router.delete('/:id', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'

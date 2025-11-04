@@ -1,4 +1,4 @@
-import { Home, Users, ChevronLeft, ChevronRight, PaintRoller, LandPlot, SquareChartGantt, NotebookPen, Package, MessageSquare } from "lucide-react";
+import { Home, Users, ChevronLeft, ChevronRight, PaintRoller, LandPlot, SquareChartGantt, NotebookPen, Package, MessageSquare, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 
@@ -12,6 +12,7 @@ interface SidebarProps {
 const navItems = [
   { icon: Home, label: "Dashboard", path: "/admin/dashboard" },
   { icon: Users, label: "Users", path: "/admin/users" },
+  { icon: UserCheck, label: "Vendor Approvals", path: "/admin/vendor-approvals" },
   { icon: MessageSquare, label: "Messages", path: "/admin/messages" },
   { icon: PaintRoller, label: "Roles", path: "/admin/roles" },
   { icon: SquareChartGantt, label: "Clients", path: "/admin/clients" },
