@@ -10,7 +10,7 @@ if [ ! -f "package.json" ]; then
 fi
 
 echo "📦 Current environment variables to be deployed:"
-echo "CLIENT_URL: https://squares-smoky.vercel.app"
+echo "CLIENT_URL: https://squares-v2.vercel.app"
 echo "ADDITIONAL_ALLOWED_ORIGINS: https://squares.vercel.app,https://squares-git-main.vercel.app,https://squares-h1ev7dmj1-dheenadhayalans-projects.vercel.app"
 echo ""
 

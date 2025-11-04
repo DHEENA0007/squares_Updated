@@ -42,7 +42,7 @@ const server = createServer(app);
 // CORS configuration for both development and production
 const allowedOrigins = [
   process.env.CLIENT_URL,
-  "https://squares-smoky.vercel.app", 
+  "https://squares-v2.vercel.app", 
   "https://squares.vercel.app",
   "http://localhost:5173",
   "http://localhost:3000",
@@ -52,7 +52,7 @@ const allowedOrigins = [
 // Add additional origins from environment variable
 const additionalOriginsEnv = process.env.ADDITIONAL_ALLOWED_ORIGINS;
 let additionalOrigins = [
-  "https://squares-9d84.onrender.com", // Allow self-requests
+  "https://squares-v2.onrender.com", // Allow self-requests
 ];
 
 if (additionalOriginsEnv) {

@@ -1,4 +1,4 @@
-import { Search, MapPin, Sparkles, Home, DollarSign, MapPinIcon, Bed, Bath, Maximize, Heart, Phone, Mail, Eye, Filter, X, Clock, TrendingUp, ChevronDown } from "lucide-react";
+import { Search, MapPin, Sparkles, Home, DollarSign, MapPinIcon, Bed, Bath, Maximize, Heart, Phone, Mail, Eye, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Calculator, List, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,11 +6,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import buyImage from "@/assets/Buy.jpg";
 import rentImage from "@/assets/Rent.jpg";
 import leaseImage from "@/assets/Lease.jpg";
 import commercialImage from "@/assets/commercial.jpg";
-import sellImage from "@/assets/Sell.jpg";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { propertyService, type Property, type PropertyFilters } from "@/services/propertyService";
 import { DEFAULT_PROPERTY_IMAGE } from "@/utils/imageUtils";
@@ -40,6 +40,48 @@ const Hero = () => {
     
     // Increased debounce delay to reduce API calls and prevent rate limiting
     const debouncedSearchQuery = useDebounce(searchQuery, 800);
+
+    // Selling options configuration
+    const sellingOptions = [
+      {
+        id: "post-property",
+        label: "Post Property",
+        description: "List your property for sale or rent",
+        icon: Plus,
+        action: () => {
+          // Check if user is authenticated as vendor, otherwise redirect to vendor login
+          navigate("/vendor/add-property");
+        }
+      },
+      {
+        id: "property-valuation", 
+        label: "Property Valuation",
+        description: "Get your property valued by experts",
+        icon: Calculator,
+        action: () => {
+          // For now, redirect to vendor properties or contact page
+          navigate("/contact?service=valuation");
+        }
+      },
+      {
+        id: "quick-listing",
+        label: "Quick Listing", 
+        description: "Fast-track your property listing",
+        icon: List,
+        action: () => {
+          navigate("/vendor/add-property?mode=quick");
+        }
+      },
+      {
+        id: "manage-properties",
+        label: "Manage Properties",
+        description: "View and manage your listings",
+        icon: Settings,
+        action: () => {
+          navigate("/vendor/properties");
+        }
+      }
+    ];
     
     // Mapping tabs to background images
     const backgroundImages: Record<string, string> = {
@@ -47,7 +89,6 @@ const Hero = () => {
       rent: rentImage,
       lease: leaseImage,
       commercial: commercialImage,
-      sell: sellImage,
     };
 
     // Map tabs to listing types
@@ -55,7 +96,6 @@ const Hero = () => {
       buy: "sale",
       rent: "rent",
       lease: "lease",
-      sell: "sale",
       commercial: "sale", // Commercial can be both sale/rent, default to sale
     };
 
@@ -68,10 +108,6 @@ const Hero = () => {
       rent: {
         title: "Discover Rental Properties",
         description: "Find comfortable and affordable rental homes across India's prime locations"
-      },
-      sell: {
-        title: "Sell Your Property Fast",
-        description: "Connect with thousands of buyers and sell your property at the best price"
       },
       lease: {
         title: "Lease Properties with Ease",
@@ -345,11 +381,11 @@ const Hero = () => {
                   India's Leading Property Platform
                 </span>
               </div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 text-gray-500 dark:text-foreground leading-tight">
-                {dynamicContent[activeTab].title}
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 text-white leading-tight">
+                {dynamicContent[activeTab]?.title || "Find Your Perfect Property"}
               </h1>
-              <p className="text-base sm:text-lg text-gray-500 dark:text-muted-foreground mb-6 max-w-2xl mx-auto font-medium">
-                {dynamicContent[activeTab].description}
+              <p className="text-base sm:text-lg text-white mb-6 max-w-2xl mx-auto font-medium">
+                {dynamicContent[activeTab]?.description || "Discover the best properties across India with our comprehensive platform"}
               </p>
             </div>
           </div>
@@ -364,40 +400,72 @@ const Hero = () => {
               ref={searchContainerRef}
               className="bg-white/60 dark:bg-card/80 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20 dark:border-border/30 transform hover:scale-[1.02] transition-all duration-300"
             >
-              <Tabs defaultValue="buy" className="mb-4" onValueChange={handleTabChange}>
-                <TabsList className="grid w-full grid-cols-5 h-12 p-1">
-                  <TabsTrigger 
-                    value="buy" 
-                    className="text-sm font-semibold h-10 rounded-lg transition-all duration-300 hover:scale-105"
-                  >
-                    Buy
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="rent" 
-                    className="text-sm font-semibold h-10 rounded-lg transition-all duration-300 hover:scale-105"
-                  >
-                    Rent
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="sell" 
-                    className="text-sm font-semibold h-10 rounded-lg transition-all duration-300 hover:scale-105"
-                  >
-                    Sell
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="lease" 
-                    className="text-sm font-semibold h-10 rounded-lg transition-all duration-300 hover:scale-105"
-                  >
-                    Lease
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="commercial" 
-                    className="text-sm font-semibold h-10 rounded-lg transition-all duration-300 hover:scale-105"
-                  >
-                    Commercial
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <div className="flex gap-2 mb-4">
+                <Tabs defaultValue="buy" className="flex-1" onValueChange={handleTabChange}>
+                  <TabsList className="grid w-full grid-cols-4 h-12 p-1">
+                    <TabsTrigger 
+                      value="buy" 
+                      className="text-sm font-semibold h-10 rounded-lg transition-all duration-300 hover:scale-105"
+                    >
+                      Buy
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="rent" 
+                      className="text-sm font-semibold h-10 rounded-lg transition-all duration-300 hover:scale-105"
+                    >
+                      Rent
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="lease" 
+                      className="text-sm font-semibold h-10 rounded-lg transition-all duration-300 hover:scale-105"
+                    >
+                      Lease
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="commercial" 
+                      className="text-sm font-semibold h-10 rounded-lg transition-all duration-300 hover:scale-105"
+                    >
+                      Commercial
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                
+                {/* Sell Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      className="h-12 px-4 bg-white/80 dark:bg-card/80 backdrop-blur-md border border-white/20 dark:border-border/30 hover:bg-white/90 dark:hover:bg-card/90 transition-all duration-300 hover:scale-105"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Sell
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64 p-2">
+                    {sellingOptions.map((option) => {
+                      const IconComponent = option.icon;
+                      return (
+                        <DropdownMenuItem 
+                          key={option.id}
+                          onClick={option.action}
+                          className="flex items-start gap-3 p-3 cursor-pointer rounded-lg hover:bg-muted/50"
+                        >
+                          <div className="flex-shrink-0">
+                            <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                              <IconComponent className="h-4 w-4 text-primary" />
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">{option.label}</div>
+                            <div className="text-xs text-muted-foreground">{option.description}</div>
+                          </div>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               
               <div className="flex flex-col lg:flex-row gap-4">
                 <div className="flex-1 relative group">

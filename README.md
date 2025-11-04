@@ -77,8 +77,8 @@ Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/c
 This application supports both local development and production deployment:
 
 ### 🚀 Live URLs
-- **Frontend (Vercel)**: https://squares-smoky.vercel.app/
-- **Backend (Render)**: https://squares-9d84.onrender.com
+- **Frontend (Vercel)**: https://squares-v2.vercel.app/
+- **Backend (Render)**: https://squares-v2.onrender.com
 
 ### 💻 Local Development
 The app automatically falls back to localhost when no environment variables are set:
@@ -94,8 +94,8 @@ The app automatically falls back to localhost when no environment variables are 
 **For Production (Vercel):**
 Add these environment variables in your Vercel dashboard:
 ```bash
-VITE_API_URL=https://squares-9d84.onrender.com/api
-VITE_API_BASE_URL=https://squares-9d84.onrender.com
+VITE_API_URL=https://squares-v2.onrender.com/api
+VITE_API_BASE_URL=https://squares-v2.onrender.com
 ```
 
 **For Backend (Render):**

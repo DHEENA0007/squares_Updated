@@ -16,8 +16,8 @@ VITE_SUPABASE_URL=https://pmpugqwfwcqzjvbnylms.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtcHVncXdmd2Nxemp2Ym55bG1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAzOTUxNTgsImV4cCI6MjA0NTk3MTE1OH0.Kt0O0UGWkADgFCFCEzYzwTx_YvFi5w0fQOyJWV7R1Yg
 
 # Backend API Configuration
-VITE_API_URL=https://squares-9d84.onrender.com/api
-VITE_API_BASE_URL=https://squares-9d84.onrender.com
+VITE_API_URL=https://squares-v2.onrender.com/api
+VITE_API_BASE_URL=https://squares-v2.onrender.com
 
 # Payment Configuration (for production)
 RAZORPAY_KEY_ID=rzp_test_RMylhPWMBGHzdi
@@ -109,8 +109,8 @@ git push --force
 ### 8. **Production URLs**
 
 Once deployed successfully:
-- **Frontend:** https://squares-smoky.vercel.app
-- **Backend API:** https://squares-9d84.onrender.com
+- **Frontend:** https://squares-v2.vercel.app
+- **Backend API:** https://squares-v2.onrender.com
 
 ### 9. **Post-Deployment Verification**
 

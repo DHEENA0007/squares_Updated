@@ -98,7 +98,7 @@ Render will automatically use the `/health` endpoint for health checks.
 ### 1. Update Frontend Configuration
 Update your frontend's API URL to point to your new Render service:
 ```bash
-VITE_API_URL=https://squares-9d84.onrender.com/api
+VITE_API_URL=https://squares-v2.onrender.com/api
 ```
 
 ### 2. Configure CORS

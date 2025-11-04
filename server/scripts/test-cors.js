@@ -3,9 +3,9 @@ const axios = require('axios');
 const testCORS = async () => {
   console.log('🔧 Testing CORS Configuration and API Endpoints...\n');
 
-  const baseURL = process.env.API_URL || 'https://squares-9d84.onrender.com';
+  const baseURL = process.env.API_URL || 'https://squares-v2.onrender.com';
   const frontendOrigins = [
-    'https://squares-smoky.vercel.app',
+    'https://squares-v2.vercel.app',
     'https://squares.vercel.app',
     'https://squares-git-main.vercel.app'
   ];
