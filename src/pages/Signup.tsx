@@ -7,14 +7,16 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { toast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import signupHero from "@/assets/signup-hero.jpg";
+import SignupIllustration from "@/components/illustrations/SignupIllustration";
 import { authService } from "@/services/authService";
 
 const Signup = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState<"form" | "otp">("form");
+  const [step, setStep] = useState<"form" | "otp" | "success">("form");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [otpExpiry, setOtpExpiry] = useState<number>(0);
+  const [canResend, setCanResend] = useState(true);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -67,31 +69,21 @@ const Signup = () => {
     setIsLoading(true);
 
     try {
-      const response = await authService.register({
-        email: formData.email,
-        password: formData.password,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone,
-        role: "customer",
-        agreeToTerms: true,
-      });
-
-      if (response.success) {
-        toast({
-          title: "Success",
-          description: "Registration successful! Please verify your email.",
-        });
+      // Send OTP first
+      const otpResponse = await authService.sendOTP(formData.email, formData.firstName);
+      
+      if (otpResponse.success) {
         setStep("otp");
+        setOtpExpiry(otpResponse.expiryMinutes || 10);
       }
     } catch (error) {
-      console.error("Registration error:", error);
+      console.error("OTP sending error:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleOtpSubmit = (e: React.FormEvent) => {
+  const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (otp.length !== 6) {
@@ -103,15 +95,33 @@ const Signup = () => {
       return;
     }
 
-    // For demo purposes, accept any 6-digit OTP
-    // In production, this would verify with the backend
-    toast({
-      title: "Success",
-      description: "Email verified successfully! Please login.",
-    });
-    
-    // Redirect to login page for authentication
-    navigate("/login");
+    setIsLoading(true);
+
+    try {
+      // Verify OTP and register user
+      const response = await authService.register({
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        role: "customer",
+        agreeToTerms: true,
+        otp: otp, // Include OTP for verification
+      });
+
+      if (response.success) {
+        setStep("success");
+        // Auto-redirect to login after 3 seconds
+        setTimeout(() => {
+          navigate("/login");
+        }, 3000);
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resendOtp = () => {
@@ -127,13 +137,11 @@ const Signup = () => {
       <Navbar />
       <main className="flex-1 flex items-center justify-center px-4 py-12 bg-gradient-to-br from-background to-accent/10">
         <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
-          {/* Image Section */}
+          {/* Illustration Section */}
           <div className="hidden lg:block">
-            <img
-              src={signupHero}
-              alt="Signup illustration"
-              className="w-full h-auto rounded-2xl shadow-2xl"
-            />
+            <div className="w-full h-auto rounded-2xl shadow-2xl bg-gradient-to-br from-blue-50 to-indigo-100 overflow-hidden">
+              <SignupIllustration />
+            </div>
           </div>
 
           {/* Form Section */}

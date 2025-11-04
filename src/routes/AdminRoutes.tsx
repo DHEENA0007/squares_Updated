@@ -4,9 +4,25 @@ import { HomePage, UsersPage, AddUserPage, MessagesPage, ProfilePage, SettingsPa
 import DashboardLayout from "@/components/adminpanel/DashboardLayout";
 import AdminProtectedRoute from "@/components/auth/AdminProtectedRoute";
 import { PageLoader } from "@/components/ui/loader/PageLoader";
+import { useAuth } from "@/contexts/AuthContext";
+import SubAdminRoutes from "./SubAdminRoutes";
 
 
 const AdminRoutes = () => {
+  const { isSuperAdmin, isSubAdmin, user } = useAuth();
+  
+  console.log('AdminRoutes: User:', user);
+  console.log('AdminRoutes: isSuperAdmin:', isSuperAdmin);
+  console.log('AdminRoutes: isSubAdmin:', isSubAdmin);
+  
+  // If user is sub admin, render sub admin routes
+  if (isSubAdmin && !isSuperAdmin) {
+    console.log('AdminRoutes: Rendering SubAdminRoutes');
+    return <SubAdminRoutes />;
+  }
+  
+  console.log('AdminRoutes: Rendering full admin routes for superadmin/admin');
+  // Super admin gets full access to all routes
   return (
     <AdminProtectedRoute>
       <DashboardLayout>

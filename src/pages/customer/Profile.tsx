@@ -6,7 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
+import { locaService } from "@/services/locaService";
+
 import { 
   User, 
   Mail, 
@@ -18,17 +21,15 @@ import {
   Save,
   X,
   Shield,
-  Bell,
   Eye,
-  Lock,
-  CreditCard,
   Star,
   MessageSquare,
   RefreshCw,
   TrendingUp,
-  Activity
+  Activity,
+  Settings,
+  CheckCircle
 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { userService, type User as UserType } from "@/services/userService";
 import { customerDashboardService } from "@/services/customerDashboardService";
@@ -57,20 +58,20 @@ const Profile = () => {
     verified: false
   });
 
-  const [preferences, setPreferences] = useState({
-    emailNotifications: true,
-    smsNotifications: false,
-    pushNotifications: true,
-    marketingEmails: false,
-    propertyAlerts: true,
-    priceDropAlerts: true
+  // Enhanced location states for loca.json integration
+  const [locationData, setLocationData] = useState({
+    states: [] as string[],
+    districts: [] as string[],
+    cities: [] as string[],
+    selectedState: "",
+    selectedDistrict: "",
+    selectedCity: "",
+    loadingStates: false,
+    loadingDistricts: false,
+    loadingCities: false
   });
 
-  const [privacy, setPrivacy] = useState({
-    showPhone: true,
-    showEmail: false,
-    profileVisibility: "public"
-  });
+
 
   // Real stats from API
   const [stats, setStats] = useState({
@@ -92,6 +93,87 @@ const Profile = () => {
     icon: string;
   }>>([]);
 
+  // Initialize location service
+  useEffect(() => {
+    const initializeLocationService = async () => {
+      try {
+        await locaService.initialize();
+        // Load states after initialization
+        const states = locaService.getStates();
+        setLocationData(prev => ({ ...prev, states }));
+      } catch (error) {
+        console.error('Error initializing location service:', error);
+      }
+    };
+    
+    initializeLocationService();
+  }, []);
+
+
+
+  // Handle state selection
+  const handleStateChange = useCallback((state: string) => {
+    setLocationData(prev => ({
+      ...prev,
+      selectedState: state,
+      selectedDistrict: "",
+      selectedCity: "",
+      districts: locaService.getDistricts(state),
+      cities: []
+    }));
+    
+    // Update profile location
+    setProfile(prev => ({
+      ...prev,
+      location: `${state}`
+    }));
+  }, []);
+
+  // Handle district selection
+  const handleDistrictChange = useCallback((district: string) => {
+    setLocationData(prev => {
+      const selectedState = prev.selectedState;
+      return {
+        ...prev,
+        selectedDistrict: district,
+        selectedCity: "",
+        cities: locaService.getCities(selectedState, district)
+      };
+    });
+    
+    // Update profile location separately to avoid state conflicts
+    setProfile(prev => ({
+      ...prev,
+      location: `${district}, ${locationData.selectedState}`
+    }));
+  }, [locationData.selectedState]);
+
+  // Handle city selection
+  const handleCityChange = useCallback((city: string) => {
+    setLocationData(prev => ({
+      ...prev,
+      selectedCity: city
+    }));
+    
+    // Update profile location separately to avoid state conflicts
+    setProfile(prev => ({
+      ...prev,
+      location: `${city}, ${locationData.selectedDistrict}, ${locationData.selectedState}`
+    }));
+  }, [locationData.selectedState, locationData.selectedDistrict]);
+
+  // Helper function to format location display
+  const formatLocationDisplay = useCallback((address: any) => {
+    if (!address) return "Not specified";
+    
+    const parts = [];
+    if (address.city) parts.push(address.city);
+    if (address.district && address.district !== address.city) parts.push(address.district);
+    if (address.state) parts.push(address.state);
+    
+    return parts.length > 0 ? parts.join(', ') : "Not specified";
+  }, []);
+
   // Load user data and stats
   const loadUserData = useCallback(async () => {
     try {
@@ -108,29 +190,57 @@ const Profile = () => {
       setUser(userData);
       
       // Map user data to profile state
+      const existingAddress = userData.profile.address;
+      const locationString = existingAddress ? 
+        `${existingAddress.city || ""}, ${existingAddress.state || ""}`.replace(/^,\s*|,\s*$/g, '') : "";
+      
+      console.log('Loading user data, address:', existingAddress);
+      console.log('Existing zipCode from database:', existingAddress?.zipCode);
+      
       setProfile({
         name: userService.getFullName(userData),
         email: userData.email,
         phone: userData.profile.phone || "",
-        location: userData.profile.address ? 
-          `${userData.profile.address.city || ""}, ${userData.profile.address.state || ""}`.replace(/^,\s*|,\s*$/g, '') : "",
-        address: userData.profile.address?.street || "",
-        pincode: userData.profile.address?.pincode || "",
+        location: locationString,
+        address: existingAddress?.street || "",
+        pincode: existingAddress?.zipCode || "",
         bio: "", // Bio field not available in current User model
         joinDate: userService.formatCreationDate(userData.createdAt),
         avatar: "", // Avatar field not available in current User model
         verified: userData.emailVerified
       });
 
-      // Map preferences
-      setPreferences({
-        emailNotifications: userData.preferences?.notifications?.email ?? true,
-        smsNotifications: userData.preferences?.notifications?.sms ?? false,
-        pushNotifications: userData.preferences?.notifications?.push ?? true,
-        marketingEmails: false, // Marketing field not available in current User model
-        propertyAlerts: true, // Property alerts field not available in current User model
-        priceDropAlerts: true // Price drop alerts field not available in current User model
-      });
+      // Populate location dropdowns with existing data
+      if (existingAddress?.state || existingAddress?.city) {
+        const state = existingAddress.state || "";
+        const city = existingAddress.city || "";
+        
+        setLocationData(prev => ({
+          ...prev,
+          selectedState: state,
+          selectedCity: city,
+          districts: state ? locaService.getDistricts(state) : [],
+          cities: state ? locaService.getCities(state, "") : []
+        }));
+
+        // Try to find district from city if available
+        if (city && state) {
+          const allDistricts = locaService.getDistricts(state);
+          for (const district of allDistricts) {
+            const districtCities = locaService.getCities(state, district);
+            if (districtCities.includes(city)) {
+              setLocationData(prev => ({
+                ...prev,
+                selectedDistrict: district,
+                cities: districtCities
+              }));
+              break;
+            }
+          }
+        }
+      }
+
+
 
       // Load stats from APIs
       if (dashboardResponse?.success) {
@@ -183,7 +293,7 @@ const Profile = () => {
     // Load data on component mount
   useEffect(() => {
     loadUserData();
-  }, [loadUserData]);
+  }, []); // Empty dependency since loadUserData is stable
 
   // Memoize event handlers to prevent infinite loops
   const handleProfileUpdate = useCallback(() => {
@@ -233,6 +343,32 @@ const Profile = () => {
       setSaving(true);
       
       // Prepare user data for update
+      // Ensure preferences is always an object, never undefined
+      const defaultPreferences = {
+        notifications: {
+          email: true,
+          sms: false,
+          push: true
+        },
+        privacy: {
+          showEmail: false,
+          showPhone: false
+        }
+      };
+
+      const currentPreferences = user.profile?.preferences;
+      const preferences = currentPreferences ? {
+        notifications: {
+          email: currentPreferences.notifications?.email ?? defaultPreferences.notifications.email,
+          sms: currentPreferences.notifications?.sms ?? defaultPreferences.notifications.sms,
+          push: currentPreferences.notifications?.push ?? defaultPreferences.notifications.push
+        },
+        privacy: {
+          showEmail: currentPreferences.privacy?.showEmail ?? defaultPreferences.privacy.showEmail,
+          showPhone: currentPreferences.privacy?.showPhone ?? defaultPreferences.privacy.showPhone
+        }
+      } : defaultPreferences;
+
       const updateData: Partial<UserType> = {
         profile: {
           firstName: profile.name.split(' ')[0] || '',
@@ -240,23 +376,22 @@ const Profile = () => {
           phone: profile.phone,
           address: {
             street: profile.address,
-            city: profile.location.split(',')[0]?.trim() || '',
-            state: profile.location.split(',')[1]?.trim() || '',
-            pincode: profile.pincode
-          }
-        },
-        preferences: {
-          ...user.preferences,
-          notifications: {
-            email: preferences.emailNotifications,
-            sms: preferences.smsNotifications,
-            push: preferences.pushNotifications
-          }
+            city: locationData.selectedCity || profile.location.split(',')[0]?.trim() || '',
+            district: locationData.selectedDistrict || '',
+            state: locationData.selectedState || profile.location.split(',')[1]?.trim() || '',
+            zipCode: profile.pincode || ''
+          },
+          preferences: preferences
         }
       };
 
+      console.log('Profile data being sent:', updateData);
+      console.log('Current profile.pincode:', profile.pincode);
+      console.log('Address object being sent:', updateData.profile?.address);
+
       await userService.updateCurrentUser(updateData);
       await loadUserData(); // Refresh data
+      console.log('User data refreshed, checking pincode...');
       setIsEditing(false);
       
     } catch (error) {
@@ -271,55 +406,7 @@ const Profile = () => {
     // Reset form data if needed
   };
 
-  const handlePreferenceChange = async (key: string, value: boolean) => {
-    const newPreferences = {
-      ...preferences,
-      [key]: value
-    };
-    setPreferences(newPreferences);
-    
-    // Save to backend
-    try {
-      await userService.updateUserPreferences({
-        preferences: {
-          notifications: {
-            email: newPreferences.emailNotifications,
-            sms: newPreferences.smsNotifications,
-            push: newPreferences.pushNotifications
-          }
-        }
-      });
-    } catch (error) {
-      // Revert the change if save fails
-      setPreferences(prev => ({
-        ...prev,
-        [key]: !value
-      }));
-    }
-  };
 
-  const handlePrivacyChange = async (key: string, value: boolean | string) => {
-    const newPrivacy = {
-      ...privacy,
-      [key]: value
-    };
-    setPrivacy(newPrivacy);
-    
-    // Save to backend
-    try {
-      await userService.updateUserPreferences({
-        preferences: {
-          privacy: newPrivacy
-        }
-      });
-    } catch (error) {
-      // Revert the change if save fails
-      setPrivacy(prev => ({
-        ...prev,
-        [key]: typeof value === 'boolean' ? !value : prev[key as keyof typeof prev]
-      }));
-    }
-  };
 
   if (loading) {
     return (
@@ -365,23 +452,27 @@ const Profile = () => {
             My Profile
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage your personal information and preferences
+            View your profile information and activity. Visit <span className="font-medium">Settings</span> to manage preferences.
           </p>
         </div>
         
-        {!isEditing && !loading && (
-          <Button onClick={() => setIsEditing(true)}>
-            <Edit3 className="w-4 h-4 mr-2" />
-            Edit Profile
+        <div className="flex gap-2">
+          {!isEditing && !loading && (
+            <Button onClick={() => setIsEditing(true)}>
+              <Edit3 className="w-4 h-4 mr-2" />
+              Edit Profile
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => window.location.href = '/customer/settings'}>
+            <Settings className="w-4 h-4 mr-2" />
+            Settings
           </Button>
-        )}
+        </div>
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="preferences">Preferences</TabsTrigger>
-          <TabsTrigger value="privacy">Privacy</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
@@ -502,43 +593,179 @@ const Profile = () => {
                     )}
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label>Location</Label>
-                    {isEditing ? (
-                      <Input
-                        value={profile.location}
-                        onChange={(e) => setProfile(prev => ({ ...prev, location: e.target.value }))}
-                      />
-                    ) : (
-                      <p className="text-sm">{profile.location}</p>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Address</Label>
-                    {isEditing ? (
-                      <Input
-                        value={profile.address}
-                        onChange={(e) => setProfile(prev => ({ ...prev, address: e.target.value }))}
-                        placeholder="Street address"
-                      />
-                    ) : (
-                      <p className="text-sm">{profile.address}</p>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Pincode</Label>
-                    {isEditing ? (
-                      <Input
-                        value={profile.pincode}
-                        onChange={(e) => setProfile(prev => ({ ...prev, pincode: e.target.value }))}
-                        placeholder="Postal code"
-                      />
-                    ) : (
-                      <p className="text-sm">{profile.pincode}</p>
-                    )}
-                  </div>
+                  {/* Enhanced Location Fields */}
+                  {isEditing ? (
+                    <>
+                      {/* Pincode Autocomplete - Primary location input */}
+                      <div className="space-y-2 col-span-2">
+                        <Label htmlFor="pincode">PIN Code</Label>
+                        <PincodeAutocomplete
+                          value={profile.pincode || ""}
+                          state={locationData.selectedState}
+                          district={locationData.selectedDistrict}
+                          city={locationData.selectedCity}
+                          onChange={(pincode, locationSuggestion) => {
+                            console.log('Pincode selected:', pincode, locationSuggestion);
+                            
+                            // Update pincode in profile immediately
+                            setProfile(prev => ({ ...prev, pincode }));
+                            
+                            // Auto-fill location fields if suggestion provides data
+                            if (locationSuggestion) {
+                              console.log('Auto-filling location from pincode:', locationSuggestion);
+                              
+                              // Get districts and cities for the state
+                              const stateDistricts = locaService.getDistricts(locationSuggestion.state);
+                              const stateCities = locaService.getCities(locationSuggestion.state, locationSuggestion.district);
+                              
+                              // Update location data in one go to avoid cascading issues
+                              setLocationData(prev => ({
+                                ...prev,
+                                selectedState: locationSuggestion.state || '',
+                                selectedDistrict: locationSuggestion.district || '',
+                                selectedCity: locationSuggestion.city || '',
+                                districts: stateDistricts,
+                                cities: stateCities
+                              }));
+                              
+                              // Update profile location
+                              setProfile(prev => ({
+                                ...prev,
+                                location: `${locationSuggestion.city}, ${locationSuggestion.district}, ${locationSuggestion.state}`,
+                                pincode: pincode // Ensure pincode is also updated here
+                              }));
+                              
+                              console.log('Profile updated with pincode and location:', {
+                                pincode,
+                                location: `${locationSuggestion.city}, ${locationSuggestion.district}, ${locationSuggestion.state}`
+                              });
+                              
+                              toast({
+                                title: "Location Auto-filled ✓",
+                                description: `${locationSuggestion.city}, ${locationSuggestion.district}, ${locationSuggestion.state}`,
+                              });
+                            }
+                          }}
+                          placeholder="Enter PIN code to auto-fill location..."
+                          className="w-full"
+                        />
+                        <div className="space-y-1 mt-1">
+                          <p className="text-xs text-muted-foreground">
+                            💡 Type your PIN code to auto-fill state, district, and city
+                          </p>
+                          {profile.pincode && locationData.selectedCity && (
+                            <p className="text-xs text-green-600 flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              Location: {locationData.selectedCity}, {locationData.selectedDistrict}, {locationData.selectedState}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* State Selection */}
+                      <div className="space-y-2">
+                        <Label>State</Label>
+                        <Select 
+                          value={locationData.selectedState} 
+                          onValueChange={handleStateChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select state" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {locationData.states.map((state) => (
+                              <SelectItem key={state} value={state}>
+                                {state}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* District Selection */}
+                      <div className="space-y-2">
+                        <Label>District</Label>
+                        <Select 
+                          value={locationData.selectedDistrict}
+                          onValueChange={handleDistrictChange}
+                          disabled={!locationData.selectedState}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={
+                              !locationData.selectedState 
+                                ? "Select state first" 
+                                : locationData.loadingDistricts 
+                                  ? "Loading districts..." 
+                                  : "Select district"
+                            } />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {locationData.districts.map((district) => (
+                              <SelectItem key={district} value={district}>
+                                {district}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* City Selection */}
+                      <div className="space-y-2">
+                        <Label>City</Label>
+                        <Select 
+                          value={locationData.selectedCity}
+                          onValueChange={handleCityChange}
+                          disabled={!locationData.selectedDistrict}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={
+                              !locationData.selectedState
+                                ? "Select state first"
+                                : !locationData.selectedDistrict
+                                  ? "Select district first"
+                                  : locationData.loadingCities
+                                    ? "Loading cities..."
+                                    : "Select city"
+                            } />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {locationData.cities.map((city) => (
+                              <SelectItem key={city} value={city}>
+                                {city}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Street Address */}
+                      <div className="space-y-2">
+                        <Label>Street Address</Label>
+                        <Input
+                          value={profile.address}
+                          onChange={(e) => setProfile(prev => ({ ...prev, address: e.target.value }))}
+                          placeholder="House/Flat number, Street name, Area"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Location</Label>
+                        <p className="text-sm">{user?.profile?.address ? formatLocationDisplay(user.profile.address) : "Not specified"}</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Address</Label>
+                        <p className="text-sm">{profile.address || "Not specified"}</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>PIN Code</Label>
+                        <p className="text-sm">{user?.profile?.address?.zipCode || profile.pincode || "Not provided"}</p>
+                      </div>
+                    </>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
@@ -643,147 +870,23 @@ const Profile = () => {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
 
-        <TabsContent value="preferences" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="w-5 h-5" />
-                Notification Preferences
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
+          {/* Quick Settings Link Card */}
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Settings className="w-8 h-8 text-primary" />
                   <div>
-                    <p className="font-medium">Email Notifications</p>
+                    <h3 className="font-semibold">Manage Your Preferences</h3>
                     <p className="text-sm text-muted-foreground">
-                      Receive updates and alerts via email
+                      Configure notifications, privacy, security, and account settings
                     </p>
                   </div>
-                  <Switch
-                    checked={preferences.emailNotifications}
-                    onCheckedChange={(checked) => handlePreferenceChange('emailNotifications', checked)}
-                  />
                 </div>
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">SMS Notifications</p>
-                    <p className="text-sm text-muted-foreground">
-                      Get important updates via text message
-                    </p>
-                  </div>
-                  <Switch
-                    checked={preferences.smsNotifications}
-                    onCheckedChange={(checked) => handlePreferenceChange('smsNotifications', checked)}
-                  />
-                </div>
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Push Notifications</p>
-                    <p className="text-sm text-muted-foreground">
-                      Browser notifications for instant updates
-                    </p>
-                  </div>
-                  <Switch
-                    checked={preferences.pushNotifications}
-                    onCheckedChange={(checked) => handlePreferenceChange('pushNotifications', checked)}
-                  />
-                </div>
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Marketing Emails</p>
-                    <p className="text-sm text-muted-foreground">
-                      Promotional content and special offers
-                    </p>
-                  </div>
-                  <Switch
-                    checked={preferences.marketingEmails}
-                    onCheckedChange={(checked) => handlePreferenceChange('marketingEmails', checked)}
-                  />
-                </div>
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Property Alerts</p>
-                    <p className="text-sm text-muted-foreground">
-                      New properties matching your criteria
-                    </p>
-                  </div>
-                  <Switch
-                    checked={preferences.propertyAlerts}
-                    onCheckedChange={(checked) => handlePreferenceChange('propertyAlerts', checked)}
-                  />
-                </div>
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Price Drop Alerts</p>
-                    <p className="text-sm text-muted-foreground">
-                      Notifications when saved properties drop in price
-                    </p>
-                  </div>
-                  <Switch
-                    checked={preferences.priceDropAlerts}
-                    onCheckedChange={(checked) => handlePreferenceChange('priceDropAlerts', checked)}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="privacy" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Lock className="w-5 h-5" />
-                Privacy Settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Show Phone Number</p>
-                    <p className="text-sm text-muted-foreground">
-                      Display your phone number on your public profile
-                    </p>
-                  </div>
-                  <Switch
-                    checked={privacy.showPhone}
-                    onCheckedChange={(checked) => handlePrivacyChange('showPhone', checked)}
-                  />
-                </div>
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Show Email Address</p>
-                    <p className="text-sm text-muted-foreground">
-                      Display your email address on your public profile
-                    </p>
-                  </div>
-                  <Switch
-                    checked={privacy.showEmail}
-                    onCheckedChange={(checked) => handlePrivacyChange('showEmail', checked)}
-                  />
-                </div>
+                <Button onClick={() => window.location.href = '/customer/settings'}>
+                  Go to Settings
+                </Button>
               </div>
             </CardContent>
           </Card>

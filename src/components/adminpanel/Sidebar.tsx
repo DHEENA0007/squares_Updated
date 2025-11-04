@@ -55,8 +55,17 @@ const Sidebar = ({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: Sidebar
           )}
         </button>
 
+        {/* Super Admin Badge */}
+        {!isCollapsed && (
+          <div className="p-3 mt-2">
+            <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-2 py-1 rounded-md text-xs font-medium text-center">
+              Super Admin Panel
+            </div>
+          </div>
+        )}
+
         {/* Navigation */}
-        <nav className="p-2 space-y-2 mt-8">
+        <nav className="p-2 space-y-2 mt-2">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;

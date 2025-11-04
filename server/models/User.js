@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['customer', 'agent', 'admin', 'superadmin'],
+    enum: ['customer', 'agent', 'admin', 'subadmin', 'superadmin'],
     default: 'customer'
   },
   status: {
@@ -62,18 +62,6 @@ const userSchema = new mongoose.Schema({
       type: Date,
       default: null
     },
-    preferences: {
-      notifications: {
-        email: { type: Boolean, default: true },
-        sms: { type: Boolean, default: false },
-        push: { type: Boolean, default: true }
-      },
-      privacy: {
-        showEmail: { type: Boolean, default: false },
-        showPhone: { type: Boolean, default: false }
-      }
-    },
-    // Basic preferences
     preferences: {
       notifications: {
         email: { type: Boolean, default: true },

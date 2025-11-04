@@ -15,6 +15,15 @@ export interface RegisterData {
   phone: string;
   role?: string;
   agreeToTerms: boolean;
+  businessInfo?: any; // For vendor registration
+  documents?: any; // For vendor documents
+}
+
+export interface OTPResponse {
+  success: boolean;
+  message: string;
+  expiryMinutes?: number;
+  remainingSeconds?: number;
 }
 
 export interface AuthResponse {
@@ -195,6 +204,72 @@ class AuthService {
 
   getToken(): string | null {
     return localStorage.getItem("token");
+  }
+
+  // OTP-related methods
+  async sendOTP(email: string, firstName: string): Promise<OTPResponse> {
+    try {
+      const response = await this.makeRequest<OTPResponse>("/auth/send-otp", {
+        method: "POST",
+        body: JSON.stringify({ email, firstName }),
+      });
+
+      if (response.success) {
+        toast({
+          title: "OTP Sent",
+          description: response.message || "OTP has been sent to your email address.",
+        });
+      }
+
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to send OTP";
+      toast({
+        title: "OTP Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  async verifyOTP(email: string, otp: string): Promise<OTPResponse> {
+    try {
+      const response = await this.makeRequest<OTPResponse>("/auth/verify-otp", {
+        method: "POST",
+        body: JSON.stringify({ email, otp }),
+      });
+
+      if (response.success) {
+        toast({
+          title: "Email Verified",
+          description: response.message || "Your email has been verified successfully.",
+        });
+      }
+
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "OTP verification failed";
+      toast({
+        title: "Verification Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  async registerWithOTPVerification(userData: RegisterData, otp: string): Promise<AuthResponse> {
+    try {
+      // First verify OTP
+      await this.verifyOTP(userData.email, otp);
+      
+      // Then proceed with registration
+      const response = await this.register(userData);
+      return response;
+    } catch (error) {
+      throw error;
+    }
   }
 }
 

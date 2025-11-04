@@ -20,6 +20,7 @@ const addonRoutes = require('./routes/addons');
 const roleRoutes = require('./routes/roles');
 const subscriptionRoutes = require('./routes/subscriptions');
 const adminRoutes = require('./routes/admin');
+const subAdminRoutes = require('./routes/subadmin');
 const vendorRoutes = require('./routes/vendors');
 const paymentRoutes = require('./routes/payments');
 const uploadRoutes = require('./routes/upload');
@@ -238,6 +239,7 @@ app.use('/api/addons', addonRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/subadmin', subAdminRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/upload', uploadRoutes);
@@ -388,20 +390,51 @@ io.on('connection', (socket) => {
 app.use(notFound);
 app.use(errorHandler);
 
+// Database connection with retry logic
+const connectWithRetry = async (retries = 5) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      console.log(`🔄 Database connection attempt ${i + 1}/${retries}`);
+      await connectDB();
+      return; // Success, exit retry loop
+    } catch (error) {
+      console.error(`❌ Connection attempt ${i + 1} failed:`, error.message);
+      
+      if (i === retries - 1) {
+        console.error('🚫 All database connection attempts failed');
+        throw error;
+      }
+      
+      const delay = Math.pow(2, i) * 2000; // Exponential backoff: 2s, 4s, 8s, 16s
+      console.log(`⏳ Retrying in ${delay / 1000} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+};
+
 // Start server
 const startServer = async () => {
   try {
-    // Connect to MongoDB
-    await connectDB();
+    // Connect to MongoDB with retry logic
+    await connectWithRetry();
     
     server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🔗 Client URL: ${process.env.CLIENT_URL || 'http://localhost:8001'}`);
+      console.log(`✅ Database connection established`);
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
+    console.error('🚫 Failed to start server:', error.message);
+    console.error('💡 Server starting without database connection - some features may not work');
+    
+    // Start server anyway but warn about database issues
+    server.listen(PORT, () => {
+      console.log(`⚠️  Server running on port ${PORT} (DATABASE DISCONNECTED)`);
+      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🔗 Client URL: ${process.env.CLIENT_URL || 'http://localhost:8001'}`);
+      console.log(`❌ Database connection failed - check connection and restart`);
+    });
   }
 };
 

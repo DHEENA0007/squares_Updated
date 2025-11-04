@@ -9,6 +9,7 @@ import { useState } from "react";
 import PropertyMessageDialog from "@/components/PropertyMessageDialog";
 import PropertyContactDialog from "@/components/PropertyContactDialog";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PropertyCardProps {
   property: Property;
@@ -16,6 +17,7 @@ interface PropertyCardProps {
 
 const PropertyCard = ({ property }: PropertyCardProps) => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showContactDialog, setShowContactDialog] = useState(false);
   
@@ -25,7 +27,11 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
   const location = `${property.address.city}, ${property.address.state}`;
 
   const handleViewDetails = () => {
-    navigate(`/property/${property._id}`);
+    if (isAuthenticated) {
+      navigate(`/property/${property._id}`);
+    } else {
+      navigate("/login");
+    }
   };
 
   return (

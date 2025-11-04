@@ -38,6 +38,44 @@ const requireVendorRole = asyncHandler(async (req, res, next) => {
       });
     }
     req.vendor = vendor;
+  } else if (req.user.role === 'admin') {
+    // For admin, we might need to create a mock vendor profile or handle differently
+    // For now, let's look for an existing vendor profile or create a basic one
+    let vendor = await Vendor.findByUserId(req.user.id);
+    if (!vendor) {
+      // Create a basic vendor profile for admin
+      const user = await User.findById(req.user.id);
+      const vendorData = {
+        user: req.user.id,
+        businessInfo: {
+          companyName: `${user.profile.firstName} ${user.profile.lastName} - Admin`,
+          businessType: 'individual'
+        },
+        professionalInfo: {
+          experience: 0,
+          specializations: [],
+          serviceAreas: [],
+          languages: ['english'],
+          certifications: []
+        },
+        status: 'active',
+        verification: {
+          isVerified: true,
+          verificationLevel: 'enterprise'
+        },
+        metadata: {
+          source: 'admin',
+          notes: 'Auto-created for admin user'
+        }
+      };
+      vendor = new Vendor(vendorData);
+      await vendor.save();
+      
+      // Link user to vendor profile
+      user.vendorProfile = vendor._id;
+      await user.save();
+    }
+    req.vendor = vendor;
   }
 
   next();
@@ -56,9 +94,98 @@ router.get('/profile', requireVendorRole, asyncHandler(async (req, res) => {
     });
   }
 
+  // Get the associated user data
+  const user = await User.findById(vendor.user).select('-password -verificationToken');
+  
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'Associated user not found'
+    });
+  }
+
+  // Combine user and vendor data in the format expected by frontend
+  const combinedProfile = {
+    id: user._id,
+    _id: user._id,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    profile: {
+      firstName: user.profile.firstName,
+      lastName: user.profile.lastName,
+      phone: user.profile.phone,
+      avatar: user.profile.avatar,
+      bio: user.profile.bio,
+      preferences: user.profile.preferences || {
+        language: 'en',
+        currency: 'INR',
+        notifications: {
+          email: true,
+          push: true,
+          newMessages: true,
+          newsUpdates: true,
+          marketing: true,
+        },
+      },
+      address: {
+        street: user.profile.address?.street || vendor.contactInfo?.officeAddress?.street,
+        area: vendor.contactInfo?.officeAddress?.area,
+        city: user.profile.address?.city || vendor.contactInfo?.officeAddress?.city,
+        state: user.profile.address?.state || vendor.contactInfo?.officeAddress?.state,
+        district: vendor.contactInfo?.officeAddress?.district,
+        zipCode: user.profile.address?.zipCode || vendor.contactInfo?.officeAddress?.pincode,
+        country: user.profile.address?.country || vendor.contactInfo?.officeAddress?.country,
+        countryCode: vendor.contactInfo?.officeAddress?.countryCode,
+        stateCode: vendor.contactInfo?.officeAddress?.stateCode,
+        districtCode: vendor.contactInfo?.officeAddress?.districtCode,
+        cityCode: vendor.contactInfo?.officeAddress?.cityCode,
+        landmark: vendor.contactInfo?.officeAddress?.landmark,
+      },
+      vendorInfo: {
+        licenseNumber: vendor.businessInfo?.licenseNumber,
+        gstNumber: vendor.businessInfo?.gstNumber,
+        panNumber: vendor.businessInfo?.panNumber,
+        companyName: vendor.businessInfo?.companyName,
+        experience: vendor.professionalInfo?.experience || 0,
+        website: vendor.businessInfo?.website,
+        specializations: vendor.professionalInfo?.specializations || [],
+        serviceAreas: vendor.professionalInfo?.serviceAreas?.map(area => 
+          `${area.city}, ${area.state}`.replace(/^,\s*|,\s*$/g, '')
+        ) || [],
+        certifications: vendor.professionalInfo?.certifications || [],
+        vendorPreferences: {
+          emailNotifications: vendor.settings?.notifications?.emailNotifications ?? true,
+          smsNotifications: vendor.settings?.notifications?.smsNotifications ?? true,
+          leadAlerts: vendor.settings?.notifications?.leadAlerts ?? true,
+          marketingEmails: vendor.settings?.notifications?.marketingEmails ?? false,
+          weeklyReports: vendor.settings?.notifications?.weeklyReports ?? true,
+          autoResponseEnabled: vendor.settings?.autoResponder?.enabled ?? false,
+          autoResponseMessage: vendor.settings?.autoResponder?.message || 'Thank you for your interest! I will get back to you soon.',
+        },
+        rating: {
+          average: vendor.performance?.rating?.average || 0,
+          count: vendor.performance?.rating?.count || 0,
+        },
+        responseTime: vendor.performance?.statistics?.responseTime?.average ? 
+          `${Math.round(vendor.performance.statistics.responseTime.average / 60)} hours` : 'Not calculated',
+        memberSince: vendor.memberSince?.toISOString() || vendor.createdAt?.toISOString(),
+      }
+    },
+    statistics: {
+      totalProperties: vendor.performance?.statistics?.totalProperties || 0,
+      totalFavorites: 0, // Calculate from favorites collection if needed
+      totalMessages: vendor.performance?.statistics?.totalLeads || 0,
+      totalSales: vendor.performance?.statistics?.soldProperties || 0,
+      totalValue: '₹0', // Calculate from property values if needed
+    }
+  };
+
   res.json({
     success: true,
-    data: { vendor: vendor.getPublicProfile() }
+    data: { user: combinedProfile }
   });
 }));
 
@@ -69,27 +196,165 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
   const vendor = req.vendor; // From requireVendorRole middleware
   const updateData = req.body;
 
-  // Update allowed fields
-  const allowedUpdates = [
-    'businessInfo',
-    'professionalInfo', 
-    'contactInfo',
-    'settings',
-    'financial'
-  ];
+  // Get the associated user
+  const user = await User.findById(vendor.user);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'Associated user not found'
+    });
+  }
 
-  allowedUpdates.forEach(field => {
-    if (updateData[field]) {
-      vendor[field] = { ...vendor[field], ...updateData[field] };
+  // Handle profile updates - map frontend structure to backend models
+  if (updateData.profile) {
+    const { profile } = updateData;
+    
+    // Update user profile fields
+    if (profile.firstName) user.profile.firstName = profile.firstName;
+    if (profile.lastName) user.profile.lastName = profile.lastName;
+    if (profile.phone) user.profile.phone = profile.phone;
+    if (profile.bio !== undefined) user.profile.bio = profile.bio;
+    if (profile.preferences) user.profile.preferences = { ...user.profile.preferences, ...profile.preferences };
+    
+    // Update user address
+    if (profile.address) {
+      user.profile.address = { ...user.profile.address, ...profile.address };
+      
+      // Also update vendor office address
+      if (!vendor.contactInfo) vendor.contactInfo = {};
+      if (!vendor.contactInfo.officeAddress) vendor.contactInfo.officeAddress = {};
+      
+      vendor.contactInfo.officeAddress = {
+        ...vendor.contactInfo.officeAddress,
+        street: profile.address.street,
+        area: profile.address.area,
+        city: profile.address.city,
+        state: profile.address.state,
+        district: profile.address.district,
+        pincode: profile.address.zipCode,
+        country: profile.address.country || 'India',
+        countryCode: profile.address.countryCode || 'IN',
+        stateCode: profile.address.stateCode,
+        districtCode: profile.address.districtCode,
+        cityCode: profile.address.cityCode,
+        landmark: profile.address.landmark,
+      };
     }
-  });
+    
+    // Update vendor-specific fields
+    if (profile.vendorInfo) {
+      const { vendorInfo } = profile;
+      
+      // Update business info
+      if (!vendor.businessInfo) vendor.businessInfo = {};
+      if (vendorInfo.companyName !== undefined) vendor.businessInfo.companyName = vendorInfo.companyName;
+      if (vendorInfo.licenseNumber !== undefined) vendor.businessInfo.licenseNumber = vendorInfo.licenseNumber;
+      if (vendorInfo.gstNumber !== undefined) vendor.businessInfo.gstNumber = vendorInfo.gstNumber;
+      if (vendorInfo.panNumber !== undefined) vendor.businessInfo.panNumber = vendorInfo.panNumber;
+      if (vendorInfo.website !== undefined) vendor.businessInfo.website = vendorInfo.website;
+      
+      // Update professional info
+      if (!vendor.professionalInfo) vendor.professionalInfo = {};
+      if (vendorInfo.experience !== undefined) vendor.professionalInfo.experience = vendorInfo.experience;
+      if (vendorInfo.specializations) vendor.professionalInfo.specializations = vendorInfo.specializations;
+      
+      // Update service areas (convert from string array to object array)
+      if (vendorInfo.serviceAreas) {
+        vendor.professionalInfo.serviceAreas = vendorInfo.serviceAreas.map(area => {
+          const parts = area.split(',').map(s => s.trim());
+          return {
+            city: parts[0] || '',
+            state: parts[1] || '',
+            district: '',
+            country: 'India',
+            countryCode: 'IN'
+          };
+        });
+      }
+      
+      if (vendorInfo.certifications) vendor.professionalInfo.certifications = vendorInfo.certifications;
+      
+      // Update vendor preferences/settings
+      if (vendorInfo.vendorPreferences) {
+        if (!vendor.settings) vendor.settings = {};
+        if (!vendor.settings.notifications) vendor.settings.notifications = {};
+        if (!vendor.settings.autoResponder) vendor.settings.autoResponder = {};
+        
+        const prefs = vendorInfo.vendorPreferences;
+        vendor.settings.notifications.emailNotifications = prefs.emailNotifications ?? vendor.settings.notifications.emailNotifications;
+        vendor.settings.notifications.smsNotifications = prefs.smsNotifications ?? vendor.settings.notifications.smsNotifications;
+        vendor.settings.notifications.leadAlerts = prefs.leadAlerts ?? vendor.settings.notifications.leadAlerts;
+        vendor.settings.notifications.marketingEmails = prefs.marketingEmails ?? vendor.settings.notifications.marketingEmails;
+        vendor.settings.notifications.weeklyReports = prefs.weeklyReports ?? vendor.settings.notifications.weeklyReports;
+        vendor.settings.autoResponder.enabled = prefs.autoResponseEnabled ?? vendor.settings.autoResponder.enabled;
+        vendor.settings.autoResponder.message = prefs.autoResponseMessage ?? vendor.settings.autoResponder.message;
+      }
+    }
+  }
 
-  await vendor.save();
+  // Save both user and vendor
+  await Promise.all([user.save(), vendor.save()]);
+
+  // Return the combined profile in the same format as GET /profile
+  const combinedProfile = {
+    id: user._id,
+    _id: user._id,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    profile: {
+      firstName: user.profile.firstName,
+      lastName: user.profile.lastName,
+      phone: user.profile.phone,
+      avatar: user.profile.avatar,
+      bio: user.profile.bio,
+      preferences: user.profile.preferences,
+      address: user.profile.address,
+      vendorInfo: {
+        licenseNumber: vendor.businessInfo?.licenseNumber,
+        gstNumber: vendor.businessInfo?.gstNumber,
+        panNumber: vendor.businessInfo?.panNumber,
+        companyName: vendor.businessInfo?.companyName,
+        experience: vendor.professionalInfo?.experience || 0,
+        website: vendor.businessInfo?.website,
+        specializations: vendor.professionalInfo?.specializations || [],
+        serviceAreas: vendor.professionalInfo?.serviceAreas?.map(area => 
+          `${area.city}, ${area.state}`.replace(/^,\s*|,\s*$/g, '')
+        ) || [],
+        certifications: vendor.professionalInfo?.certifications || [],
+        vendorPreferences: {
+          emailNotifications: vendor.settings?.notifications?.emailNotifications ?? true,
+          smsNotifications: vendor.settings?.notifications?.smsNotifications ?? true,
+          leadAlerts: vendor.settings?.notifications?.leadAlerts ?? true,
+          marketingEmails: vendor.settings?.notifications?.marketingEmails ?? false,
+          weeklyReports: vendor.settings?.notifications?.weeklyReports ?? true,
+          autoResponseEnabled: vendor.settings?.autoResponder?.enabled ?? false,
+          autoResponseMessage: vendor.settings?.autoResponder?.message || 'Thank you for your interest! I will get back to you soon.',
+        },
+        rating: {
+          average: vendor.performance?.rating?.average || 0,
+          count: vendor.performance?.rating?.count || 0,
+        },
+        responseTime: vendor.performance?.statistics?.responseTime?.average ? 
+          `${Math.round(vendor.performance.statistics.responseTime.average / 60)} hours` : 'Not calculated',
+        memberSince: vendor.memberSince?.toISOString() || vendor.createdAt?.toISOString(),
+      }
+    },
+    statistics: {
+      totalProperties: vendor.performance?.statistics?.totalProperties || 0,
+      totalFavorites: 0,
+      totalMessages: vendor.performance?.statistics?.totalLeads || 0,
+      totalSales: vendor.performance?.statistics?.soldProperties || 0,
+      totalValue: '₹0',
+    }
+  };
 
   res.json({
     success: true,
     message: 'Vendor profile updated successfully',
-    data: { vendor: vendor.getPublicProfile() }
+    data: { user: combinedProfile }
   });
 }));
 

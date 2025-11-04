@@ -27,7 +27,7 @@ export interface Message {
   };
   subject?: string;
   message: string;
-  type?: 'inquiry' | 'lead' | 'property_inquiry' | 'contact' | 'general';
+  type?: 'inquiry' | 'lead' | 'property_inquiry' | 'contact' | 'general' | 'auto_response';
   status?: 'unread' | 'read' | 'responded';
   priority?: 'low' | 'medium' | 'high';
   read: boolean;
@@ -600,6 +600,52 @@ class MessageService {
       case "responded": return "bg-green-500";
       default: return "bg-gray-500";
     }
+  }
+
+  // Send auto-response message
+  async sendAutoResponse(conversationId: string, recipientId: string, autoResponseMessage: string): Promise<Message | null> {
+    try {
+      const autoResponseText = `🤖 ${autoResponseMessage}`;
+      
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: { message: Message };
+      }>(`/messages`, {
+        method: "POST",
+        body: JSON.stringify({ 
+          conversationId,
+          recipientId,
+          content: autoResponseText,
+          type: 'auto_response',
+          attachments: []
+        }),
+      });
+
+      if (response.success && response.data) {
+        console.log("Auto-response sent successfully:", response.data.message._id);
+        return response.data.message;
+      }
+
+      throw new Error("Failed to send auto-response");
+    } catch (error) {
+      console.error("Failed to send auto-response:", error);
+      return null;
+    }
+  }
+
+  // Check if a message is an auto-response
+  isAutoResponse(message: Message): boolean {
+    return message.type === 'auto_response' || 
+           (message.message && 
+            (message.message.startsWith('🤖') ||
+             message.message.toLowerCase().includes('auto-response') ||
+             message.message.toLowerCase().includes('automatic response') ||
+             message.message.toLowerCase().includes('i\'ll get back to you')));
+  }
+
+  // Get auto-response indicator
+  getAutoResponseIndicator(): string {
+    return "🤖"; // Robot emoji to indicate auto-response
   }
 }
 

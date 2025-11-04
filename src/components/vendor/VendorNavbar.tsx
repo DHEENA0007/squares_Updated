@@ -71,6 +71,15 @@ const VendorNavbar = ({ setSidebarOpen }: VendorNavbarProps) => {
 
   return (
     <>
+      {/* Logo positioned outside container */}
+      <Link to="/" className="fixed -top-6 left-4 z-[60] transition-transform hover:scale-105 duration-300">
+        <img
+          src={theme === "dark" ? logoDark : logoLight}
+          alt="BuildHomeMart"
+          className="w-[220px] h-[100px] object-contain"
+        />
+      </Link>
+      
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-colors duration-300">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
@@ -84,14 +93,10 @@ const VendorNavbar = ({ setSidebarOpen }: VendorNavbarProps) => {
                 <Menu className="h-5 w-5" />
               </Button>
               
-              {/* Logo in navbar like home page */}
-              <Link to="/vendor/dashboard" className="transition-transform hover:scale-105 duration-300">
-                <img
-                  src={theme === "dark" ? logoDark : logoLight}
-                  alt="Squares"
-                  className="w-[140px] h-[50px] object-contain"
-                />
-              </Link>
+              {/* Empty space where logo was, navigation links moved */}
+              <div className="ml-[200px]">
+                {/* Vendor portal specific content can go here */}
+              </div>
               
               {/* Search */}
               <div className="relative hidden md:block">

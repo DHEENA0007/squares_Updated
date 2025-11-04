@@ -182,6 +182,51 @@ router.post('/', asyncHandler(async (req, res) => {
     { path: 'property', select: 'title price address city state' }
   ]);
 
+  // Check if recipient has auto-response enabled (for vendors)
+  try {
+    const recipient = await User.findById(recipientId);
+    if (recipient && 
+        recipient.role === 'vendor' && 
+        recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseEnabled &&
+        recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseMessage) {
+      
+      // Check if this is the first message in the conversation from this sender
+      const existingMessages = await Message.countDocuments({
+        conversationId,
+        sender: req.user.id
+      });
+
+      // Only send auto-response for the first message from this sender
+      if (existingMessages === 1) {
+        const autoResponseData = {
+          conversationId,
+          sender: recipientId,
+          recipient: req.user.id,
+          message: recipient.profile.vendorInfo.vendorPreferences.autoResponseMessage,
+          read: false
+        };
+
+        // Add property reference if exists
+        if (existingMessage?.property) {
+          autoResponseData.property = existingMessage.property;
+        }
+
+        // Send auto-response after a short delay
+        setTimeout(async () => {
+          try {
+            const autoResponse = await Message.create(autoResponseData);
+            console.log('Auto-response sent:', autoResponse._id);
+          } catch (error) {
+            console.error('Failed to send auto-response:', error);
+          }
+        }, 3000); // 3 second delay
+      }
+    }
+  } catch (error) {
+    console.error('Error checking auto-response settings:', error);
+    // Don't fail the original message if auto-response fails
+  }
+
   res.status(201).json({
     success: true,
     message: 'Message sent successfully',
@@ -332,6 +377,45 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
     { path: 'recipient', select: 'profile.firstName profile.lastName email profile.phone' },
     { path: 'property', select: 'title price address city state' }
   ]);
+
+  // Check if recipient has auto-response enabled (for vendors)
+  let autoResponseMessage = null;
+  try {
+    const recipient = await User.findById(recipientId);
+    if (recipient && 
+        recipient.role === 'vendor' && 
+        recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseEnabled &&
+        recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseMessage) {
+      
+      // Create auto-response message
+      const autoResponseData = {
+        conversationId,
+        sender: recipientId,
+        recipient: req.user.id,
+        message: recipient.profile.vendorInfo.vendorPreferences.autoResponseMessage,
+        property: propertyId,
+        read: false,
+        subject: 'Auto-Response',
+        content: recipient.profile.vendorInfo.vendorPreferences.autoResponseMessage,
+        type: 'auto_response',
+        status: 'unread',
+        priority: 'low'
+      };
+
+      // Send auto-response after a short delay to make it feel natural
+      setTimeout(async () => {
+        try {
+          const autoResponse = await Message.create(autoResponseData);
+          console.log('Auto-response sent:', autoResponse._id);
+        } catch (error) {
+          console.error('Failed to send auto-response:', error);
+        }
+      }, 2000); // 2 second delay
+    }
+  } catch (error) {
+    console.error('Error checking auto-response settings:', error);
+    // Don't fail the original message if auto-response fails
+  }
 
   res.status(201).json({
     success: true,

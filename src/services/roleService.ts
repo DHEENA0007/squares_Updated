@@ -242,7 +242,17 @@ class RoleService {
       'manage_content',
       'send_messages',
       'moderate_content',
-      'access_analytics'
+      'access_analytics',
+      // Sub Admin specific permissions
+      'review_properties',
+      'approve_properties',
+      'reject_properties',
+      'moderate_user_content',
+      'handle_support_tickets',
+      'track_vendor_performance',
+      'approve_promotions',
+      'send_notifications',
+      'generate_reports'
     ];
   }
 

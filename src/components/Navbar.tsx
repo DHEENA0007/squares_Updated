@@ -50,7 +50,7 @@ const Navbar = () => {
                   variant="ghost"
                   className="hover:bg-accent/10 hidden sm:flex bg-primary text-primary-foreground hover:bg-primary/90"
                 >
-                  Become a Vendor
+                  Post Your Property
                 </Button>
               </Link>
               <Link to="/login">
@@ -97,7 +97,7 @@ const Navbar = () => {
                   variant="ghost"
                   className="w-full mb-2 bg-primary text-primary-foreground hover:bg-primary/90"
                 >
-                  Become a Vendor
+                  Post Your Property
                 </Button>
               </Link>
             </div>

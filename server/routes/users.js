@@ -205,11 +205,42 @@ router.put('/:id', asyncHandler(async (req, res) => {
 
   // Update fields
   if (profile) {
-    user.profile = { ...user.profile, ...profile };
+    // Filter out undefined values and handle nested objects properly
+    const filteredProfile = {};
+    Object.keys(profile).forEach(key => {
+      if (profile[key] !== undefined) {
+        if (typeof profile[key] === 'object' && profile[key] !== null) {
+          // For nested objects like address and preferences, only update if they have valid data
+          if (Object.keys(profile[key]).length > 0) {
+            // Check if all values in the object are not undefined
+            const hasValidValues = Object.values(profile[key]).some(value => value !== undefined);
+            if (hasValidValues) {
+              if (user.profile[key] && typeof user.profile[key] === 'object') {
+                filteredProfile[key] = { ...user.profile[key], ...profile[key] };
+              } else {
+                filteredProfile[key] = profile[key];
+              }
+            }
+          }
+        } else {
+          filteredProfile[key] = profile[key];
+        }
+      }
+    });
+    user.profile = { ...user.profile, ...filteredProfile };
   }
   
-  if (preferences) {
-    user.preferences = { ...user.preferences, ...preferences };
+  // Handle preferences if sent separately (for backward compatibility)
+  if (preferences !== undefined && typeof preferences === 'object' && preferences !== null) {
+    // Only update if preferences has valid data
+    const hasValidValues = Object.values(preferences).some(value => value !== undefined);
+    if (hasValidValues) {
+      if (user.profile.preferences && typeof user.profile.preferences === 'object') {
+        user.profile.preferences = { ...user.profile.preferences, ...preferences };
+      } else {
+        user.profile.preferences = preferences;
+      }
+    }
   }
 
   // Only admin can update role and status
@@ -228,6 +259,93 @@ router.put('/:id', asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: { user: userResponse }
+  });
+}));
+
+// @desc    Update current user profile
+// @route   PUT /api/users/profile
+// @access  Private
+router.put('/profile', asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user.id);
+  
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  const {
+    profile,
+    preferences,
+  } = req.body;
+
+  // Update fields
+  if (profile) {
+    // Filter out undefined values and handle nested objects properly
+    const filteredProfile = {};
+    Object.keys(profile).forEach(key => {
+      if (profile[key] !== undefined) {
+        if (typeof profile[key] === 'object' && profile[key] !== null) {
+          // For nested objects like address and preferences, only update if they have valid data
+          if (Object.keys(profile[key]).length > 0) {
+            // Check if all values in the object are not undefined
+            const hasValidValues = Object.values(profile[key]).some(value => value !== undefined);
+            if (hasValidValues) {
+              if (user.profile[key] && typeof user.profile[key] === 'object') {
+                filteredProfile[key] = { ...user.profile[key], ...profile[key] };
+              } else {
+                filteredProfile[key] = profile[key];
+              }
+            }
+          }
+        } else {
+          filteredProfile[key] = profile[key];
+        }
+      }
+    });
+    user.profile = { ...user.profile, ...filteredProfile };
+  }
+  
+  // Handle preferences if sent separately (for backward compatibility)
+  if (preferences !== undefined && typeof preferences === 'object' && preferences !== null) {
+    // Only update if preferences has valid data
+    const hasValidValues = Object.values(preferences).some(value => value !== undefined);
+    if (hasValidValues) {
+      if (user.profile.preferences && typeof user.profile.preferences === 'object') {
+        user.profile.preferences = { ...user.profile.preferences, ...preferences };
+      } else {
+        user.profile.preferences = preferences;
+      }
+    }
+  }
+
+  await user.save();
+
+  // Get updated statistics
+  const [totalProperties, totalFavorites, totalMessages] = await Promise.all([
+    Property.countDocuments({ owner: req.user.id }),
+    Favorite.countDocuments({ user: req.user.id }),
+    Message.countDocuments({ $or: [{ sender: req.user.id }, { recipient: req.user.id }] })
+  ]);
+
+  // Remove password from response
+  const userResponse = user.toObject();
+  delete userResponse.password;
+  delete userResponse.verificationToken;
+
+  res.json({
+    success: true,
+    data: { 
+      user: {
+        ...userResponse,
+        statistics: {
+          totalProperties,
+          totalFavorites,
+          totalMessages
+        }
+      }
+    }
   });
 }));
 

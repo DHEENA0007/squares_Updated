@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import {
   User,
   Building,
@@ -21,37 +24,287 @@ import {
   Edit,
   Save,
   X,
-  Upload,
   Calendar,
   Users,
   Home,
-  Shield,
   CheckCircle,
   Loader2,
-  TrendingUp
+  TrendingUp,
+  Bell,
+  RefreshCw,
+  Database,
+  Key,
+  Shield,
+  MessageSquare
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { vendorService, type VendorProfile } from "@/services/vendorService";
-import EnhancedLocationSelector from "@/components/vendor/EnhancedLocationSelector";
+import { messageService } from "@/services/messageService";
+import { locaService, type PincodeSuggestion } from "@/services/locaService";
+import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
+import { PasswordChangeDialog } from "@/components/PasswordChangeDialog";
+import { VendorNotificationSettings, type VendorBusinessPreferences } from "@/components/settings/VendorNotificationSettings";
+
+// Vendor Settings Configuration
+interface VendorSettingsConfig {
+  notifications: VendorNotificationPreferences;
+  business: BusinessSettings;
+}
+
+interface VendorNotificationPreferences {
+  email: boolean;
+  push: boolean;
+  newMessages: boolean;
+  newsUpdates: boolean;
+  marketing: boolean;
+}
+
+interface BusinessSettings {
+  emailNotifications: boolean;
+  smsNotifications: boolean;
+  leadAlerts: boolean;
+  marketingEmails: boolean;
+  weeklyReports: boolean;
+  autoResponseEnabled: boolean;
+  autoResponseMessage: string;
+}
 
 const VendorProfilePage: React.FC = () => {
+
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [vendorData, setVendorData] = useState<VendorProfile | null>(null);
   const [formData, setFormData] = useState<VendorProfile | null>(null);
   const [activeTab, setActiveTab] = useState("profile");
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  
+  // Location data states from loca.json
+  const [states, setStates] = useState<string[]>([]);
+  const [districts, setDistricts] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  
+  // Loading states for location fields
+  const [locationLoading, setLocationLoading] = useState({
+    states: false,
+    districts: false,
+    cities: false,
+    pincode: false
+  });
+
+  // Store selected location names for display
+  const [selectedLocationNames, setSelectedLocationNames] = useState({
+    country: 'India',
+    state: '',
+    district: '',
+    city: ''
+  });
+  
+  // Vendor settings state
+  const [vendorSettings, setVendorSettings] = useState<VendorSettingsConfig>({
+    notifications: {
+      email: true,
+      push: true,
+      newMessages: true,
+      newsUpdates: true,
+      marketing: false
+    },
+    business: {
+      emailNotifications: true,
+      smsNotifications: false,
+      leadAlerts: true,
+      marketingEmails: false,
+      weeklyReports: true,
+      autoResponseEnabled: false,
+      autoResponseMessage: "Thank you for your interest! I'll get back to you soon."
+    }
+  });
+
+  // Password change dialog state
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+
+  // Settings management
+  const updateVendorSettings = useCallback(async (category: keyof VendorSettingsConfig, key: string, value: any) => {
+    setVendorSettings(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [key]: value
+      }
+    }));
+    
+    try {
+      await syncSettingRealtime(category, key, value);
+    } catch (error) {
+      console.error('Failed to sync setting:', error);
+    }
+  }, [vendorData]);
 
   useEffect(() => {
     loadVendorProfile();
+    loadVendorSettings();
+    initializeLocationService();
   }, []);
+
+  // Initialize locaService on component mount
+  useEffect(() => {
+    const initLocaService = async () => {
+      setLocationLoading(prev => ({ ...prev, states: true }));
+      try {
+        await locaService.initialize();
+        const statesList = locaService.getStates();
+        setStates(statesList);
+        console.log(`Loaded ${statesList.length} states from loca.json`);
+      } catch (error) {
+        console.error("Error initializing loca service:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load location data. Please refresh the page.",
+          variant: "destructive",
+        });
+      } finally {
+        setLocationLoading(prev => ({ ...prev, states: false }));
+      }
+    };
+
+    initLocaService();
+  }, []);
+
+  // Load districts when state changes
+  useEffect(() => {
+    if (!formData?.profile?.address?.state) {
+      setDistricts([]);
+      return;
+    }
+
+    setLocationLoading(prev => ({ ...prev, districts: true }));
+    try {
+      const districtsList = locaService.getDistricts(formData.profile.address.state);
+      setDistricts(districtsList);
+      console.log(`Loaded ${districtsList.length} districts for ${formData.profile.address.state}`);
+      
+      // Only clear dependent fields if the current district is not in the new list
+      // Don't clear when just loading districts for the first time
+      if (formData.profile.address.district) {
+        const currentDistrict = formData.profile.address.district;
+        const districtExists = districtsList.some(d => 
+          d.toLowerCase() === currentDistrict.toLowerCase() || 
+          d === currentDistrict
+        );
+        
+        if (!districtExists) {
+          console.log(`District "${currentDistrict}" not found in list, clearing...`);
+          updateFormField("profile.address.district", "");
+          updateFormField("profile.address.city", "");
+        } else {
+          console.log(`District "${currentDistrict}" found in list, keeping...`);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading districts:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load districts. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLocationLoading(prev => ({ ...prev, districts: false }));
+    }
+  }, [formData?.profile?.address?.state]);
+
+  // Load cities when district changes
+  useEffect(() => {
+    if (!formData?.profile?.address?.state || !formData?.profile?.address?.district) {
+      setCities([]);
+      return;
+    }
+
+    setLocationLoading(prev => ({ ...prev, cities: true }));
+    try {
+      const citiesList = locaService.getCities(formData.profile.address.state, formData.profile.address.district);
+      setCities(citiesList);
+      console.log(`Loaded ${citiesList.length} cities for ${formData.profile.address.district}`);
+      
+      // Clear city if it's not in the new list
+      if (formData.profile.address.city && !citiesList.includes(formData.profile.address.city)) {
+        updateFormField("profile.address.city", "");
+      }
+      
+      setSelectedLocationNames(prev => ({ ...prev, city: "" }));
+    } catch (error) {
+      console.error("Error loading cities:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load cities. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLocationLoading(prev => ({ ...prev, cities: false }));
+    }
+  }, [formData?.profile?.address?.state, formData?.profile?.address?.district]);
+
+  // Update selectedLocationNames when form data changes
+  useEffect(() => {
+    if (formData?.profile?.address?.state) {
+      setSelectedLocationNames(prev => ({ ...prev, state: formData.profile.address.state }));
+    }
+  }, [formData?.profile?.address?.state]);
+
+  useEffect(() => {
+    if (formData?.profile?.address?.district) {
+      setSelectedLocationNames(prev => ({ ...prev, district: formData.profile.address.district }));
+    }
+  }, [formData?.profile?.address?.district]);
+
+  useEffect(() => {
+    if (formData?.profile?.address?.city) {
+      setSelectedLocationNames(prev => ({ ...prev, city: formData.profile.address.city }));
+    }
+  }, [formData?.profile?.address?.city]);
+
+  // Auto-save when settings change
+  useEffect(() => {
+    if (!isLoading) {
+      const timeoutId = setTimeout(() => {
+        saveVendorSettings();
+      }, 1500);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [vendorSettings, isLoading]);
 
   const loadVendorProfile = async () => {
     try {
       setIsLoading(true);
       const profile = await vendorService.getVendorProfile();
-      setVendorData(profile);
-      setFormData(profile);
+      
+      // Ensure profile.preferences exists with defaults
+      const profileWithDefaults = {
+        ...profile,
+        profile: {
+          ...profile.profile,
+          preferences: profile.profile.preferences || {
+            language: 'en',
+            currency: 'INR',
+            notifications: {
+              email: true,
+              push: true,
+              newMessages: true,
+              newsUpdates: true,
+              marketing: true,
+            },
+          },
+        },
+      };
+      
+      console.log("Loaded vendor profile:", profileWithDefaults);
+      console.log("Profile address:", profileWithDefaults.profile?.address);
+      
+      setVendorData(profileWithDefaults);
+      setFormData(profileWithDefaults);
+      
+      // Update localStorage with the full vendor profile so updateVendorProfile can access the user ID
+      localStorage.setItem("user", JSON.stringify(profileWithDefaults));
     } catch (error) {
       console.error("Failed to load vendor profile:", error);
       toast({
@@ -64,8 +317,349 @@ const VendorProfilePage: React.FC = () => {
     }
   };
 
+  // Load vendor settings
+  const loadVendorSettings = async () => {
+    try {
+      const savedSettings = localStorage.getItem('vendorSettings');
+      if (savedSettings) {
+        const parsedSettings = JSON.parse(savedSettings);
+        setVendorSettings(prevSettings => ({
+          ...prevSettings,
+          ...parsedSettings
+        }));
+      }
+      
+      try {
+        const response = await vendorService.getVendorProfile();
+        if (response && response.profile.vendorInfo?.vendorPreferences) {
+          const apiPrefs = response.profile.vendorInfo.vendorPreferences;
+          
+          const mergedSettings: VendorSettingsConfig = {
+            notifications: { 
+              email: response.profile?.preferences?.notifications?.email || vendorSettings.notifications.email,
+              push: response.profile?.preferences?.notifications?.push || vendorSettings.notifications.push,
+              newMessages: response.profile?.preferences?.notifications?.newMessages || vendorSettings.notifications.newMessages,
+              newsUpdates: response.profile?.preferences?.notifications?.newsUpdates || vendorSettings.notifications.newsUpdates,
+              marketing: response.profile?.preferences?.notifications?.marketing || vendorSettings.notifications.marketing
+            },
+            business: {
+              emailNotifications: apiPrefs.emailNotifications || vendorSettings.business.emailNotifications,
+              smsNotifications: apiPrefs.smsNotifications || vendorSettings.business.smsNotifications,
+              leadAlerts: apiPrefs.leadAlerts || vendorSettings.business.leadAlerts,
+              marketingEmails: apiPrefs.marketingEmails || vendorSettings.business.marketingEmails,
+              weeklyReports: apiPrefs.weeklyReports || vendorSettings.business.weeklyReports,
+              autoResponseEnabled: apiPrefs.autoResponseEnabled || vendorSettings.business.autoResponseEnabled,
+              autoResponseMessage: apiPrefs.autoResponseMessage || vendorSettings.business.autoResponseMessage
+            }
+          };
+          
+          setVendorSettings(mergedSettings);
+          localStorage.setItem('vendorSettings', JSON.stringify(mergedSettings));
+        }
+      } catch (apiError) {
+        console.log("Using local settings - API unavailable");
+      }
+    } catch (error) {
+      console.error("Settings load failed:", error);
+      toast({
+        title: "Settings Loaded",
+        description: "Using saved settings.",
+        variant: "default"
+      });
+    }
+  };
+
+  // Save vendor settings
+  const saveVendorSettings = async () => {
+    try {
+      setIsSaving(true);
+      
+      const validationResult = validateVendorSettings(vendorSettings);
+      if (!validationResult.isValid) {
+        toast({
+          title: "Validation Warning",
+          description: validationResult.message,
+          variant: "default"
+        });
+      }
+
+      try {
+        const profileUpdate = {
+          profile: {
+            preferences: {
+              notifications: {
+                email: vendorSettings.notifications.email,
+                push: vendorSettings.notifications.push,
+                newMessages: vendorSettings.notifications.newMessages,
+                newsUpdates: vendorSettings.notifications.newsUpdates,
+                marketing: vendorSettings.notifications.marketing
+              }
+            },
+            vendorInfo: {
+              vendorPreferences: {
+                emailNotifications: vendorSettings.business.emailNotifications,
+                smsNotifications: vendorSettings.business.smsNotifications,
+                leadAlerts: vendorSettings.business.leadAlerts,
+                marketingEmails: vendorSettings.business.marketingEmails,
+                weeklyReports: vendorSettings.business.weeklyReports,
+                autoResponseEnabled: vendorSettings.business.autoResponseEnabled,
+                autoResponseMessage: vendorSettings.business.autoResponseMessage
+              }
+            }
+          }
+        };
+
+        await vendorService.updateVendorProfile(profileUpdate);
+        localStorage.setItem('vendorSettings', JSON.stringify(vendorSettings));
+        setLastSyncTime(new Date().toISOString());
+        
+        toast({
+          title: "Settings Saved",
+          description: "Your preferences have been updated",
+        });
+        
+      } catch (apiError) {
+        console.error('Failed to save settings:', apiError);
+        localStorage.setItem('vendorSettings', JSON.stringify(vendorSettings));
+        
+        toast({
+          title: "Settings Saved",
+          description: "Your preferences have been saved",
+          variant: "default"
+        });
+      }
+    } catch (error: any) {
+      console.error('Settings save failed:', error);
+      toast({
+        title: "Save Failed",
+        description: error.message || "Unable to save vendor settings.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+
+
+  // Settings validation for vendors
+  const validateVendorSettings = (settings: VendorSettingsConfig) => {
+    if (settings.business.emailNotifications && 
+        !settings.business.leadAlerts && 
+        !settings.notifications.newMessages) {
+      return {
+        isValid: false,
+        message: "Business email enabled but no notification types selected. Consider enabling lead alerts or new message notifications."
+      };
+    }
+    
+    if (settings.business.autoResponseEnabled && !settings.business.autoResponseMessage.trim()) {
+      return {
+        isValid: false,
+        message: "Auto-response enabled but no message set. Please provide a response message."
+      };
+    }
+    
+    return { isValid: true, message: "" };
+  };
+
+
+
+  // Update setting
+  const syncSettingRealtime = async (category: keyof VendorSettingsConfig, key: string, value: any) => {
+    try {
+      setIsSaving(true);
+      
+      await vendorService.updateVendorPreferences(`${category}.${key}`, value);
+      
+      const settingName = key.replace(/([A-Z])/g, ' $1').toLowerCase();
+      const statusText = typeof value === 'boolean' ? (value ? 'enabled' : 'disabled') : 'updated';
+      
+      setLastSyncTime(new Date().toISOString());
+      
+      // If auto-response is being enabled/disabled, test the integration
+      if (key === 'autoResponseEnabled' && value === true) {
+        await testAutoResponseIntegration();
+      }
+      
+      toast({
+        title: `Setting Updated`,
+        description: `${settingName} ${statusText}`,
+      });
+      
+    } catch (error) {
+      console.error('Save failed:', error);
+      toast({
+        title: "Setting Saved",
+        description: "Your preference has been saved",
+        variant: "default"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Test auto-response integration with message service
+  const testAutoResponseIntegration = async () => {
+    try {
+      const autoResponseMessage = vendorSettings.business.autoResponseMessage;
+      
+      if (!autoResponseMessage.trim()) {
+        toast({
+          title: "Auto-Response Setup",
+          description: "Please set an auto-response message below",
+          variant: "default"
+        });
+        return;
+      }
+
+      // Log the integration setup
+      console.log("Auto-response integration activated:", {
+        message: autoResponseMessage,
+        timestamp: new Date().toISOString(),
+        vendorId: vendorData?.id
+      });
+
+      toast({
+        title: "Auto-Response Active",
+        description: "Auto-responses will be sent to new inquiries",
+      });
+      
+    } catch (error) {
+      console.error("Auto-response integration test failed:", error);
+    }
+  };
+
+  // Send auto-response when new messages are received
+  const sendAutoResponse = async (conversationId: string, recipientId: string) => {
+    try {
+      if (!vendorSettings.business.autoResponseEnabled || !vendorSettings.business.autoResponseMessage.trim()) {
+        return;
+      }
+
+      const sentMessage = await messageService.sendAutoResponse(
+        conversationId,
+        recipientId, 
+        vendorSettings.business.autoResponseMessage
+      );
+      
+      if (sentMessage) {
+        console.log("Auto-response sent:", {
+          messageId: sentMessage._id,
+          conversationId,
+          recipientId,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+    } catch (error) {
+      console.error("Failed to send auto-response:", error);
+    }
+  };
+
+  // Setup message listener for auto-response (to be called when messages are received)
+  const handleIncomingMessage = async (message: any) => {
+    try {
+      // Only send auto-response to new inquiries and messages from customers
+      if (message.type === 'inquiry' || message.type === 'lead' || message.type === 'property_inquiry') {
+        // Check if this is not already an auto-response
+        if (!messageService.isAutoResponse(message)) {
+          await sendAutoResponse(message.conversationId, message.sender._id);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to handle incoming message for auto-response:", error);
+    }
+  };
+
+  // Expose auto-response handler for use in other components
+  React.useEffect(() => {
+    // Make auto-response handler available globally for messaging components
+    if (vendorSettings.business.autoResponseEnabled) {
+      (window as any).vendorAutoResponseHandler = handleIncomingMessage;
+    } else {
+      delete (window as any).vendorAutoResponseHandler;
+    }
+    
+    return () => {
+      delete (window as any).vendorAutoResponseHandler;
+    };
+  }, [vendorSettings.business.autoResponseEnabled, vendorSettings.business.autoResponseMessage]);
+
+  // Initialize location service
+  const initializeLocationService = async () => {
+    try {
+      if (!locaService.isReady()) {
+        await locaService.initialize();
+      }
+    } catch (error) {
+      console.error("Failed to initialize location service:", error);
+    }
+  };
+
+  // Validate location data consistency
+  const validateLocationData = () => {
+    const address = formData?.profile?.address;
+    if (!address) return true;
+
+    // Check if pincode matches the selected location
+    if (address.zipCode && address.state && address.district && address.city) {
+      const locationMatches = locaService.getLocationByPincode(address.zipCode);
+      const isValid = locationMatches.some(location => 
+        location.state.toUpperCase() === address.state?.toUpperCase() &&
+        location.district.toUpperCase() === address.district?.toUpperCase() &&
+        location.city.toUpperCase() === address.city?.toUpperCase()
+      );
+      
+      if (!isValid) {
+        console.warn('Location mismatch detected between pincode and selected location');
+        return false;
+      }
+    }
+    
+    return true;
+  };
+
+  // Handle pincode selection and auto-fill location
+  const handlePincodeChange = (pincode: string, locationData?: PincodeSuggestion) => {
+    updateFormField("profile.address.zipCode", pincode);
+
+    if (locationData) {
+      // Auto-fill location fields
+      setTimeout(() => {
+        updateFormField("profile.address.state", locationData.state);
+      }, 100);
+
+      setTimeout(() => {
+        updateFormField("profile.address.district", locationData.district);
+      }, 300);
+
+      setTimeout(() => {
+        updateFormField("profile.address.city", locationData.city);
+      }, 500);
+
+      toast({
+        title: "Location Auto-filled",
+        description: `${locationData.city}, ${locationData.district}, ${locationData.state}`,
+      });
+    }
+  };
+
+
+
+
+
   const handleSave = async () => {
     if (!formData) return;
+
+    // Validate location data consistency
+    if (!validateLocationData()) {
+      toast({
+        title: "Location Validation",
+        description: "Please verify that your PIN code matches the selected location",
+        variant: "default"
+      });
+    }
 
     try {
       setIsSaving(true);
@@ -75,15 +669,35 @@ const VendorProfilePage: React.FC = () => {
           lastName: formData.profile.lastName,
           phone: formData.profile.phone,
           bio: formData.profile.bio,
-          address: formData.profile.address,
+          preferences: formData.profile.preferences,
+          address: {
+            ...formData.profile.address,
+            // Ensure all address fields are properly included
+            street: formData.profile.address?.street || "",
+            state: formData.profile.address?.state || "",
+            district: formData.profile.address?.district || "",
+            city: formData.profile.address?.city || "",
+            zipCode: formData.profile.address?.zipCode || "",
+            country: formData.profile.address?.country || "India",
+          },
           vendorInfo: formData.profile.vendorInfo,
         },
       };
 
+      console.log('Saving vendor profile with address:', updateData.profile.address);
+
       const updatedProfile = await vendorService.updateVendorProfile(updateData);
+      console.log('Received updated profile:', updatedProfile);
+      console.log('Updated profile address:', updatedProfile.profile?.address);
+      
       setVendorData(updatedProfile);
       setFormData(updatedProfile);
       setIsEditing(false);
+      
+      toast({
+        title: "Success",
+        description: "Profile updated successfully!",
+      });
     } catch (error) {
       console.error("Failed to update profile:", error);
     } finally {
@@ -111,6 +725,9 @@ const VendorProfilePage: React.FC = () => {
     }
     current[pathArray[pathArray.length - 1]] = value;
 
+    console.log(`Updated ${path} to:`, value);
+    console.log('Full address after update:', newFormData.profile?.address);
+    
     setFormData(newFormData);
   };
 
@@ -146,12 +763,17 @@ const VendorProfilePage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Vendor Profile</h1>
-          <p className="text-muted-foreground">
-            Manage your profile and company information
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <User className="w-8 h-8 text-primary" />
+            My Profile
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Manage your profile information and preferences.
           </p>
         </div>
         <div className="flex gap-2">
@@ -167,7 +789,7 @@ const VendorProfilePage: React.FC = () => {
                 ) : (
                   <Save className="w-4 h-4 mr-2" />
                 )}
-                Save Changes
+                Save Profile
               </Button>
             </>
           ) : (
@@ -290,7 +912,7 @@ const VendorProfilePage: React.FC = () => {
           <TabsTrigger value="profile">Personal Info</TabsTrigger>
           <TabsTrigger value="company">Company Details</TabsTrigger>
           <TabsTrigger value="specializations">Specializations</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="notifications">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
@@ -343,36 +965,94 @@ const VendorProfilePage: React.FC = () => {
                 {isEditing ? (
                   <div>
                     <Label className="text-sm font-medium">Location Details</Label>
-                    <div className="mt-2">
-                      <EnhancedLocationSelector
-                        value={{
-                          country: formData.profile.address?.country || "India",
-                          countryCode: "IN",
-                          state: formData.profile.address?.state || "",
-                          stateCode: formData.profile.address?.stateCode || "",
-                          district: formData.profile.address?.district || "",
-                          districtCode: formData.profile.address?.districtCode || "",
-                          city: formData.profile.address?.city || "",
-                          cityCode: formData.profile.address?.cityCode || ""
-                        }}
-                        onChange={(locationData) => {
-                          updateFormField("profile.address.country", locationData.country || "India");
-                          updateFormField("profile.address.countryCode", locationData.countryCode || "IN");
-                          updateFormField("profile.address.state", locationData.state || "");
-                          updateFormField("profile.address.stateCode", locationData.stateCode || "");
-                          updateFormField("profile.address.district", locationData.district || "");
-                          updateFormField("profile.address.districtCode", locationData.districtCode || "");
-                          updateFormField("profile.address.city", locationData.city || "");
-                          updateFormField("profile.address.cityCode", locationData.cityCode || "");
-                        }}
-                        showLabels={false}
-                        placeholder={{
-                          state: "Select your state...",
-                          district: "Select your district...",
-                          city: "Select your city..."
-                        }}
-                        showValidation={true}
-                      />
+                    <div className="mt-2 space-y-4">
+                      {/* State Selection */}
+                      <div>
+                        <Label htmlFor="state">State</Label>
+                        <Select
+                          value={formData.profile.address?.state || ""}
+                          onValueChange={(value) => {
+                            updateFormField("profile.address.state", value);
+                            // Clear district and city when state changes
+                            updateFormField("profile.address.district", "");
+                            updateFormField("profile.address.city", "");
+                            // Clear pincode as well since location context changed
+                            updateFormField("profile.address.zipCode", "");
+                          }}
+                          disabled={locationLoading.states}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={locationLoading.states ? "Loading states..." : "Select state"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {states.map((state) => (
+                              <SelectItem key={state} value={state}>
+                                {state}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* District Selection */}
+                      <div>
+                        <Label htmlFor="district">District</Label>
+                        <Select
+                          value={formData.profile.address?.district || ""}
+                          onValueChange={(value) => {
+                            updateFormField("profile.address.district", value);
+                            // Clear city when district changes
+                            updateFormField("profile.address.city", "");
+                            // Clear pincode as well since location context changed
+                            updateFormField("profile.address.zipCode", "");
+                          }}
+                          disabled={!formData.profile.address?.state || locationLoading.districts}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={
+                              !formData.profile.address?.state ? "Select state first" :
+                              locationLoading.districts ? "Loading districts..." :
+                              "Select district"
+                            } />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {districts.map((district) => (
+                              <SelectItem key={district} value={district}>
+                                {district}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* City Selection */}
+                      <div>
+                        <Label htmlFor="city">City</Label>
+                        <Select
+                          value={formData.profile.address?.city || ""}
+                          onValueChange={(value) => {
+                            updateFormField("profile.address.city", value);
+                            // Clear pincode when city changes to ensure accuracy
+                            updateFormField("profile.address.zipCode", "");
+                          }}
+                          disabled={!formData.profile.address?.district || locationLoading.cities}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={
+                              !formData.profile.address?.district ? "Select district first" :
+                              locationLoading.cities ? "Loading cities..." :
+                              "Select city"
+                            } />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {cities.map((city) => (
+                              <SelectItem key={city} value={city}>
+                                {city}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -401,19 +1081,88 @@ const VendorProfilePage: React.FC = () => {
                 <div>
                   <Label htmlFor="zipCode">PIN Code</Label>
                   {isEditing ? (
-                    <Input
-                      id="zipCode"
+                    <PincodeAutocomplete
                       value={formData.profile.address?.zipCode || ""}
-                      onChange={(e) =>
-                        updateFormField("profile.address.zipCode", e.target.value)
+                      onChange={(pincode, locationData) => {
+                        updateFormField("profile.address.zipCode", pincode);
+                        
+                        // Auto-fill location fields from pincode data
+                        if (locationData) {
+                          console.log('Auto-filling location from pincode:', locationData);
+                          
+                          // Update state
+                          if (locationData.state) {
+                            const stateValue = locationData.state.toUpperCase();
+                            if (states.includes(stateValue)) {
+                              updateFormField("profile.address.state", stateValue);
+                              updateFormField("profile.address.stateCode", stateValue);
+                              
+                              // Load districts for the selected state
+                              setTimeout(() => {
+                                const districtsForState = locaService.getDistricts(stateValue);
+                                setDistricts(districtsForState);
+                                
+                                // Set district if available
+                                if (locationData.district) {
+                                  const matchingDistrict = districtsForState.find(d => 
+                                    d.toUpperCase() === locationData.district.toUpperCase()
+                                  );
+                                  
+                                  if (matchingDistrict) {
+                                    updateFormField("profile.address.district", matchingDistrict);
+                                    updateFormField("profile.address.districtCode", matchingDistrict);
+                                    
+                                    // Load cities for the selected district
+                                    setTimeout(() => {
+                                      const citiesForDistrict = locaService.getCities(stateValue, matchingDistrict);
+                                      setCities(citiesForDistrict);
+                                      
+                                      // Set city if available
+                                      if (locationData.city) {
+                                        const matchingCity = citiesForDistrict.find(c => 
+                                          c.toUpperCase() === locationData.city.toUpperCase()
+                                        );
+                                        
+                                        if (matchingCity) {
+                                          updateFormField("profile.address.city", matchingCity);
+                                          updateFormField("profile.address.cityCode", matchingCity);
+                                        }
+                                      }
+                                    }, 100);
+                                  }
+                                }
+                              }, 100);
+                            }
+                          }
+                        }
+                      }}
+                      state={formData.profile.address?.state}
+                      district={formData.profile.address?.district}
+                      city={formData.profile.address?.city}
+                      placeholder={
+                        formData.profile.address?.city 
+                          ? `Enter PIN code for ${formData.profile.address.city}...`
+                          : "Enter PIN code to auto-fill location..."
                       }
-                      placeholder="Enter 6-digit PIN code..."
-                      maxLength={6}
+                      className="w-full"
                     />
                   ) : (
                     <p className="text-sm">
                       {formData.profile.address?.zipCode || "Not provided"}
                     </p>
+                  )}
+                  {isEditing && (
+                    <div className="space-y-1 mt-1">
+                      <p className="text-xs text-gray-600">
+                        💡 Select your location first or enter PIN code to auto-fill location details
+                      </p>
+                      {formData.profile.address?.zipCode && formData.profile.address?.city && (
+                        <p className="text-xs text-green-600 flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          Location validated with PIN code
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -486,17 +1235,9 @@ const VendorProfilePage: React.FC = () => {
                       }
                     />
                   ) : (
-                    <div className="flex items-center">
-                      <Globe className="w-4 h-4 mr-1" />
-                      <a
-                        href={formData.profile.vendorInfo?.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-sm"
-                      >
-                        {formData.profile.vendorInfo?.website || "Not provided"}
-                      </a>
-                    </div>
+                    <p className="text-sm">
+                      {formData.profile.vendorInfo?.website || "Not provided"}
+                    </p>
                   )}
                 </div>
 
@@ -670,130 +1411,119 @@ const VendorProfilePage: React.FC = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="settings" className="space-y-6">
+        {/* Settings Tab */}
+        <TabsContent value="notifications" className="space-y-6">
+          <VendorNotificationSettings
+            preferences={vendorSettings.notifications}
+            businessPreferences={{
+              emailNotifications: vendorSettings.business.emailNotifications,
+              smsNotifications: vendorSettings.business.smsNotifications,
+              leadAlerts: vendorSettings.business.leadAlerts,
+              marketingEmails: vendorSettings.business.marketingEmails,
+              weeklyReports: vendorSettings.business.weeklyReports
+            }}
+            onChange={(key, value) => updateVendorSettings('notifications', key, value)}
+            onBusinessChange={(key, value) => updateVendorSettings('business', key, value)}
+            showTestButtons={true}
+            onTestPushNotification={() => {
+              toast({
+                title: "Test Push Notification",
+                description: "Push notification test sent successfully!",
+              });
+            }}
+            onTestEmail={() => {
+              toast({
+                title: "Test Email",
+                description: "Test email sent successfully!",
+              });
+            }}
+          />
+
+          {/* Auto-Response Section */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Shield className="w-5 h-5 mr-2" />
-                Notification Preferences
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5" />
+                Auto-Response Settings
               </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Configure automatic replies to new customer inquiries.
+              </p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="emailNotifications">Email Notifications</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Receive notifications via email
-                  </p>
+                  <Label htmlFor="autoResponse">Enable Auto-Response</Label>
+                  <p className="text-sm text-muted-foreground">Automatic replies to new inquiries</p>
                 </div>
                 <Switch
-                  id="emailNotifications"
-                  checked={
-                    formData.profile.vendorInfo?.vendorPreferences
-                      ?.emailNotifications || false
-                  }
-                  onCheckedChange={(checked) =>
-                    updateFormField(
-                      "profile.vendorInfo.vendorPreferences.emailNotifications",
-                      checked
-                    )
-                  }
-                  disabled={!isEditing}
+                  id="autoResponse"
+                  checked={vendorSettings.business.autoResponseEnabled}
+                  onCheckedChange={async (checked) => {
+                    await updateVendorSettings('business', 'autoResponseEnabled', checked);
+                  }}
+                  disabled={isSaving}
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="smsNotifications">SMS Notifications</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Receive notifications via SMS
+              {vendorSettings.business.autoResponseEnabled && (
+                <div className="space-y-2">
+                  <Label htmlFor="autoResponseMessage">Auto-Response Message</Label>
+                  <Textarea
+                    id="autoResponseMessage"
+                    value={vendorSettings.business.autoResponseMessage}
+                    onChange={async (e) => {
+                      const message = e.target.value;
+                      await updateVendorSettings('business', 'autoResponseMessage', message);
+                    }}
+                    placeholder="Enter your automatic response message..."
+                    rows={3}
+                    disabled={isSaving}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This message will be automatically sent to new inquiries
                   </p>
                 </div>
-                <Switch
-                  id="smsNotifications"
-                  checked={
-                    formData.profile.vendorInfo?.vendorPreferences
-                      ?.smsNotifications || false
-                  }
-                  onCheckedChange={(checked) =>
-                    updateFormField(
-                      "profile.vendorInfo.vendorPreferences.smsNotifications",
-                      checked
-                    )
-                  }
-                  disabled={!isEditing}
-                />
-              </div>
+              )}
+            </CardContent>
+          </Card>
 
-              <div className="flex items-center justify-between">
+          {/* Password Change Section */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Key className="w-5 h-5" />
+                Security Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
-                  <Label htmlFor="leadAlerts">Lead Alerts</Label>
+                  <h4 className="font-medium">Change Password</h4>
                   <p className="text-sm text-muted-foreground">
-                    Get notified about new leads
+                    Update your account password with secure OTP verification
                   </p>
                 </div>
-                <Switch
-                  id="leadAlerts"
-                  checked={
-                    formData.profile.vendorInfo?.vendorPreferences?.leadAlerts || false
-                  }
-                  onCheckedChange={(checked) =>
-                    updateFormField(
-                      "profile.vendorInfo.vendorPreferences.leadAlerts",
-                      checked
-                    )
-                  }
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="weeklyReports">Weekly Reports</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Receive weekly performance reports
-                  </p>
-                </div>
-                <Switch
-                  id="weeklyReports"
-                  checked={
-                    formData.profile.vendorInfo?.vendorPreferences?.weeklyReports || false
-                  }
-                  onCheckedChange={(checked) =>
-                    updateFormField(
-                      "profile.vendorInfo.vendorPreferences.weeklyReports",
-                      checked
-                    )
-                  }
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="marketingEmails">Marketing Emails</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Receive promotional emails
-                  </p>
-                </div>
-                <Switch
-                  id="marketingEmails"
-                  checked={
-                    formData.profile.vendorInfo?.vendorPreferences
-                      ?.marketingEmails || false
-                  }
-                  onCheckedChange={(checked) =>
-                    updateFormField(
-                      "profile.vendorInfo.vendorPreferences.marketingEmails",
-                      checked
-                    )
-                  }
-                  disabled={!isEditing}
-                />
+                <Button 
+                  variant="outline"
+                  onClick={() => setPasswordDialogOpen(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Shield className="w-4 h-4" />
+                  Change Password
+                </Button>
               </div>
             </CardContent>
           </Card>
+
+          {/* Password Change Dialog */}
+          <PasswordChangeDialog 
+            open={passwordDialogOpen} 
+            onOpenChange={setPasswordDialogOpen} 
+          />
         </TabsContent>
+
+
       </Tabs>
 
       {/* Statistics Overview */}

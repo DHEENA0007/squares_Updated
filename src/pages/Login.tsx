@@ -43,12 +43,25 @@ const Login = () => {
         if (from) {
           navigate(from, { replace: true });
         } else {
-          // Otherwise redirect based on user role (handled by login function)
+          // Otherwise redirect based on user role
           // Get user from auth service to determine role
           const user = JSON.parse(localStorage.getItem("user") || "{}");
-          if (user.role === 'admin' || user.role === 'superadmin') {
+          console.log('Login: User role detected:', user.role);
+          
+          if (user.role === 'superadmin') {
+            console.log('Login: Redirecting superadmin to admin dashboard');
             navigate("/admin/dashboard");
+          } else if (user.role === 'subadmin') {
+            console.log('Login: Redirecting subadmin to admin dashboard');
+            navigate("/admin/dashboard");
+          } else if (user.role === 'admin') {
+            console.log('Login: Redirecting admin to admin dashboard');
+            navigate("/admin/dashboard");
+          } else if (user.role === 'agent') {
+            console.log('Login: Redirecting vendor to vendor dashboard');
+            navigate("/vendor/dashboard");
           } else {
+            console.log('Login: Redirecting customer to customer dashboard');
             navigate("/customer/dashboard");
           }
         }

@@ -376,10 +376,10 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
                           <p className="text-base">{selectedUser.profile.address.state}</p>
                         </div>
                       )}
-                      {selectedUser.profile?.address?.pincode && (
+                      {selectedUser.profile?.address?.zipCode && (
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Pincode</p>
-                          <p className="text-base">{selectedUser.profile.address.pincode}</p>
+                          <p className="text-base">{selectedUser.profile.address.zipCode}</p>
                         </div>
                       )}
                     </div>
@@ -399,26 +399,26 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Language</p>
-                      <p className="text-base">{selectedUser.preferences?.language || 'Not set'}</p>
+                      <p className="text-base">Not available</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Currency</p>
-                      <p className="text-base">{selectedUser.preferences?.currency || 'Not set'}</p>
+                      <p className="text-base">Not available</p>
                     </div>
                   </div>
                   
-                  {selectedUser.preferences?.notifications && (
+                  {selectedUser.profile?.preferences?.notifications && (
                     <div>
                       <p className="text-sm font-medium text-muted-foreground mb-2">Notification Preferences</p>
                       <div className="flex gap-2 flex-wrap">
-                        <Badge variant={selectedUser.preferences.notifications.email ? "default" : "secondary"}>
-                          Email: {selectedUser.preferences.notifications.email ? "Enabled" : "Disabled"}
+                        <Badge variant={selectedUser.profile.preferences.notifications.email ? "default" : "secondary"}>
+                          Email: {selectedUser.profile.preferences.notifications.email ? "Enabled" : "Disabled"}
                         </Badge>
-                        <Badge variant={selectedUser.preferences.notifications.sms ? "default" : "secondary"}>
-                          SMS: {selectedUser.preferences.notifications.sms ? "Enabled" : "Disabled"}
+                        <Badge variant={selectedUser.profile.preferences.notifications.sms ? "default" : "secondary"}>
+                          SMS: {selectedUser.profile.preferences.notifications.sms ? "Enabled" : "Disabled"}
                         </Badge>
-                        <Badge variant={selectedUser.preferences.notifications.push ? "default" : "secondary"}>
-                          Push: {selectedUser.preferences.notifications.push ? "Enabled" : "Disabled"}
+                        <Badge variant={selectedUser.profile.preferences.notifications.push ? "default" : "secondary"}>
+                          Push: {selectedUser.profile.preferences.notifications.push ? "Enabled" : "Disabled"}
                         </Badge>
                       </div>
                     </div>

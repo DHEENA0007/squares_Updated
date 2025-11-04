@@ -11,17 +11,20 @@ export interface User {
     address?: {
       street?: string;
       city?: string;
+      district?: string;
       state?: string;
-      pincode?: string;
+      zipCode?: string;
     };
-  };
-  preferences?: {
-    language: string;
-    currency: string;
-    notifications: {
-      email: boolean;
-      sms: boolean;
-      push: boolean;
+    preferences?: {
+      notifications: {
+        email: boolean;
+        sms: boolean;
+        push: boolean;
+      };
+      privacy: {
+        showEmail: boolean;
+        showPhone: boolean;
+      };
     };
   };
   role: string;
@@ -252,13 +255,70 @@ class UserService {
 
   async updateCurrentUser(userData: Partial<User>): Promise<SingleUserResponse> {
     try {
-      // First get current user to get their ID
-      const currentUserResponse = await this.getCurrentUser();
-      const userId = currentUserResponse.data.user._id;
+      console.log('Update data being sent:', userData);
+      
+      // Validate and clean userData before sending
+      if (userData.profile) {
+        // Ensure preferences is never undefined
+        if (userData.profile.preferences === undefined) {
+          userData.profile.preferences = {
+            notifications: {
+              email: true,
+              sms: false,
+              push: true
+            },
+            privacy: {
+              showEmail: false,
+              showPhone: false
+            }
+          };
+        } else if (userData.profile.preferences) {
+          // Ensure nested objects are not undefined
+          if (!userData.profile.preferences.notifications) {
+            userData.profile.preferences.notifications = {
+              email: true,
+              sms: false,
+              push: true
+            };
+          }
+          if (!userData.profile.preferences.privacy) {
+            userData.profile.preferences.privacy = {
+              showEmail: false,
+              showPhone: false
+            };
+          }
+        }
+      }
+
+      console.log('Cleaned update data:', userData);
+      
+      // Get user ID and update user profile
+      let userId = null;
+      const storedUser = authService.getStoredUser();
+      console.log('Stored user data:', storedUser);
+      
+      if (storedUser && (storedUser.id || storedUser._id)) {
+        userId = storedUser.id || storedUser._id;
+      }
+
+      // If no stored user ID, try to get from API
+      if (!userId) {
+        console.log('No stored user ID, getting from API...');
+        const currentUserResponse = await this.getCurrentUser();
+        console.log('API response:', currentUserResponse);
+        userId = currentUserResponse.data?.user?._id;
+      }
+
+      if (!userId) {
+        console.error('No user ID available');
+        throw new Error("Unable to get user ID. Please log in again.");
+      }
+      
+      console.log('Updating user with ID:', userId);
       
       const response = await this.makeRequest<SingleUserResponse>(`/users/${userId}`, {
         method: "PUT",
-        body: JSON.stringify({ profile: userData.profile }),
+        body: JSON.stringify(userData),
       });
 
       toast({
@@ -269,6 +329,7 @@ class UserService {
       return response;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to update profile";
+      console.error('Update profile error:', error);
       toast({
         title: "Error",
         description: errorMessage,
@@ -280,9 +341,22 @@ class UserService {
 
   async updateUserPreferences(preferencesData: any): Promise<SingleUserResponse> {
     try {
-      // First get current user to get their ID
-      const currentUserResponse = await this.getCurrentUser();
-      const userId = currentUserResponse.data.user._id;
+      // Try to get user ID from stored user data first
+      let userId = null;
+      const storedUser = authService.getStoredUser();
+      if (storedUser && storedUser.id) {
+        userId = storedUser.id;
+      }
+
+      // If no stored user ID, try to get from API
+      if (!userId) {
+        const currentUserResponse = await this.getCurrentUser();
+        userId = currentUserResponse.data.user._id;
+      }
+
+      if (!userId) {
+        throw new Error("Unable to get user ID. Please log in again.");
+      }
       
       const response = await this.makeRequest<SingleUserResponse>(`/users/${userId}`, {
         method: "PUT",
@@ -298,6 +372,179 @@ class UserService {
         variant: "destructive",
       });
       throw error;
+    }
+  }
+
+  async updatePassword(newPassword: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await this.makeRequest<{ success: boolean; message: string }>('/auth/change-password', {
+        method: "POST",
+        body: JSON.stringify({ password: newPassword }),
+      });
+
+      toast({
+        title: "Success",
+        description: "Password updated successfully!",
+      });
+
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update password";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  async requestPasswordChangeOTP(currentPassword: string): Promise<{ success: boolean; message: string; expiryMinutes?: number }> {
+    try {
+      const response = await this.makeRequest<{ success: boolean; message: string; expiryMinutes?: number }>('/auth/request-password-change-otp', {
+        method: "POST",
+        body: JSON.stringify({ currentPassword }),
+      });
+
+      toast({
+        title: "OTP Sent",
+        description: "Please check your email for the verification code",
+      });
+
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to send OTP";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  async changePasswordWithOTP(otp: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await this.makeRequest<{ success: boolean; message: string }>('/auth/change-password-with-otp', {
+        method: "POST",
+        body: JSON.stringify({ 
+          otp, 
+          newPassword 
+        }),
+      });
+
+      toast({
+        title: "Success",
+        description: "Password changed successfully!",
+      });
+
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to change password";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string; requiresOTP?: boolean; nextStep?: string }> {
+    try {
+      const response = await this.makeRequest<{ success: boolean; message: string; requiresOTP?: boolean; nextStep?: string }>('/auth/change-password', {
+        method: "POST",
+        body: JSON.stringify({ 
+          currentPassword, 
+          newPassword 
+        }),
+      });
+
+      // Check if OTP is required
+      if (response.requiresOTP) {
+        toast({
+          title: "Enhanced Security",
+          description: response.message,
+          variant: "default",
+        });
+        return response;
+      }
+
+      toast({
+        title: "Success",
+        description: "Password changed successfully!",
+      });
+
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to change password";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  // Add OTP services for registration
+  async sendOTP(email: string, firstName: string): Promise<{ success: boolean; message: string; expiryMinutes?: number }> {
+    try {
+      const response = await this.makeRequest<{ success: boolean; message: string; expiryMinutes: number }>('/auth/send-otp', {
+        method: "POST",
+        body: JSON.stringify({ 
+          email: email,
+          firstName: firstName 
+        }),
+      });
+
+      toast({
+        title: "OTP Sent",
+        description: `Verification code sent to ${email}. Valid for ${response.expiryMinutes} minutes.`,
+      });
+
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to send OTP";
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      
+      throw new Error(errorMessage);
+    }
+  }
+
+  async verifyOTP(email: string, otp: string): Promise<{ success: boolean; message: string; verified?: boolean }> {
+    try {
+      const response = await this.makeRequest<{ success: boolean; message: string; verified: boolean }>('/auth/verify-otp', {
+        method: "POST",
+        body: JSON.stringify({ 
+          email: email,
+          otp: otp 
+        }),
+      });
+
+      if (response.success) {
+        toast({
+          title: "Email Verified",
+          description: "Your email has been verified successfully!",
+        });
+      }
+
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to verify OTP";
+      
+      toast({
+        title: "Verification Failed", 
+        description: errorMessage,
+        variant: "destructive",
+      });
+      
+      throw new Error(errorMessage);
     }
   }
 

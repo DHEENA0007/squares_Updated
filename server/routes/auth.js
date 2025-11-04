@@ -12,10 +12,109 @@ const {
   forgotPasswordSchema, 
   resetPasswordSchema 
 } = require('../utils/validationSchemas');
+const { 
+  createOTP, 
+  verifyOTP, 
+  canRequestOTP 
+} = require('../utils/otpService');
 
 const router = express.Router();
 
-// @desc    Register new user
+// @desc    Send OTP for email verification
+// @route   POST /api/auth/send-otp
+// @access  Public
+router.post('/send-otp', asyncHandler(async (req, res) => {
+  const { email, firstName } = req.body;
+
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email is required'
+    });
+  }
+
+  // Check if user already exists
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    return res.status(400).json({
+      success: false,
+      message: 'User with this email already exists'
+    });
+  }
+
+  // Check rate limiting
+  const rateLimitCheck = await canRequestOTP(email, 'email_verification');
+  if (!rateLimitCheck.canRequest) {
+    return res.status(429).json({
+      success: false,
+      message: rateLimitCheck.message,
+      remainingSeconds: rateLimitCheck.remainingSeconds
+    });
+  }
+
+  // Generate OTP
+  const otpResult = await createOTP(email, 'email_verification');
+
+  // Send OTP email
+  try {
+    await sendEmail({
+      to: email,
+      template: 'otp-verification',
+      data: {
+        firstName: firstName || 'User',
+        otpCode: otpResult.otpCode,
+        expiryMinutes: otpResult.expiryMinutes
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'OTP sent to your email address',
+      expiryMinutes: otpResult.expiryMinutes
+    });
+
+  } catch (emailError) {
+    console.error('Failed to send OTP email:', emailError);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send OTP email. Please try again.'
+    });
+  }
+}));
+
+// @desc    Verify OTP
+// @route   POST /api/auth/verify-otp
+// @access  Public
+router.post('/verify-otp', asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email and OTP are required'
+    });
+  }
+
+  // Verify OTP
+  const verificationResult = await verifyOTP(email, otp, 'email_verification');
+
+  if (!verificationResult.success) {
+    return res.status(400).json({
+      success: false,
+      message: verificationResult.message,
+      error: verificationResult.error,
+      attemptsLeft: verificationResult.attemptsLeft
+    });
+  }
+
+  res.json({
+    success: true,
+    message: 'Email verified successfully. You can now complete your registration.',
+    verified: true
+  });
+}));
+
+// @desc    Register new user with OTP verification
 // @route   POST /api/auth/register
 // @access  Public
 router.post('/register', validateRequest(registerSchema), asyncHandler(async (req, res) => {
@@ -28,13 +127,34 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
     role = 'customer',
     agreeToTerms,
     businessInfo,
-    documents
+    documents,
+    otp // OTP verification code
   } = req.body;
 
   if (!agreeToTerms) {
     return res.status(400).json({
       success: false,
       message: 'You must agree to the terms and conditions'
+    });
+  }
+
+  // OTP verification is required for registration
+  if (!otp) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email verification OTP is required for registration',
+      requiresOTP: true
+    });
+  }
+
+  // Verify OTP first
+  const otpVerification = await verifyOTP(email, otp, 'email_verification');
+  if (!otpVerification.success) {
+    return res.status(400).json({
+      success: false,
+      message: otpVerification.message,
+      error: otpVerification.error,
+      attemptsLeft: otpVerification.attemptsLeft
     });
   }
 
@@ -52,7 +172,7 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
     firstName,
     lastName,
     phone,
-    emailVerified: false
+    emailVerified: true // Email is verified through OTP during registration
   };
 
   // Add business info for vendors (agents)
@@ -66,7 +186,7 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
     email,
     password,
     role,
-    status: role === 'agent' ? 'pending' : 'active', // Vendors need approval
+    status: 'active', // User is active since email is verified through OTP
     profile
   });
 
@@ -123,11 +243,11 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
         }
       },
       verification: {
-        isVerified: false,
-        verificationLevel: 'none',
+        isVerified: false, // Email verified but business verification pending
+        verificationLevel: 'basic', // Email verification completed
         documents: documents || []
       },
-      status: 'pending_verification',
+      status: 'pending_verification', // Awaiting admin approval for business verification
       metadata: {
         source: 'website',
         notes: 'Created during registration'
@@ -142,33 +262,27 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
     await user.save();
   }
 
-  // Generate email verification token
-  const verificationToken = jwt.sign(
-    { userId: user._id, type: 'email_verification' },
-    process.env.JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-
-  // Send verification email
+  // Send welcome email instead of verification email (since already verified via OTP)
   try {
+    const welcomeTemplate = role === 'agent' ? 'vendor-welcome' : 'welcome';
     await sendEmail({
       to: email,
-      subject: 'Verify Your Email - Ninety Nine Acres',
-      template: 'email-verification',
+      template: welcomeTemplate,
       data: {
         firstName,
-        verificationLink: `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`
+        vendorName: role === 'agent' ? businessInfo?.businessName || `${firstName} ${lastName}` : undefined,
+        dashboardLink: role === 'agent' ? `${process.env.CLIENT_URL}/vendor/dashboard` : `${process.env.CLIENT_URL}/dashboard`
       }
     });
   } catch (emailError) {
-    console.error('Failed to send verification email:', emailError);
+    console.error('Failed to send welcome email:', emailError);
   }
 
   res.status(201).json({
     success: true,
     message: role === 'agent' 
-      ? 'Vendor registration successful. Please check your email for verification and wait for admin approval.'
-      : 'User registered successfully. Please check your email for verification.',
+      ? 'Vendor registration successful! Your email is verified. Please wait for admin approval to start offering services.'
+      : 'Registration successful! Your account is ready to use.',
     data: {
       user: {
         id: user._id,
@@ -245,6 +359,40 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
   };
 
   res.cookie('token', token, cookieOptions);
+
+  // Send login alert email (security notification)
+  try {
+    const userAgent = req.headers['user-agent'] || 'Unknown Device';
+    const ipAddress = req.ip || req.connection.remoteAddress || 'Unknown IP';
+    
+    // Extract device info from user agent (simple extraction)
+    const deviceInfo = userAgent.includes('Mobile') ? 'Mobile Device' : 
+                      userAgent.includes('Chrome') ? 'Chrome Browser' : 
+                      'Unknown Device';
+
+    await sendEmail({
+      to: user.email,
+      template: 'login-alert',
+      data: {
+        firstName: user.profile.firstName || 'User',
+        loginDate: new Date().toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        device: deviceInfo,
+        location: 'India', // You can integrate with IP geolocation service
+        ipAddress: ipAddress,
+        secureAccountLink: `${process.env.CLIENT_URL}/dashboard/security`
+      }
+    });
+  } catch (emailError) {
+    // Log error but don't fail the login
+    console.error('Failed to send login alert:', emailError);
+  }
 
   res.json({
     success: true,
@@ -449,7 +597,163 @@ router.post('/reset-password', validateRequest(resetPasswordSchema), asyncHandle
   }
 }));
 
-// @desc    Change password
+// @desc    Request OTP for password change
+// @route   POST /api/auth/request-password-change-otp
+// @access  Private
+router.post('/request-password-change-otp', authenticateToken, asyncHandler(async (req, res) => {
+  const { currentPassword } = req.body;
+
+  if (!currentPassword) {
+    return res.status(400).json({
+      success: false,
+      message: 'Current password is required to verify your identity'
+    });
+  }
+
+  // Get current user
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  // Verify current password
+  const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+  if (!isCurrentPasswordValid) {
+    return res.status(400).json({
+      success: false,
+      message: 'Current password is incorrect'
+    });
+  }
+
+  // Check rate limiting for OTP requests
+  const rateLimitCheck = await canRequestOTP(user.email, 'password_change');
+  if (!rateLimitCheck.canRequest) {
+    return res.status(429).json({
+      success: false,
+      message: rateLimitCheck.message,
+      remainingSeconds: rateLimitCheck.remainingSeconds
+    });
+  }
+
+  // Generate OTP for password change
+  const otpResult = await createOTP(user.email, 'password_change', {
+    userId: user._id.toString(),
+    expiryMinutes: 5 // Shorter expiry for security-sensitive operations
+  });
+
+  // Send OTP to user's registered email
+  try {
+    await sendEmail({
+      to: user.email,
+      template: 'password-change-otp',
+      data: {
+        firstName: user.profile.firstName || 'User',
+        otpCode: otpResult.otpCode,
+        expiryMinutes: otpResult.expiryMinutes
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'OTP sent to your registered email address. Please check your email to continue with password change.',
+      expiryMinutes: otpResult.expiryMinutes
+    });
+
+  } catch (emailError) {
+    console.error('Failed to send password change OTP:', emailError);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send OTP email. Please try again.'
+    });
+  }
+}));
+
+// @desc    Verify OTP and change password
+// @route   POST /api/auth/change-password-with-otp
+// @access  Private
+router.post('/change-password-with-otp', authenticateToken, asyncHandler(async (req, res) => {
+  const { otp, newPassword } = req.body;
+
+  if (!otp || !newPassword) {
+    return res.status(400).json({
+      success: false,
+      message: 'OTP and new password are required'
+    });
+  }
+
+  // Get current user
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  // Verify OTP
+  const verificationResult = await verifyOTP(user.email, otp, 'password_change');
+  if (!verificationResult.success) {
+    return res.status(400).json({
+      success: false,
+      message: verificationResult.message,
+      error: verificationResult.error,
+      attemptsLeft: verificationResult.attemptsLeft
+    });
+  }
+
+  // Validate new password (basic validation)
+  if (newPassword.length < 8) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password must be at least 8 characters long'
+    });
+  }
+
+  // Check if new password is different from current password
+  const isSamePassword = await user.comparePassword(newPassword);
+  if (isSamePassword) {
+    return res.status(400).json({
+      success: false,
+      message: 'New password must be different from your current password'
+    });
+  }
+
+  // Update password
+  user.password = newPassword;
+  await user.save();
+
+  // Send password change confirmation email
+  try {
+    await sendEmail({
+      to: user.email,
+      template: 'password-changed',
+      data: {
+        firstName: user.profile.firstName || 'User',
+        changeDate: new Date().toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      }
+    });
+  } catch (emailError) {
+    // Log error but don't fail the password change
+    console.error('Failed to send password change confirmation:', emailError);
+  }
+
+  res.json({
+    success: true,
+    message: 'Password changed successfully! A confirmation email has been sent to your registered email address.'
+  });
+}));
+
+// @desc    Change password (Legacy route - kept for backwards compatibility but should use OTP method)
 // @route   POST /api/auth/change-password
 // @access  Private
 router.post('/change-password', authenticateToken, asyncHandler(async (req, res) => {
@@ -480,13 +784,12 @@ router.post('/change-password', authenticateToken, asyncHandler(async (req, res)
     });
   }
 
-  // Update password
-  user.password = newPassword;
-  await user.save();
-
-  res.json({
-    success: true,
-    message: 'Password changed successfully'
+  // For enhanced security, redirect to OTP-based flow
+  return res.status(200).json({
+    success: false,
+    requiresOTP: true,
+    message: 'For your security, password changes now require email verification. Please use the OTP-based password change method.',
+    nextStep: 'request-password-change-otp'
   });
 }));
 
