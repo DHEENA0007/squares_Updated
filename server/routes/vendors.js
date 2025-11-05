@@ -2901,6 +2901,43 @@ router.post('/subscription/cleanup', requireVendorRole, asyncHandler(async (req,
   }
 }));
 
+// @desc    Check if vendor has enterprise plan
+// @route   GET /api/vendors/:vendorId/enterprise-check
+// @access  Public (for customer property viewing)
+router.get('/:vendorId/enterprise-check', asyncHandler(async (req, res) => {
+  const { vendorId } = req.params;
+  
+  try {
+    const Subscription = require('../models/Subscription');
+    
+    // Check if vendor has active enterprise subscription
+    const activeSubscription = await Subscription.findOne({
+      user: vendorId,
+      status: 'active',
+      endDate: { $gt: new Date() }
+    }).populate('plan').sort({ createdAt: -1 });
+    
+    let isEnterprise = false;
+    
+    if (activeSubscription && activeSubscription.plan) {
+      // Check if plan identifier is 'enterprise' or plan name contains 'enterprise'
+      isEnterprise = activeSubscription.plan.identifier === 'enterprise' || 
+                   activeSubscription.plan.name.toLowerCase().includes('enterprise');
+    }
+    
+    res.json({
+      success: true,
+      data: { isEnterprise }
+    });
+  } catch (error) {
+    console.error('Enterprise check error:', error);
+    res.json({
+      success: true,
+      data: { isEnterprise: false } // Default to false on error
+    });
+  }
+}));
+
 // @desc    Get vendor reviews (reviews for properties the vendor posted)
 // @route   GET /api/vendors/reviews
 // @access  Private (Vendor)
