@@ -1,37 +1,8 @@
-// Email service for BuildHomeMart Squares
-const nodemailer = require('nodemailer');
+// Email service for BuildHomeMart Squares using Resend
+const { Resend } = require('resend');
 
-// SMTP Configuration - Use environment variables for flexibility  
-const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
-const isSecure = smtpPort === 465;
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.hostinger.com',
-  port: smtpPort,
-  secure: isSecure, // true for 465, false for other ports (587, 25)
-  auth: {
-    user: process.env.SMTP_USER || 'support@buildhomemartsquares.com',
-    pass: process.env.SMTP_PASS || 'Sprt123@7'
-  },
-  tls: {
-    rejectUnauthorized: false,
-    ciphers: 'SSLv3'
-  },
-  connectionTimeout: 10000, // 10 seconds
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
-  debug: process.env.NODE_ENV !== 'production', // Enable debug in development
-  logger: process.env.NODE_ENV !== 'production' // Enable logging in development
-});
-
-// Verify SMTP connection on startup
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('SMTP Connection Error:', error);
-  } else {
-    console.log('SMTP Server Ready for email delivery');
-  }
-});
+// Initialize Resend with API key
+const resend = new Resend(process.env.RESEND_API_KEY || 're_Lw3kDf93_FmnQPRSGpWeGejkXPkvF5iWb');
 
 // Email delivery status tracking
 const emailLog = {
@@ -39,6 +10,15 @@ const emailLog = {
   failed: 0,
   getStats: () => ({ sent: emailLog.sent, failed: emailLog.failed })
 };
+
+// Verify Resend configuration on startup
+(async () => {
+  try {
+    console.log('✅ Resend email service initialized');
+  } catch (error) {
+    console.error('❌ Resend initialization error:', error);
+  }
+})();
 
 // Email templates
 const emailTemplates = {
@@ -923,68 +903,67 @@ const emailTemplates = {
   })
 };
 
-// Send email function
+// Send email function using Resend
 const sendEmail = async (options) => {
   try {
-    // Verify connection configuration
-    await transporter.verify();
-
     // Determine sender based on email type
     const getSenderInfo = (template) => {
       const senders = {
-        'otp-verification': { name: 'BuildHomeMart Verification', email: 'verify@buildhomemartsquares.com' },
-        'email-verification': { name: 'BuildHomeMart Verification', email: 'verify@buildhomemartsquares.com' },
-        'password-reset': { name: 'BuildHomeMart Security', email: 'security@buildhomemartsquares.com' },
-        'password-changed': { name: 'BuildHomeMart Security', email: 'security@buildhomemartsquares.com' },
-        'password-change-otp': { name: 'BuildHomeMart Security', email: 'security@buildhomemartsquares.com' },
-        'login-alert': { name: 'BuildHomeMart Security', email: 'security@buildhomemartsquares.com' },
-        'account-deleted': { name: 'BuildHomeMart Account Services', email: 'accounts@buildhomemartsquares.com' },
-        'property-inquiry': { name: 'BuildHomeMart Notifications', email: 'notifications@buildhomemartsquares.com' },
-        'vendor-welcome': { name: 'BuildHomeMart Partners', email: 'partners@buildhomemartsquares.com' },
-        'vendor-application-submitted': { name: 'BuildHomeMart Partners', email: 'partners@buildhomemartsquares.com' },
-        'vendor-application-approved': { name: 'BuildHomeMart Partners', email: 'partners@buildhomemartsquares.com' },
-        'vendor-application-rejected': { name: 'BuildHomeMart Partners', email: 'partners@buildhomemartsquares.com' },
-        'admin-new-vendor-application': { name: 'BuildHomeMart Admin', email: 'admin@buildhomemartsquares.com' },
-        'welcome': { name: 'BuildHomeMart Welcome', email: 'welcome@buildhomemartsquares.com' },
-        'customer-booking-confirmation': { name: 'BuildHomeMart Bookings', email: 'bookings@buildhomemartsquares.com' },
-        'service-status-update': { name: 'BuildHomeMart Services', email: 'services@buildhomemartsquares.com' },
-        'weekly-report': { name: 'BuildHomeMart Reports', email: 'reports@buildhomemartsquares.com' },
-        default: { name: 'BuildHomeMart Squares', email: process.env.SMTP_USER || 'support@buildhomemartsquares.com' }
+        'otp-verification': { name: 'BuildHomeMart Verification', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'email-verification': { name: 'BuildHomeMart Verification', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'password-reset': { name: 'BuildHomeMart Security', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'password-changed': { name: 'BuildHomeMart Security', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'password-change-otp': { name: 'BuildHomeMart Security', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'login-alert': { name: 'BuildHomeMart Security', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'account-deleted': { name: 'BuildHomeMart Account Services', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'property-inquiry': { name: 'BuildHomeMart Notifications', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'vendor-welcome': { name: 'BuildHomeMart Partners', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'vendor-application-submitted': { name: 'BuildHomeMart Partners', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'vendor-application-approved': { name: 'BuildHomeMart Partners', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'vendor-application-rejected': { name: 'BuildHomeMart Partners', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'admin-new-vendor-application': { name: 'BuildHomeMart Admin', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'welcome': { name: 'BuildHomeMart Welcome', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'customer-booking-confirmation': { name: 'BuildHomeMart Bookings', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'service-status-update': { name: 'BuildHomeMart Services', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        'weekly-report': { name: 'BuildHomeMart Reports', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' },
+        default: { name: 'BuildHomeMart Squares', email: process.env.EMAIL_FROM || 'onboarding@resend.dev' }
       };
       return senders[template] || senders.default;
     };
 
     const sender = getSenderInfo(options.template);
     
-    let mailOptions = {
-      from: `"${sender.name}" <${process.env.SMTP_USER || sender.email}>`,
+    let emailData = {
+      from: `${sender.name} <${sender.email}>`,
       to: options.to,
       subject: options.subject,
-      replyTo: options.replyTo || 'support@buildhomemartsquares.com'
+      replyTo: options.replyTo || process.env.EMAIL_FROM || 'onboarding@resend.dev'
     };
 
     // Use template if provided
     if (options.template && emailTemplates[options.template]) {
       const template = emailTemplates[options.template](options.data);
-      mailOptions.subject = template.subject;
-      mailOptions.html = template.html;
+      emailData.subject = template.subject;
+      emailData.html = template.html;
     } else {
       // Use custom content
-      mailOptions.text = options.text;
-      mailOptions.html = options.html;
+      emailData.html = options.html || options.text;
     }
 
-    // Send email
-    const info = await transporter.sendMail(mailOptions);
+    // Send email via Resend
+    const result = await resend.emails.send(emailData);
 
-    console.log('Email sent successfully:', info.messageId);
+    console.log('✅ Email sent successfully via Resend:', result.id);
+    emailLog.sent++;
+    
     return {
       success: true,
-      messageId: info.messageId
+      messageId: result.id
     };
 
   } catch (error) {
-    console.error('Email sending failed:', error);
+    console.error('❌ Email sending failed:', error);
+    emailLog.failed++;
     throw new Error(`Failed to send email: ${error.message}`);
   }
 };
@@ -1012,8 +991,14 @@ const sendBulkEmail = async (emails) => {
 // Test email connectivity
 const testEmailConnection = async () => {
   try {
-    await transporter.verify();
-    return { success: true, message: 'SMTP connection successful' };
+    // Test by sending a simple email
+    const result = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+      to: 'test@example.com',
+      subject: 'Connection Test',
+      html: '<p>Testing Resend connection</p>'
+    });
+    return { success: true, message: 'Resend connection successful', id: result.id };
   } catch (error) {
     return { success: false, error: error.message };
   }

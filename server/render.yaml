@@ -30,14 +30,10 @@ services:
         value: 999277858519233
       - key: CLOUDINARY_API_SECRET
         value: d4Wl2DMwVPlM4gkXWpzcNOv_ePY
-      - key: SMTP_HOST
-        value: smtp.gmail.com
-      - key: SMTP_PORT
-        value: 587
-      - key: SMTP_USER
-        value: noreply@ninety-nine-acres.com
-      - key: SMTP_PASS
-        value: temp_password
+      - key: RESEND_API_KEY
+        value: re_Lw3kDf93_FmnQPRSGpWeGejkXPkvF5iWb
+      - key: EMAIL_FROM
+        value: onboarding@resend.dev
       - key: RAZORPAY_KEY_ID
         value: rzp_test_RMylhPWMBGHzdi
       - key: RAZORPAY_KEY_SECRET

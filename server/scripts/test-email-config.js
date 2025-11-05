@@ -1,50 +1,47 @@
 #!/usr/bin/env node
 
-// Test email configuration with the new SMTP settings
+// Test email configuration with Resend
 require('dotenv').config();
 const { sendEmail, testEmailConnection, sendTemplateEmail } = require('../utils/emailService');
 
 async function testEmailConfiguration() {
-  console.log('🧪 Testing BuildHomeMart Squares Email Configuration');
-  console.log('===================================================\n');
+  console.log('🧪 Testing BuildHomeMart Squares Email Configuration (Resend)');
+  console.log('==========================================================\n');
 
-  // Test SMTP connection
-  console.log('1. Testing SMTP Connection...');
+  // Test Resend connection
+  console.log('1. Testing Resend Connection...');
   try {
     const connectionResult = await testEmailConnection();
     if (connectionResult.success) {
-      console.log('✅ SMTP Connection successful');
+      console.log('✅ Resend Connection successful');
     } else {
-      console.log('❌ SMTP Connection failed:', connectionResult.error);
+      console.log('❌ Resend Connection failed:', connectionResult.error);
       return;
     }
   } catch (error) {
-    console.log('❌ SMTP Connection error:', error.message);
+    console.log('❌ Resend Connection error:', error.message);
     return;
   }
 
   console.log('\n2. Current Configuration:');
-  console.log(`   Host: ${process.env.SMTP_HOST}`);
-  console.log(`   Port: ${process.env.SMTP_PORT}`);
-  console.log(`   Secure: ${process.env.SMTP_SECURE}`);
-  console.log(`   User: ${process.env.SMTP_USER}`);
-  console.log(`   Password: ${process.env.SMTP_PASS ? '✓ Set' : '❌ Not set'}`);
+  console.log(`   Service: Resend`);
+  console.log(`   API Key: ${process.env.RESEND_API_KEY ? '✓ Set' : '❌ Not set'}`);
+  console.log(`   From Email: ${process.env.EMAIL_FROM || 'onboarding@resend.dev'}`);
 
   // Test sending a simple email
   console.log('\n3. Testing Simple Email...');
   try {
     const testEmail = {
-      to: 'test@buildhomemartsquares.com', // You can change this to your test email
+      to: 'ddd732443@gmail.com', // Test email address
       subject: 'BuildHomeMart Squares - Email Configuration Test',
       html: `
         <h2>Email Configuration Test</h2>
-        <p>This is a test email to verify the SMTP configuration is working correctly.</p>
+        <p>This is a test email to verify the Resend configuration is working correctly.</p>
         <p><strong>Configuration Details:</strong></p>
         <ul>
-          <li>Host: ${process.env.SMTP_HOST}</li>
-          <li>Port: ${process.env.SMTP_PORT}</li>
-          <li>Secure: ${process.env.SMTP_SECURE}</li>
-          <li>From: ${process.env.SMTP_USER}</li>
+          <li>Service: Resend</li>
+          <li>From: ${process.env.EMAIL_FROM || 'onboarding@resend.dev'}</li>
+          <li>Test Time: ${new Date().toISOString()}</li>
         </ul>
         <p>If you received this email, the configuration is working correctly!</p>
         <hr>
@@ -67,7 +64,7 @@ async function testEmailConfiguration() {
   console.log('\n4. Testing Template Email (OTP Verification)...');
   try {
     const templateResult = await sendTemplateEmail(
-      'test@buildhomemartsquares.com', // You can change this to your test email
+      'ddd732443@gmail.com', // Test email address
       'otp-verification',
       {
         firstName: 'Test User',
@@ -88,11 +85,10 @@ async function testEmailConfiguration() {
 
   console.log('\n✅ Email configuration testing completed!');
   console.log('\n📧 Email Settings Summary:');
-  console.log('   • SMTP Host: smtp.hostinger.com');
-  console.log('   • SMTP Port: 465 (Secure SSL/TLS)');
-  console.log('   • Username: support@buildhomemartsquares.com');
-  console.log('   • Password: Sprt123@7');
-  console.log('\nNote: Make sure to update the test email address before running this script.');
+  console.log('   • Service: Resend');
+  console.log('   • API Key: re_Lw3kDf93_FmnQPRSGpWeGejkXPkvF5iWb');
+  console.log('   • From Email: onboarding@resend.dev');
+  console.log('\nNote: Resend provides reliable email delivery with built-in analytics.');
 }
 
 // Run the test
