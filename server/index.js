@@ -63,6 +63,7 @@ if (additionalOriginsEnv) {
 
 // Add your current deployment domain
 additionalOrigins.push("https://squares-h1ev7dmj1-dheenadhayalans-projects.vercel.app");
+additionalOrigins.push("https://cool-profiterole-5e0feb.netlify.app");
 
 // Combine all allowed origins
 const allAllowedOrigins = [...allowedOrigins, ...additionalOrigins];
