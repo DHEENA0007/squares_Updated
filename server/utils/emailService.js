@@ -2,17 +2,26 @@
 const nodemailer = require('nodemailer');
 
 // SMTP Configuration - Use environment variables for flexibility  
+const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+const isSecure = smtpPort === 465;
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.hostinger.com',
-  port: process.env.SMTP_PORT || 465,
-  secure: process.env.SMTP_SECURE === 'true' || true, // true for 465, false for other ports
+  port: smtpPort,
+  secure: isSecure, // true for 465, false for other ports (587, 25)
   auth: {
     user: process.env.SMTP_USER || 'support@buildhomemartsquares.com',
     pass: process.env.SMTP_PASS || 'Sprt123@7'
   },
   tls: {
-    rejectUnauthorized: false
-  }
+    rejectUnauthorized: false,
+    ciphers: 'SSLv3'
+  },
+  connectionTimeout: 10000, // 10 seconds
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
+  debug: process.env.NODE_ENV !== 'production', // Enable debug in development
+  logger: process.env.NODE_ENV !== 'production' // Enable logging in development
 });
 
 // Verify SMTP connection on startup
