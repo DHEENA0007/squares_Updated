@@ -65,6 +65,8 @@ if (additionalOriginsEnv) {
 additionalOrigins.push("https://squares-h1ev7dmj1-dheenadhayalans-projects.vercel.app");
 additionalOrigins.push("https://cool-profiterole-5e0feb.netlify.app");
 additionalOrigins.push("https://69cc952bc2a5.ngrok-free.app");
+additionalOrigins.push("https://fuzzy-papayas-see.loca.lt");
+additionalOrigins.push("http://[2401:4900:7b9d:5a57:3d2b:b008:a6fe:6c]:8001");
 
 // Combine all allowed origins
 const allAllowedOrigins = [...allowedOrigins, ...additionalOrigins];

@@ -8,7 +8,11 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8001,
-    allowedHosts: ["69cc952bc2a5.ngrok-free.app"], // ✅ Allow ngrok host
+    allowedHosts: [
+      "69cc952bc2a5.ngrok-free.app", 
+      "fuzzy-papayas-see.loca.lt",
+      "[2401:4900:7b9d:5a57:3d2b:b008:a6fe:6c]"
+    ],
     proxy: {
       "/api": {
         target: "http://localhost:8000",

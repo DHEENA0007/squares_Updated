@@ -24,7 +24,7 @@ const Navbar = () => {
       {/* Logo - Responsive positioning */}
       <Link 
         to="/" 
-        className="fixed -top-5 -left-6 xs:top-0 xs:left-4 sm:left-6 md:left-8 z-[60] transition-transform hover:scale-105 duration-300"
+        className="fixed -top-5 -left-6 xs:top-0 xs:left-4 sm:left-6 md:-top-8 md:left-8 z-[60] transition-transform hover:scale-105 duration-300"
       >
         <img
           src={theme === "dark" ? logoDark : logoLight}
