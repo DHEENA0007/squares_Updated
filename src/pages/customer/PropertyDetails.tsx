@@ -64,6 +64,10 @@ const PropertyDetails: React.FC = () => {
       const response = await propertyService.getProperty(id);
       
       if (response.success) {
+        console.log('Property data received:', response.data.property);
+        console.log('Owner data:', response.data.property.owner);
+        console.log('Owner profile:', response.data.property.owner?.profile);
+        console.log('Owner phone:', response.data.property.owner?.profile?.phone);
         setProperty(response.data.property);
         
         // Check if property is favorited

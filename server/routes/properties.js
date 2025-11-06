@@ -66,7 +66,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
     const totalProperties = await Property.countDocuments(queryFilter);
     const properties = await Property.find(queryFilter)
-      .populate('owner', 'profile.firstName profile.lastName')
+      .populate('owner', 'profile.firstName profile.lastName profile.phone email role')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -109,9 +109,9 @@ router.get('/:id', asyncHandler(async (req, res) => {
     }
 
     const property = await Property.findById(id)
-      .populate('owner', 'profile.firstName profile.lastName email phone')
-      .populate('agent', 'profile.firstName profile.lastName email phone')
-      .populate('assignedTo', 'profile.firstName profile.lastName email phone')
+      .populate('owner', 'profile.firstName profile.lastName profile.phone email role')
+      .populate('agent', 'profile.firstName profile.lastName profile.phone email role')
+      .populate('assignedTo', 'profile.firstName profile.lastName profile.phone email role')
       .populate('approvedBy', 'profile.firstName profile.lastName email')
       .populate('rejectedBy', 'profile.firstName profile.lastName email')
       .populate('assignedBy', 'profile.firstName profile.lastName email')
@@ -129,7 +129,15 @@ router.get('/:id', asyncHandler(async (req, res) => {
       id: property._id,
       title: property.title,
       status: property.status,
-      listingType: property.listingType
+      listingType: property.listingType,
+      ownerData: property.owner ? {
+        id: property.owner._id,
+        email: property.owner.email,
+        role: property.owner.role,
+        phone: property.owner.profile?.phone,
+        firstName: property.owner.profile?.firstName,
+        lastName: property.owner.profile?.lastName
+      } : null
     });
 
     // Increment view count (need to update without lean())
@@ -210,7 +218,7 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
     }
 
     const property = await Property.create(propertyData);
-    await property.populate('owner', 'profile.firstName profile.lastName email');
+    await property.populate('owner', 'profile.firstName profile.lastName profile.phone email role');
 
     res.status(201).json({
       success: true,
@@ -282,7 +290,7 @@ router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
       id,
       { ...req.body, updatedAt: new Date() },
       { new: true, runValidators: true }
-    ).populate('owner', 'profile.firstName profile.lastName email');
+    ).populate('owner', 'profile.firstName profile.lastName profile.phone email role');
 
     res.json({
       success: true,
@@ -359,7 +367,7 @@ router.patch('/:id/status', authenticateToken, asyncHandler(async (req, res) => 
       id,
       { status, updatedAt: new Date() },
       { new: true, runValidators: true }
-    ).populate('owner', 'profile.firstName profile.lastName email');
+    ).populate('owner', 'profile.firstName profile.lastName profile.phone email role');
 
     res.json({
       success: true,
@@ -417,7 +425,7 @@ router.patch('/:id/featured', authenticateToken, asyncHandler(async (req, res) =
       id,
       { featured, updatedAt: new Date() },
       { new: true, runValidators: true }
-    ).populate('owner', 'profile.firstName profile.lastName email');
+    ).populate('owner', 'profile.firstName profile.lastName profile.phone email role');
 
     res.json({
       success: true,
