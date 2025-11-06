@@ -15,33 +15,36 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
   
   return (
     <>
-      {/* Logo positioned outside container */}
-      <Link to="/" className="fixed -top-6 left-4 z-[60] transition-transform hover:scale-105 duration-300">
+      {/* Logo - Responsive positioning */}
+      <Link 
+        to="/" 
+        className="fixed -top-7 left-2 xs:left-3 sm:left-4 md:-top-6 md:left-4 lg:left-6 z-[60] transition-transform hover:scale-105 duration-300"
+      >
         <img
           src={theme === "dark" ? logoDark : logoLight}
           alt="BuildHomeMart"
-          className="w-[220px] h-[100px] object-contain"
+          className="w-[140px] h-[70px] xs:w-[160px] xs:h-[80px] sm:w-[180px] sm:h-[90px] md:w-[200px] md:h-[95px] lg:w-[220px] lg:h-[100px] object-contain"
         />
       </Link>
       
-      <nav className="fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-50 px-4 lg:px-6 transition-colors duration-300">
+      <nav className="fixed top-0 left-0 right-0 h-14 xs:h-15 sm:h-16 bg-card border-b border-border z-50 px-2 xs:px-3 sm:px-4 lg:px-6 transition-colors duration-300">
         <div className="h-full flex items-center justify-between max-w-screen-2xl mx-auto">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 xs:gap-3 sm:gap-4">
             <button
               onClick={onMenuClick}
-              className="lg:hidden p-2 hover:bg-accent/10 rounded-lg transition-colors"
+              className="lg:hidden p-1.5 xs:p-2 hover:bg-accent/10 rounded-lg transition-colors touch-manipulation"
               aria-label="Toggle menu"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-4 h-4 xs:w-5 xs:h-5" />
             </button>
             
-            {/* Empty space where logo was, navigation links moved */}
-            <div className="ml-[200px]">
+            {/* Spacer for logo - Responsive */}
+            <div className="ml-[130px] xs:ml-[150px] sm:ml-[170px] md:ml-[190px] lg:ml-[210px]">
               {/* Admin panel specific content can go here */}
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3">
             <ThemeToggle />
             <ProfileDropdown />
           </div>
