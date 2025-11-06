@@ -102,7 +102,7 @@ export interface FavoriteStatsResponse {
 }
 
 class FavoriteService {
-  private baseUrl = import.meta.env.VITE_API_URL || 'http://31.97.227.74:8000/api';
+  private baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
