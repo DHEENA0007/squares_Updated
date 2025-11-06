@@ -100,14 +100,14 @@ const VendorNavbar = ({ setSidebarOpen }: VendorNavbarProps) => {
               </div>
               
               {/* Search */}
-              <div className="relative hidden md:block">
+              {/* <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
                   type="search"
                   placeholder="Search properties, leads..."
                   className="pl-10 w-64"
                 />
-              </div>
+              </div> */}
             </div>
 
             <div className="flex items-center gap-4">

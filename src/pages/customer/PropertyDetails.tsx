@@ -27,13 +27,16 @@ import {
   Home,
   User,
   Mail,
-  GitCompare
+  GitCompare,
+  ExternalLink
 } from 'lucide-react';
 import { propertyService, type Property } from '@/services/propertyService';
 import { favoriteService } from '@/services/favoriteService';
 import { messageService } from '@/services/messageService';
+import { vendorService } from '@/services/vendorService';
 import PropertyMessageDialog from '@/components/PropertyMessageDialog';
 import PropertyContactDialog from '@/components/PropertyContactDialog';
+import EnterprisePropertyContactDialog from '@/components/EnterprisePropertyContactDialog';
 
 const PropertyDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -49,6 +52,9 @@ const PropertyDetails: React.FC = () => {
   // Dialog states
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showContactDialog, setShowContactDialog] = useState(false);
+  const [showEnterpriseDialog, setShowEnterpriseDialog] = useState(false);
+  const [isEnterpriseProperty, setIsEnterpriseProperty] = useState(false);
+  const [checkingEnterprise, setCheckingEnterprise] = useState(false);
 
   const loadProperty = useCallback(async () => {
     if (!id) return;
@@ -63,6 +69,21 @@ const PropertyDetails: React.FC = () => {
         // Check if property is favorited
         const favoriteStatus = await favoriteService.isFavorite(id);
         setIsFavorited(favoriteStatus);
+        
+        // Check if property is from enterprise vendor
+        if (response.data.property.vendor?._id || response.data.property.owner?._id) {
+          try {
+            setCheckingEnterprise(true);
+            const vendorId = response.data.property.vendor?._id || response.data.property.owner?._id;
+            const isEnterprise = await vendorService.isVendorEnterpriseProperty(vendorId);
+            setIsEnterpriseProperty(isEnterprise);
+          } catch (error) {
+            console.error("Failed to check enterprise status:", error);
+            setIsEnterpriseProperty(false);
+          } finally {
+            setCheckingEnterprise(false);
+          }
+        }
         
         // Property view tracking would go here if needed
       } else {
@@ -546,21 +567,42 @@ const PropertyDetails: React.FC = () => {
                 <Separator />
                 
                 <div className="space-y-3">
-                  <Button 
-                    className="w-full" 
-                    onClick={() => setShowContactDialog(true)}
-                  >
-                    <Phone className="w-4 h-4 mr-2" />
-                    Call Owner
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => setShowMessageDialog(true)}
-                  >
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    Send Message
-                  </Button>
+                  {!checkingEnterprise && !isEnterpriseProperty && (
+                    <>
+                      <Button 
+                        className="w-full" 
+                        onClick={() => setShowContactDialog(true)}
+                      >
+                        <Phone className="w-4 h-4 mr-2" />
+                        Call Owner
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => setShowMessageDialog(true)}
+                      >
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        Send Message
+                      </Button>
+                    </>
+                  )}
+                  
+                  {!checkingEnterprise && isEnterpriseProperty && (
+                    <Button 
+                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                      onClick={() => setShowEnterpriseDialog(true)}
+                    >
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      WhatsApp Contact
+                    </Button>
+                  )}
+                  
+                  {checkingEnterprise && (
+                    <Button disabled className="w-full">
+                      <Phone className="w-4 h-4 mr-2" />
+                      Loading...
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -593,6 +635,16 @@ const PropertyDetails: React.FC = () => {
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                {property.virtualTour && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => window.open(property.virtualTour, '_blank')}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Virtual Tour
+                  </Button>
+                )}
                 <Button 
                   variant="outline" 
                   className="w-full justify-start"
@@ -641,6 +693,13 @@ const PropertyDetails: React.FC = () => {
       <PropertyContactDialog
         open={showContactDialog}
         onOpenChange={setShowContactDialog}
+        property={property}
+      />
+
+      {/* Enterprise Contact Dialog */}
+      <EnterprisePropertyContactDialog
+        open={showEnterpriseDialog}
+        onOpenChange={setShowEnterpriseDialog}
         property={property}
       />
     </div>

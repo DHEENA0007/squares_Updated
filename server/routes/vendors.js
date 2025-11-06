@@ -1168,6 +1168,87 @@ router.get('/properties', requireVendorRole, asyncHandler(async (req, res) => {
   });
 }));
 
+// @desc    Update vendor property
+// @route   PUT /api/vendors/properties/:id
+// @access  Private/Agent
+router.put('/properties/:id', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    // Check if user is agent/vendor
+    if (!['agent', 'admin'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Insufficient permissions. Agent access required.'
+      });
+    }
+
+    const { id } = req.params;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    // Find property and check ownership
+    const property = await Property.findById(id);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    console.log('Vendor property update - User ID:', req.user.id);
+    console.log('Vendor property update - Property owner:', property.owner?.toString());
+    console.log('Vendor property update - Property agent:', property.agent?.toString());
+
+    // Check if vendor owns this property (as owner or agent)
+    const isOwner = property.owner.toString() === req.user.id.toString();
+    const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
+    
+    console.log('Vendor property update - Is Owner:', isOwner);
+    console.log('Vendor property update - Is Agent:', isAgent);
+    
+    if (!isOwner && !isAgent) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this property'
+      });
+    }
+
+    // Update property
+    const updatedProperty = await Property.findByIdAndUpdate(
+      id,
+      { ...req.body, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    ).populate('owner', 'profile.firstName profile.lastName email');
+
+    res.json({
+      success: true,
+      data: { property: updatedProperty },
+      message: 'Property updated successfully'
+    });
+  } catch (error) {
+    console.error('Update vendor property error:', error);
+    
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update property'
+    });
+  }
+}));
+
 // @desc    Get vendor leads/inquiries
 // @route   GET /api/vendors/leads
 // @access  Private/Agent
@@ -1935,6 +2016,7 @@ router.get('/analytics/performance', requireVendorRole, asyncHandler(async (req,
     });
   }
 }));
+
 // @desc    Check vendor subscription status
 // @route   GET /api/vendors/subscription-status
 // @access  Private/Agent
@@ -2007,235 +2089,6 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
     res.status(500).json({
       success: false,
       message: 'Failed to fetch subscription status'
-    });
-  }
-}));
-
-// @desc    Get vendor leads
-// @route   GET /api/vendors/leads
-// @access  Private/Agent
-router.get('/leads', requireVendorRole, asyncHandler(async (req, res) => {
-  const vendorId = req.user.id;
-  const { page = 1, limit = 10, status, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
-
-  try {
-    // Build query to get real leads from messages
-    let matchQuery = {
-      recipient: new mongoose.ObjectId(vendorId),
-      type: { $in: ['inquiry', 'lead', 'property_inquiry'] }
-    };
-
-    // Add status filter if provided
-    if (status && status !== 'all') {
-      matchQuery.status = status;
-    }
-
-    // Build sort object
-    const sortObj = {};
-    sortObj[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-    // Get leads with pagination
-    const [leads, totalCount] = await Promise.all([
-      Message.find(matchQuery)
-        .populate([
-          {
-            path: 'sender',
-            select: 'email profile',
-            populate: {
-              path: 'profile',
-              select: 'firstName lastName phone'
-            }
-          },
-          {
-            path: 'property',
-            select: 'title price propertyType'
-          }
-        ])
-        .sort(sortObj)
-        .skip((page - 1) * limit)
-        .limit(parseInt(limit)),
-      Message.countDocuments(matchQuery)
-    ]);
-
-    // Format leads data
-    const formattedLeads = leads.map(lead => {
-      const customerName = lead.sender?.profile ? 
-        `${lead.sender.profile.firstName || ''} ${lead.sender.profile.lastName || ''}`.trim() : 
-        'Unknown';
-      
-      return {
-        id: lead._id,
-        propertyTitle: lead.property?.title || 'Property Inquiry',
-        propertyId: lead.property?._id,
-        customerName: customerName || 'Unknown',
-        customerEmail: lead.sender?.email || '',
-        customerPhone: lead.sender?.profile?.phone || '',
-        status: lead.status || 'new',
-        message: lead.content || '',
-        createdAt: lead.createdAt,
-        updatedAt: lead.updatedAt,
-        budget: lead.budget || 'Not specified',
-        interestLevel: lead.priority || 'medium',
-        source: lead.source || 'website'
-      };
-    });
-
-    // Calculate pagination
-    const totalPages = Math.ceil(totalCount / limit);
-    const currentPage = parseInt(page);
-
-    res.json({
-      success: true,
-      data: {
-        leads: formattedLeads,
-        pagination: {
-          currentPage,
-          totalPages,
-          totalLeads: totalCount,
-          hasNext: currentPage < totalPages,
-          hasPrev: currentPage > 1,
-          limit: parseInt(limit)
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Vendor leads error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch vendor leads'
-    });
-  }
-}));
-
-// @desc    Get vendor subscription limits
-// @route   GET /api/vendors/subscription-limits
-// @access  Private/Agent
-router.get('/subscription-limits', requireVendorRole, asyncHandler(async (req, res) => {
-  const vendorId = req.user.id;
-
-  try {
-    const Subscription = require('../models/Subscription');
-    const Property = require('../models/Property');
-    const Vendor = require('../models/Vendor');
-
-    // Get vendor object
-    const vendorObjectId = new mongoose.Types.ObjectId(vendorId);
-    
-    // Get active subscription
-    const activeSubscription = await Subscription.findOne({
-      user: vendorId,
-      status: 'active',
-      endDate: { $gt: new Date() }
-    }).populate('plan').sort({ createdAt: -1 });
-
-    // Count current properties
-    const currentProperties = await Property.countDocuments({
-      $or: [
-        { owner: vendorId },
-        { agent: vendorId },
-        { vendor: vendorObjectId }
-      ]
-    });
-
-    let subscriptionLimits = {
-      maxProperties: 5, // Free tier default
-      currentProperties,
-      canAddMore: currentProperties < 5,
-      planName: 'Free Plan',
-      features: ['5 Property Listings'],
-      planId: null
-    };
-
-    if (activeSubscription && activeSubscription.plan) {
-      const plan = activeSubscription.plan;
-      const maxProperties = plan.limits?.properties || 0; // 0 means unlimited
-      
-      // Handle both old string array format and new object format for features
-      let planFeatures = [];
-      if (plan.features && Array.isArray(plan.features)) {
-        planFeatures = plan.features.map(feature => {
-          if (typeof feature === 'string') {
-            return feature;
-          } else if (feature && typeof feature === 'object' && feature.name) {
-            return feature.enabled !== false ? feature.name : null;
-          }
-          return null;
-        }).filter(Boolean); // Remove null values
-      }
-      
-      subscriptionLimits = {
-        maxProperties: maxProperties === 0 ? 999999 : maxProperties, // Use large number for unlimited
-        currentProperties,
-        canAddMore: maxProperties === 0 || currentProperties < maxProperties,
-        planName: plan.name,
-        features: planFeatures,
-        planId: plan._id,
-        limits: plan.limits || {} // Include full limits for frontend use
-      };
-    }
-
-    res.json({
-      success: true,
-      data: subscriptionLimits
-    });
-  } catch (error) {
-    console.error('Get subscription limits error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch subscription limits'
-    });
-  }
-}));
-
-// @desc    Get current vendor subscription for billing
-// @route   GET /api/vendors/subscription/current
-// @access  Private/Agent
-router.get('/subscription/current', requireVendorRole, asyncHandler(async (req, res) => {
-  const vendorId = req.user.id;
-
-  try {
-    const Subscription = require('../models/Subscription');
-    
-    const activeSubscription = await Subscription.findOne({
-      user: vendorId,
-      status: 'active',
-      endDate: { $gt: new Date() }
-    }).populate([
-      { path: 'plan', select: 'name description price billingPeriod features' },
-      { path: 'addons', select: 'name description price category billingType' }
-    ]).sort({ createdAt: -1 });
-
-    if (!activeSubscription) {
-      return res.json({
-        success: true,
-        data: null,
-        message: 'No active subscription found'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        _id: activeSubscription._id,
-        vendorId: activeSubscription.user,
-        planId: activeSubscription.plan._id,
-        plan: activeSubscription.plan,
-        status: activeSubscription.status,
-        billingCycle: activeSubscription.billingCycle || 'monthly',
-        startDate: activeSubscription.startDate,
-        endDate: activeSubscription.endDate,
-        nextBillingDate: activeSubscription.endDate,
-        amount: activeSubscription.amount || activeSubscription.plan.price,
-        currency: activeSubscription.currency || 'INR',
-        autoRenew: activeSubscription.isAutoRenew || false,
-        addons: activeSubscription.addons || []
-      }
-    });
-  } catch (error) {
-    console.error('Get current subscription error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch current subscription'
     });
   }
 }));
@@ -2897,6 +2750,43 @@ router.post('/subscription/cleanup', requireVendorRole, asyncHandler(async (req,
       success: false,
       message: 'Failed to cleanup subscriptions',
       error: error.message
+    });
+  }
+}));
+
+// @desc    Check if vendor has enterprise plan
+// @route   GET /api/vendors/:vendorId/enterprise-check
+// @access  Public (for customer property viewing)
+router.get('/:vendorId/enterprise-check', asyncHandler(async (req, res) => {
+  const { vendorId } = req.params;
+  
+  try {
+    const Subscription = require('../models/Subscription');
+    
+    // Check if vendor has active enterprise subscription
+    const activeSubscription = await Subscription.findOne({
+      user: vendorId,
+      status: 'active',
+      endDate: { $gt: new Date() }
+    }).populate('plan').sort({ createdAt: -1 });
+    
+    let isEnterprise = false;
+    
+    if (activeSubscription && activeSubscription.plan) {
+      // Check if plan identifier is 'enterprise' or plan name contains 'enterprise'
+      isEnterprise = activeSubscription.plan.identifier === 'enterprise' || 
+                   activeSubscription.plan.name.toLowerCase().includes('enterprise');
+    }
+    
+    res.json({
+      success: true,
+      data: { isEnterprise }
+    });
+  } catch (error) {
+    console.error('Enterprise check error:', error);
+    res.json({
+      success: true,
+      data: { isEnterprise: false } // Default to false on error
     });
   }
 }));

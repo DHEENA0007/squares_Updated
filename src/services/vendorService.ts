@@ -829,6 +829,24 @@ class VendorService {
       throw error;
     }
   }
+
+  async isVendorEnterpriseProperty(vendorId: string): Promise<boolean> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: { isEnterprise: boolean };
+      }>(`/vendors/${vendorId}/enterprise-check`);
+
+      if (response.success && response.data) {
+        return response.data.isEnterprise;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Failed to check vendor enterprise status:", error);
+      return false;
+    }
+  }
 }
 
 export const vendorService = new VendorService();

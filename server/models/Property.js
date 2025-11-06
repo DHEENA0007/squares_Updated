@@ -195,6 +195,16 @@ const propertySchema = new mongoose.Schema({
   },
   modifiedAt: {
     type: Date
+  },
+  // Admin property owner information
+  ownerType: {
+    type: String,
+    enum: ['admin', 'client'],
+    default: 'admin'
+  },
+  clientName: {
+    type: String,
+    trim: true
   }
 }, {
   timestamps: true

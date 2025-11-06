@@ -127,7 +127,11 @@ const AddProperty = () => {
     // Admin specific
     isVerified: true, // Admin properties are verified by default
     isFeatured: false,
-    status: "active"
+    status: "active",
+    
+    // Owner information
+    ownerType: "admin", // "admin" or "client"
+    clientName: ""
   });
 
   const [uploadedImages, setUploadedImages] = useState([]);
@@ -296,8 +300,9 @@ const AddProperty = () => {
     { id: 4, title: "Pricing", description: "Price and financial details" },
     { id: 5, title: "Amenities", description: "Features and facilities" },
     { id: 6, title: "Media", description: "Photos, videos, and virtual tours" },
-    { id: 7, title: "Admin Settings", description: "Verification and status settings" },
-    { id: 8, title: "Review", description: "Review and submit listing" }
+    { id: 7, title: "Owner Information", description: "Property owner details" },
+    { id: 8, title: "Admin Settings", description: "Verification and status settings" },
+    { id: 9, title: "Review", description: "Review and submit listing" }
   ];
 
   const propertyTypes = [
@@ -358,6 +363,25 @@ const AddProperty = () => {
       toast({
         title: "Missing Required Fields",
         description: `Please fill in: ${missingFields.join(', ')}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate owner information
+    if (!formData.ownerType) {
+      toast({
+        title: "Owner Information Required",
+        description: "Please select owner type (Admin or Client)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.ownerType === 'client' && !formData.clientName?.trim()) {
+      toast({
+        title: "Client Name Required",
+        description: "Please enter the client name when owner type is Client",
         variant: "destructive",
       });
       return;
@@ -429,7 +453,11 @@ const AddProperty = () => {
         isVerified: formData.isVerified,
         isFeatured: formData.isFeatured,
         status: formData.status,
-        isAdminProperty: true
+        isAdminProperty: true,
+        
+        // Owner information
+        ownerType: formData.ownerType,
+        clientName: formData.ownerType === 'client' ? formData.clientName : undefined
       };
 
       // Only add optional fields if they have values
@@ -1064,6 +1092,120 @@ const AddProperty = () => {
           <div className="space-y-8">
             <div className="text-center mb-8">
               <div className="mx-auto w-20 h-20 bg-gradient-to-br from-primary to-blue-600 rounded-full flex items-center justify-center mb-6 shadow-lg">
+                <Home className="h-12 w-12 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent mb-3">
+                Owner Information
+              </h2>
+              <p className="text-muted-foreground text-lg max-w-md mx-auto">
+                Specify who owns this property
+              </p>
+            </div>
+
+            <div className="grid gap-6">
+              {/* Owner Type Selection Card */}
+              <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-blue-50/50 hover:shadow-lg transition-all duration-300">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                      <Home className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl">Property Owner</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        Select who owns this property
+                      </p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <Label htmlFor="ownerType" className="text-base font-medium">Owner Type *</Label>
+                    <Select value={formData.ownerType} onValueChange={(value) => setFormData(prev => ({ ...prev, ownerType: value, clientName: value === 'admin' ? '' : prev.clientName }))}>
+                      <SelectTrigger className="h-12 border-2 border-primary/20 bg-background/50">
+                        <SelectValue placeholder="Select owner type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">
+                          <div className="flex items-center gap-2">
+                            <Shield className="w-4 h-4 text-blue-600" />
+                            Admin
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="client">
+                          <div className="flex items-center gap-2">
+                            <Home className="w-4 h-4 text-green-600" />
+                            Client
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    {/* Client Name Field - Only show when client is selected */}
+                    {formData.ownerType === 'client' && (
+                      <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                        <Label htmlFor="clientName" className="text-base font-medium">Client Name *</Label>
+                        <Input
+                          id="clientName"
+                          placeholder="Enter client's full name"
+                          className="h-12 border-2 border-green-200/50 bg-background/50"
+                          value={formData.clientName}
+                          onChange={(e) => setFormData(prev => ({ ...prev, clientName: e.target.value }))}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          This will be shown as the property owner in contact information
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Owner Information Display */}
+              <Card className="border-2 border-green-200 bg-gradient-to-r from-green-50/50 to-emerald-50/50 hover:shadow-lg transition-all duration-300">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                      <Eye className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl">Contact Information Preview</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        How customers will see the contact information
+                      </p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="p-4 bg-background/50 rounded-lg border border-green-200/50">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <strong>Owner:</strong>
+                        <span>
+                          {formData.ownerType === 'admin' 
+                            ? 'Squares' 
+                            : (formData.clientName || 'Client Name')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <strong>Type:</strong>
+                        <span>
+                          {formData.ownerType === 'admin' ? 'Platform Admin' : 'Property Owner'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        );
+
+      case 8:
+        return (
+          <div className="space-y-8">
+            <div className="text-center mb-8">
+              <div className="mx-auto w-20 h-20 bg-gradient-to-br from-primary to-blue-600 rounded-full flex items-center justify-center mb-6 shadow-lg">
                 <Shield className="h-12 w-12 text-white" />
               </div>
               <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent mb-3">
@@ -1225,7 +1367,7 @@ const AddProperty = () => {
           </div>
         );
 
-      case 8:
+      case 9:
         return (
           <div className="space-y-8">
             <div className="text-center">
@@ -1265,6 +1407,19 @@ const AddProperty = () => {
                     <p><strong>Price:</strong> ₹{formData.price}</p>
                     {formData.maintenanceCharges && (
                       <p><strong>Maintenance:</strong> ₹{formData.maintenanceCharges}/month</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t">
+                  <h3 className="font-semibold mb-2 flex items-center gap-2">
+                    <Home className="w-4 h-4 text-green-600" />
+                    Owner Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <p><strong>Owner Type:</strong> {formData.ownerType === 'admin' ? 'Admin' : 'Client'}</p>
+                    {formData.ownerType === 'client' && (
+                      <p><strong>Client Name:</strong> {formData.clientName || 'Not specified'}</p>
                     )}
                   </div>
                 </div>

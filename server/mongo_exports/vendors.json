@@ -7,7 +7,7 @@
       "businessType": "individual"
     },
     "professionalInfo": {
-      "experience": 0,
+      "experience": 1,
       "specializations": [],
       "serviceAreas": [],
       "languages": [
@@ -19,16 +19,16 @@
       "officeAddress": {
         "street": "123 Business Street",
         "area": "",
-        "city": "Mumbai",
-        "state": "Maharashtra",
+        "city": "Palladam SO",
+        "state": "TAMIL NADU",
+        "district": "TIRUPPUR",
         "country": "India",
-        "pincode": "400001",
-        "landmark": "",
-        "cityCode": "mumbai",
         "countryCode": "IN",
-        "district": "Mumbai City",
-        "districtCode": "mumbai-city",
-        "stateCode": "maharashtra"
+        "stateCode": "TAMIL NADU",
+        "districtCode": "TIRUPPUR",
+        "cityCode": "Palladam SO",
+        "pincode": "641664",
+        "landmark": ""
       },
       "officePhone": "+91 9876543210",
       "whatsappNumber": "+91 9876543210",
@@ -120,7 +120,7 @@
       },
       "autoResponder": {
         "enabled": false,
-        "message": "",
+        "message": "Thank you for your interest! I'll get back to you soon.",
         "onlyAfterHours": true
       }
     },
@@ -159,7 +159,7 @@
       ]
     },
     "createdAt": "2025-10-27T11:53:33.315Z",
-    "updatedAt": "2025-10-30T03:56:01.276Z",
+    "updatedAt": "2025-11-03T10:56:41.978Z",
     "__v": 0
   },
   {
@@ -446,7 +446,7 @@
       },
       "autoResponder": {
         "enabled": false,
-        "message": "",
+        "message": "Thank you for your interest! I will get back to you soon.",
         "onlyAfterHours": true
       }
     },
@@ -485,7 +485,168 @@
       ]
     },
     "createdAt": "2025-10-27T11:53:33.830Z",
-    "updatedAt": "2025-10-30T03:56:01.371Z",
+    "updatedAt": "2025-11-04T16:17:11.357Z",
     "__v": 0
+  },
+  {
+    "_id": "690a48878236579ad7fd85af",
+    "user": "690a48868236579ad7fd85ad",
+    "businessInfo": {
+      "companyName": "ASO",
+      "businessType": "construction_company",
+      "panNumber": "ASDED1234A"
+    },
+    "professionalInfo": {
+      "experience": 0,
+      "specializations": [],
+      "serviceAreas": [],
+      "languages": [
+        "english"
+      ],
+      "certifications": []
+    },
+    "contactInfo": {
+      "officeAddress": {
+        "street": "CHANDIGARH",
+        "area": "",
+        "city": "Uzanbazar S.O",
+        "state": "ASSAM",
+        "district": "",
+        "country": "India",
+        "countryCode": "IN",
+        "stateCode": "",
+        "districtCode": "",
+        "cityCode": "",
+        "pincode": "781001",
+        "landmark": ""
+      },
+      "officePhone": "8944545455",
+      "whatsappNumber": "8944545455",
+      "socialMedia": {
+        "facebook": "",
+        "instagram": "",
+        "linkedin": "",
+        "twitter": "",
+        "youtube": ""
+      }
+    },
+    "performance": {
+      "rating": {
+        "breakdown": {
+          "five": 0,
+          "four": 0,
+          "three": 0,
+          "two": 0,
+          "one": 0
+        },
+        "average": 0,
+        "count": 0
+      },
+      "statistics": {
+        "responseTime": {
+          "average": 0
+        },
+        "totalProperties": 0,
+        "activeListing": 0,
+        "soldProperties": 0,
+        "rentedProperties": 0,
+        "totalViews": 0,
+        "totalLeads": 0,
+        "totalClients": 0
+      },
+      "achievements": []
+    },
+    "settings": {
+      "notifications": {
+        "emailNotifications": true,
+        "smsNotifications": true,
+        "leadAlerts": true,
+        "marketingEmails": false,
+        "weeklyReports": true,
+        "reviewAlerts": true
+      },
+      "privacy": {
+        "showContactInfo": true,
+        "showPerformanceStats": true,
+        "allowDirectContact": true
+      },
+      "autoResponder": {
+        "enabled": false,
+        "onlyAfterHours": true
+      }
+    },
+    "verification": {
+      "isVerified": true,
+      "verificationLevel": "basic",
+      "documents": [
+        {
+          "type": "business_license",
+          "name": "output.pdf",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1762280731/ninety-nine-acres/vendor-documents/eceicknu8ifc9pxkxstv.pdf",
+          "status": "pending",
+          "uploadDate": "2025-11-04T18:40:06.419Z",
+          "_id": "690a48878236579ad7fd85b0"
+        },
+        {
+          "type": "identity",
+          "name": "output.pdf",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1762280735/ninety-nine-acres/vendor-documents/hyrnwberig1qhn9et1es.pdf",
+          "status": "pending",
+          "uploadDate": "2025-11-04T18:40:06.419Z",
+          "_id": "690a48878236579ad7fd85b1"
+        }
+      ],
+      "verificationDate": "2025-11-04T18:52:50.765Z"
+    },
+    "approval": {
+      "status": "approved",
+      "requiredDocuments": [],
+      "submittedAt": "2025-11-04T18:40:07.096Z",
+      "submittedDocuments": [
+        {
+          "documentType": "business_license",
+          "documentName": "output.pdf",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1762280731/ninety-nine-acres/vendor-documents/eceicknu8ifc9pxkxstv.pdf",
+          "uploadedAt": "2025-11-04T18:40:06.419Z",
+          "verified": true,
+          "_id": "690a4b49e9a1f21f3bc9b4f4",
+          "verifiedAt": "2025-11-04T18:52:50.769Z",
+          "verifiedBy": "68f8857275b9205ce27f8ea5"
+        },
+        {
+          "documentType": "identity_proof",
+          "documentName": "output.pdf",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1762280735/ninety-nine-acres/vendor-documents/hyrnwberig1qhn9et1es.pdf",
+          "uploadedAt": "2025-11-04T18:40:06.419Z",
+          "verified": true,
+          "_id": "690a4b49e9a1f21f3bc9b4f5",
+          "verifiedAt": "2025-11-04T18:52:50.771Z",
+          "verifiedBy": "68f8857275b9205ce27f8ea5"
+        }
+      ],
+      "approvalNotes": "hooh",
+      "reviewedAt": "2025-11-04T18:52:50.763Z",
+      "reviewedBy": "68f8857275b9205ce27f8ea5"
+    },
+    "status": "active",
+    "financial": {
+      "billingAddress": {
+        "isSameAsOffice": true
+      }
+    },
+    "seo": {
+      "keywords": [],
+      "slug": "aso"
+    },
+    "metadata": {
+      "source": "website",
+      "notes": "Created during registration - Awaiting admin approval",
+      "tags": []
+    },
+    "memberSince": "2025-11-04T18:40:07.096Z",
+    "lastActive": "2025-11-04T18:52:50.801Z",
+    "createdAt": "2025-11-04T18:40:07.111Z",
+    "updatedAt": "2025-11-04T18:52:50.800Z",
+    "__v": 1
   }
 ]

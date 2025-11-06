@@ -7,12 +7,19 @@
     "status": "active",
     "profile": {
       "firstName": "Dheena",
-      "lastName": "User",
+      "lastName": "S",
       "phone": "7397705276",
-      "emailVerified": true,
-      "avatar": null,
+      "avatar": "https://res.cloudinary.com/dm87kok62/image/upload/v1762321310/ninety-nine-acres/avatars/p7dq7dchzqq6flni4k8t.jpg",
       "bio": null,
-      "lastLogin": "2025-11-02T08:13:01.819Z",
+      "address": {
+        "street": "",
+        "city": "Palladam SO",
+        "state": "TAMIL NADU",
+        "zipCode": "641664"
+      },
+      "emailVerified": true,
+      "phoneVerified": false,
+      "lastLogin": "2025-11-05T15:04:54.598Z",
       "preferences": {
         "notifications": {
           "email": true,
@@ -23,36 +30,17 @@
           "showEmail": false,
           "showPhone": false
         }
-      },
-      "vendorInfo": {
-        "certifications": [],
-        "experience": 0,
-        "memberSince": "2025-10-23T07:03:49.818Z",
-        "rating": {
-          "average": 0,
-          "count": 0
-        },
-        "responseTime": "Not calculated",
-        "serviceAreas": [],
-        "specializations": [],
-        "vendorPreferences": {
-          "emailNotifications": true,
-          "leadAlerts": true,
-          "marketingEmails": false,
-          "smsNotifications": true,
-          "weeklyReports": true
-        }
       }
     },
     "createdAt": "2025-10-21T10:59:31.034Z",
-    "updatedAt": "2025-11-02T08:13:01.820Z",
+    "updatedAt": "2025-11-05T15:04:54.599Z",
     "__v": 1
   },
   {
     "_id": "68f8857275b9205ce27f8ea5",
     "email": "admin@ninetyneacres.com",
     "password": "$2b$12$J4rs8NEArWMsj8fiozVc1evkFH84oVLPOctetUcSVyWLi7fQn1rdC",
-    "role": "admin",
+    "role": "superadmin",
     "status": "active",
     "profile": {
       "firstName": "Super",
@@ -79,7 +67,7 @@
         }
       },
       "avatar": null,
-      "lastLogin": "2025-11-02T12:36:19.320Z",
+      "lastLogin": "2025-11-05T17:50:12.162Z",
       "vendorInfo": {
         "certifications": [],
         "experience": 0,
@@ -98,10 +86,11 @@
           "smsNotifications": true,
           "weeklyReports": true
         }
-      }
+      },
+      "phoneVerified": false
     },
     "createdAt": "2025-10-22T07:19:14.070Z",
-    "updatedAt": "2025-11-02T12:36:19.321Z",
+    "updatedAt": "2025-11-05T17:50:12.163Z",
     "__v": 1
   },
   {
@@ -114,15 +103,17 @@
       "firstName": "Vendor",
       "lastName": "One",
       "phone": "+91 9876543210",
+      "avatar": null,
       "bio": "Professional Real Estate Vendor",
       "address": {
         "street": "123 Business Street",
-        "city": "Mumbai",
-        "state": "Maharashtra",
-        "zipCode": "400001",
+        "city": "Palladam SO",
+        "state": "TAMIL NADU",
+        "zipCode": "641664",
         "country": "India"
       },
       "emailVerified": true,
+      "lastLogin": "2025-11-05T17:42:08.553Z",
       "preferences": {
         "notifications": {
           "email": true,
@@ -134,30 +125,10 @@
           "showPhone": true
         }
       },
-      "avatar": null,
-      "lastLogin": "2025-11-02T09:58:20.873Z",
-      "vendorInfo": {
-        "certifications": [],
-        "experience": 0,
-        "memberSince": "2025-10-23T05:32:39.909Z",
-        "rating": {
-          "average": 0,
-          "count": 0
-        },
-        "responseTime": "Not calculated",
-        "serviceAreas": [],
-        "specializations": [],
-        "vendorPreferences": {
-          "emailNotifications": true,
-          "leadAlerts": true,
-          "marketingEmails": false,
-          "smsNotifications": true,
-          "weeklyReports": true
-        }
-      }
+      "phoneVerified": false
     },
     "createdAt": "2025-10-22T10:25:37.241Z",
-    "updatedAt": "2025-11-02T09:58:20.874Z",
+    "updatedAt": "2025-11-05T17:42:08.554Z",
     "__v": 1,
     "vendorProfile": "68ff5d3d2f4e2406a9c90807"
   },
@@ -290,11 +261,140 @@
       "avatar": null,
       "bio": "Professional Real Estate Vendor",
       "emailVerified": true,
-      "lastLogin": "2025-11-02T12:34:30.638Z"
+      "lastLogin": "2025-11-06T04:56:12.211Z",
+      "phoneVerified": false
     },
     "createdAt": "2025-10-23T11:59:28.457Z",
-    "updatedAt": "2025-11-02T12:34:30.639Z",
+    "updatedAt": "2025-11-06T04:56:12.212Z",
     "__v": 0,
     "vendorProfile": "68ff5d3d2f4e2406a9c90815"
+  },
+  {
+    "_id": "6909834d404a2c48e422ea56",
+    "email": "admin@buildhomemart.com",
+    "password": "$2b$12$GJXT/AX78mu28C1Pxp8UVuoU0zgztQqZoV/mj/WkPZmNFCIlLPQTe",
+    "role": "superadmin",
+    "status": "active",
+    "profile": {
+      "firstName": "Sub",
+      "lastName": "Admin",
+      "phone": "+1234567890",
+      "emailVerified": true,
+      "preferences": {
+        "notifications": {
+          "email": true,
+          "sms": false,
+          "push": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": false
+        }
+      },
+      "avatar": null,
+      "bio": null,
+      "lastLogin": "2025-11-06T04:54:20.738Z",
+      "phoneVerified": false
+    },
+    "vendorProfile": null,
+    "createdAt": "2025-11-04T04:38:37.819Z",
+    "updatedAt": "2025-11-06T04:54:20.743Z",
+    "__v": 0
+  },
+  {
+    "_id": "690a48868236579ad7fd85ad",
+    "email": "amutha0986@gmail.com",
+    "password": "$2b$12$L/b4IceTaSopgJd8DNUx2.clH6iWoL6OQx1RW4aI1DaGX5j0rPzD6",
+    "role": "agent",
+    "status": "active",
+    "profile": {
+      "firstName": "sdasd",
+      "lastName": "sdada",
+      "phone": "8944545455",
+      "emailVerified": true,
+      "avatar": null,
+      "bio": null,
+      "phoneVerified": false,
+      "lastLogin": "2025-11-04T18:53:19.593Z",
+      "preferences": {
+        "notifications": {
+          "email": true,
+          "sms": false,
+          "push": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": false
+        }
+      }
+    },
+    "vendorProfile": "690a48878236579ad7fd85af",
+    "createdAt": "2025-11-04T18:40:06.604Z",
+    "updatedAt": "2025-11-04T18:53:19.594Z",
+    "__v": 0
+  },
+  {
+    "_id": "690b8922bbe24151c4955f59",
+    "email": "sdheenadhayalan91@gmail.com",
+    "password": "$2b$12$WZrgG.N200VxQn2wxinNge3o5h5vsr/TeSNPJH8jDMa5w.Wkzp/h2",
+    "role": "customer",
+    "status": "active",
+    "profile": {
+      "firstName": "dsa",
+      "lastName": "sda",
+      "phone": "7458963210",
+      "emailVerified": true,
+      "avatar": null,
+      "bio": null,
+      "phoneVerified": false,
+      "lastLogin": null,
+      "preferences": {
+        "notifications": {
+          "email": true,
+          "sms": false,
+          "push": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": false
+        }
+      }
+    },
+    "vendorProfile": null,
+    "createdAt": "2025-11-05T17:28:02.151Z",
+    "updatedAt": "2025-11-05T17:28:02.151Z",
+    "__v": 0
+  },
+  {
+    "_id": "690b8ac5bbe24151c4955f69",
+    "email": "arunchikru@gmail.com",
+    "password": "$2b$12$RPU8F86RZCsMyJtllMMv3.8v6AaDnckT5BHg3y3/lzBT431vflkH6",
+    "role": "customer",
+    "status": "active",
+    "profile": {
+      "firstName": "Arun",
+      "lastName": "Karthick",
+      "phone": "9080445315",
+      "emailVerified": true,
+      "avatar": null,
+      "bio": null,
+      "phoneVerified": false,
+      "lastLogin": "2025-11-05T17:50:54.352Z",
+      "preferences": {
+        "notifications": {
+          "email": true,
+          "sms": false,
+          "push": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": false
+        }
+      }
+    },
+    "vendorProfile": null,
+    "createdAt": "2025-11-05T17:35:01.814Z",
+    "updatedAt": "2025-11-05T17:50:54.353Z",
+    "__v": 0
   }
 ]

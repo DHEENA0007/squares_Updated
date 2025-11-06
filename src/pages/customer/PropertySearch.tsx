@@ -32,6 +32,8 @@ import { getPropertyListingLabel } from "@/utils/propertyUtils";
 import { toast } from "@/hooks/use-toast";
 import PropertyMessageDialog from "@/components/PropertyMessageDialog";
 import PropertyContactDialog from "@/components/PropertyContactDialog";
+import EnterprisePropertyContactDialog from "@/components/EnterprisePropertyContactDialog";
+import { vendorService } from "@/services/vendorService";
 import { useNavigate } from "react-router-dom";
 
 const PropertySearch = () => {
@@ -54,6 +56,8 @@ const PropertySearch = () => {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showContactDialog, setShowContactDialog] = useState(false);
+  const [showEnterpriseDialog, setShowEnterpriseDialog] = useState(false);
+  const [enterpriseProperties, setEnterpriseProperties] = useState<Set<string>>(new Set());
   
   // Amenities filter
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
@@ -182,9 +186,43 @@ const PropertySearch = () => {
   });
 
   // Initial load and reloading on filter changes
+  // Check enterprise status for properties
+  const checkEnterpriseProperties = useCallback(async (propertiesToCheck: Property[]) => {
+    const enterpriseChecks = propertiesToCheck.map(async (property) => {
+      if (property.vendor?._id || property.owner?._id) {
+        try {
+          const vendorId = property.vendor?._id || property.owner?._id;
+          const isEnterprise = await vendorService.isVendorEnterpriseProperty(vendorId);
+          return { propertyId: property._id, isEnterprise };
+        } catch (error) {
+          console.error("Failed to check enterprise status for property:", property._id, error);
+          return { propertyId: property._id, isEnterprise: false };
+        }
+      }
+      return { propertyId: property._id, isEnterprise: false };
+    });
+
+    const results = await Promise.all(enterpriseChecks);
+    const newEnterpriseProperties = new Set<string>();
+    
+    results.forEach(({ propertyId, isEnterprise }) => {
+      if (isEnterprise) {
+        newEnterpriseProperties.add(propertyId);
+      }
+    });
+
+    setEnterpriseProperties(newEnterpriseProperties);
+  }, []);
+
   useEffect(() => {
     loadProperties();
   }, [loadProperties]);
+
+  useEffect(() => {
+    if (filteredProperties.length > 0) {
+      checkEnterpriseProperties(filteredProperties);
+    }
+  }, [filteredProperties, checkEnterpriseProperties]);
 
   // Client-side filtering and search
   const clientFilteredProperties = useMemo(() => {
@@ -240,12 +278,20 @@ const PropertySearch = () => {
 
   const handlePropertyContact = (property: Property) => {
     setSelectedProperty(property);
-    setShowContactDialog(true);
+    if (enterpriseProperties.has(property._id)) {
+      setShowEnterpriseDialog(true);
+    } else {
+      setShowContactDialog(true);
+    }
   };
 
   const handlePropertyMessage = (property: Property) => {
     setSelectedProperty(property);
-    setShowMessageDialog(true);
+    if (enterpriseProperties.has(property._id)) {
+      setShowEnterpriseDialog(true);
+    } else {
+      setShowMessageDialog(true);
+    }
   };
 
   const formatPrice = (price: number) => {
@@ -626,22 +672,36 @@ const PropertySearch = () => {
                             <Button size="sm" variant="outline">
                               <Share className="w-4 h-4" />
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => handlePropertyMessage(property)}
-                            >
-                              <MessageSquare className="w-4 h-4 mr-1" />
-                              Message
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => handlePropertyContact(property)}
-                            >
-                              <Phone className="w-4 h-4 mr-1" />
-                              Contact
-                            </Button>
+                            {!enterpriseProperties.has(property._id) ? (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handlePropertyMessage(property)}
+                                >
+                                  <MessageSquare className="w-4 h-4 mr-1" />
+                                  Message
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handlePropertyContact(property)}
+                                >
+                                  <Phone className="w-4 h-4 mr-1" />
+                                  Contact
+                                </Button>
+                              </>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                                onClick={() => handlePropertyContact(property)}
+                              >
+                                <MessageSquare className="w-4 h-4 mr-1" />
+                                WhatsApp
+                              </Button>
+                            )}
                             <Button 
                               size="sm"
                               onClick={() => handlePropertyView(property._id)}

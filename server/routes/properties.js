@@ -260,8 +260,17 @@ router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
       });
     }
 
-    // Check if user owns this property or is admin
-    if (property.owner.toString() !== req.user.id && !['admin', 'superadmin'].includes(req.user.role)) {
+    // Check if user owns this property, is the agent for this property, or is admin
+    const isOwner = property.owner.toString() === req.user.id.toString();
+    const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    
+    console.log('Property update - User ID:', req.user.id, 'Role:', req.user.role);
+    console.log('Property update - Property owner:', property.owner?.toString());
+    console.log('Property update - Property agent:', property.agent?.toString());
+    console.log('Property update - Is Owner:', isOwner, 'Is Agent:', isAgent, 'Is Admin:', isAdmin);
+    
+    if (!isOwner && !isAgent && !isAdmin) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this property'
@@ -324,8 +333,12 @@ router.patch('/:id/status', authenticateToken, asyncHandler(async (req, res) => 
       });
     }
 
-    // Check if user owns this property or is admin
-    if (property.owner.toString() !== req.user.id && !['admin', 'superadmin'].includes(req.user.role)) {
+    // Check if user owns this property, is the agent for this property, or is admin
+    const isOwner = property.owner.toString() === req.user.id.toString();
+    const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    
+    if (!isOwner && !isAgent && !isAdmin) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this property'
@@ -387,8 +400,12 @@ router.patch('/:id/featured', authenticateToken, asyncHandler(async (req, res) =
       });
     }
 
-    // Check if user owns this property or is admin
-    if (property.owner.toString() !== req.user.id && !['admin', 'superadmin'].includes(req.user.role)) {
+    // Check if user owns this property, is the agent for this property, or is admin
+    const isOwner = property.owner.toString() === req.user.id.toString();
+    const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    
+    if (!isOwner && !isAgent && !isAdmin) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this property'
@@ -475,7 +492,7 @@ router.post('/:id/assign-customer', authenticateToken, asyncHandler(async (req, 
     const finalStatus = correctStatus;
 
     // Check if user owns this property or is admin/agent
-    if (property.owner.toString() !== req.user.id && 
+    if (property.owner.toString() !== req.user.id.toString() && 
         !['admin', 'superadmin', 'agent'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
@@ -594,8 +611,12 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req, res) => {
       });
     }
 
-    // Check if user owns this property or is admin
-    if (property.owner.toString() !== req.user.id && !['admin', 'superadmin'].includes(req.user.role)) {
+    // Check if user owns this property, is the agent for this property, or is admin
+    const isOwner = property.owner.toString() === req.user.id.toString();
+    const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    
+    if (!isOwner && !isAgent && !isAdmin) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to delete this property'

@@ -341,7 +341,7 @@ const Hero = () => {
         searchParams.set('propertyType', 'commercial');
       }
       
-      navigate(`/properties?${searchParams.toString()}`);
+      navigate(`/customer/search?${searchParams.toString()}`);
     };
 
     // Click outside to close results and suggestions

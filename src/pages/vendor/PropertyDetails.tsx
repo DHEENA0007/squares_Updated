@@ -27,7 +27,8 @@ import {
   Camera,
   Video,
   Globe,
-  IndianRupee
+  IndianRupee,
+  ExternalLink
 } from "lucide-react";
 import { propertyService, type Property } from "@/services/propertyService";
 
@@ -425,6 +426,16 @@ const PropertyDetails = () => {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {property.virtualTour && (
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => window.open(property.virtualTour, '_blank')}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Virtual Tour
+                </Button>
+              )}
               <Link to={`/vendor/properties/edit/${property._id}`}>
                 <Button variant="outline" className="w-full justify-start">
                   <Edit3 className="w-4 h-4 mr-2" />

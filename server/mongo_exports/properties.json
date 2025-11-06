@@ -4,7 +4,7 @@
     "title": "G1",
     "description": "good house",
     "type": "house",
-    "status": "active",
+    "status": "sold",
     "listingType": "sale",
     "price": 100000,
     "area": {
@@ -37,16 +37,20 @@
     "owner": "68f8b1214f4741e752f0e18b",
     "vendor": "68ff5d3d2f4e2406a9c90807",
     "agent": "68f8b1214f4741e752f0e18b",
-    "views": 0,
+    "views": 26,
     "featured": false,
     "verified": true,
     "createdAt": "2025-10-31T15:54:13.965Z",
-    "updatedAt": "2025-10-31T17:41:02.926Z",
+    "updatedAt": "2025-11-05T11:27:50.213Z",
     "__v": 0,
     "approvedAt": "2025-10-31T17:41:02.914Z",
     "approvedBy": "68f8857275b9205ce27f8ea5",
     "modifiedAt": "2025-10-31T17:41:02.914Z",
-    "modifiedBy": "68f8857275b9205ce27f8ea5"
+    "modifiedBy": "68f8857275b9205ce27f8ea5",
+    "assignedAt": "2025-11-04T21:14:37.942Z",
+    "assignedBy": "68f8b1214f4741e752f0e18b",
+    "assignedTo": "68f76792ae8ba267e353c0e9",
+    "assignmentNotes": ""
   },
   {
     "_id": "690638a8b4ed08ff30192e44",
@@ -89,11 +93,11 @@
     ],
     "videos": [],
     "owner": "68f8857275b9205ce27f8ea5",
-    "views": 0,
+    "views": 50,
     "featured": false,
     "verified": true,
     "createdAt": "2025-11-01T16:43:20.812Z",
-    "updatedAt": "2025-11-01T16:43:51.622Z",
+    "updatedAt": "2025-11-05T11:11:48.387Z",
     "__v": 0,
     "approvedAt": "2025-11-01T16:43:51.617Z",
     "approvedBy": "68f8857275b9205ce27f8ea5",
@@ -750,7 +754,7 @@
     "title": "Z1",
     "description": "1Z",
     "type": "house",
-    "status": "pending",
+    "status": "active",
     "listingType": "rent",
     "price": 2000000,
     "area": {
@@ -768,7 +772,6 @@
     "priceNegotiable": true,
     "address": {
       "street": "TAMIL NADU",
-      "district": "KANNIYAKUMARI",
       "city": "Alancode",
       "state": "TAMIL NADU",
       "pincode": "629802"
@@ -779,11 +782,315 @@
     "owner": "68fa18a0c9fa98e30aa7a7ac",
     "vendor": "68ff5d3d2f4e2406a9c90815",
     "agent": "68fa18a0c9fa98e30aa7a7ac",
+    "views": 71,
+    "featured": false,
+    "verified": true,
+    "createdAt": "2025-11-02T12:35:38.687Z",
+    "updatedAt": "2025-11-06T05:20:45.503Z",
+    "__v": 0,
+    "approvedAt": "2025-11-03T15:41:34.661Z",
+    "approvedBy": "68f8857275b9205ce27f8ea5",
+    "modifiedAt": "2025-11-03T15:41:34.661Z",
+    "modifiedBy": "68f8857275b9205ce27f8ea5",
+    "virtualTour": "https://www.youtube.com/watch?v=0RP2QCAx7Xk"
+  },
+  {
+    "_id": "6909d5056284b49ab9a7b862",
+    "title": "t",
+    "description": "t",
+    "type": "house",
+    "status": "pending",
+    "listingType": "sale",
+    "price": 222222222,
+    "area": {
+      "builtUp": 5000,
+      "carpet": 1822,
+      "plot": 50022,
+      "unit": "sqft"
+    },
+    "bedrooms": 3,
+    "bathrooms": 3,
+    "furnishing": "unfurnished",
+    "facing": "west",
+    "parkingSpaces": "2",
+    "priceNegotiable": true,
+    "address": {
+      "street": "MAHARASHTRA",
+      "district": "BULDHANA",
+      "city": "Advihir",
+      "state": "MAHARASHTRA",
+      "pincode": "443103"
+    },
+    "amenities": [
+      "Parking",
+      "Security",
+      "Garden/Park",
+      "Power Backup",
+      "Bore Well",
+      "Water Supply"
+    ],
+    "images": [
+      {
+        "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1762252033/ninety-nine-acres/admin_property_images/crfkyeqxbwk3bhrl7vy9.jpg",
+        "caption": "wp4372811.jpg",
+        "isPrimary": true,
+        "_id": "6909d5056284b49ab9a7b863"
+      }
+    ],
+    "videos": [],
+    "owner": "68f8857275b9205ce27f8ea5",
     "views": 0,
     "featured": false,
     "verified": false,
-    "createdAt": "2025-11-02T12:35:38.687Z",
-    "updatedAt": "2025-11-02T12:35:38.687Z",
+    "createdAt": "2025-11-04T10:27:17.854Z",
+    "updatedAt": "2025-11-04T10:27:17.854Z",
     "__v": 0
+  },
+  {
+    "_id": "690ae6b9e5de89d8f97d83c0",
+    "title": "Murugan Villa",
+    "description": "2BHK | Kitchen | Pooja Room | Store Room |",
+    "type": "villa",
+    "status": "pending",
+    "listingType": "rent",
+    "price": 9000,
+    "area": {
+      "builtUp": 1200,
+      "unit": "sqft"
+    },
+    "bedrooms": 2,
+    "bathrooms": 3,
+    "furnishing": "semi-furnished",
+    "age": "1-3",
+    "facing": "north-east",
+    "parkingSpaces": "1",
+    "priceNegotiable": true,
+    "securityDeposit": 20000,
+    "address": {
+      "street": "TAMIL NADU",
+      "district": "MADURAI",
+      "city": "Tirumangalam SO",
+      "state": "TAMIL NADU",
+      "pincode": "625706"
+    },
+    "amenities": [
+      "Water Supply",
+      "CCTV Surveillance",
+      "Fire Safety"
+    ],
+    "images": [],
+    "videos": [],
+    "owner": "68f8b1214f4741e752f0e18b",
+    "vendor": "68ff5d3d2f4e2406a9c90807",
+    "agent": "68f8b1214f4741e752f0e18b",
+    "views": 0,
+    "featured": false,
+    "verified": false,
+    "createdAt": "2025-11-05T05:55:05.503Z",
+    "updatedAt": "2025-11-05T05:55:05.503Z",
+    "__v": 0
+  },
+  {
+    "_id": "690b088d298f992153f3c1e0",
+    "title": "g7",
+    "description": "dfghklk",
+    "type": "house",
+    "status": "pending",
+    "listingType": "sale",
+    "price": 1000000,
+    "area": {
+      "builtUp": 12000,
+      "carpet": 100,
+      "unit": "sqft"
+    },
+    "bedrooms": 2,
+    "bathrooms": 2,
+    "furnishing": "semi-furnished",
+    "age": "1-3",
+    "floor": "5",
+    "totalFloors": "6",
+    "priceNegotiable": false,
+    "address": {
+      "street": "ARUNACHAL PRADESH",
+      "district": "DIBANG VALLEY",
+      "city": "Adane",
+      "state": "ARUNACHAL PRADESH",
+      "pincode": "792101"
+    },
+    "amenities": [],
+    "images": [
+      {
+        "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1762330759/ninety-nine-acres/property_images/txbuibo5n4co2ywxholc.jpg",
+        "caption": "commercial-DTElRKc1.jpg",
+        "isPrimary": true,
+        "_id": "690b088d298f992153f3c1e1"
+      },
+      {
+        "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1762330764/ninety-nine-acres/property_images/ad88l1w5z40f87hrs7yk.jpg",
+        "caption": "Lease-Bik5Qpkd.jpg",
+        "isPrimary": false,
+        "_id": "690b088d298f992153f3c1e2"
+      }
+    ],
+    "videos": [],
+    "owner": "68f8b1214f4741e752f0e18b",
+    "vendor": "68ff5d3d2f4e2406a9c90807",
+    "agent": "68f8b1214f4741e752f0e18b",
+    "views": 0,
+    "featured": false,
+    "verified": false,
+    "createdAt": "2025-11-05T08:19:25.463Z",
+    "updatedAt": "2025-11-05T08:19:25.463Z",
+    "__v": 0
+  },
+  {
+    "_id": "690b0ce0f246ac25f86790d5",
+    "title": "3 BHK House",
+    "description": "3 BHK | 2 Bath room | Palcony | Pooja Room",
+    "type": "house",
+    "status": "available",
+    "listingType": "sale",
+    "price": 7500000,
+    "area": {
+      "builtUp": 2500,
+      "unit": "sqft"
+    },
+    "bedrooms": 3,
+    "bathrooms": 3,
+    "furnishing": "semi-furnished",
+    "age": "3-5",
+    "floor": "1",
+    "facing": "north-west",
+    "parkingSpaces": "1",
+    "priceNegotiable": false,
+    "address": {
+      "street": "TAMIL NADU",
+      "district": "MADURAI",
+      "city": "Tirumangalam South SO",
+      "state": "TAMIL NADU",
+      "pincode": "625706"
+    },
+    "amenities": [
+      "Common Bathroom",
+      "Common Kitchen",
+      "Attached Bathroom"
+    ],
+    "images": [],
+    "videos": [],
+    "owner": "68f8b1214f4741e752f0e18b",
+    "vendor": "68ff5d3d2f4e2406a9c90807",
+    "agent": "68f8b1214f4741e752f0e18b",
+    "views": 10,
+    "featured": false,
+    "verified": true,
+    "createdAt": "2025-11-05T08:37:52.281Z",
+    "updatedAt": "2025-11-05T11:38:47.345Z",
+    "__v": 0,
+    "approvedAt": "2025-11-05T10:14:05.194Z",
+    "approvedBy": "68f8857275b9205ce27f8ea5"
+  },
+  {
+    "_id": "690b370d1677e6ff7ec3e8e7",
+    "title": "a",
+    "description": "a",
+    "type": "villa",
+    "status": "available",
+    "listingType": "sale",
+    "price": 70000000,
+    "area": {
+      "builtUp": 5000,
+      "carpet": 1000,
+      "plot": 7000,
+      "unit": "sqft"
+    },
+    "bedrooms": 4,
+    "bathrooms": 4,
+    "furnishing": "fully-furnished",
+    "facing": "west",
+    "parkingSpaces": "2",
+    "priceNegotiable": true,
+    "address": {
+      "street": "ASSAM",
+      "district": "BONGAIGAON",
+      "city": "Ambari",
+      "state": "ASSAM",
+      "pincode": "783384"
+    },
+    "amenities": [
+      "Swimming Pool",
+      "Power Backup",
+      "Parking",
+      "Security"
+    ],
+    "images": [
+      {
+        "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1762342663/ninety-nine-acres/admin_property_images/qmhnrz6wvqtamvtezvel.jpg",
+        "caption": "wp4372811.jpg",
+        "isPrimary": true,
+        "_id": "690b370d1677e6ff7ec3e8e8"
+      }
+    ],
+    "videos": [],
+    "owner": "6909834d404a2c48e422ea56",
+    "views": 3,
+    "featured": false,
+    "verified": true,
+    "ownerType": "client",
+    "clientName": "Dheena",
+    "createdAt": "2025-11-05T11:37:49.051Z",
+    "updatedAt": "2025-11-05T11:40:34.585Z",
+    "__v": 0,
+    "approvedAt": "2025-11-05T11:38:22.460Z",
+    "approvedBy": "6909834d404a2c48e422ea56"
+  },
+  {
+    "_id": "690b8db3bbe24151c4956147",
+    "title": "AK",
+    "description": "Wonderful Apartment",
+    "type": "apartment",
+    "status": "available",
+    "listingType": "sale",
+    "price": 5000000,
+    "area": {
+      "builtUp": 5000,
+      "carpet": 4000,
+      "unit": "sqft"
+    },
+    "bedrooms": 4,
+    "bathrooms": 3,
+    "furnishing": "fully-furnished",
+    "age": "3-5",
+    "floor": "4",
+    "totalFloors": "20",
+    "facing": "west",
+    "parkingSpaces": "2",
+    "priceNegotiable": true,
+    "address": {
+      "street": "KERALA",
+      "district": "KOZHIKODE",
+      "city": "Arikulam BO",
+      "state": "KERALA",
+      "pincode": "673620"
+    },
+    "amenities": [
+      "Swimming Pool",
+      "Elevator",
+      "Common Area",
+      "AC Rooms"
+    ],
+    "images": [],
+    "videos": [],
+    "virtualTour": "https://youtube.com/shorts/T7yoRFHr6KM?si=QBY8t85NA9Mm0ix2",
+    "owner": "68f8b1214f4741e752f0e18b",
+    "vendor": "68ff5d3d2f4e2406a9c90807",
+    "agent": "68f8b1214f4741e752f0e18b",
+    "views": 1,
+    "featured": false,
+    "verified": true,
+    "createdAt": "2025-11-05T17:47:31.493Z",
+    "updatedAt": "2025-11-05T17:51:31.859Z",
+    "__v": 0,
+    "approvedAt": "2025-11-05T17:50:24.326Z",
+    "approvedBy": "68f8857275b9205ce27f8ea5"
   }
 ]

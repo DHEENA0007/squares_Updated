@@ -102,6 +102,11 @@ export const getPropertyOwnerDisplayName = (property: Property): string => {
     return property.vendor.name;
   }
   
+  // Check for custom client name in admin properties
+  if (isAdminUser(property.owner) && (property as any).ownerType === 'client' && (property as any).clientName) {
+    return (property as any).clientName;
+  }
+  
   // If no vendor, use owner display logic
   return getOwnerDisplayName(property.owner);
 };
@@ -120,7 +125,12 @@ export const getPropertyListingLabel = (property: Property): string => {
   if (property.owner) {
     // Use role-based detection for admin users
     if (isAdminUser(property.owner)) {
-      return "Listed by: Squares";
+      // Check if admin property has custom owner information
+      if ((property as any).ownerType === 'client' && (property as any).clientName) {
+        return `Owner: ${(property as any).clientName}`;
+      } else {
+        return "Listed by: Squares";
+      }
     }
     
     if (property.owner.role === 'agent') {
@@ -158,8 +168,14 @@ export const getPropertyContactInfo = (property: Property) => {
     
     // Use role-based detection for admin users
     if (isAdminUser(property.owner)) {
-      contactName = "Squares";
-      contactType = "Platform Admin";
+      // Check if admin property has custom owner information
+      if ((property as any).ownerType === 'client' && (property as any).clientName) {
+        contactName = (property as any).clientName;
+        contactType = "Property Owner";
+      } else {
+        contactName = "Squares";
+        contactType = "Platform Admin";
+      }
     } else if (property.owner.role === 'agent') {
       contactType = "Agent";
     }

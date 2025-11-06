@@ -5,11 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Property, propertyService } from "@/services/propertyService";
 import { DEFAULT_PROPERTY_IMAGE } from "@/utils/imageUtils";
 import { getPropertyListingLabel } from "@/utils/propertyUtils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PropertyMessageDialog from "@/components/PropertyMessageDialog";
 import PropertyContactDialog from "@/components/PropertyContactDialog";
+import EnterprisePropertyContactDialog from "@/components/EnterprisePropertyContactDialog";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { vendorService } from "@/services/vendorService";
 
 interface PropertyCardProps {
   property: Property;
@@ -20,17 +22,59 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
   const { isAuthenticated } = useAuth();
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showContactDialog, setShowContactDialog] = useState(false);
+  const [showEnterpriseDialog, setShowEnterpriseDialog] = useState(false);
+  const [isEnterpriseProperty, setIsEnterpriseProperty] = useState(false);
+  const [checkingEnterprise, setCheckingEnterprise] = useState(true);
   
   const primaryImage = propertyService.getPrimaryImage(property);
   const formattedPrice = propertyService.formatPrice(property.price, property.listingType);
   const formattedArea = propertyService.formatArea(property.area);
   const location = `${property.address.city}, ${property.address.state}`;
 
+  // Check if property is from enterprise vendor
+  useEffect(() => {
+    const checkEnterpriseStatus = async () => {
+      if (property.vendor?._id || property.owner?._id) {
+        try {
+          setCheckingEnterprise(true);
+          const vendorId = property.vendor?._id || property.owner?._id;
+          const isEnterprise = await vendorService.isVendorEnterpriseProperty(vendorId);
+          setIsEnterpriseProperty(isEnterprise);
+        } catch (error) {
+          console.error("Failed to check enterprise status:", error);
+          setIsEnterpriseProperty(false);
+        } finally {
+          setCheckingEnterprise(false);
+        }
+      } else {
+        setCheckingEnterprise(false);
+      }
+    };
+
+    checkEnterpriseStatus();
+  }, [property.vendor?._id, property.owner?._id]);
+
   const handleViewDetails = () => {
     if (isAuthenticated) {
       navigate(`/customer/property/${property._id}`);
     } else {
       navigate("/login");
+    }
+  };
+
+  const handleMessageClick = () => {
+    if (isEnterpriseProperty) {
+      setShowEnterpriseDialog(true);
+    } else {
+      setShowMessageDialog(true);
+    }
+  };
+
+  const handleContactClick = () => {
+    if (isEnterpriseProperty) {
+      setShowEnterpriseDialog(true);
+    } else {
+      setShowContactDialog(true);
     }
   };
 
@@ -134,22 +178,38 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
       </CardContent>
       
       <CardFooter className="p-4 pt-0 flex gap-2">
-        <Button 
-          variant="outline" 
-          className="flex-1"
-          onClick={() => setShowMessageDialog(true)}
-        >
-          <MessageSquare className="w-4 h-4 mr-2" />
-          Message
-        </Button>
-        <Button 
-          variant="outline" 
-          className="flex-1"
-          onClick={() => setShowContactDialog(true)}
-        >
-          <Phone className="w-4 h-4 mr-2" />
-          Contact
-        </Button>
+        {!checkingEnterprise && !isEnterpriseProperty && (
+          <>
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={handleMessageClick}
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Message
+            </Button>
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={handleContactClick}
+            >
+              <Phone className="w-4 h-4 mr-2" />
+              Contact
+            </Button>
+          </>
+        )}
+        
+        {!checkingEnterprise && isEnterpriseProperty && (
+          <Button 
+            variant="outline" 
+            className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+            onClick={() => setShowEnterpriseDialog(true)}
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            WhatsApp Contact
+          </Button>
+        )}
+        
         <Button 
           className="flex-1"
           onClick={handleViewDetails}
@@ -172,6 +232,13 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
       <PropertyContactDialog
         open={showContactDialog}
         onOpenChange={setShowContactDialog}
+        property={property}
+      />
+
+      {/* Enterprise Contact Dialog */}
+      <EnterprisePropertyContactDialog
+        open={showEnterpriseDialog}
+        onOpenChange={setShowEnterpriseDialog}
         property={property}
       />
     </Card>
