@@ -55,11 +55,7 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
   }, [property.vendor?._id, property.owner?._id]);
 
   const handleViewDetails = () => {
-    if (isAuthenticated) {
-      navigate(`/customer/property/${property._id}`);
-    } else {
-      navigate("/login");
-    }
+    navigate(`/property/${property._id}`);
   };
 
   const handleMessageClick = () => {

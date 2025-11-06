@@ -594,7 +594,7 @@ const OwnedProperties = () => {
                       <Button 
                         size="sm" 
                         variant="outline"
-                        onClick={() => navigate(`/customer/property/${property._id}`)}
+                        onClick={() => navigate(`/property/${property._id}`)}
                       >
                         <Eye className="w-4 h-4 mr-2" />
                         View Details

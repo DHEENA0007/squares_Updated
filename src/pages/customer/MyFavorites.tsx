@@ -529,7 +529,7 @@ const MyFavorites: React.FC = () => {
                               <GitCompare className="w-4 h-4 mr-1" />
                               Compare
                             </Button>
-                            <Link to={`/customer/property/${property._id}`}>
+                            <Link to={`/property/${property._id}`}>
                               <Button size="sm" variant="outline">
                                 View Details
                               </Button>

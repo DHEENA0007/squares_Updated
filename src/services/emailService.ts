@@ -313,7 +313,7 @@ class EmailService {
           oldPrice,
           newPrice,
           savings,
-          propertyUrl: `${window.location.origin}/customer/property/${property._id}`
+          propertyUrl: `${window.location.origin}/property/${property._id}`
         }
       });
     } catch (error) {

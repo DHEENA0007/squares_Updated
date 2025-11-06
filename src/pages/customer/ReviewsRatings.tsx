@@ -404,7 +404,7 @@ const ReviewsRatings = () => {
                       <Button 
                         size="sm" 
                         variant="outline"
-                        onClick={() => navigate(`/customer/property/${review.property?._id}`)}
+                        onClick={() => navigate(`/property/${review.property?._id}`)}
                       >
                         <Eye className="w-4 h-4 mr-2" />
                         View Property

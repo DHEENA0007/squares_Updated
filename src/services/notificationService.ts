@@ -143,7 +143,7 @@ class NotificationService {
         pushOptions = {
           title: '📉 Price Drop Alert',
           body: `${data.property?.title} price reduced to ${data.newPrice}`,
-          data: { url: `/customer/property/${data.property?._id}`, type: 'price_drop' }
+          data: { url: `/property/${data.property?._id}`, type: 'price_drop' }
         };
         break;
       case 'new_message':

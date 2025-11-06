@@ -372,7 +372,7 @@ const PropertySearch = () => {
                     >
                       <div 
                         className="relative h-48 bg-muted"
-                        onClick={() => navigate(`/customer/property/${property._id}`)}
+                        onClick={() => navigate(`/property/${property._id}`)}
                       >
                         {property.images && property.images.length > 0 ? (
                           <img
