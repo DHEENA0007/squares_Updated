@@ -100,6 +100,7 @@ export interface PropertyFilters {
   bedrooms?: number;
   listingType?: 'sale' | 'rent' | 'lease';
   search?: string;
+  amenities?: string[];
 }
 
 export interface PropertyResponse {
@@ -177,7 +178,14 @@ class PropertyService {
       
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
-          queryParams.append(key, value.toString());
+          // Handle arrays (like amenities)
+          if (Array.isArray(value)) {
+            value.forEach(item => {
+              queryParams.append(key, item.toString());
+            });
+          } else {
+            queryParams.append(key, value.toString());
+          }
         }
       });
 

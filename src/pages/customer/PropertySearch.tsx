@@ -19,13 +19,14 @@ import {
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { propertyService, Property } from "@/services/propertyService";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { favoriteService } from "@/services/favoriteService";
 
 const PropertySearch = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +62,14 @@ const PropertySearch = () => {
     "Water Supply",
     "Fire Safety"
   ];
+
+  // Initialize search query from URL params
+  useEffect(() => {
+    const queryParam = searchParams.get('q');
+    if (queryParam) {
+      setSearchQuery(queryParam);
+    }
+  }, [searchParams]);
 
   // Load properties
   useEffect(() => {

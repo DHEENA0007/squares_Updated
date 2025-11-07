@@ -1,5 +1,5 @@
-import { Menu, Bell, Search } from "lucide-react";
-import { useState } from "react";
+import { Menu, Bell, Search, MapPin, Home, X, LucideIcon } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,23 @@ import ThemeToggle from "@/components/ThemeToggle";
 import CustomerProfileDropdown from "./CustomerProfileDropdown";
 import logoLight from "@/assets/logo-light.png";
 import logoDark from "@/assets/logo-dark.png";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useDebounce } from "@/hooks/use-debounce";
+
+interface SearchSuggestion {
+  type: 'location' | 'property' | 'area';
+  title: string;
+  subtitle?: string;
+  icon: string;
+  query: string;
+}
+
+// Map icon names to icon components
+const iconMap: Record<string, LucideIcon> = {
+  MapPin,
+  Home,
+  Search
+};
 
 interface CustomerNavbarProps {
   onMenuClick: () => void;
@@ -15,7 +31,99 @@ interface CustomerNavbarProps {
 
 const CustomerNavbar = ({ onMenuClick }: CustomerNavbarProps) => {
   const { theme } = useTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const debouncedSearch = useDebounce(searchQuery, 300);
+  
+  // Fetch suggestions when debounced search changes
+  useEffect(() => {
+    if (debouncedSearch.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const fetchSuggestions = async () => {
+      try {
+        const url = `${import.meta.env.VITE_API_URL}/customer/search/suggestions?q=${encodeURIComponent(debouncedSearch)}`;
+        console.log('Fetching suggestions from:', url);
+        
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Received suggestions:', data);
+          setSuggestions(data.suggestions || []);
+          setShowSuggestions(true);
+        } else {
+          console.error('Failed to fetch suggestions:', response.status, response.statusText);
+        }
+      } catch (error) {
+        console.error('Failed to fetch suggestions:', error);
+      }
+    };
+
+    fetchSuggestions();
+  }, [debouncedSearch]);
+
+  // Click outside to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSearch = (e: React.FormEvent, query?: string) => {
+    e.preventDefault();
+    const finalQuery = query || searchQuery;
+    if (finalQuery.trim()) {
+      navigate(`/customer/search?q=${encodeURIComponent(finalQuery.trim())}`);
+      setShowSuggestions(false);
+      setSearchQuery("");
+    }
+  };
+
+  const handleSuggestionClick = (suggestion: SearchSuggestion) => {
+    navigate(`/customer/search?q=${encodeURIComponent(suggestion.query)}`);
+    setShowSuggestions(false);
+    setSearchQuery("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : prev));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => (prev > 0 ? prev - 1 : -1));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedIndex >= 0) {
+          handleSuggestionClick(suggestions[selectedIndex]);
+        } else {
+          handleSearch(e);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setSelectedIndex(-1);
+        break;
+    }
+  };
   
   return (
     <>
@@ -48,17 +156,64 @@ const CustomerNavbar = ({ onMenuClick }: CustomerNavbarProps) => {
             </div>
 
             {/* Search Bar - Hidden on mobile, visible on larger screens */}
-            <div className="hidden md:flex flex-1 max-w-md mx-4 lg:mx-8">
-              <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search properties, locations..."
-                  className="pl-10 h-8 md:h-9 text-sm"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
+                        {/* Search Bar - Hidden on mobile, visible on larger screens */}
+            <div className="hidden md:flex flex-1 max-w-md mx-4 lg:mx-8" ref={searchRef}>
+              <form 
+                className="relative w-full"
+                onSubmit={handleSearch}
+              >
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search properties, locations..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
+                    className="pl-10 pr-10 h-9 w-full bg-accent/50 border-accent focus:border-primary transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setShowSuggestions(false);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Autocomplete Suggestions Dropdown */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-96 overflow-y-auto z-50">
+                    {suggestions.map((suggestion, index) => {
+                      const Icon = iconMap[suggestion.icon] || Search;
+                      return (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          className={`w-full flex items-start gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left border-b border-border last:border-0 ${
+                            index === selectedIndex ? 'bg-accent/50' : ''
+                          }`}
+                        >
+                          <Icon className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm">{suggestion.title}</div>
+                            {suggestion.subtitle && (
+                              <div className="text-xs text-muted-foreground truncate">{suggestion.subtitle}</div>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </form>
             </div>
           </div>
 

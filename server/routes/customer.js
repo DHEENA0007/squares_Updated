@@ -6,7 +6,93 @@ const Favorite = require('../models/Favorite');
 const Message = require('../models/Message');
 const router = express.Router();
 
-// Apply auth middleware to all routes
+// @desc    Get search suggestions (public endpoint)
+// @route   GET /api/customer/search/suggestions
+// @access  Public
+router.get('/search/suggestions', asyncHandler(async (req, res) => {
+  const { q } = req.query;
+  
+  if (!q || q.trim().length < 2) {
+    return res.json({ suggestions: [] });
+  }
+
+  const searchRegex = new RegExp(q, 'i');
+  
+  // Get unique locations and property titles
+  const [locationMatches, propertyMatches] = await Promise.all([
+    Property.aggregate([
+      {
+        $match: {
+          status: 'approved',
+          $or: [
+            { 'location.city': searchRegex },
+            { 'location.state': searchRegex },
+            { 'location.locality': searchRegex },
+            { 'location.pincode': searchRegex }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: {
+            city: '$location.city',
+            state: '$location.state',
+            locality: '$location.locality'
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $limit: 5 }
+    ]),
+    Property.find({
+      status: 'approved',
+      $or: [
+        { title: searchRegex },
+        { description: searchRegex }
+      ]
+    })
+    .select('title location type')
+    .limit(5)
+    .lean()
+  ]);
+
+  const suggestions = [];
+
+  // Add location suggestions
+  locationMatches.forEach(loc => {
+    const locationParts = [];
+    if (loc._id.locality) locationParts.push(loc._id.locality);
+    if (loc._id.city) locationParts.push(loc._id.city);
+    if (loc._id.state) locationParts.push(loc._id.state);
+    
+    suggestions.push({
+      type: 'location',
+      title: locationParts.join(', '),
+      subtitle: `${loc.count} properties`,
+      icon: 'MapPin',
+      query: locationParts[0] || ''
+    });
+  });
+
+  // Add property suggestions
+  propertyMatches.forEach(prop => {
+    const locationStr = [prop.location?.locality, prop.location?.city]
+      .filter(Boolean)
+      .join(', ');
+    
+    suggestions.push({
+      type: 'property',
+      title: prop.title,
+      subtitle: locationStr,
+      icon: 'Home',
+      query: prop.title
+    });
+  });
+
+  res.json({ suggestions: suggestions.slice(0, 8) });
+}));
+
+// Apply auth middleware to all routes below
 router.use(authenticateToken);
 
 // @desc    Get customer dashboard data

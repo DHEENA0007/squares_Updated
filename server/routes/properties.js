@@ -14,6 +14,7 @@ router.get('/', asyncHandler(async (req, res) => {
       page = 1,
       limit = 12,
       location,
+      search,
       minPrice,
       maxPrice,
       propertyType,
@@ -29,8 +30,20 @@ router.get('/', asyncHandler(async (req, res) => {
       verified: true  // Only show verified properties to customers
     };
 
-    // Apply filters
-    if (location) {
+    // Apply search filter (searches in title, description, city, state, locality)
+    if (search) {
+      queryFilter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { 'address.city': { $regex: search, $options: 'i' } },
+        { 'address.state': { $regex: search, $options: 'i' } },
+        { 'address.locality': { $regex: search, $options: 'i' } },
+        { 'address.locationName': { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Apply location filter (backward compatibility)
+    if (location && !search) {
       queryFilter.$or = [
         { 'address.city': { $regex: location, $options: 'i' } },
         { 'address.locality': { $regex: location, $options: 'i' } }
@@ -60,6 +73,18 @@ router.get('/', asyncHandler(async (req, res) => {
 
     if (listingType) {
       queryFilter.listingType = listingType;
+    }
+
+    // Apply amenities filter
+    if (req.query.amenities) {
+      const amenitiesList = Array.isArray(req.query.amenities) 
+        ? req.query.amenities 
+        : [req.query.amenities];
+      
+      // Properties must have all selected amenities
+      if (amenitiesList.length > 0) {
+        queryFilter.amenities = { $all: amenitiesList };
+      }
     }
 
     console.log('Property query filter:', JSON.stringify(queryFilter, null, 2));
