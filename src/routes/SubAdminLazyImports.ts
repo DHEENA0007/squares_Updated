@@ -7,6 +7,6 @@ export const PropertyRejections = lazy(() => import("@/pages/subadmin/PropertyRe
 export const ContentModeration = lazy(() => import("@/pages/subadmin/ContentModeration"));
 export const SupportTickets = lazy(() => import("@/pages/subadmin/SupportTickets"));
 export const VendorPerformance = lazy(() => import("@/pages/subadmin/VendorPerformance"));
-export const Promotions = lazy(() => import("@/pages/subadmin/Promotions"));
+export const AddonServices = lazy(() => import("@/pages/subadmin/AddonServices"));
 export const Notifications = lazy(() => import("@/pages/subadmin/Notifications"));
 export const Reports = lazy(() => import("@/pages/subadmin/Reports"));

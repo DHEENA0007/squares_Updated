@@ -10,7 +10,7 @@ import {
   ContentModeration, 
   SupportTickets, 
   VendorPerformance, 
-  Promotions, 
+  AddonServices, 
   Notifications, 
   Reports
 } from "@/routes/SubAdminLazyImports";
@@ -28,7 +28,7 @@ const SubAdminRoutes = () => {
             <Route path="/content-moderation" element={<ContentModeration />} />
             <Route path="/support-tickets" element={<SupportTickets />} />
             <Route path="/vendor-performance" element={<VendorPerformance />} />
-            <Route path="/promotions" element={<Promotions />} />
+            <Route path="/addon-services" element={<AddonServices />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/reports" element={<Reports />} />
           </Routes>

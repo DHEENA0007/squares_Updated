@@ -5,7 +5,7 @@ import {
   Shield, 
   HeadphonesIcon, 
   TrendingUp, 
-  Star, 
+  Package, 
   Bell, 
   BarChart3,
   ChevronLeft, 
@@ -28,7 +28,7 @@ const subAdminNavItems = [
   { icon: Shield, label: "Content Moderation", path: "/subadmin/content-moderation" },
   { icon: HeadphonesIcon, label: "Support Tickets", path: "/subadmin/support-tickets" },
   { icon: TrendingUp, label: "Vendor Performance", path: "/subadmin/vendor-performance" },
-  { icon: Star, label: "Promotions", path: "/subadmin/promotions" },
+  { icon: Package, label: "Addon Services", path: "/subadmin/addon-services" },
   { icon: Bell, label: "Notifications", path: "/subadmin/notifications" },
   { icon: BarChart3, label: "Reports", path: "/subadmin/reports" },
 ];

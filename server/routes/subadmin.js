@@ -5,6 +5,9 @@ const User = require('../models/User');
 const Message = require('../models/Message');
 const SupportTicket = require('../models/SupportTicket');
 const Review = require('../models/Review');
+const Subscription = require('../models/Subscription');
+const AddonService = require('../models/AddonService');
+const emailService = require('../utils/emailService');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const { isSubAdmin, hasPermission, SUB_ADMIN_PERMISSIONS } = require('../middleware/roleMiddleware');
 const { asyncHandler } = require('../middleware/errorMiddleware');
@@ -948,6 +951,269 @@ router.get('/reports/city/:city',
         period: { startDate, endDate }
       }
     });
+  })
+);
+
+// Addon Services Routes
+router.get('/addon-services',
+  hasPermission(SUB_ADMIN_PERMISSIONS.APPROVE_PROMOTIONS), // Reusing promotions permission for addon services
+  asyncHandler(async (req, res) => {
+    const { status = 'active', search = '' } = req.query;
+
+    try {
+      // Build match query for subscriptions
+      let matchQuery = {};
+      
+      if (status === 'active') {
+        matchQuery.status = 'active';
+        matchQuery.endDate = { $gt: new Date() };
+        matchQuery.addons = { $exists: true, $ne: [] }; // Only subscriptions with addons
+      } else if (status === 'expired') {
+        matchQuery.$or = [
+          { status: 'expired' },
+          { endDate: { $lte: new Date() } }
+        ];
+        matchQuery.addons = { $exists: true, $ne: [] };
+      } else {
+        // All vendors with addon purchases (including expired)
+        matchQuery.addons = { $exists: true, $ne: [] };
+      }
+
+      // Aggregate vendor addon data
+      const vendorAddons = await Subscription.aggregate([
+        { $match: matchQuery },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user',
+            foreignField: '_id',
+            as: 'user'
+          }
+        },
+        { $unwind: '$user' },
+        {
+          $lookup: {
+            from: 'addonservices',
+            localField: 'addons',
+            foreignField: '_id',
+            as: 'addonDetails'
+          }
+        },
+        // Filter users by search term if provided
+        ...(search ? [{
+          $match: {
+            $or: [
+              { 'user.email': { $regex: search, $options: 'i' } },
+              { 'user.profile.firstName': { $regex: search, $options: 'i' } },
+              { 'user.profile.lastName': { $regex: search, $options: 'i' } }
+            ]
+          }
+        }] : []),
+        {
+          $group: {
+            _id: '$user._id',
+            user: { $first: '$user' },
+            totalAddons: { $sum: { $size: '$addons' } },
+            activeAddons: { $addToSet: '$addonDetails' },
+            subscriptions: {
+              $push: {
+                _id: '$_id',
+                status: '$status',
+                startDate: '$startDate',
+                endDate: '$endDate',
+                addons: '$addonDetails'
+              }
+            }
+          }
+        },
+        {
+          $project: {
+            _id: 1,
+            user: {
+              _id: '$user._id',
+              name: { 
+                $concat: [
+                  { $ifNull: ['$user.profile.firstName', ''] },
+                  ' ',
+                  { $ifNull: ['$user.profile.lastName', ''] }
+                ]
+              },
+              email: '$user.email',
+              profile: '$user.profile'
+            },
+            totalAddons: 1,
+            activeAddons: {
+              $reduce: {
+                input: '$activeAddons',
+                initialValue: [],
+                in: { $concatArrays: ['$$value', '$$this'] }
+              }
+            },
+            subscriptions: 1
+          }
+        },
+        // Remove duplicates from activeAddons array
+        {
+          $addFields: {
+            activeAddons: {
+              $filter: {
+                input: {
+                  $reduce: {
+                    input: '$activeAddons',
+                    initialValue: [],
+                    in: {
+                      $cond: [
+                        { $in: ['$$this._id', '$$value._id'] },
+                        '$$value',
+                        { $concatArrays: ['$$value', ['$$this']] }
+                      ]
+                    }
+                  }
+                },
+                as: 'addon',
+                cond: { $ne: ['$$addon', null] }
+              }
+            }
+          }
+        },
+        { $sort: { totalAddons: -1 } }
+      ]);
+
+      res.json({
+        success: true,
+        data: {
+          vendorAddons,
+          total: vendorAddons.length
+        }
+      });
+    } catch (error) {
+      console.error('Addon services error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch addon services data',
+        error: error.message
+      });
+    }
+  })
+);
+
+// Schedule addon service - Send email to vendor
+router.post('/addon-services/schedule',
+  hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
+  asyncHandler(async (req, res) => {
+    const { vendorId, addonId, subject, message, vendorEmail } = req.body;
+
+    if (!vendorId || !addonId || !subject || !message || !vendorEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required: vendorId, addonId, subject, message, vendorEmail'
+      });
+    }
+
+    try {
+      // Get vendor and addon details
+      const [vendor, addon] = await Promise.all([
+        User.findById(vendorId).select('email profile'),
+        AddonService.findById(addonId)
+      ]);
+
+      if (!vendor) {
+        return res.status(404).json({
+          success: false,
+          message: 'Vendor not found'
+        });
+      }
+
+      if (!addon) {
+        return res.status(404).json({
+          success: false,
+          message: 'Addon service not found'
+        });
+      }
+
+      // Send email to vendor
+      await emailService.sendEmail({
+        to: vendorEmail,
+        subject: subject,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #2563eb; margin: 0;">Service Scheduling Request</h1>
+              <p style="color: #6b7280; margin: 5px 0;">From: ${req.user.email}</p>
+            </div>
+            
+            <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+              <h3 style="margin: 0 0 10px 0; color: #1f2937;">Vendor Information</h3>
+              <p style="margin: 5px 0;"><strong>Name:</strong> ${vendor.profile?.firstName || ''} ${vendor.profile?.lastName || ''}</p>
+              <p style="margin: 5px 0;"><strong>Email:</strong> ${vendor.email}</p>
+            </div>
+
+            <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+              <h3 style="margin: 0 0 10px 0; color: #1f2937;">Service Details</h3>
+              <p style="margin: 5px 0;"><strong>Service:</strong> ${addon.name}</p>
+              <p style="margin: 5px 0;"><strong>Category:</strong> ${addon.category.charAt(0).toUpperCase() + addon.category.slice(1)}</p>
+              <p style="margin: 5px 0;"><strong>Description:</strong> ${addon.description}</p>
+            </div>
+
+            <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 20px;">
+              <h3 style="margin: 0 0 15px 0; color: #1f2937;">Message</h3>
+              <div style="white-space: pre-wrap; line-height: 1.6; color: #374151;">${message}</div>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+              <p style="color: #6b7280; font-size: 14px; margin: 0;">
+                This email was sent from the Admin Panel. Please reply directly to this email with your preferred scheduling details.
+              </p>
+              <p style="color: #6b7280; font-size: 12px; margin: 10px 0 0 0;">
+                Sent on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+        `
+      });
+
+      // Broadcast real-time notification
+      adminRealtimeService.broadcastNotification({
+        type: 'addon_service_scheduled',
+        title: 'Addon Service Scheduled',
+        message: `Scheduling email sent to ${vendor.profile?.firstName || vendor.email} for ${addon.name}`,
+        data: {
+          vendorId,
+          vendorEmail,
+          addonId,
+          addonName: addon.name,
+          scheduledBy: req.user.email,
+          scheduledAt: new Date()
+        },
+        timestamp: new Date()
+      });
+
+      res.json({
+        success: true,
+        message: 'Scheduling email sent successfully',
+        data: {
+          vendor: {
+            id: vendor._id,
+            name: `${vendor.profile?.firstName || ''} ${vendor.profile?.lastName || ''}`.trim(),
+            email: vendor.email
+          },
+          addon: {
+            id: addon._id,
+            name: addon.name,
+            category: addon.category
+          },
+          emailSent: true,
+          sentAt: new Date()
+        }
+      });
+    } catch (error) {
+      console.error('Email sending error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send scheduling email',
+        error: error.message
+      });
+    }
   })
 );
 
