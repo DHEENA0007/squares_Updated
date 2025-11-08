@@ -136,7 +136,11 @@ const VendorApprovals: React.FC = () => {
         }
       });
 
-      if (!response.ok) throw new Error('Failed to fetch applications');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to fetch applications:', errorText);
+        throw new Error('Failed to fetch applications');
+      }
       
       const data = await response.json();
       setApplications(data.data.vendors);
@@ -159,7 +163,11 @@ const VendorApprovals: React.FC = () => {
         }
       });
 
-      if (!response.ok) throw new Error('Failed to fetch stats');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to fetch stats:', errorText);
+        throw new Error('Failed to fetch stats');
+      }
       
       const data = await response.json();
       setStats(data.data);
