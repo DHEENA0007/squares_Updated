@@ -1,0 +1,203 @@
+super admin portal
+
+Error fetching applications: Error: Invalid response format: Expected JSON but got text/html; charset=utf-8
+    o https://squares-v2.vercel.app/assets/apiUtils-DHdsH-JK.js:1
+    p https://squares-v2.vercel.app/assets/VendorApprovals-FcVHLhd8.js:1
+    Q https://squares-v2.vercel.app/assets/VendorApprovals-FcVHLhd8.js:1
+    Q https://squares-v2.vercel.app/assets/VendorApprovals-FcVHLhd8.js:1
+    al https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ln https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    sc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ge https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    ut https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    _c https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    xc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:25
+    zc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    <anonymous> https://squares-v2.vercel.app/assets/router-02yfTqxa.js:1
+VendorApprovals-FcVHLhd8.js:1:817
+
+subadmin portal
+Error fetching stats: Error: Invalid response format: Expected JSON but got text/html; charset=utf-8
+    o https://squares-v2.vercel.app/assets/apiUtils-DHdsH-JK.js:1
+    h https://squares-v2.vercel.app/assets/VendorApprovals-FcVHLhd8.js:1
+    Q https://squares-v2.vercel.app/assets/VendorApprovals-FcVHLhd8.js:1
+    Q https://squares-v2.vercel.app/assets/VendorApprovals-FcVHLhd8.js:1
+    al https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ln https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    sc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ge https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    ut https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    _c https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    xc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:25
+    zc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    <anonymous> https://squares-v2.vercel.app/assets/router-02yfTqxa.js:1
+VendorApprovals-FcVHLhd8.js:1:1099
+
+​
+
+
+
+Error fetching properties: Error: Invalid response format: Expected JSON but got text/html; charset=utf-8
+    o https://squares-v2.vercel.app/assets/apiUtils-DHdsH-JK.js:1
+    h https://squares-v2.vercel.app/assets/PropertyReviews-DUvHtFip.js:1
+    xe https://squares-v2.vercel.app/assets/PropertyReviews-DUvHtFip.js:1
+    al https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ln https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    sc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ge https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    ut https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    _c https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    xc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:25
+    zc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    <anonymous> https://squares-v2.vercel.app/assets/router-02yfTqxa.js:1
+PropertyReviews-DUvHtFip.js:1:1134
+
+    h https://squares-v2.vercel.app/assets/PropertyReviews-DUvHtFip.js:1
+    xe https://squares-v2.vercel.app/assets/PropertyReviews-DUvHtFip.js:1
+    al https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ln https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    sc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ge https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    ut https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    (Async: EventHandlerNonNull)
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    _c https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    xc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:25
+    zc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    <anonymous> https://squares-v2.vercel.app/assets/router-02yfTqxa.js:1
+
+​
+
+Error fetching rejected properties: Error: Invalid response format: Expected JSON but got text/html; charset=utf-8
+    o https://squares-v2.vercel.app/assets/apiUtils-DHdsH-JK.js:1
+    h https://squares-v2.vercel.app/assets/PropertyRejections-bSrRNQll.js:1
+    ae https://squares-v2.vercel.app/assets/PropertyRejections-bSrRNQll.js:1
+    al https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ln https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    sc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ge https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    ut https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    _c https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    xc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:25
+    zc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    <anonymous> https://squares-v2.vercel.app/assets/router-02yfTqxa.js:1
+PropertyRejections-bSrRNQll.js:1:871
+
+    h https://squares-v2.vercel.app/assets/PropertyRejections-bSrRNQll.js:1
+    ae https://squares-v2.vercel.app/assets/PropertyRejections-bSrRNQll.js:1
+    al https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ln https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    sc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ge https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    ut https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    (Async: EventHandlerNonNull)
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    _c https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    xc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:25
+    zc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    <anonymous> https://squares-v2.vercel.app/assets/router-02yfTqxa.js:1
+
+​
+
+Error fetching content reports: Error: Invalid response format: Expected JSON but got text/html; charset=utf-8
+    o https://squares-v2.vercel.app/assets/apiUtils-DHdsH-JK.js:1
+    h https://squares-v2.vercel.app/assets/ContentModeration-a7VOye6Z.js:6
+    he https://squares-v2.vercel.app/assets/ContentModeration-a7VOye6Z.js:6
+    al https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ln https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    sc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ge https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    ut https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    _c https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    xc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:25
+    zc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    <anonymous> https://squares-v2.vercel.app/assets/router-02yfTqxa.js:1
+ContentModeration-a7VOye6Z.js:6:601
+
+​
+
+Error fetching vendor metrics: Error: Invalid response format: Expected JSON but got text/html; charset=utf-8
+    o https://squares-v2.vercel.app/assets/apiUtils-DHdsH-JK.js:1
+    A https://squares-v2.vercel.app/assets/VendorPerformance-DugCTBBI.js:1
+    se https://squares-v2.vercel.app/assets/VendorPerformance-DugCTBBI.js:1
+    al https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ln https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    sc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ge https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    ut https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    _c https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    xc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:25
+    zc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    <anonymous> https://squares-v2.vercel.app/assets/router-02yfTqxa.js:1
+VendorPerformance-DugCTBBI.js:1:1112
+    A https://squares-v2.vercel.app/assets/VendorPerformance-DugCTBBI.js:1
+    se https://squares-v2.vercel.app/assets/VendorPerformance-DugCTBBI.js:1
+    al https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ln https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    sc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ge https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    ut https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    (Async: EventHandlerNonNull)
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    _c https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    xc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:25
+    zc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    <anonymous> https://squares-v2.vercel.app/assets/router-02yfTqxa.js:1
+
+​
+
+Error fetching notifications: Error: Invalid response format: Expected JSON but got text/html; charset=utf-8
+    o https://squares-v2.vercel.app/assets/apiUtils-DHdsH-JK.js:1
+    S https://squares-v2.vercel.app/assets/Notifications-CNqKwLV9.js:1
+    ue https://squares-v2.vercel.app/assets/Notifications-CNqKwLV9.js:1
+    al https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ln https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    sc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ge https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    ut https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    _c https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    xc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:25
+    zc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    <anonymous> https://squares-v2.vercel.app/assets/router-02yfTqxa.js:1
+Notifications-CNqKwLV9.js:1:928
+
+​
+
+
+Error fetching report data: Error: Invalid response format: Expected JSON but got text/html; charset=utf-8
+    o https://squares-v2.vercel.app/assets/apiUtils-DHdsH-JK.js:1
+    E https://squares-v2.vercel.app/assets/Reports-oCZZQE5U.js:1
+    K https://squares-v2.vercel.app/assets/Reports-oCZZQE5U.js:1
+    al https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ln https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    sc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    Ge https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    ut https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    Cc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    _c https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:17
+    xc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:25
+    zc https://squares-v2.vercel.app/assets/vendor-Dazix4UH.js:32
+    <anonymous> https://squares-v2.vercel.app/assets/router-02yfTqxa.js:1
+Reports-oCZZQE5U.js:1:719
+
+​
+
+and addon servies shows empty
