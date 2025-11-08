@@ -5,6 +5,7 @@ interface User {
   id: string;
   email: string;
   role: string;
+  rolePages?: string[];
   profile?: any;
 }
 

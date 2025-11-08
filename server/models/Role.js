@@ -11,38 +11,9 @@ const roleSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  permissions: [{
+  pages: [{
     type: String,
-    required: true,
-    enum: [
-      'create_property',
-      'read_property', 
-      'update_property',
-      'delete_property',
-      'manage_users',
-      'manage_roles',
-      'manage_plans',
-      'view_dashboard',
-      'manage_settings',
-      'manage_content',
-      'send_messages',
-      'moderate_content',
-      'access_analytics',
-      // Sub Admin specific permissions
-      'review_properties',
-      'approve_properties',
-      'reject_properties',
-      'moderate_user_content',
-      'handle_support_tickets',
-      'track_vendor_performance',
-      'approve_promotions',
-      'send_notifications',
-      'generate_reports',
-      // Vendor approval permissions
-      'approve_vendors',
-      'reject_vendors',
-      'review_vendors'
-    ]
+    required: true
   }],
   isSystemRole: {
     type: Boolean,
@@ -73,34 +44,61 @@ roleSchema.virtual('userCount', {
 roleSchema.set('toJSON', { virtuals: true });
 roleSchema.set('toObject', { virtuals: true });
 
-// Static method to get default roles
+// Static method to get default roles with page-based access
 roleSchema.statics.getDefaultRoles = function() {
   return [
     {
       name: 'customer',
       description: 'Regular customer with basic property viewing and inquiry capabilities',
-      permissions: ['read_property', 'send_messages'],
+      pages: [
+        'customer_dashboard',
+        'customer_search',
+        'customer_favorites',
+        'customer_compare',
+        'customer_owned_properties',
+        'customer_messages',
+        'customer_services',
+        'customer_reviews',
+        'customer_profile',
+        'customer_settings'
+      ],
       isSystemRole: true,
       level: 1
     },
     {
       name: 'agent',
-      description: 'Property agent who can manage their own listings and interact with customers',
-      permissions: ['create_property', 'read_property', 'update_property', 'send_messages', 'access_analytics'],
+      description: 'Property vendor who can manage their own listings and interact with customers',
+      pages: [
+        'vendor_dashboard',
+        'vendor_properties',
+        'vendor_add_property',
+        'vendor_leads',
+        'vendor_messages',
+        'vendor_analytics',
+        'vendor_services',
+        'vendor_subscription',
+        'vendor_billing',
+        'vendor_reviews',
+        'vendor_profile'
+      ],
       isSystemRole: true,
       level: 5
     },
     {
       name: 'subadmin',
       description: 'Sub Administrator with limited administrative access',
-      permissions: [
-        'read_property', 'update_property',
-        'review_properties', 'approve_properties', 'reject_properties',
-        'moderate_user_content', 'handle_support_tickets',
-        'track_vendor_performance', 'approve_promotions',
-        'send_notifications', 'generate_reports',
-        'approve_vendors', 'reject_vendors', 'review_vendors',
-        'view_dashboard', 'send_messages', 'moderate_content', 'access_analytics'
+      pages: [
+        'subadmin_dashboard',
+        'property_reviews',
+        'property_rejections',
+        'content_moderation',
+        'support_tickets',
+        'vendor_performance',
+        'addon_services',
+        'notifications',
+        'reports',
+        'privacy_policy',
+        'refund_policy'
       ],
       isSystemRole: true,
       level: 7
@@ -108,14 +106,18 @@ roleSchema.statics.getDefaultRoles = function() {
     {
       name: 'superadmin',
       description: 'Super Administrator with full system access and control',
-      permissions: [
-        'create_property', 'read_property', 'update_property', 'delete_property',
-        'manage_users', 'manage_roles', 'manage_plans', 'view_dashboard',
-        'manage_settings', 'manage_content', 'send_messages', 'moderate_content',
-        'access_analytics', 'review_properties', 'approve_properties', 'reject_properties',
-        'moderate_user_content', 'handle_support_tickets', 'track_vendor_performance',
-        'approve_promotions', 'send_notifications', 'generate_reports',
-        'approve_vendors', 'reject_vendors', 'review_vendors'
+      pages: [
+        'dashboard',
+        'users',
+        'vendor_approvals',
+        'messages',
+        'roles',
+        'clients',
+        'properties',
+        'plans',
+        'addons',
+        'privacy_policy',
+        'refund_policy'
       ],
       isSystemRole: true,
       level: 10

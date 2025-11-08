@@ -2634,6 +2634,130 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
   }
 }));
 
+// @desc    Get vendor subscription limits
+// @route   GET /api/vendors/subscription-limits
+// @access  Private/Agent
+router.get('/subscription-limits', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+
+  try {
+    const Subscription = require('../models/Subscription');
+    const Property = require('../models/Property');
+    
+    // Get active subscription
+    const activeSubscription = await Subscription.findOne({
+      user: vendorId,
+      status: 'active',
+      endDate: { $gt: new Date() }
+    }).populate('plan').sort({ createdAt: -1 });
+
+    // Count current properties
+    const currentProperties = await Property.countDocuments({ owner: vendorId });
+
+    let maxProperties = 5; // Free tier default
+    let planName = 'Free';
+    let features = ['5 Property Listings'];
+
+    if (activeSubscription && activeSubscription.plan) {
+      const plan = activeSubscription.plan;
+      planName = plan.name || 'Free';
+      
+      // Get property limit from plan
+      const propertyLimit = plan.limits?.properties || 5;
+      maxProperties = propertyLimit === 0 ? 999999 : propertyLimit; // 0 means unlimited
+      
+      // Extract features
+      features = (plan.features || []).map(f => {
+        if (typeof f === 'string') return f;
+        if (f && typeof f === 'object' && f.name && f.enabled !== false) return f.name;
+        return null;
+      }).filter(Boolean);
+      
+      if (features.length === 0) {
+        features = [`${maxProperties === 999999 ? 'Unlimited' : maxProperties} Property Listings`];
+      }
+    }
+
+    const canAddMore = currentProperties < maxProperties;
+
+    res.json({
+      success: true,
+      data: {
+        maxProperties,
+        currentProperties,
+        canAddMore,
+        planName,
+        features
+      }
+    });
+  } catch (error) {
+    console.error('Subscription limits error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch subscription limits',
+      data: {
+        maxProperties: 5,
+        currentProperties: 0,
+        canAddMore: true,
+        planName: 'Free',
+        features: ['5 Property Listings']
+      }
+    });
+  }
+}));
+
+// @desc    Get current vendor subscription
+// @route   GET /api/vendors/subscription/current
+// @access  Private/Agent
+router.get('/subscription/current', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+
+  try {
+    const Subscription = require('../models/Subscription');
+    
+    const activeSubscription = await Subscription.findOne({
+      user: vendorId,
+      status: 'active',
+      endDate: { $gt: new Date() }
+    }).populate([
+      { path: 'plan' },
+      { path: 'addons', select: 'name description price category billingType' }
+    ]).sort({ createdAt: -1 });
+
+    if (!activeSubscription || !activeSubscription.plan) {
+      return res.json({
+        success: true,
+        data: null
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        _id: activeSubscription._id,
+        vendorId: vendorId,
+        planId: activeSubscription.plan._id,
+        plan: activeSubscription.plan,
+        status: activeSubscription.status,
+        billingCycle: activeSubscription.billingCycle || 'monthly',
+        startDate: activeSubscription.startDate,
+        endDate: activeSubscription.endDate,
+        nextBillingDate: activeSubscription.endDate,
+        amount: activeSubscription.amount,
+        currency: activeSubscription.currency || 'INR',
+        autoRenew: activeSubscription.autoRenew || false,
+        addons: activeSubscription.addons || []
+      }
+    });
+  } catch (error) {
+    console.error('Get current subscription error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch current subscription'
+    });
+  }
+}));
+
 // @desc    Get vendor payments
 // @route   GET /api/vendors/payments
 // @access  Private/Agent
@@ -2869,6 +2993,359 @@ router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) =>
     res.status(500).json({
       success: false,
       message: 'Failed to fetch billing stats'
+    });
+  }
+}));
+
+// @desc    Get payment details
+// @route   GET /api/vendors/payments/:id
+// @access  Private/Agent
+router.get('/payments/:id', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const paymentId = req.params.id;
+  
+  try {
+    const Subscription = require('../models/Subscription');
+    
+    const subscription = await Subscription.findOne({
+      _id: paymentId,
+      user: vendorId
+    }).populate('plan', 'name price');
+
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found'
+      });
+    }
+
+    const payment = {
+      _id: subscription._id,
+      vendorId: subscription.user,
+      subscriptionId: subscription._id,
+      amount: subscription.amount || (subscription.plan ? subscription.plan.price : 0),
+      currency: subscription.currency || 'INR',
+      status: subscription.status === 'active' ? 'completed' : subscription.status === 'expired' ? 'failed' : 'pending',
+      paymentMethod: 'razorpay',
+      paymentGateway: 'razorpay',
+      transactionId: `TXN_${subscription._id.toString().slice(-12).toUpperCase()}`,
+      gatewayOrderId: subscription.razorpayOrderId || null,
+      description: `Payment for ${subscription.plan ? subscription.plan.name : 'Subscription'}`,
+      paidAt: subscription.status === 'active' ? subscription.startDate : null,
+      failureReason: subscription.status === 'expired' ? 'Subscription expired' : null,
+      createdAt: subscription.createdAt,
+      updatedAt: subscription.updatedAt
+    };
+
+    res.json({
+      success: true,
+      data: payment
+    });
+  } catch (error) {
+    console.error('Get payment details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch payment details'
+    });
+  }
+}));
+
+// @desc    Download payment receipt
+// @route   GET /api/vendors/payments/:id/receipt
+// @access  Private/Agent
+router.get('/payments/:id/receipt', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const paymentId = req.params.id;
+  
+  try {
+    const Subscription = require('../models/Subscription');
+    const User = require('../models/User');
+    
+    const subscription = await Subscription.findOne({
+      _id: paymentId,
+      user: vendorId
+    }).populate('plan', 'name price');
+
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found'
+      });
+    }
+
+    const user = await User.findById(vendorId);
+    
+    // Generate simple text receipt (In production, use PDF library like pdfkit)
+    const receiptText = `
+=====================================
+      PAYMENT RECEIPT
+=====================================
+
+Receipt ID: RCP-${subscription._id.toString().slice(-8).toUpperCase()}
+Date: ${new Date(subscription.createdAt).toLocaleDateString()}
+
+Customer Details:
+Name: ${user?.profile?.firstName || ''} ${user?.profile?.lastName || ''}
+Email: ${user?.email || ''}
+
+Payment Details:
+Description: ${subscription.plan ? subscription.plan.name : 'Subscription'} Plan
+Amount: ₹${subscription.amount || 0}
+Payment Method: Razorpay
+Transaction ID: TXN_${subscription._id.toString().slice(-12).toUpperCase()}
+Status: ${subscription.status === 'active' ? 'Paid' : 'Pending'}
+
+Thank you for your payment!
+
+BuildHomeMartSquares
+=====================================
+    `;
+
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Disposition', `attachment; filename=receipt-${subscription._id}.txt`);
+    res.send(receiptText);
+  } catch (error) {
+    console.error('Download receipt error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to download receipt'
+    });
+  }
+}));
+
+// @desc    Get invoice details
+// @route   GET /api/vendors/invoices/:id
+// @access  Private/Agent
+router.get('/invoices/:id', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const invoiceId = req.params.id;
+  
+  try {
+    const Subscription = require('../models/Subscription');
+    const User = require('../models/User');
+    
+    const subscription = await Subscription.findOne({
+      _id: invoiceId,
+      user: vendorId
+    }).populate('plan', 'name price').populate('user', 'profile.firstName profile.lastName email profile.phone');
+
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invoice not found'
+      });
+    }
+
+    const user = subscription.user;
+    const plan = subscription.plan;
+    const amount = subscription.amount || (plan ? plan.price : 0);
+    const tax = Math.round(amount * 0.18);
+    const total = amount + tax;
+    
+    const invoice = {
+      _id: subscription._id,
+      invoiceNumber: `INV-${new Date().getFullYear()}-${subscription._id.toString().slice(-6).toUpperCase()}`,
+      vendorId: subscription.user,
+      subscriptionId: subscription._id,
+      amount,
+      tax,
+      total,
+      currency: subscription.currency || 'INR',
+      status: subscription.status === 'active' ? 'paid' : subscription.status === 'expired' ? 'overdue' : 'sent',
+      issueDate: subscription.createdAt,
+      dueDate: new Date(subscription.createdAt.getTime() + 30 * 24 * 60 * 60 * 1000),
+      paidDate: subscription.status === 'active' ? subscription.startDate : null,
+      items: [{
+        description: `${plan ? plan.name : 'Subscription'} Plan - Monthly Subscription`,
+        quantity: 1,
+        unitPrice: amount,
+        total: amount
+      }],
+      vendorDetails: {
+        name: user ? `${user.profile?.firstName || ''} ${user.profile?.lastName || ''}`.trim() || 'Vendor' : 'Vendor',
+        email: user?.email || '',
+        phone: user?.profile?.phone || '',
+        address: 'India',
+        gst: user?.profile?.gst || null
+      }
+    };
+
+    res.json({
+      success: true,
+      data: invoice
+    });
+  } catch (error) {
+    console.error('Get invoice details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch invoice details'
+    });
+  }
+}));
+
+// @desc    Download invoice
+// @route   GET /api/vendors/invoices/:id/download
+// @access  Private/Agent
+router.get('/invoices/:id/download', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const invoiceId = req.params.id;
+  
+  try {
+    const Subscription = require('../models/Subscription');
+    const User = require('../models/User');
+    
+    const subscription = await Subscription.findOne({
+      _id: invoiceId,
+      user: vendorId
+    }).populate('plan', 'name price').populate('user', 'profile.firstName profile.lastName email profile.phone');
+
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invoice not found'
+      });
+    }
+
+    const user = subscription.user;
+    const plan = subscription.plan;
+    const amount = subscription.amount || (plan ? plan.price : 0);
+    const tax = Math.round(amount * 0.18);
+    const total = amount + tax;
+    
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${subscription._id.toString().slice(-6).toUpperCase()}`;
+    
+    // Generate simple text invoice (In production, use PDF library)
+    const invoiceText = `
+=====================================
+         INVOICE
+=====================================
+
+Invoice #: ${invoiceNumber}
+Issue Date: ${new Date(subscription.createdAt).toLocaleDateString()}
+Due Date: ${new Date(subscription.createdAt.getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+Status: ${subscription.status === 'active' ? 'PAID' : 'PENDING'}
+
+Bill To:
+${user?.profile?.firstName || ''} ${user?.profile?.lastName || ''}
+${user?.email || ''}
+${user?.profile?.phone || ''}
+
+Items:
+-------------------------------------
+Description: ${plan ? plan.name : 'Subscription'} Plan
+Quantity: 1
+Unit Price: ₹${amount}
+Total: ₹${amount}
+
+-------------------------------------
+Subtotal: ₹${amount}
+Tax (18% GST): ₹${tax}
+=====================================
+TOTAL: ₹${total}
+=====================================
+
+Payment Method: Razorpay
+${subscription.status === 'active' ? `Paid Date: ${new Date(subscription.startDate).toLocaleDateString()}` : ''}
+
+Thank you for your business!
+
+BuildHomeMartSquares
+www.buildhomemartsquares.com
+=====================================
+    `;
+
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Disposition', `attachment; filename=invoice-${invoiceNumber}.txt`);
+    res.send(invoiceText);
+  } catch (error) {
+    console.error('Download invoice error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to download invoice'
+    });
+  }
+}));
+
+// @desc    Export billing data
+// @route   GET /api/vendors/billing/export
+// @access  Private/Agent
+router.get('/billing/export', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const { format = 'pdf', dateFrom, dateTo } = req.query;
+  
+  try {
+    const Subscription = require('../models/Subscription');
+    
+    const filter = { user: vendorId };
+    if (dateFrom || dateTo) {
+      filter.createdAt = {};
+      if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
+      if (dateTo) filter.createdAt.$lte = new Date(dateTo);
+    }
+    
+    const subscriptions = await Subscription.find(filter)
+      .populate('plan', 'name price')
+      .sort({ createdAt: -1 });
+
+    let exportData = '';
+    
+    if (format === 'csv') {
+      exportData = 'Date,Plan,Amount,Currency,Status,Start Date,End Date\n';
+      subscriptions.forEach(sub => {
+        exportData += `${new Date(sub.createdAt).toLocaleDateString()},`;
+        exportData += `${sub.plan ? sub.plan.name : 'N/A'},`;
+        exportData += `${sub.amount || 0},`;
+        exportData += `${sub.currency || 'INR'},`;
+        exportData += `${sub.status},`;
+        exportData += `${new Date(sub.startDate).toLocaleDateString()},`;
+        exportData += `${new Date(sub.endDate).toLocaleDateString()}\n`;
+      });
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=billing-export-${Date.now()}.csv`);
+    } else {
+      exportData = `
+=====================================
+    BILLING REPORT
+=====================================
+
+Generated: ${new Date().toLocaleString()}
+
+Total Subscriptions: ${subscriptions.length}
+
+-------------------------------------
+SUBSCRIPTION HISTORY
+-------------------------------------
+
+`;
+      subscriptions.forEach((sub, index) => {
+        exportData += `
+${index + 1}. ${sub.plan ? sub.plan.name : 'N/A'}
+   Amount: ₹${sub.amount || 0}
+   Status: ${sub.status}
+   Start: ${new Date(sub.startDate).toLocaleDateString()}
+   End: ${new Date(sub.endDate).toLocaleDateString()}
+   Created: ${new Date(sub.createdAt).toLocaleDateString()}
+-------------------------------------
+`;
+      });
+
+      exportData += `
+BuildHomeMartSquares
+www.buildhomemartsquares.com
+=====================================
+      `;
+      
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', `attachment; filename=billing-report-${Date.now()}.txt`);
+    }
+
+    res.send(exportData);
+  } catch (error) {
+    console.error('Export billing data error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export billing data'
     });
   }
 }));

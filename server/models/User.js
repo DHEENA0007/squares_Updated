@@ -19,6 +19,9 @@ const userSchema = new mongoose.Schema({
     enum: ['customer', 'agent', 'admin', 'subadmin', 'superadmin'],
     default: 'customer'
   },
+  rolePages: [{
+    type: String
+  }],
   status: {
     type: String,
     enum: ['pending', 'active', 'suspended', 'inactive'],

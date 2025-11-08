@@ -513,6 +513,115 @@ class BillingService {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   }
+
+  async getPaymentDetails(paymentId: string): Promise<Payment | null> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: Payment;
+      }>(`/vendors/payments/${paymentId}`);
+
+      return response.success ? response.data : null;
+    } catch (error) {
+      console.error("Failed to fetch payment details:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load payment details",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }
+
+  async getInvoiceDetails(invoiceId: string): Promise<Invoice | null> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: Invoice;
+      }>(`/vendors/invoices/${invoiceId}`);
+
+      return response.success ? response.data : null;
+    } catch (error) {
+      console.error("Failed to fetch invoice details:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load invoice details",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }
+
+  async downloadReceipt(paymentId: string): Promise<Blob | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/vendors/payments/${paymentId}/receipt`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to download receipt");
+      }
+
+      const blob = await response.blob();
+      
+      toast({
+        title: "Success",
+        description: "Receipt downloaded successfully!",
+      });
+
+      return blob;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to download receipt";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return null;
+    }
+  }
+
+  async exportBillingData(format: 'csv' | 'pdf' | 'excel', filters: BillingFilters = {}): Promise<Blob | null> {
+    try {
+      const queryParams = new URLSearchParams();
+      queryParams.append('format', format);
+      
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+
+      const response = await fetch(`${API_BASE_URL}/vendors/billing/export?${queryParams.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to export billing data");
+      }
+
+      const blob = await response.blob();
+      
+      toast({
+        title: "Success",
+        description: "Billing data exported successfully!",
+      });
+
+      return blob;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to export billing data";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return null;
+    }
+  }
 }
 
 export const billingService = new BillingService();

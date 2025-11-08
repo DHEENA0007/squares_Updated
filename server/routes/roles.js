@@ -8,10 +8,10 @@ const router = express.Router();
 // Apply auth middleware
 router.use(authenticateToken);
 
-// @desc    Get available permissions
-// @route   GET /api/roles/permissions
+// @desc    Get available pages
+// @route   GET /api/roles/pages
 // @access  Private/Admin
-router.get('/permissions', asyncHandler(async (req, res) => {
+router.get('/pages', asyncHandler(async (req, res) => {
   if (!['superadmin', 'subadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
@@ -19,39 +19,63 @@ router.get('/permissions', asyncHandler(async (req, res) => {
     });
   }
 
-  const permissions = [
-    'create_property',
-    'read_property', 
-    'update_property',
-    'delete_property',
-    'manage_users',
-    'manage_roles',
-    'manage_plans',
-    'view_dashboard',
-    'manage_settings',
-    'manage_content',
-    'send_messages',
-    'moderate_content',
-    'access_analytics',
-    // Sub Admin specific permissions
-    'review_properties',
-    'approve_properties',
-    'reject_properties',
-    'moderate_user_content',
-    'handle_support_tickets',
-    'track_vendor_performance',
-    'approve_promotions',
-    'send_notifications',
-    'generate_reports',
-    // Vendor approval permissions
-    'approve_vendors',
-    'reject_vendors',
-    'review_vendors'
-  ];
+  const pages = {
+    admin: [
+      'dashboard',
+      'users',
+      'vendor_approvals',
+      'messages',
+      'roles',
+      'clients',
+      'properties',
+      'plans',
+      'addons',
+      'privacy_policy',
+      'refund_policy'
+    ],
+    subadmin: [
+      'subadmin_dashboard',
+      'property_reviews',
+      'property_rejections',
+      'content_moderation',
+      'support_tickets',
+      'vendor_performance',
+      'addon_services',
+      'notifications',
+      'reports',
+      'privacy_policy',
+      'refund_policy'
+    ],
+    vendor: [
+      'vendor_dashboard',
+      'vendor_properties',
+      'vendor_add_property',
+      'vendor_leads',
+      'vendor_messages',
+      'vendor_analytics',
+      'vendor_services',
+      'vendor_subscription',
+      'vendor_billing',
+      'vendor_reviews',
+      'vendor_profile'
+    ],
+    customer: [
+      'customer_dashboard',
+      'customer_search',
+      'customer_favorites',
+      'customer_compare',
+      'customer_owned_properties',
+      'customer_messages',
+      'customer_services',
+      'customer_reviews',
+      'customer_profile',
+      'customer_settings'
+    ]
+  };
 
   res.json({
     success: true,
-    data: { permissions }
+    data: { pages }
   });
 }));
 

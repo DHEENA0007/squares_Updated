@@ -30,6 +30,7 @@ export interface User {
     };
   };
   role: string;
+  rolePages?: string[];
   status: 'active' | 'inactive' | 'pending' | 'suspended';
   createdAt: string;
   updatedAt: string;

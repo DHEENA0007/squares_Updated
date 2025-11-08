@@ -8,11 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, Save, Shield, CheckCircle2, Info, AlertCircle } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ArrowLeft, Loader2, Info } from "lucide-react";
 import roleService, { Role } from "@/services/roleService";
 import { useAuth } from "@/contexts/AuthContext";
+import { getPagesByCategory, type PageConfig } from "@/config/pages.config";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const EditRole = () => {
   const { id } = useParams();
@@ -22,7 +22,8 @@ const EditRole = () => {
   const [role, setRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [availablePermissions, setAvailablePermissions] = useState<string[]>([]);
+
+  const categories = ['admin', 'subadmin', 'vendor', 'customer'] as const;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -30,18 +31,13 @@ const EditRole = () => {
       
       try {
         setLoading(true);
-        
-        // Fetch role and permissions in parallel
-        const [roleResponse, permissions] = await Promise.all([
-          roleService.getRole(id),
-          roleService.getPermissions() // Fetch from API instead of local
-        ]);
-        
-        console.log('Fetched role:', roleResponse.data.role);
-        console.log('Fetched permissions:', permissions);
-        
-        setRole(roleResponse.data.role);
-        setAvailablePermissions(permissions);
+        const roleResponse = await roleService.getRole(id);
+        const fetchedRole = roleResponse.data.role;
+        // Ensure pages is always an array
+        setRole({
+          ...fetchedRole,
+          pages: fetchedRole.pages || []
+        });
       } catch (error) {
         console.error("Failed to fetch role:", error);
         toast({
@@ -63,74 +59,101 @@ const EditRole = () => {
     
     if (!role || !id) return;
 
+    if (!role.pages || role.pages.length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please select at least one page",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setSaving(true);
       await roleService.updateRole(id, {
         name: role.name,
         description: role.description,
-        permissions: role.permissions,
+        pages: role.pages,
         isActive: role.isActive,
         level: role.level
       });
       navigate("/admin/roles");
     } catch (error) {
       console.error("Failed to update role:", error);
-      // Error is already handled by the service
     } finally {
       setSaving(false);
     }
   };
 
-  const togglePermission = (permission: string) => {
+  const togglePage = (pageId: string) => {
     if (!role) return;
-    // Only allow editing if not a system role OR if user is superadmin
     if (role.isSystemRole && !isSuperAdmin) return;
     
-    console.log('Toggling permission:', permission);
-    console.log('Current permissions:', role.permissions);
+    const currentPages = role.pages || [];
+    const newPages = currentPages.includes(pageId)
+      ? currentPages.filter((p) => p !== pageId)
+      : [...currentPages, pageId];
     
-    const newPermissions = role.permissions.includes(permission)
-      ? role.permissions.filter((p) => p !== permission)
-      : [...role.permissions, permission];
-    
-    console.log('New permissions:', newPermissions);
-    setRole({ ...role, permissions: newPermissions });
+    setRole({ ...role, pages: newPages });
   };
 
-  const formatPermissionName = (permission: string) => {
-    return permission.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  const toggleAllInCategory = (category: typeof categories[number]) => {
+    if (!role) return;
+    if (role.isSystemRole && !isSuperAdmin) return;
+
+    const categoryPages = getPagesByCategory(category);
+    const currentPages = role.pages || [];
+    const allSelected = categoryPages.every(page => currentPages.includes(page.id));
+
+    if (allSelected) {
+      setRole({
+        ...role,
+        pages: currentPages.filter(p => !categoryPages.some(cp => cp.id === p))
+      });
+    } else {
+      const newPages = categoryPages.map(p => p.id);
+      setRole({
+        ...role,
+        pages: [...new Set([...currentPages, ...newPages])]
+      });
+    }
   };
 
-  const groupPermissionsByCategory = () => {
-    const categories: Record<string, string[]> = {
-      'Property Management': [],
-      'User Management': [],
-      'Vendor Management': [],
-      'System Management': [],
-      'Communication': [],
-      'Support & Operations': [],
-      'Analytics': []
-    };
+  const PageCheckboxList = ({ pages }: { pages: PageConfig[] }) => {
+    if (!role) return null;
 
-    availablePermissions.forEach(permission => {
-      if (permission.includes('property') || permission.includes('review') || permission.includes('approve_properties') || permission.includes('reject_properties')) {
-        categories['Property Management'].push(permission);
-      } else if (permission.includes('user') || permission.includes('role')) {
-        categories['User Management'].push(permission);
-      } else if (permission.includes('vendor')) {
-        categories['Vendor Management'].push(permission);
-      } else if (permission.includes('plan') || permission.includes('dashboard') || permission.includes('settings') || permission.includes('content') && !permission.includes('moderate')) {
-        categories['System Management'].push(permission);
-      } else if (permission.includes('message') || permission.includes('moderate') || permission.includes('notification')) {
-        categories['Communication'].push(permission);
-      } else if (permission.includes('support') || permission.includes('promotion') || permission.includes('report')) {
-        categories['Support & Operations'].push(permission);
-      } else if (permission.includes('analytics')) {
-        categories['Analytics'].push(permission);
-      }
-    });
+    const currentPages = role.pages || [];
 
-    return Object.entries(categories).filter(([_, perms]) => perms.length > 0);
+    return (
+      <div className="space-y-2">
+        {pages.map((page) => (
+          <div key={page.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-accent/50 transition-colors">
+            <Checkbox
+              id={page.id}
+              checked={currentPages.includes(page.id)}
+              onCheckedChange={() => togglePage(page.id)}
+              disabled={role.isSystemRole && !isSuperAdmin}
+            />
+            <div className="flex-1 space-y-1">
+              <Label
+                htmlFor={page.id}
+                className="flex items-center gap-2 cursor-pointer font-medium"
+              >
+                <page.icon className="w-4 h-4" />
+                {page.label}
+                {page.subLabel && (
+                  <Badge variant="outline" className="text-xs">
+                    {page.subLabel}
+                  </Badge>
+                )}
+              </Label>
+              <p className="text-sm text-muted-foreground">{page.description}</p>
+              <p className="text-xs text-muted-foreground font-mono">{page.path}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   if (loading) {
@@ -159,55 +182,27 @@ const EditRole = () => {
   }
 
   return (
-    <div className="space-y-6 relative top-[60px] pb-10">
+    <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/admin/roles")}>
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-4 h-4" />
         </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight">Edit Role</h1>
-            {role.isSystemRole && (
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Shield className="h-3 w-3" />
-                System Role
-              </Badge>
-            )}
-          </div>
-          <p className="text-muted-foreground mt-2">
-            Update role details and permissions
-          </p>
+        <div>
+          <h1 className="text-3xl font-bold">Edit Role: {role.name}</h1>
+          <p className="text-muted-foreground">Update role details and page access</p>
         </div>
       </div>
 
-      {role.isSystemRole && (
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            This is a system role. Some fields are restricted to maintain system integrity. 
-            You can only update the description.
-          </AlertDescription>
-        </Alert>
-      )}
-
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Information */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-lg">1</span>
-              </div>
-              Basic Information
-            </CardTitle>
-            <CardDescription>
-              Core details about this role
-            </CardDescription>
+            <CardTitle>Basic Information</CardTitle>
+            <CardDescription>Core details about this role</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="name" className="flex items-center gap-1">
+                <Label htmlFor="name">
                   Role Name <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -216,250 +211,107 @@ const EditRole = () => {
                   onChange={(e) => setRole({ ...role, name: e.target.value })}
                   disabled={role.isSystemRole && !isSuperAdmin}
                   required
-                  className={role.isSystemRole && !isSuperAdmin ? "bg-muted" : ""}
                 />
-                {role.isSystemRole && !isSuperAdmin && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    System roles cannot be renamed
-                  </p>
-                )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="level" className="flex items-center gap-1">
-                  Authorization Level <span className="text-destructive">*</span>
-                </Label>
+                <Label htmlFor="level">Access Level (1-10)</Label>
                 <Input
                   id="level"
                   type="number"
-                  min={1}
-                  max={10}
+                  min="1"
+                  max="10"
                   value={role.level}
                   onChange={(e) => setRole({ ...role, level: parseInt(e.target.value) || 1 })}
                   disabled={role.isSystemRole && !isSuperAdmin}
-                  required
-                  className={role.isSystemRole && !isSuperAdmin ? "bg-muted" : ""}
                 />
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Info className="h-3 w-3" />
-                  Level {role.level}/10 - {
-                    role.level >= 8 ? 'High Authority' :
-                    role.level >= 5 ? 'Medium Authority' :
-                    'Low Authority'
-                  }
-                </p>
               </div>
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="description" className="flex items-center gap-1">
-                Description <span className="text-destructive">*</span>
-              </Label>
+              <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
                 value={role.description}
                 onChange={(e) => setRole({ ...role, description: e.target.value })}
-                rows={4}
-                required
-              />
-              <div className="flex justify-between items-center">
-                <p className="text-xs text-muted-foreground">
-                  {role.description.length} characters
-                </p>
-                {role.description.length >= 10 && (
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
-              <div className="flex-1">
-                <Label htmlFor="isActive" className="text-base font-medium cursor-pointer">
-                  Active Role
-                </Label>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {role.isActive ? 'Users can be assigned to this role' : 'Role is currently disabled'}
-                </p>
-              </div>
-              <Switch
-                id="isActive"
-                checked={role.isActive}
-                onCheckedChange={(checked) => setRole({ ...role, isActive: checked })}
-                disabled={role.isSystemRole && role.isActive && !isSuperAdmin}
+                rows={3}
               />
             </div>
-            {role.isSystemRole && role.isActive && !isSuperAdmin && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" />
-                System roles cannot be deactivated
-              </p>
-            )}
           </CardContent>
         </Card>
 
-        {/* Permissions */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-lg">2</span>
-              </div>
-              Permissions
-            </CardTitle>
+            <CardTitle>Page Access</CardTitle>
             <CardDescription>
-              Define what actions users with this role can perform
+              Select which pages this role can access
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {role.isSystemRole && (
-              <Alert>
-                <Shield className="h-4 w-4" />
-                <AlertDescription>
-                  System role permissions are managed by the system and cannot be modified
-                </AlertDescription>
-              </Alert>
-            )}
+          <CardContent>
+            <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg flex gap-2">
+              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-900 dark:text-blue-100">
+                <p className="font-medium mb-1">Selected: {role.pages?.length || 0} pages</p>
+                <p className="text-blue-700 dark:text-blue-300">
+                  Choose pages from different portal categories. Users with this role will only see and access the selected pages.
+                </p>
+              </div>
+            </div>
 
-            {groupPermissionsByCategory().map(([category, permissions]) => {
-              const selectedInCategory = permissions.filter(p => role.permissions.includes(p)).length;
-              const allSelected = selectedInCategory === permissions.length;
+            <Tabs defaultValue="admin" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="admin">Super Admin</TabsTrigger>
+                <TabsTrigger value="subadmin">Sub Admin</TabsTrigger>
+                <TabsTrigger value="vendor">Vendor</TabsTrigger>
+                <TabsTrigger value="customer">Customer</TabsTrigger>
+              </TabsList>
 
-              return (
-                <div key={category} className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Badge 
-                        variant={allSelected ? "default" : "outline"}
-                        className="text-sm px-3 py-1"
+              {categories.map((category) => {
+                const categoryPages = getPagesByCategory(category);
+                const currentPages = role.pages || [];
+                const selectedInCategory = categoryPages.filter(p => currentPages.includes(p.id)).length;
+
+                return (
+                  <TabsContent key={category} value={category} className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-accent/50 rounded-lg">
+                      <div>
+                        <p className="font-medium capitalize">{category} Pages</p>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedInCategory} of {categoryPages.length} selected
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleAllInCategory(category)}
+                        disabled={role.isSystemRole && !isSuperAdmin}
                       >
-                        {category}
-                      </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {selectedInCategory} of {permissions.length} selected
-                      </span>
+                        {selectedInCategory === categoryPages.length ? 'Deselect All' : 'Select All'}
+                      </Button>
                     </div>
-                    {allSelected && (
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    )}
-                  </div>
 
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {permissions.map((permission) => {
-                      const isSelected = role.permissions.includes(permission);
-                      const isDisabled = role.isSystemRole && !isSuperAdmin;
-                      return (
-                        <div
-                          key={permission}
-                          className={`flex items-start space-x-3 p-3 border-2 rounded-lg transition-all ${
-                            isDisabled ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
-                          } ${
-                            isSelected 
-                              ? 'border-primary bg-primary/5' 
-                              : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                          }`}
-                        >
-                          <Checkbox
-                            id={permission}
-                            checked={isSelected}
-                            onCheckedChange={() => !isDisabled && togglePermission(permission)}
-                            disabled={isDisabled}
-                            className="mt-1"
-                          />
-                          <div className="flex-1" onClick={() => !isDisabled && togglePermission(permission)}>
-                            <Label
-                              htmlFor={permission}
-                              className={`font-medium text-sm ${
-                                isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'
-                              }`}
-                            >
-                              {formatPermissionName(permission)}
-                            </Label>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-
-            {role.permissions.length === 0 && !role.isSystemRole && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  This role has no permissions assigned. Users with this role won't be able to perform any actions.
-                </AlertDescription>
-              </Alert>
-            )}
+                    <PageCheckboxList pages={categoryPages} />
+                  </TabsContent>
+                );
+              })}
+            </Tabs>
           </CardContent>
         </Card>
 
-        {/* Summary & Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-lg">3</span>
-              </div>
-              Review & Save
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg">
-              <div>
-                <p className="text-sm text-muted-foreground">Role Name</p>
-                <p className="font-medium">{role.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Level</p>
-                <Badge variant={role.level >= 8 ? 'destructive' : role.level >= 5 ? 'default' : 'secondary'}>
-                  Level {role.level}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Permissions</p>
-                <p className="font-medium">{role.permissions.length} selected</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Status</p>
-                <Badge variant={role.isActive ? "default" : "secondary"}>
-                  {role.isActive ? "Active" : "Inactive"}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <Button 
-                type="submit" 
-                disabled={saving}
-                className="flex items-center gap-2"
-                size="lg"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Saving Changes...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => navigate("/admin/roles")}
-                disabled={saving}
-                size="lg"
-              >
-                Cancel
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex gap-4">
+          <Button type="submit" disabled={saving}>
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate("/admin/roles")}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+        </div>
       </form>
     </div>
   );

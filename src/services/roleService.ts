@@ -5,7 +5,7 @@ export interface Role {
   _id: string;
   name: string;
   description: string;
-  permissions: string[];
+  pages: string[];
   isSystemRole: boolean;
   isActive: boolean;
   level: number;
@@ -227,57 +227,23 @@ class RoleService {
     }
   }
 
-  // Helper method to get available permissions from API
-  async getPermissions(): Promise<string[]> {
+  // Helper method to get available pages from API
+  async getPages(): Promise<string[]> {
     try {
-      const response = await this.makeRequest<{ success: boolean; data: { permissions: string[] } }>('/roles/permissions');
-      return response.data.permissions;
+      const response = await this.makeRequest<{ success: boolean; data: { pages: string[] } }>('/roles/pages');
+      return response.data.pages;
     } catch (error) {
-      console.error('Failed to fetch permissions:', error);
-      // Fallback to local permissions if API fails
-      return this.getAvailablePermissions();
+      console.error('Failed to fetch pages:', error);
+      return [];
     }
   }
 
-  // Helper method to get available permissions
-  getAvailablePermissions(): string[] {
-    return [
-      'create_property',
-      'read_property', 
-      'update_property',
-      'delete_property',
-      'manage_users',
-      'manage_roles',
-      'manage_plans',
-      'view_dashboard',
-      'manage_settings',
-      'manage_content',
-      'send_messages',
-      'moderate_content',
-      'access_analytics',
-      // Sub Admin specific permissions
-      'review_properties',
-      'approve_properties',
-      'reject_properties',
-      'moderate_user_content',
-      'handle_support_tickets',
-      'track_vendor_performance',
-      'approve_promotions',
-      'send_notifications',
-      'generate_reports',
-      // Vendor approval permissions
-      'approve_vendors',
-      'reject_vendors',
-      'review_vendors'
-    ];
-  }
-
-  // Helper method to format permissions for display
-  formatPermissions(permissions: string[]): string {
-    if (permissions.length <= 3) {
-      return permissions.map(p => p.replace(/_/g, ' ')).join(', ');
+  // Helper method to format pages for display
+  formatPages(pages: string[]): string {
+    if (pages.length <= 3) {
+      return pages.map(p => p.replace(/_/g, ' ')).join(', ');
     }
-    return `${permissions.slice(0, 2).map(p => p.replace(/_/g, ' ')).join(', ')} and ${permissions.length - 2} more`;
+    return `${pages.slice(0, 2).map(p => p.replace(/_/g, ' ')).join(', ')} and ${pages.length - 2} more`;
   }
 
   // Helper method to get role level badge variant

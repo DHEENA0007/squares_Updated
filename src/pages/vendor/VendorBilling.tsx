@@ -5,6 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   CreditCard,
   DollarSign,
   TrendingUp,
@@ -31,6 +38,11 @@ const VendorBilling: React.FC = () => {
   const [billingStats, setBillingStats] = useState<BillingStats | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState("last_30_days");
   const [activeTab, setActiveTab] = useState("overview");
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   useEffect(() => {
     loadBillingData();
@@ -138,6 +150,91 @@ const VendorBilling: React.FC = () => {
     });
   };
 
+  const handleExport = async () => {
+    try {
+      const blob = await billingService.exportBillingData('pdf', {
+        dateFrom: getDateFromPeriod(selectedPeriod),
+      });
+      
+      if (blob) {
+        billingService.downloadBlob(blob, `billing-report-${new Date().toISOString().split('T')[0]}.pdf`);
+      }
+    } catch (error) {
+      console.error("Export failed:", error);
+    }
+  };
+
+  const handleViewPayment = async (paymentId: string) => {
+    setLoadingDetails(true);
+    setIsPaymentDialogOpen(true);
+    
+    try {
+      const paymentDetails = await billingService.getPaymentDetails(paymentId);
+      if (paymentDetails) {
+        setSelectedPayment(paymentDetails);
+      }
+    } catch (error) {
+      console.error("Failed to load payment details:", error);
+      setIsPaymentDialogOpen(false);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const handleDownloadReceipt = async (payment: Payment) => {
+    try {
+      const blob = await billingService.downloadReceipt(payment._id);
+      if (blob) {
+        billingService.downloadBlob(blob, `receipt-${payment._id.slice(-8)}.pdf`);
+      }
+    } catch (error) {
+      console.error("Failed to download receipt:", error);
+    }
+  };
+
+  const handleViewInvoice = async (invoiceId: string) => {
+    setLoadingDetails(true);
+    setIsInvoiceDialogOpen(true);
+    
+    try {
+      const invoiceDetails = await billingService.getInvoiceDetails(invoiceId);
+      if (invoiceDetails) {
+        setSelectedInvoice(invoiceDetails);
+      }
+    } catch (error) {
+      console.error("Failed to load invoice details:", error);
+      setIsInvoiceDialogOpen(false);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const handleDownloadInvoice = async (invoice: Invoice) => {
+    try {
+      const blob = await billingService.downloadInvoice(invoice._id);
+      if (blob) {
+        billingService.downloadBlob(blob, `invoice-${invoice.invoiceNumber}.pdf`);
+      }
+    } catch (error) {
+      console.error("Failed to download invoice:", error);
+    }
+  };
+
+  const handleDownloadAllInvoices = async () => {
+    try {
+      for (const invoice of invoices) {
+        await handleDownloadInvoice(invoice);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      toast({
+        title: "Success",
+        description: `Downloaded ${invoices.length} invoices`,
+      });
+    } catch (error) {
+      console.error("Failed to download all invoices:", error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -151,6 +248,186 @@ const VendorBilling: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Payment Details Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Payment Details</DialogTitle>
+            <DialogDescription>
+              Complete information about this payment transaction
+            </DialogDescription>
+          </DialogHeader>
+          {loadingDetails ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : selectedPayment ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Payment ID</p>
+                  <p className="font-medium">{selectedPayment._id}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Transaction ID</p>
+                  <p className="font-medium">{selectedPayment.transactionId || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Amount</p>
+                  <p className="font-medium text-lg">{formatAmount(selectedPayment.amount, selectedPayment.currency)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge className={getStatusColor(selectedPayment.status)}>
+                    {selectedPayment.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Payment Method</p>
+                  <p className="font-medium capitalize">{selectedPayment.paymentMethod.replace('_', ' ')}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Payment Gateway</p>
+                  <p className="font-medium capitalize">{selectedPayment.paymentGateway}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Created At</p>
+                  <p className="font-medium">{formatDate(selectedPayment.createdAt)}</p>
+                </div>
+                {selectedPayment.paidAt && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Paid At</p>
+                    <p className="font-medium">{formatDate(selectedPayment.paidAt)}</p>
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Description</p>
+                <p className="font-medium">{selectedPayment.description}</p>
+              </div>
+              {selectedPayment.failureReason && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600 font-medium">Failure Reason</p>
+                  <p className="text-sm text-red-800">{selectedPayment.failureReason}</p>
+                </div>
+              )}
+              <div className="flex gap-2 pt-4">
+                <Button onClick={() => handleDownloadReceipt(selectedPayment)} className="w-full">
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Receipt
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-center py-8 text-muted-foreground">No payment details available</p>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice Details Dialog */}
+      <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Invoice Details</DialogTitle>
+            <DialogDescription>
+              Complete information about this invoice
+            </DialogDescription>
+          </DialogHeader>
+          {loadingDetails ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : selectedInvoice ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Invoice Number</p>
+                  <p className="font-medium text-lg">{selectedInvoice.invoiceNumber}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge className={getStatusColor(selectedInvoice.status)}>
+                    {selectedInvoice.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Issue Date</p>
+                  <p className="font-medium">{formatDate(selectedInvoice.issueDate)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Due Date</p>
+                  <p className="font-medium">{formatDate(selectedInvoice.dueDate)}</p>
+                </div>
+                {selectedInvoice.paidDate && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Paid Date</p>
+                    <p className="font-medium">{formatDate(selectedInvoice.paidDate)}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="border rounded-lg p-4">
+                <h4 className="font-semibold mb-3">Vendor Details</h4>
+                <div className="space-y-2 text-sm">
+                  <p><span className="text-muted-foreground">Name:</span> {selectedInvoice.vendorDetails.name}</p>
+                  <p><span className="text-muted-foreground">Email:</span> {selectedInvoice.vendorDetails.email}</p>
+                  <p><span className="text-muted-foreground">Phone:</span> {selectedInvoice.vendorDetails.phone}</p>
+                  <p><span className="text-muted-foreground">Address:</span> {selectedInvoice.vendorDetails.address}</p>
+                  {selectedInvoice.vendorDetails.gst && (
+                    <p><span className="text-muted-foreground">GST:</span> {selectedInvoice.vendorDetails.gst}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="text-left p-3 text-sm font-medium">Description</th>
+                      <th className="text-right p-3 text-sm font-medium">Qty</th>
+                      <th className="text-right p-3 text-sm font-medium">Unit Price</th>
+                      <th className="text-right p-3 text-sm font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedInvoice.items.map((item, index) => (
+                      <tr key={index} className="border-t">
+                        <td className="p-3 text-sm">{item.description}</td>
+                        <td className="p-3 text-sm text-right">{item.quantity}</td>
+                        <td className="p-3 text-sm text-right">{formatAmount(item.unitPrice, selectedInvoice.currency)}</td>
+                        <td className="p-3 text-sm text-right font-medium">{formatAmount(item.total, selectedInvoice.currency)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t-2">
+                    <tr className="border-t">
+                      <td colSpan={3} className="p-3 text-sm text-right font-medium">Subtotal</td>
+                      <td className="p-3 text-sm text-right font-medium">{formatAmount(selectedInvoice.amount, selectedInvoice.currency)}</td>
+                    </tr>
+                    <tr className="border-t">
+                      <td colSpan={3} className="p-3 text-sm text-right font-medium">Tax</td>
+                      <td className="p-3 text-sm text-right font-medium">{formatAmount(selectedInvoice.tax, selectedInvoice.currency)}</td>
+                    </tr>
+                    <tr className="border-t bg-muted">
+                      <td colSpan={3} className="p-3 text-base text-right font-bold">Total</td>
+                      <td className="p-3 text-base text-right font-bold">{formatAmount(selectedInvoice.total, selectedInvoice.currency)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              <div className="flex gap-2">
+                <Button onClick={() => handleDownloadInvoice(selectedInvoice)} className="w-full">
+                  <Download className="w-4 h-4 mr-2" />
+                  Download PDF
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-center py-8 text-muted-foreground">No invoice details available</p>
+          )}
+        </DialogContent>
+      </Dialog>
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -171,7 +448,7 @@ const VendorBilling: React.FC = () => {
               <SelectItem value="last_year">Last year</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
@@ -274,10 +551,10 @@ const VendorBilling: React.FC = () => {
 
                   <div className="pt-4 border-t">
                     <div className="flex gap-2">
-                      <Button variant="outline">
+                      <Button variant="outline" onClick={() => window.location.href = '/vendor/subscription-plans'}>
                         Change Plan
                       </Button>
-                      <Button variant="outline">
+                      <Button variant="outline" onClick={() => window.location.href = '/vendor/subscription-manager'}>
                         Manage Subscription
                       </Button>
                     </div>
@@ -290,7 +567,7 @@ const VendorBilling: React.FC = () => {
                   <p className="text-muted-foreground mb-4">
                     Choose a plan to get started with our services
                   </p>
-                  <Button>
+                  <Button onClick={() => window.location.href = '/vendor/subscription-plans'}>
                     <Plus className="w-4 h-4 mr-2" />
                     Choose Plan
                   </Button>
@@ -392,11 +669,11 @@ const VendorBilling: React.FC = () => {
                           {payment.status}
                         </Badge>
                         <div className="flex space-x-2 mt-2">
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={() => handleViewPayment(payment._id)}>
                             <Eye className="w-4 h-4 mr-1" />
                             View
                           </Button>
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={() => handleDownloadReceipt(payment)}>
                             <Download className="w-4 h-4 mr-1" />
                             Receipt
                           </Button>
@@ -424,7 +701,7 @@ const VendorBilling: React.FC = () => {
                   <FileText className="w-5 h-5 mr-2" />
                   Invoices
                 </span>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={handleDownloadAllInvoices}>
                   <Download className="w-4 h-4 mr-2" />
                   Download All
                 </Button>
@@ -463,11 +740,11 @@ const VendorBilling: React.FC = () => {
                           {invoice.status}
                         </Badge>
                         <div className="flex space-x-2 mt-2">
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={() => handleViewInvoice(invoice._id)}>
                             <Eye className="w-4 h-4 mr-1" />
                             View
                           </Button>
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={() => handleDownloadInvoice(invoice)}>
                             <Download className="w-4 h-4 mr-1" />
                             Download
                           </Button>
@@ -555,7 +832,7 @@ const VendorBilling: React.FC = () => {
                     <p className="text-sm text-muted-foreground mb-4">
                       Usage resets on your billing cycle date: {billingStats.nextBillingDate}
                     </p>
-                    <Button variant="outline">
+                    <Button variant="outline" onClick={() => window.location.href = '/vendor/subscription-manager'}>
                       Upgrade Plan
                     </Button>
                   </div>

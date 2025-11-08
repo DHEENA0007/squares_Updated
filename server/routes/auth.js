@@ -492,6 +492,22 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
   user.profile.lastLogin = new Date();
   await user.save();
 
+  // Get role pages from Role collection if user has rolePages
+  let rolePages = user.rolePages || [];
+  
+  // If user doesn't have rolePages set, try to get from their role
+  if (!rolePages || rolePages.length === 0) {
+    try {
+      const Role = require('../models/Role');
+      const userRole = await Role.findOne({ name: user.role });
+      if (userRole && userRole.pages) {
+        rolePages = userRole.pages;
+      }
+    } catch (error) {
+      console.error('Error fetching role pages:', error);
+    }
+  }
+
   // Generate JWT token
   const token = jwt.sign(
     { 
@@ -556,6 +572,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
         id: user._id,
         email: user.email,
         role: user.role,
+        rolePages: rolePages,
         profile: user.profile
       }
     }

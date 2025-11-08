@@ -67,13 +67,19 @@ const Roles = () => {
       };
 
       const response = await roleService.getRoles(filters);
-      setRoles(response.data.roles);
+      // Ensure each role has pages array initialized
+      const rolesWithPages = response.data.roles.map(role => ({
+        ...role,
+        pages: role.pages || []
+      }));
+      
+      setRoles(rolesWithPages);
       setTotalPages(response.data.pagination.totalPages);
       setTotalRoles(response.data.pagination.totalRoles);
       
       // Extract SuperAdmin and SubAdmin roles
-      const superAdmin = response.data.roles.find(r => r.name.toLowerCase() === 'superadmin');
-      const subAdmin = response.data.roles.find(r => r.name.toLowerCase() === 'subadmin');
+      const superAdmin = rolesWithPages.find(r => r.name.toLowerCase() === 'superadmin');
+      const subAdmin = rolesWithPages.find(r => r.name.toLowerCase() === 'subadmin');
       
       setSuperAdminRole(superAdmin || null);
       setSubAdminRole(subAdmin || null);
@@ -217,18 +223,18 @@ const Roles = () => {
       ),
     },
     {
-      key: "permissions",
-      label: "Permissions",
+      key: "pages",
+      label: "Pages",
       render: (role) => (
         <div className="flex flex-wrap gap-1">
-          {role.permissions.slice(0, 2).map((perm, idx) => (
+          {(role.pages || []).slice(0, 2).map((page, idx) => (
             <Badge key={idx} variant="secondary" className="text-xs">
-              {perm.replace(/_/g, ' ')}
+              {page.replace(/_/g, ' ')}
             </Badge>
           ))}
-          {role.permissions.length > 2 && (
+          {(role.pages?.length || 0) > 2 && (
             <Badge variant="secondary" className="text-xs">
-              +{role.permissions.length - 2}
+              +{(role.pages?.length || 0) - 2}
             </Badge>
           )}
         </div>
@@ -448,8 +454,8 @@ const Roles = () => {
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Permissions:</span>
-                    <span className="font-bold text-red-600">{superAdminRole.permissions.length}</span>
+                    <span className="text-sm font-medium">Pages:</span>
+                    <span className="font-bold text-red-600">{superAdminRole.pages?.length || 0}</span>
                   </div>
                   <div className="pt-2">
                     <Button
@@ -494,8 +500,8 @@ const Roles = () => {
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Permissions:</span>
-                    <span className="font-bold text-orange-600">{subAdminRole.permissions.length}</span>
+                    <span className="text-sm font-medium">Pages:</span>
+                    <span className="font-bold text-orange-600">{subAdminRole.pages?.length || 0}</span>
                   </div>
                   <div className="pt-2">
                     <Button
