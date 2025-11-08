@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
 
-const Role = require('./server/models/Role');
+const Role = require('./models/Role');
 
 const ROLE_PAGES_MAPPING = {
   'superadmin': [

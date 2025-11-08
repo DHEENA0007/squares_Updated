@@ -281,10 +281,10 @@ const AddonServices = () => {
                           {vendor.totalAddons} Addon{vendor.totalAddons !== 1 ? 's' : ''}
                         </Badge>
                       </div>
-                      <CardDescription className="space-y-1">
-                        <div className="flex items-center gap-4 text-sm">
-                          <span>{vendor.user.email}</span>
-                        </div>
+                      <div className="space-y-2">
+                        <CardDescription className="text-sm">
+                          {vendor.user.email}
+                        </CardDescription>
                         <div className="flex items-center gap-2 text-sm">
                           {vendor.activeAddons.slice(0, 3).map((addon) => (
                             <Badge 
@@ -300,7 +300,7 @@ const AddonServices = () => {
                             </Badge>
                           )}
                         </div>
-                      </CardDescription>
+                      </div>
                     </div>
                     <div className="text-right ml-4">
                       <div className="text-sm text-muted-foreground">

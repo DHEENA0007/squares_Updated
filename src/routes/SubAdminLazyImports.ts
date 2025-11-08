@@ -10,3 +10,4 @@ export const VendorPerformance = lazy(() => import("@/pages/subadmin/VendorPerfo
 export const AddonServices = lazy(() => import("@/pages/subadmin/AddonServices"));
 export const Notifications = lazy(() => import("@/pages/subadmin/Notifications"));
 export const Reports = lazy(() => import("@/pages/subadmin/Reports"));
+export const Promotions = lazy(() => import("@/pages/subadmin/Promotions"));

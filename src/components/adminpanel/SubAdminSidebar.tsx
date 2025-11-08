@@ -1,4 +1,4 @@
-import { Home, CheckCircle, XCircle, Shield, Headphones, BarChart3, Star, Bell, FileText, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
+import { Home, CheckCircle, XCircle, Shield, Headphones, BarChart3, Star, Bell, FileText, ChevronLeft, ChevronRight, UserCheck, Package, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 
@@ -10,16 +10,18 @@ interface SubAdminSidebarProps {
 }
 
 const subAdminNavItems = [
-  { icon: Home, label: "Dashboard", path: "/admin/dashboard" },
-  { icon: CheckCircle, label: "Property Review", path: "/admin/properties/review" },
-  { icon: XCircle, label: "Property Approval", path: "/admin/properties/approval" },
-  { icon: UserCheck, label: "Vendor Approvals", path: "/admin/vendor-approvals" },
-  { icon: Shield, label: "Content Moderation", path: "/admin/content/moderation" },
-  { icon: Headphones, label: "Support Tickets", path: "/admin/support/tickets" },
-  { icon: BarChart3, label: "Performance Tracking", path: "/admin/performance" },
-  { icon: Star, label: "Promotion Approval", path: "/admin/promotions/approval" },
-  { icon: Bell, label: "Send Notifications", path: "/admin/notifications" },
-  { icon: FileText, label: "Generate Reports", path: "/admin/reports" },
+  { icon: Home, label: "Dashboard", path: "/subadmin/dashboard" },
+  { icon: CheckCircle, label: "Property Review", path: "/subadmin/property-reviews" },
+  { icon: XCircle, label: "Property Rejection", path: "/subadmin/property-rejections" },
+  { icon: UserCheck, label: "Vendor Performance", path: "/subadmin/vendor-performance" },
+  { icon: Package, label: "Addon Services", path: "/subadmin/addon-services" },
+  { icon: Shield, label: "Content Moderation", path: "/subadmin/content-moderation" },
+  { icon: Headphones, label: "Support Tickets", path: "/subadmin/support-tickets" },
+  { icon: Star, label: "Promotions", path: "/subadmin/promotions" },
+  { icon: Bell, label: "Notifications", path: "/subadmin/notifications" },
+  { icon: FileText, label: "Reports", path: "/subadmin/reports" },
+  { icon: RefreshCw, label: "Refund Policy", path: "/subadmin/refund-policy" },
+  { icon: Shield, label: "Privacy Policy", path: "/subadmin/privacy-policy" },
 ];
 
 const SubAdminSidebar = ({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: SubAdminSidebarProps) => {

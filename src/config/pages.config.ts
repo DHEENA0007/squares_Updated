@@ -176,6 +176,24 @@ export const PORTAL_PAGES: PageConfig[] = [
     category: 'subadmin',
     description: 'Generate system reports'
   },
+  {
+    id: 'subadmin_privacy_policy',
+    label: 'Privacy Policy',
+    path: '/subadmin/policy-editor/privacy-policy',
+    icon: FileText,
+    category: 'subadmin',
+    description: 'Edit privacy policy',
+    subLabel: 'Policy'
+  },
+  {
+    id: 'subadmin_refund_policy',
+    label: 'Refund Policy',
+    path: '/subadmin/policy-editor/refund-policy',
+    icon: FileText,
+    category: 'subadmin',
+    description: 'Edit refund policy',
+    subLabel: 'Policy'
+  },
 
   // Vendor Pages
   {

@@ -106,7 +106,7 @@ const Roles = () => {
 
   const goToPage = (page: number) => {
     setCurrentPage(page);
-  };
+};
 
   const nextPage = () => {
     if (currentPage < totalPages) {
@@ -169,7 +169,7 @@ const Roles = () => {
     const roleName = role.name.toLowerCase();
     if (roleName === 'superadmin') {
       return (
-        <Badge variant="destructive" className="text-xs bg-red-600">
+        <Badge variant="destructive" className="text-xs">
           <Shield className="w-3 h-3 mr-1" />
           Super Admin
         </Badge>
@@ -177,7 +177,7 @@ const Roles = () => {
     }
     if (roleName === 'subadmin') {
       return (
-        <Badge variant="default" className="text-xs bg-orange-600">
+        <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-500/80">
           <Shield className="w-3 h-3 mr-1" />
           Sub Admin
         </Badge>
@@ -353,7 +353,7 @@ const Roles = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           <Card>
             <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-medium text-gray-600">Total Roles</CardTitle>
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total Roles</CardTitle>
             </CardHeader>
             <CardContent className="pt-1">
               <div className="text-lg sm:text-xl font-bold">{totalRoles}</div>
@@ -361,43 +361,43 @@ const Roles = () => {
           </Card>
           <Card>
             <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-medium text-gray-600">Active Roles</CardTitle>
+              <CardTitle className="text-xs font-medium text-muted-foreground">Active Roles</CardTitle>
             </CardHeader>
             <CardContent className="pt-1">
-              <div className="text-lg sm:text-xl font-bold text-green-600">
+              <div className="text-lg sm:text-xl font-bold text-green-500">
                 {roles.filter(role => role.isActive).length}
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-medium text-gray-600">System Roles</CardTitle>
+              <CardTitle className="text-xs font-medium text-muted-foreground">System Roles</CardTitle>
             </CardHeader>
             <CardContent className="pt-1">
-              <div className="text-lg sm:text-xl font-bold text-blue-600">
+              <div className="text-lg sm:text-xl font-bold text-blue-500">
                 {roles.filter(role => role.isSystemRole).length}
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-medium text-gray-600">Custom Roles</CardTitle>
+              <CardTitle className="text-xs font-medium text-muted-foreground">Custom Roles</CardTitle>
             </CardHeader>
             <CardContent className="pt-1">
-              <div className="text-lg sm:text-xl font-bold text-purple-600">
+              <div className="text-lg sm:text-xl font-bold text-purple-500">
                 {roles.filter(role => !role.isSystemRole).length}
               </div>
             </CardContent>
           </Card>
-          <Card className="border-red-200 bg-red-50">
+          <Card className="border-destructive/20 bg-destructive/10">
             <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-medium text-red-700 flex items-center gap-1">
+              <CardTitle className="text-xs font-medium text-destructive flex items-center gap-1">
                 <Shield className="w-3 h-3" />
                 Super Admin
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-1">
-              <div className="text-lg sm:text-xl font-bold text-red-600">
+              <div className="text-lg sm:text-xl font-bold text-destructive">
                 {superAdminRole?.userCount || 0}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
@@ -405,15 +405,15 @@ const Roles = () => {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-orange-200 bg-orange-50">
+          <Card className="border-orange-500/20 bg-orange-500/10">
             <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-medium text-orange-700 flex items-center gap-1">
+              <CardTitle className="text-xs font-medium text-orange-600 flex items-center gap-1">
                 <Shield className="w-3 h-3" />
                 Sub Admin
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-1">
-              <div className="text-lg sm:text-xl font-bold text-orange-600">
+              <div className="text-lg sm:text-xl font-bold text-orange-500">
                 {subAdminRole?.userCount || 0}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
@@ -427,9 +427,9 @@ const Roles = () => {
         {(superAdminRole || subAdminRole) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {superAdminRole && (
-              <Card className="border-red-200 bg-gradient-to-br from-red-50 to-white">
+              <Card className="border-destructive/20 bg-gradient-to-br from-destructive/10 to-card">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-red-700">
+                  <CardTitle className="flex items-center gap-2 text-destructive">
                     <Shield className="w-5 h-5" />
                     Super Admin Role
                   </CardTitle>
@@ -473,9 +473,9 @@ const Roles = () => {
             )}
             
             {subAdminRole && (
-              <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-white">
+              <Card className="border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-card">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-orange-700">
+                  <CardTitle className="flex items-center gap-2 text-orange-600">
                     <Shield className="w-5 h-5" />
                     Sub Admin Role
                   </CardTitle>
@@ -490,7 +490,7 @@ const Roles = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Access Level:</span>
-                    <Badge variant="default" className="bg-orange-600">Level {subAdminRole.level}</Badge>
+                    <Badge variant="default" className="bg-orange-500 hover:bg-orange-500/80">Level {subAdminRole.level}</Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Total Users:</span>
@@ -501,7 +501,7 @@ const Roles = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Pages:</span>
-                    <span className="font-bold text-orange-600">{subAdminRole.pages?.length || 0}</span>
+                    <span className="font-bold text-orange-500">{subAdminRole.pages?.length || 0}</span>
                   </div>
                   <div className="pt-2">
                     <Button

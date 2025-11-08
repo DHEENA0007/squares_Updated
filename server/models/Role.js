@@ -97,8 +97,8 @@ roleSchema.statics.getDefaultRoles = function() {
         'addon_services',
         'notifications',
         'reports',
-        'privacy_policy',
-        'refund_policy'
+        'subadmin_privacy_policy',
+        'subadmin_refund_policy'
       ],
       isSystemRole: true,
       level: 7
