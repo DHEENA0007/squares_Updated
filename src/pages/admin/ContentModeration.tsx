@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertTriangle, Eye, CheckCircle, XCircle, Image as ImageIcon, MessageSquare, User, Calendar } from "lucide-react";
+import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 
 interface ContentReport {
   _id: string;
@@ -36,16 +37,9 @@ const ContentModeration = () => {
   const fetchContentReports = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/content/reports?status=${filter}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setReports(data.reports);
-      }
+      const response = await fetchWithAuth(`/api/admin/content/reports?status=${filter}`);
+      const data = await handleApiResponse<{ reports: ContentReport[] }>(response);
+      setReports(data.reports);
     } catch (error) {
       console.error('Failed to fetch content reports:', error);
     } finally {
@@ -59,21 +53,16 @@ const ContentModeration = () => {
 
   const handleModerationAction = async (reportId: string, action: 'approve' | 'reject') => {
     try {
-      const response = await fetch(`/api/admin/content/reports/${reportId}/${action}`, {
+      const response = await fetchWithAuth(`/api/admin/content/reports/${reportId}/${action}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ 
           notes: moderationNotes 
         })
       });
 
-      if (response.ok) {
-        setModerationNotes("");
-        fetchContentReports();
-      }
+      const data = await handleApiResponse(response);
+      setModerationNotes("");
+      fetchContentReports();
     } catch (error) {
       console.error(`Failed to ${action} content:`, error);
     }

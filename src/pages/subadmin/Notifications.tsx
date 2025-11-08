@@ -68,7 +68,7 @@ const Notifications = () => {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`/api/subadmin/notifications?status=${activeTab}&search=${searchTerm}`);
+      const response = await fetchWithAuth(`/subadmin/notifications?status=${activeTab}&search=${searchTerm}`);
       const data = await handleApiResponse<{ data: { notifications: Notification[] } }>(response);
       setNotifications(data.data.notifications || []);
     } catch (error: any) {
@@ -96,35 +96,24 @@ const Notifications = () => {
 
     try {
       setSendLoading(true);
-      const response = await fetch(`/api/subadmin/notifications/send`, {
+      const response = await fetchWithAuth(`/subadmin/notifications/send`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(formData)
       });
       
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Notification sent successfully",
-        });
-        setCreateDialogOpen(false);
-        setFormData({
-          title: "",
-          message: "",
-          type: "info",
-          recipients: "all",
-        });
-        fetchNotifications();
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to send notification",
-          variant: "destructive",
-        });
-      }
+      await handleApiResponse(response);
+      toast({
+        title: "Success",
+        description: "Notification sent successfully",
+      });
+      setCreateDialogOpen(false);
+      setFormData({
+        title: "",
+        message: "",
+        type: "info",
+        recipients: "all",
+      });
+      fetchNotifications();
     } catch (error: any) {
       toast({
         title: "Error",

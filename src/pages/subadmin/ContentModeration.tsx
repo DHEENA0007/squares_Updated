@@ -59,7 +59,7 @@ const ContentModeration = () => {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`/api/subadmin/content/reports?status=${activeTab}&search=${searchTerm}`);
+      const response = await fetchWithAuth(`/subadmin/content/reports?status=${activeTab}&search=${searchTerm}`);
       const data = await handleApiResponse<{ data: { reports: ContentReport[] } }>(response);
       setReports(data.data.reports || []);
     } catch (error: any) {
@@ -92,31 +92,20 @@ const ContentModeration = () => {
     try {
       setActionLoading({ ...actionLoading, [selectedReport._id]: true });
       const endpoint = actionType === 'approve' ? 'resolve' : 'dismiss';
-      const response = await fetch(`/api/subadmin/content/reports/${selectedReport._id}/${endpoint}`, {
+      const response = await fetchWithAuth(`/subadmin/content/reports/${selectedReport._id}/${endpoint}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ note: actionNote })
       });
       
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: `Report ${actionType === 'approve' ? 'resolved' : 'dismissed'} successfully`,
-        });
-        setActionDialogOpen(false);
-        setActionNote("");
-        setSelectedReport(null);
-        fetchReports();
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to process report",
-          variant: "destructive",
-        });
-      }
+      await handleApiResponse(response);
+      toast({
+        title: "Success",
+        description: `Report ${actionType === 'approve' ? 'resolved' : 'dismissed'} successfully`,
+      });
+      setActionDialogOpen(false);
+      setActionNote("");
+      setSelectedReport(null);
+      fetchReports();
     } catch (error: any) {
       toast({
         title: "Error",

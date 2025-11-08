@@ -71,7 +71,7 @@ const PropertyRejections = () => {
   const fetchRejectedProperties = async () => {
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`/api/subadmin/properties/rejected?page=${currentPage}&search=${searchTerm}`);
+      const response = await fetchWithAuth(`/subadmin/properties/rejected?page=${currentPage}&search=${searchTerm}`);
       const data = await handleApiResponse<{ data: { properties: Property[], totalPages: number } }>(response);
       setProperties(data.data.properties || []);
       setTotalPages(data.data.totalPages || 1);
@@ -100,27 +100,16 @@ const PropertyRejections = () => {
   const handleReactivate = async (propertyId: string) => {
     try {
       setActionLoading({ ...actionLoading, [propertyId]: true });
-      const response = await fetch(`/api/subadmin/properties/${propertyId}/reactivate`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await fetchWithAuth(`/subadmin/properties/${propertyId}/reactivate`, {
+        method: 'POST'
       });
       
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Property reactivated and moved to pending review",
-        });
-        fetchRejectedProperties();
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to reactivate property",
-          variant: "destructive",
-        });
-      }
+      await handleApiResponse(response);
+      toast({
+        title: "Success",
+        description: "Property reactivated and moved to pending review",
+      });
+      fetchRejectedProperties();
     } catch (error: any) {
       toast({
         title: "Error",

@@ -62,7 +62,7 @@ const Promotions = () => {
   const fetchPromotions = async () => {
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`/api/subadmin/promotions?status=${activeTab}&search=${searchTerm}`);
+      const response = await fetchWithAuth(`/subadmin/promotions?status=${activeTab}&search=${searchTerm}`);
       const data = await handleApiResponse<{ data: { promotions: Promotion[] } }>(response);
       setPromotions(data.data.promotions || []);
     } catch (error: any) {
@@ -81,27 +81,16 @@ const Promotions = () => {
   const handleEndPromotion = async (promotionId: string) => {
     try {
       setActionLoading({ ...actionLoading, [promotionId]: true });
-      const response = await fetch(`/api/subadmin/promotions/${promotionId}/end`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await fetchWithAuth(`/subadmin/promotions/${promotionId}/end`, {
+        method: 'POST'
       });
       
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Promotion ended successfully",
-        });
-        fetchPromotions();
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to end promotion",
-          variant: "destructive",
-        });
-      }
+      await handleApiResponse(response);
+      toast({
+        title: "Success",
+        description: "Promotion ended successfully",
+      });
+      fetchPromotions();
     } catch (error: any) {
       toast({
         title: "Error",

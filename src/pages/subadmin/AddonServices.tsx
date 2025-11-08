@@ -72,7 +72,7 @@ const AddonServices = () => {
   const fetchVendorAddons = async () => {
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`/api/subadmin/addon-services?status=${activeTab}&search=${searchTerm}`);
+      const response = await fetchWithAuth(`/subadmin/addon-services?status=${activeTab}&search=${searchTerm}`);
       const data = await handleApiResponse<{ data: { vendorAddons: VendorAddon[] } }>(response);
       setVendorAddons(data.data.vendorAddons || []);
     } catch (error: any) {
@@ -100,12 +100,8 @@ const AddonServices = () => {
 
     try {
       setActionLoading({ ...actionLoading, email: true });
-      const response = await fetch('/api/subadmin/addon-services/schedule', {
+      const response = await fetchWithAuth('/subadmin/addon-services/schedule', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           vendorId: selectedVendor.user._id,
           addonId: selectedAddon._id,
@@ -115,20 +111,13 @@ const AddonServices = () => {
         })
       });
       
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Scheduling email sent successfully",
-        });
-        setScheduleDialogOpen(false);
-        setSelectedAddon(null);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to send scheduling email",
-          variant: "destructive",
-        });
-      }
+      const data = await handleApiResponse(response);
+      toast({
+        title: "Success",
+        description: "Scheduling email sent successfully",
+      });
+      setScheduleDialogOpen(false);
+      setSelectedAddon(null);
     } catch (error: any) {
       toast({
         title: "Error",

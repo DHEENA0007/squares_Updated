@@ -49,7 +49,7 @@ const VendorPerformance = () => {
   const fetchVendorMetrics = async () => {
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`/api/subadmin/vendors/performance?search=${searchTerm}&sortBy=${sortBy}`);
+      const response = await fetchWithAuth(`/subadmin/vendors/performance?search=${searchTerm}&sortBy=${sortBy}`);
       const data = await handleApiResponse<{ data: { vendors: VendorMetrics[] } }>(response);
       setVendors(data.data.vendors || []);
     } catch (error: any) {

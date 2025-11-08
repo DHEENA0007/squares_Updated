@@ -89,7 +89,7 @@ const PropertyReviews = () => {
   const fetchProperties = async () => {
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`/api/subadmin/properties/pending?page=${currentPage}&search=${searchTerm}`);
+      const response = await fetchWithAuth(`/subadmin/properties/pending?page=${currentPage}&search=${searchTerm}`);
       const data = await handleApiResponse<{ data: { properties: Property[], totalPages: number } }>(response);
       
       setProperties(data.data.properties || []);
@@ -123,7 +123,7 @@ const PropertyReviews = () => {
   const handleApprove = async (propertyId: string) => {
     try {
       setActionLoading({ ...actionLoading, [propertyId]: true });
-      const response = await fetchWithAuth(`/api/subadmin/properties/${propertyId}/approve`, {
+      const response = await fetchWithAuth(`/subadmin/properties/${propertyId}/approve`, {
         method: 'POST',
       });
       
@@ -158,31 +158,21 @@ const PropertyReviews = () => {
 
     try {
       setActionLoading({ ...actionLoading, [selectedProperty._id]: true });
-      const response = await fetch(`/api/subadmin/properties/${selectedProperty._id}/reject`, {
+      const response = await fetchWithAuth(`/subadmin/properties/${selectedProperty._id}/reject`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ reason: rejectionReason })
       });
       
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Property rejected successfully",
-        });
-        setRejectDialogOpen(false);
-        setRejectionReason("");
-        setSelectedProperty(null);
-        fetchProperties();
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to reject property",
-          variant: "destructive",
-        });
-      }
+      await handleApiResponse(response);
+      
+      toast({
+        title: "Success",
+        description: "Property rejected successfully",
+      });
+      setRejectDialogOpen(false);
+      setRejectionReason("");
+      setSelectedProperty(null);
+      fetchProperties();
     } catch (error: any) {
       toast({
         title: "Error",

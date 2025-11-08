@@ -54,7 +54,7 @@ const Reports = () => {
   const fetchReportData = async () => {
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`/api/subadmin/reports?range=${dateRange}`);
+      const response = await fetchWithAuth(`/subadmin/reports?range=${dateRange}`);
       const data = await handleApiResponse<{ data: ReportData }>(response);
       setReportData(data.data || null);
     } catch (error: any) {
@@ -77,34 +77,22 @@ const Reports = () => {
         description: `Generating ${type} report...`,
       });
 
-      const response = await fetch(`/api/subadmin/reports/export?type=${type}&range=${dateRange}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      const response = await fetchWithAuth(`/subadmin/reports/export?type=${type}&range=${dateRange}`);
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `buildhomemartsquares_${type}_report_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Success",
+        description: "Report exported successfully",
       });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `buildhomemartsquares_${type}_report_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-
-        toast({
-          title: "Success",
-          description: "Report exported successfully",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to export report",
-          variant: "destructive",
-        });
-      }
     } catch (error: any) {
       toast({
         title: "Error",

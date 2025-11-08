@@ -26,7 +26,18 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
   const token = localStorage.getItem('token');
   
   // Construct full URL if it's a relative path
-  const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+  let fullUrl: string;
+  if (url.startsWith('http')) {
+    // Already a full URL
+    fullUrl = url;
+  } else if (url.startsWith('/api')) {
+    // URL already has /api prefix, so use base URL without /api
+    const baseUrlWithoutApi = API_BASE_URL.replace('/api', '');
+    fullUrl = `${baseUrlWithoutApi}${url}`;
+  } else {
+    // Relative path, append to full API_BASE_URL
+    fullUrl = `${API_BASE_URL}${url}`;
+  }
   
   const headers = {
     'Content-Type': 'application/json',
