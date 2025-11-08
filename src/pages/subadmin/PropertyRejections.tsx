@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeEvent } from "@/contexts/RealtimeContext";
+import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 
 interface Property {
   _id: string;
@@ -70,29 +71,18 @@ const PropertyRejections = () => {
   const fetchRejectedProperties = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/subadmin/properties/rejected?page=${currentPage}&search=${searchTerm}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setProperties(data.data.properties);
-        setTotalPages(data.data.totalPages);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to fetch rejected properties",
-          variant: "destructive",
-        });
-      }
+      const response = await fetchWithAuth(`/api/subadmin/properties/rejected?page=${currentPage}&search=${searchTerm}`);
+      const data = await handleApiResponse<{ data: { properties: Property[], totalPages: number } }>(response);
+      setProperties(data.data.properties || []);
+      setTotalPages(data.data.totalPages || 1);
     } catch (error: any) {
+      console.error('Error fetching rejected properties:', error);
       toast({
         title: "Error",
-        description: "Error fetching rejected properties",
+        description: error.message || "Error fetching rejected properties",
         variant: "destructive",
       });
+      setProperties([]);
     } finally {
       setLoading(false);
     }
@@ -418,3 +408,4 @@ const PropertyRejections = () => {
 };
 
 export default PropertyRejections;
+

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 
 interface VendorMetrics {
   _id: string;
@@ -48,28 +49,17 @@ const VendorPerformance = () => {
   const fetchVendorMetrics = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/subadmin/vendors/performance?search=${searchTerm}&sortBy=${sortBy}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setVendors(data.data.vendors);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to fetch vendor metrics",
-          variant: "destructive",
-        });
-      }
+      const response = await fetchWithAuth(`/api/subadmin/vendors/performance?search=${searchTerm}&sortBy=${sortBy}`);
+      const data = await handleApiResponse<{ data: { vendors: VendorMetrics[] } }>(response);
+      setVendors(data.data.vendors || []);
     } catch (error: any) {
+      console.error('Error fetching vendor metrics:', error);
       toast({
         title: "Error",
-        description: "Error fetching vendor metrics",
+        description: error.message || "Error fetching vendor metrics",
         variant: "destructive",
       });
+      setVendors([]);
     } finally {
       setLoading(false);
     }

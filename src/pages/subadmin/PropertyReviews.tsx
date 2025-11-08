@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeEvent } from "@/contexts/RealtimeContext";
 import { DEFAULT_PROPERTY_IMAGE } from "@/utils/imageUtils";
+import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -88,29 +89,19 @@ const PropertyReviews = () => {
   const fetchProperties = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/subadmin/properties/pending?page=${currentPage}&search=${searchTerm}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await fetchWithAuth(`/api/subadmin/properties/pending?page=${currentPage}&search=${searchTerm}`);
+      const data = await handleApiResponse<{ data: { properties: Property[], totalPages: number } }>(response);
       
-      if (response.ok) {
-        const data = await response.json();
-        setProperties(data.data.properties);
-        setTotalPages(data.data.totalPages);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to fetch properties",
-          variant: "destructive",
-        });
-      }
+      setProperties(data.data.properties || []);
+      setTotalPages(data.data.totalPages || 1);
     } catch (error: any) {
+      console.error('Error fetching properties:', error);
       toast({
         title: "Error",
-        description: "Error fetching properties",
+        description: error.message || "Error fetching properties",
         variant: "destructive",
       });
+      setProperties([]);
     } finally {
       setLoading(false);
     }
@@ -132,31 +123,22 @@ const PropertyReviews = () => {
   const handleApprove = async (propertyId: string) => {
     try {
       setActionLoading({ ...actionLoading, [propertyId]: true });
-      const response = await fetch(`/api/subadmin/properties/${propertyId}/approve`, {
+      const response = await fetchWithAuth(`/api/subadmin/properties/${propertyId}/approve`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
       });
       
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Property approved successfully",
-        });
-        fetchProperties();
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to approve property",
-          variant: "destructive",
-        });
-      }
+      await handleApiResponse(response);
+      
+      toast({
+        title: "Success",
+        description: "Property approved successfully",
+      });
+      fetchProperties();
     } catch (error: any) {
+      console.error('Error approving property:', error);
       toast({
         title: "Error",
-        description: "Failed to approve property",
+        description: error.message || "Failed to approve property",
         variant: "destructive",
       });
     } finally {

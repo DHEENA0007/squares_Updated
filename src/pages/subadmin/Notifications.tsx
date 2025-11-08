@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeEvent } from "@/contexts/RealtimeContext";
+import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 import {
   Select,
   SelectContent,
@@ -67,28 +68,17 @@ const Notifications = () => {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/subadmin/notifications?status=${activeTab}&search=${searchTerm}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data.data.notifications);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to fetch notifications",
-          variant: "destructive",
-        });
-      }
+      const response = await fetchWithAuth(`/api/subadmin/notifications?status=${activeTab}&search=${searchTerm}`);
+      const data = await handleApiResponse<{ data: { notifications: Notification[] } }>(response);
+      setNotifications(data.data.notifications || []);
     } catch (error: any) {
+      console.error('Error fetching notifications:', error);
       toast({
         title: "Error",
-        description: "Error fetching notifications",
+        description: error.message || "Error fetching notifications",
         variant: "destructive",
       });
+      setNotifications([]);
     } finally {
       setLoading(false);
     }

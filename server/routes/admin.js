@@ -1064,65 +1064,7 @@ router.get('/system-metrics', async (req, res) => {
   }
 });
 
-// @desc    Search users (exclude admins by default)
-// @route   GET /api/admin/users/search
-// @access  Private/Admin
-router.get('/users/search', asyncHandler(async (req, res) => {
-  try {
-    const { q, excludeRoles } = req.query;
-
-    if (!q || q.trim().length < 2) {
-      return res.json({
-        success: true,
-        data: { users: [] }
-      });
-    }
-
-    const searchQuery = q.trim();
-    const rolesToExclude = excludeRoles 
-      ? excludeRoles.split(',').map(r => r.trim()) 
-      : ['admin', 'superadmin', 'subadmin'];
-
-    // Build search filter
-    const filter = {
-      role: { $nin: rolesToExclude },
-      status: { $ne: 'suspended' },
-      $or: [
-        { email: { $regex: searchQuery, $options: 'i' } },
-        { 'profile.firstName': { $regex: searchQuery, $options: 'i' } },
-        { 'profile.lastName': { $regex: searchQuery, $options: 'i' } }
-      ]
-    };
-
-    const users = await User.find(filter)
-      .select('email role profile.firstName profile.lastName profile.avatar')
-      .limit(20)
-      .sort({ 'profile.firstName': 1 });
-
-    res.json({
-      success: true,
-      data: { users }
-    });
-  } catch (error) {
-    console.error('Search users error:', error);
-    
-    // Check if it's a MongoDB connection error
-    const isConnectionError = error.message?.includes('buffering timed out') || 
-                             error.message?.includes('connection') ||
-                             error.name === 'MongooseError';
-    
-    res.status(500).json({
-      success: false,
-      message: isConnectionError 
-        ? 'Database connection error. Please try again.' 
-        : 'Failed to search users'
-    });
-  }
-}));
-
-// @desc    Get all users with pagination and filters
-// @route   GET /api/admin/users
-// @access  Private/Admin
+// Enhanced user management endpoints
 router.get('/users', async (req, res) => {
   try {
     const { 
@@ -2026,35 +1968,20 @@ router.get('/messages', asyncHandler(async (req, res) => {
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    // Build filter query - show messages where admin is sender OR recipient
+    // Build filter query - only show messages where current admin is the recipient
     let filter = {
-      $or: [
-        { recipient: req.user.id },  // Messages TO admin
-        { sender: req.user.id }      // Messages FROM admin
-      ]
+      recipient: req.user.id  // Only show messages intended for this admin
     };
     if (status && status !== 'all') filter.status = status;
     if (type && type !== 'all') filter.type = type;
     if (priority && priority !== 'all') filter.priority = priority;
 
-    // Add search functionality (use $and to preserve sender/recipient filter)
+    // Add search functionality
     if (search && search.trim()) {
-      filter.$and = [
-        {
-          $or: [
-            { recipient: req.user.id },
-            { sender: req.user.id }
-          ]
-        },
-        {
-          $or: [
-            { content: { $regex: search, $options: 'i' } },
-            { subject: { $regex: search, $options: 'i' } }
-          ]
-        }
+      filter.$or = [
+        { content: { $regex: search, $options: 'i' } },
+        { subject: { $regex: search, $options: 'i' } }
       ];
-      // Remove the original $or since we're using $and now
-      delete filter.$or;
     }
 
     const [messages, totalCount] = await Promise.all([
@@ -2324,7 +2251,7 @@ router.post('/messages/:messageId/reply', asyncHandler(async (req, res) => {
       subject: subject || `Re: ${originalMessage.subject || originalMessage.message || 'Your Inquiry'}`,
       content: content.trim(),
       type: 'general',
-      status: 'unread', // Message is unread until recipient reads it
+      status: 'read', // Admin messages are automatically read
       priority: originalMessage.priority || 'medium',
       parentMessage: messageId,
       // Don't set conversationId for admin messages
@@ -2352,79 +2279,6 @@ router.post('/messages/:messageId/reply', asyncHandler(async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to send reply'
-    });
-  }
-}));
-
-// @desc    Send direct message to user
-// @route   POST /api/admin/messages/send
-// @access  Private/Admin
-router.post('/messages/send', asyncHandler(async (req, res) => {
-  try {
-    const { recipientId, content, subject, type, priority } = req.body;
-
-    if (!recipientId || !content || !content.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Recipient and message content are required'
-      });
-    }
-
-    // Verify recipient exists and is not an admin
-    const recipient = await User.findById(recipientId);
-    if (!recipient) {
-      return res.status(404).json({
-        success: false,
-        message: 'Recipient user not found'
-      });
-    }
-
-    if (recipient.role === 'admin' || recipient.role === 'superadmin') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot send messages to other admins'
-      });
-    }
-
-    // Create new message
-    const message = new Message({
-      sender: req.user.id,
-      recipient: recipientId,
-      subject: subject || 'Message from Admin',
-      content: content.trim(),
-      type: type || 'general',
-      status: 'unread',
-      priority: priority || 'medium'
-    });
-
-    await message.save();
-
-    // Populate sender and recipient info
-    await message.populate('sender', 'email role profile.firstName profile.lastName profile.avatar');
-    await message.populate('recipient', 'email role profile.firstName profile.lastName profile.avatar');
-
-    // Send email notification to recipient
-    try {
-      await sendTemplateEmail(recipient.email, 'new-message', {
-        firstName: recipient.profile?.firstName || 'User',
-        senderName: `${req.user.profile?.firstName || 'Admin'} ${req.user.profile?.lastName || ''}`,
-        messagePreview: content.substring(0, 100),
-        messageUrl: `${process.env.FRONTEND_URL || 'https://squares-v2.vercel.app'}/messages`
-      });
-    } catch (emailError) {
-      console.error('Failed to send message notification email:', emailError);
-    }
-
-    res.json({
-      success: true,
-      data: { message },
-      message: 'Message sent successfully'
-    });
-  } catch (error) {
-    console.error('Send message error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to send message'
     });
   }
 }));

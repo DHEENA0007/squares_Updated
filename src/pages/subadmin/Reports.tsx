@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, Download, TrendingUp, Users, Building, Eye, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 import {
   Select,
   SelectContent,
@@ -53,28 +54,17 @@ const Reports = () => {
   const fetchReportData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/subadmin/reports?range=${dateRange}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setReportData(data.data);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to fetch report data",
-          variant: "destructive",
-        });
-      }
+      const response = await fetchWithAuth(`/api/subadmin/reports?range=${dateRange}`);
+      const data = await handleApiResponse<{ data: ReportData }>(response);
+      setReportData(data.data || null);
     } catch (error: any) {
+      console.error('Error fetching report data:', error);
       toast({
         title: "Error",
-        description: "Error fetching report data",
+        description: error.message || "Error fetching report data",
         variant: "destructive",
       });
+      setReportData(null);
     } finally {
       setLoading(false);
     }

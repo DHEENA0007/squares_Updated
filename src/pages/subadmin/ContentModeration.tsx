@@ -16,6 +16,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeEvent } from "@/contexts/RealtimeContext";
+import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 
 interface ContentReport {
   _id: string;
@@ -58,28 +59,17 @@ const ContentModeration = () => {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/subadmin/content/reports?status=${activeTab}&search=${searchTerm}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setReports(data.data.reports);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to fetch content reports",
-          variant: "destructive",
-        });
-      }
+      const response = await fetchWithAuth(`/api/subadmin/content/reports?status=${activeTab}&search=${searchTerm}`);
+      const data = await handleApiResponse<{ data: { reports: ContentReport[] } }>(response);
+      setReports(data.data.reports || []);
     } catch (error: any) {
+      console.error('Error fetching content reports:', error);
       toast({
         title: "Error",
-        description: "Error fetching content reports",
+        description: error.message || "Error fetching content reports",
         variant: "destructive",
       });
+      setReports([]);
     } finally {
       setLoading(false);
     }

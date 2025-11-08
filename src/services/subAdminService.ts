@@ -1,5 +1,3 @@
-import axios from 'axios';
-
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 interface Property {
@@ -59,26 +57,72 @@ interface DashboardStats {
 }
 
 class SubAdminService {
-  private getAuthHeaders() {
-    const token = localStorage.getItem('token');
-    return {
+  private async makeRequest<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`;
+    
+    const config: RequestInit = {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
+        ...options.headers,
       },
+      ...options,
     };
+
+    // Add auth token
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers = {
+        ...config.headers,
+        Authorization: `Bearer ${token}`,
+      };
+    }
+
+    try {
+      const response = await fetch(url, config);
+      
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        let errorData;
+        
+        if (contentType && contentType.includes('application/json')) {
+          errorData = await response.json().catch(() => ({
+            success: false,
+            message: `HTTP ${response.status}: ${response.statusText}`,
+          }));
+        } else {
+          errorData = {
+            success: false,
+            message: `HTTP ${response.status}: ${response.statusText}`,
+          };
+        }
+        
+        throw new Error(errorData.message || "An error occurred");
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Invalid response format: Expected JSON');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("SubAdmin API request failed:", error);
+      throw error;
+    }
   }
 
   // Dashboard
   async getDashboardStats(): Promise<DashboardStats> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/subadmin/dashboard`,
-        this.getAuthHeaders()
+      const response = await this.makeRequest<{ success: boolean; data: DashboardStats }>(
+        '/subadmin/dashboard'
       );
-      return response.data.data;
+      return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to fetch dashboard stats');
+      throw new Error(error.message || 'Failed to fetch dashboard stats');
     }
   }
 
@@ -92,39 +136,39 @@ class SubAdminService {
     hasPrev: boolean;
   }> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/subadmin/properties/pending?page=${page}&limit=${limit}&search=${search}`,
-        this.getAuthHeaders()
+      const response = await this.makeRequest<{ success: boolean; data: any }>(
+        `/subadmin/properties/pending?page=${page}&limit=${limit}&search=${search}`
       );
-      return response.data.data;
+      return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to fetch pending properties');
+      throw new Error(error.message || 'Failed to fetch pending properties');
     }
   }
 
   async approveProperty(propertyId: string): Promise<Property> {
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/subadmin/properties/${propertyId}/approve`,
-        {},
-        this.getAuthHeaders()
+      const response = await this.makeRequest<{ success: boolean; data: Property }>(
+        `/subadmin/properties/${propertyId}/approve`,
+        { method: 'POST' }
       );
-      return response.data.data;
+      return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to approve property');
+      throw new Error(error.message || 'Failed to approve property');
     }
   }
 
   async rejectProperty(propertyId: string, reason: string): Promise<Property> {
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/subadmin/properties/${propertyId}/reject`,
-        { reason },
-        this.getAuthHeaders()
+      const response = await this.makeRequest<{ success: boolean; data: Property }>(
+        `/subadmin/properties/${propertyId}/reject`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ reason }),
+        }
       );
-      return response.data.data;
+      return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to reject property');
+      throw new Error(error.message || 'Failed to reject property');
     }
   }
 
@@ -136,39 +180,39 @@ class SubAdminService {
     currentPage: number;
   }> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/subadmin/support/tickets?page=${page}&limit=${limit}&status=${status}`,
-        this.getAuthHeaders()
+      const response = await this.makeRequest<{ success: boolean; data: any }>(
+        `/subadmin/support/tickets?page=${page}&limit=${limit}&status=${status}`
       );
-      return response.data.data;
+      return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to fetch support tickets');
+      throw new Error(error.message || 'Failed to fetch support tickets');
     }
   }
 
   async updateSupportTicket(ticketId: string, status: string, response: string): Promise<SupportTicket> {
     try {
-      const res = await axios.patch(
-        `${API_BASE_URL}/subadmin/support/tickets/${ticketId}`,
-        { status, response },
-        this.getAuthHeaders()
+      const res = await this.makeRequest<{ success: boolean; data: SupportTicket }>(
+        `/subadmin/support/tickets/${ticketId}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ status, response }),
+        }
       );
-      return res.data.data;
+      return res.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to update support ticket');
+      throw new Error(error.message || 'Failed to update support ticket');
     }
   }
 
   // Vendor Performance
   async getVendorPerformance(): Promise<{ vendors: VendorPerformance[] }> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/subadmin/vendors/performance`,
-        this.getAuthHeaders()
+      const response = await this.makeRequest<{ success: boolean; data: { vendors: VendorPerformance[] } }>(
+        '/subadmin/vendors/performance'
       );
-      return response.data.data;
+      return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to fetch vendor performance');
+      throw new Error(error.message || 'Failed to fetch vendor performance');
     }
   }
 
@@ -180,13 +224,15 @@ class SubAdminService {
     type?: string;
   }): Promise<void> {
     try {
-      await axios.post(
-        `${API_BASE_URL}/subadmin/notifications/send`,
-        data,
-        this.getAuthHeaders()
+      await this.makeRequest<{ success: boolean }>(
+        '/subadmin/notifications/send',
+        {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }
       );
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to send notification');
+      throw new Error(error.message || 'Failed to send notification');
     }
   }
 
@@ -202,39 +248,36 @@ class SubAdminService {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
       
-      const response = await axios.get(
-        `${API_BASE_URL}/subadmin/reports/city/${city}?${params}`,
-        this.getAuthHeaders()
+      const response = await this.makeRequest<{ success: boolean; data: any }>(
+        `/subadmin/reports/city/${city}?${params}`
       );
-      return response.data.data;
+      return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to fetch city report');
+      throw new Error(error.message || 'Failed to fetch city report');
     }
   }
 
   // Content Moderation (placeholder - implement based on your content system)
   async getContentReports(): Promise<{ reports: any[]; total: number }> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/subadmin/content/reports`,
-        this.getAuthHeaders()
+      const response = await this.makeRequest<{ success: boolean; data: any }>(
+        '/subadmin/content/reports'
       );
-      return response.data.data;
+      return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to fetch content reports');
+      throw new Error(error.message || 'Failed to fetch content reports');
     }
   }
 
   // Promotions (placeholder - implement based on your promotion system)
   async getPendingPromotions(): Promise<{ promotions: any[]; total: number }> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/subadmin/promotions/pending`,
-        this.getAuthHeaders()
+      const response = await this.makeRequest<{ success: boolean; data: any }>(
+        '/subadmin/promotions/pending'
       );
-      return response.data.data;
+      return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to fetch pending promotions');
+      throw new Error(error.message || 'Failed to fetch pending promotions');
     }
   }
 }

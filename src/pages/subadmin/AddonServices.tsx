@@ -16,6 +16,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 
 interface AddonService {
   _id: string;
@@ -71,28 +72,17 @@ const AddonServices = () => {
   const fetchVendorAddons = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/subadmin/addon-services?status=${activeTab}&search=${searchTerm}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setVendorAddons(data.data.vendorAddons);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to fetch addon services",
-          variant: "destructive",
-        });
-      }
+      const response = await fetchWithAuth(`/api/subadmin/addon-services?status=${activeTab}&search=${searchTerm}`);
+      const data = await handleApiResponse<{ data: { vendorAddons: VendorAddon[] } }>(response);
+      setVendorAddons(data.data.vendorAddons || []);
     } catch (error: any) {
+      console.error('Error fetching addon services:', error);
       toast({
         title: "Error",
-        description: "Error fetching addon services",
+        description: error.message || "Error fetching addon services",
         variant: "destructive",
       });
+      setVendorAddons([]);
     } finally {
       setLoading(false);
     }

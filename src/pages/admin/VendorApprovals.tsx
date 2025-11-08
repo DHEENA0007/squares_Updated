@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { fetchWithAuth, handleApiResponse } from '@/utils/apiUtils';
 
 interface VendorApplication {
   _id: string;
@@ -130,49 +131,34 @@ const VendorApprovals: React.FC = () => {
         sortOrder: 'desc'
       });
 
-      const response = await fetch(`/api/admin/vendor-approvals?${queryParams}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to fetch applications:', errorText);
-        throw new Error('Failed to fetch applications');
-      }
-      
-      const data = await response.json();
-      setApplications(data.data.vendors);
+      const response = await fetchWithAuth(`/api/admin/vendor-approvals?${queryParams}`);
+      const data = await handleApiResponse<{ data: { vendors: VendorApplication[] } }>(response);
+      setApplications(data.data.vendors || []);
     } catch (error) {
       console.error('Error fetching applications:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch vendor applications",
+        description: error instanceof Error ? error.message : "Failed to fetch vendor applications",
         variant: "destructive"
       });
+      setApplications([]);
     }
   };
 
   // Fetch statistics
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/admin/vendor-approval-stats', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to fetch stats:', errorText);
-        throw new Error('Failed to fetch stats');
-      }
-      
-      const data = await response.json();
-      setStats(data.data);
+      const response = await fetchWithAuth('/api/admin/vendor-approval-stats');
+      const data = await handleApiResponse<{ data: VendorApprovalStats }>(response);
+      setStats(data.data || null);
     } catch (error) {
       console.error('Error fetching stats:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch statistics",
+        variant: "destructive"
+      });
+      setStats(null);
     }
   };
 

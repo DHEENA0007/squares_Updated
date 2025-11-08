@@ -16,6 +16,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 
 interface Promotion {
   _id: string;
@@ -61,28 +62,17 @@ const Promotions = () => {
   const fetchPromotions = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/subadmin/promotions?status=${activeTab}&search=${searchTerm}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setPromotions(data.data.promotions);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to fetch promotions",
-          variant: "destructive",
-        });
-      }
+      const response = await fetchWithAuth(`/api/subadmin/promotions?status=${activeTab}&search=${searchTerm}`);
+      const data = await handleApiResponse<{ data: { promotions: Promotion[] } }>(response);
+      setPromotions(data.data.promotions || []);
     } catch (error: any) {
+      console.error('Error fetching promotions:', error);
       toast({
         title: "Error",
-        description: "Error fetching promotions",
+        description: error.message || "Error fetching promotions",
         variant: "destructive",
       });
+      setPromotions([]);
     } finally {
       setLoading(false);
     }

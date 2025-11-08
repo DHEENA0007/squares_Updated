@@ -21,15 +21,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -63,12 +54,9 @@ import {
   Loader2,
   RefreshCw,
   Circle,
-  Check,
-  Plus,
-  X
+  Check
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 import { 
   adminMessageService, 
   type AdminMessage, 
@@ -80,7 +68,6 @@ import { messageService, type UserStatus } from "@/services/messageService";
 
 const AdminMessages = () => {
   const { isConnected } = useRealtime();
-  const { user } = useAuth();
   const [messages, setMessages] = useState<AdminMessage[]>([]);
   const [filteredMessages, setFilteredMessages] = useState<AdminMessage[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<AdminMessage | null>(null);
@@ -106,36 +93,6 @@ const AdminMessages = () => {
     hasPrev: false,
     limit: 20
   });
-  
-  // New message dialog state
-  const [showNewMessageDialog, setShowNewMessageDialog] = useState(false);
-  const [userSearchQuery, setUserSearchQuery] = useState("");
-  const [searchedUsers, setSearchedUsers] = useState<Array<{
-    _id: string;
-    email: string;
-    role: string;
-    profile?: {
-      firstName?: string;
-      lastName?: string;
-      avatar?: string;
-    };
-  }>>([]);
-  const [selectedUser, setSelectedUser] = useState<{
-    _id: string;
-    email: string;
-    role: string;
-    profile?: {
-      firstName?: string;
-      lastName?: string;
-      avatar?: string;
-    };
-  } | null>(null);
-  const [newMessageSubject, setNewMessageSubject] = useState("");
-  const [newMessageContent, setNewMessageContent] = useState("");
-  const [newMessageType, setNewMessageType] = useState<'inquiry' | 'lead' | 'property_inquiry' | 'general' | 'support' | 'complaint'>("general");
-  const [newMessagePriority, setNewMessagePriority] = useState<'low' | 'medium' | 'high' | 'urgent'>("medium");
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const [searchingUsers, setSearchingUsers] = useState(false);
 
   // Realtime messaging events
   useMessagingRealtime({
@@ -167,16 +124,10 @@ const AdminMessages = () => {
     }
   }, [messages]);
 
-  // Load user statuses for all users in messages (both senders and recipients)
+  // Load user statuses for all message senders
   const loadUserStatuses = async () => {
     const statuses: Record<string, UserStatus> = {};
-    const uniqueUserIds = new Set<string>();
-    
-    // Collect all unique user IDs from both senders and recipients
-    messages.forEach(msg => {
-      uniqueUserIds.add(msg.sender._id);
-      uniqueUserIds.add(msg.recipient._id);
-    });
+    const uniqueUserIds = new Set(messages.map(msg => msg.sender._id));
     
     for (const userId of uniqueUserIds) {
       try {
@@ -290,20 +241,12 @@ const AdminMessages = () => {
     setFilteredMessages(filtered);
   }, [messages, activeTab]);
 
-  // Get the name of the other party in conversation (not the admin)
-  const getOtherPartyName = (message: AdminMessage) => {
-    // If admin is sender, show recipient name
-    if (message.sender._id === user?.id) {
-      return adminMessageService.getRecipientName(message);
-    }
+  const getSenderName = (message: AdminMessage) => {
     return adminMessageService.getSenderName(message);
   };
 
-  const getOtherParty = (message: AdminMessage) => {
-    if (message.sender._id === user?.id) {
-      return message.recipient;
-    }
-    return message.sender;
+  const getRecipientName = (message: AdminMessage) => {
+    return adminMessageService.getRecipientName(message);
   };
 
   const formatDate = (dateString: string) => {
@@ -371,81 +314,6 @@ const AdminMessages = () => {
     }
   };
 
-  // Search users for new message
-  const searchUsers = async (query: string) => {
-    if (!query || query.trim().length < 2) {
-      setSearchedUsers([]);
-      return;
-    }
-
-    try {
-      setSearchingUsers(true);
-      const users = await adminMessageService.searchUsers(query, ['admin', 'superadmin', 'subadmin']);
-      setSearchedUsers(users);
-    } catch (error) {
-      console.error("Failed to search users:", error);
-      setSearchedUsers([]);
-    } finally {
-      setSearchingUsers(false);
-    }
-  };
-
-  // Debounced user search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (userSearchQuery) {
-        searchUsers(userSearchQuery);
-      } else {
-        setSearchedUsers([]);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [userSearchQuery]);
-
-  // Send new message
-  const sendNewMessage = async () => {
-    if (!selectedUser || !newMessageContent.trim()) return;
-
-    try {
-      setSendingMessage(true);
-      await adminMessageService.sendDirectMessage(
-        selectedUser._id,
-        newMessageContent.trim(),
-        newMessageSubject.trim() || undefined,
-        newMessageType,
-        newMessagePriority
-      );
-
-      // Reset form
-      setShowNewMessageDialog(false);
-      setSelectedUser(null);
-      setUserSearchQuery("");
-      setNewMessageSubject("");
-      setNewMessageContent("");
-      setNewMessageType("general");
-      setNewMessagePriority("medium");
-      setSearchedUsers([]);
-
-      // Refresh messages
-      loadMessages();
-      loadStats();
-    } catch (error) {
-      console.error("Failed to send message:", error);
-    } finally {
-      setSendingMessage(false);
-    }
-  };
-
-  const getUserDisplayName = (user: typeof selectedUser) => {
-    if (!user) return "";
-    const profile = user.profile;
-    if (profile?.firstName && profile?.lastName) {
-      return `${profile.firstName} ${profile.lastName}`;
-    }
-    return user.email;
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -484,10 +352,6 @@ const AdminMessages = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setShowNewMessageDialog(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            New Message
-          </Button>
           <Button variant="outline" onClick={() => loadMessages()}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
@@ -625,104 +489,99 @@ const AdminMessages = () => {
           {/* Messages List */}
           <ScrollArea className="h-[calc(100%-12rem)]">
             <div className="p-2 space-y-1">
-              {filteredMessages.map((message) => {
-                const otherParty = getOtherParty(message);
-                const otherPartyName = getOtherPartyName(message);
-                
-                return (
-                  <div
-                    key={message._id}
-                    className={`p-3 rounded-lg cursor-pointer transition-colors hover:bg-accent/50 ${
-                      selectedMessage?._id === message._id ? 'bg-accent' : ''
-                    }`}
-                    onClick={() => {
-                      setSelectedMessage(message);
-                      if (message.status === 'unread') {
-                        markAsRead(message._id);
-                      }
-                    }}
-                  >
-                    <div className="flex items-start space-x-3">
-                      <div className="relative">
-                        <Avatar className="w-10 h-10">
-                          <AvatarImage src={otherParty.profile?.avatar} />
-                          <AvatarFallback>
-                            {otherPartyName.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        {userStatuses[otherParty._id]?.isOnline ? (
-                          <div title="Online">
-                            <Circle className="absolute -bottom-1 -right-1 w-3 h-3 fill-green-500 text-green-500 border-2 border-background rounded-full" />
-                          </div>
-                        ) : (
-                          <div title={`Last seen ${userStatuses[otherParty._id]?.lastSeen ? messageService.formatTime(userStatuses[otherParty._id].lastSeen) : 'recently'}`}>
-                            <Circle className="absolute -bottom-1 -right-1 w-3 h-3 fill-gray-400 text-gray-400 border-2 border-background rounded-full" />
-                          </div>
-                        )}
-                        {message.status === 'unread' && (
-                          <div className="absolute -top-1 -left-1 w-3 h-3 rounded-full bg-red-500" />
-                        )}
+              {filteredMessages.map((message) => (
+                <div
+                  key={message._id}
+                  className={`p-3 rounded-lg cursor-pointer transition-colors hover:bg-accent/50 ${
+                    selectedMessage?._id === message._id ? 'bg-accent' : ''
+                  }`}
+                  onClick={() => {
+                    setSelectedMessage(message);
+                    if (message.status === 'unread') {
+                      markAsRead(message._id);
+                    }
+                  }}
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className="relative">
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={message.sender.profile?.avatar} />
+                        <AvatarFallback>
+                          {getSenderName(message).charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      {userStatuses[message.sender._id]?.isOnline ? (
+                        <div title="Online">
+                          <Circle className="absolute -bottom-1 -right-1 w-3 h-3 fill-green-500 text-green-500 border-2 border-background rounded-full" />
+                        </div>
+                      ) : (
+                        <div title={`Last seen ${userStatuses[message.sender._id]?.lastSeen ? messageService.formatTime(userStatuses[message.sender._id].lastSeen) : 'recently'}`}>
+                          <Circle className="absolute -bottom-1 -right-1 w-3 h-3 fill-gray-400 text-gray-400 border-2 border-background rounded-full" />
+                        </div>
+                      )}
+                      {message.status === 'unread' && (
+                        <div className="absolute -top-1 -left-1 w-3 h-3 rounded-full bg-red-500" />
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-sm truncate">
+                          {getSenderName(message)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(message.createdAt)}
+                        </span>
                       </div>
                       
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-sm truncate">
-                            {otherPartyName}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {formatDate(message.createdAt)}
-                          </span>
-                        </div>
-                        
-                        {message.subject && (
-                          <p className="text-xs font-medium text-primary mb-1 truncate">
-                            {message.subject}
-                          </p>
-                        )}
-                        
-                        <p className="text-xs text-muted-foreground truncate">
-                          {message.content}
+                      {message.subject && (
+                        <p className="text-xs font-medium text-primary mb-1 truncate">
+                          {message.subject}
                         </p>
-                        
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex gap-1">
-                            <Badge className={`text-xs ${getPriorityColor(message.priority)}`}>
-                              {message.priority}
-                            </Badge>
-                            <Badge className={`text-xs ${getStatusColor(message.status)}`}>
-                              {message.status}
-                            </Badge>
-                          </div>
-                          
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                <MoreVertical className="w-3 h-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => flagMessage(message._id)}>
-                                <AlertTriangle className="w-4 h-4 mr-2" />
-                                Flag
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                className="text-red-600"
-                                onSelect={(e) => {
-                                  e.preventDefault();
-                                  setMessageToDelete(message._id);
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                      )}
+                      
+                      <p className="text-xs text-muted-foreground truncate">
+                        {message.content}
+                      </p>
+                      
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="flex gap-1">
+                          <Badge className={`text-xs ${getPriorityColor(message.priority)}`}>
+                            {message.priority}
+                          </Badge>
+                          <Badge className={`text-xs ${getStatusColor(message.status)}`}>
+                            {message.status}
+                          </Badge>
                         </div>
+                        
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                              <MoreVertical className="w-3 h-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => flagMessage(message._id)}>
+                              <AlertTriangle className="w-4 h-4 mr-2" />
+                              Flag
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-red-600"
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                setMessageToDelete(message._id);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </ScrollArea>
         </div>
@@ -737,29 +596,29 @@ const AdminMessages = () => {
                   <div className="flex items-center space-x-3">
                     <div className="relative">
                       <Avatar className="w-10 h-10">
-                        <AvatarImage src={getOtherParty(selectedMessage).profile?.avatar} />
+                        <AvatarImage src={selectedMessage.sender.profile?.avatar} />
                         <AvatarFallback>
-                          {getOtherPartyName(selectedMessage).charAt(0).toUpperCase()}
+                          {getSenderName(selectedMessage).charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      {userStatuses[getOtherParty(selectedMessage)._id]?.isOnline ? (
+                      {userStatuses[selectedMessage.sender._id]?.isOnline ? (
                         <div title="Online">
                           <Circle className="absolute -bottom-1 -right-1 w-3 h-3 fill-green-500 text-green-500 border-2 border-background rounded-full" />
                         </div>
                       ) : (
-                        <div title={`Last seen ${userStatuses[getOtherParty(selectedMessage)._id]?.lastSeen ? messageService.formatTime(userStatuses[getOtherParty(selectedMessage)._id].lastSeen) : 'recently'}`}>
+                        <div title={`Last seen ${userStatuses[selectedMessage.sender._id]?.lastSeen ? messageService.formatTime(userStatuses[selectedMessage.sender._id].lastSeen) : 'recently'}`}>
                           <Circle className="absolute -bottom-1 -right-1 w-3 h-3 fill-gray-400 text-gray-400 border-2 border-background rounded-full" />
                         </div>
                       )}
                     </div>
                     <div>
                       <h3 className="font-semibold">
-                        {getOtherPartyName(selectedMessage)}
+                        {getSenderName(selectedMessage)}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        {userStatuses[getOtherParty(selectedMessage)._id]?.isOnline 
+                        {userStatuses[selectedMessage.sender._id]?.isOnline 
                           ? 'Online' 
-                          : `Last seen ${userStatuses[getOtherParty(selectedMessage)._id]?.lastSeen ? messageService.formatTime(userStatuses[getOtherParty(selectedMessage)._id].lastSeen) : 'recently'}`
+                          : `Last seen ${userStatuses[selectedMessage.sender._id]?.lastSeen ? messageService.formatTime(userStatuses[selectedMessage.sender._id].lastSeen) : 'recently'}`
                         }
                       </p>
                     </div>
@@ -819,7 +678,7 @@ const AdminMessages = () => {
                             <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                           </div>
                           <span className="text-xs text-muted-foreground italic">
-                            {getOtherPartyName(selectedMessage)} is typing...
+                            {getSenderName(selectedMessage)} is typing...
                           </span>
                         </div>
                       </div>
@@ -905,203 +764,6 @@ const AdminMessages = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* New Message Dialog */}
-      <Dialog open={showNewMessageDialog} onOpenChange={setShowNewMessageDialog}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Send New Message</DialogTitle>
-            <DialogDescription>
-              Search and select a user to send a direct message
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {/* User Selection */}
-            {!selectedUser ? (
-              <div className="space-y-3">
-                <Label>Search User</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by name or email (min 2 chars)..."
-                    value={userSearchQuery}
-                    onChange={(e) => setUserSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-
-                {/* Search Results */}
-                {searchingUsers ? (
-                  <div className="p-4 text-center border rounded-lg">
-                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Searching users...</p>
-                  </div>
-                ) : searchedUsers.length > 0 ? (
-                  <ScrollArea className="h-[300px] border rounded-lg">
-                    <div className="p-2">
-                      {searchedUsers.map((user) => (
-                        <div
-                          key={user._id}
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setUserSearchQuery("");
-                            setSearchedUsers([]);
-                          }}
-                          className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-accent transition-colors"
-                        >
-                          <Avatar className="w-10 h-10">
-                            <AvatarImage src={user.profile?.avatar} />
-                            <AvatarFallback>
-                              {getUserDisplayName(user).charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">
-                              {getUserDisplayName(user)}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {user.email} • <span className="capitalize">{user.role}</span>
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                ) : userSearchQuery.length >= 2 ? (
-                  <div className="p-4 text-center border rounded-lg">
-                    <p className="text-sm text-muted-foreground">No users found</p>
-                  </div>
-                ) : userSearchQuery.length > 0 && userSearchQuery.length < 2 ? (
-                  <div className="p-4 text-center border rounded-lg">
-                    <p className="text-sm text-muted-foreground">Type at least 2 characters to search</p>
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label>Recipient</Label>
-                <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50">
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={selectedUser.profile?.avatar} />
-                    <AvatarFallback>
-                      {getUserDisplayName(selectedUser).charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="font-medium">{getUserDisplayName(selectedUser)}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedUser.email} • {selectedUser.role}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedUser(null)}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Message Type & Priority */}
-            {selectedUser && (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Message Type</Label>
-                    <Select value={newMessageType} onValueChange={(value: any) => setNewMessageType(value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="general">General</SelectItem>
-                        <SelectItem value="inquiry">Inquiry</SelectItem>
-                        <SelectItem value="property_inquiry">Property Inquiry</SelectItem>
-                        <SelectItem value="support">Support</SelectItem>
-                        <SelectItem value="complaint">Complaint</SelectItem>
-                        <SelectItem value="lead">Lead</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Priority</Label>
-                    <Select value={newMessagePriority} onValueChange={(value: any) => setNewMessagePriority(value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Subject */}
-                <div className="space-y-2">
-                  <Label>Subject (Optional)</Label>
-                  <Input
-                    placeholder="Enter message subject..."
-                    value={newMessageSubject}
-                    onChange={(e) => setNewMessageSubject(e.target.value)}
-                  />
-                </div>
-
-                {/* Message Content */}
-                <div className="space-y-2">
-                  <Label>Message</Label>
-                  <Textarea
-                    placeholder="Type your message..."
-                    value={newMessageContent}
-                    onChange={(e) => setNewMessageContent(e.target.value)}
-                    rows={6}
-                    className="resize-none"
-                  />
-                </div>
-              </>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowNewMessageDialog(false);
-                setSelectedUser(null);
-                setUserSearchQuery("");
-                setNewMessageSubject("");
-                setNewMessageContent("");
-                setNewMessageType("general");
-                setNewMessagePriority("medium");
-                setSearchedUsers([]);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={sendNewMessage}
-              disabled={!selectedUser || !newMessageContent.trim() || sendingMessage}
-            >
-              {sendingMessage ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4 mr-2" />
-                  Send Message
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
