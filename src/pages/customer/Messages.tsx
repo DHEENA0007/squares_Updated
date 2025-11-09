@@ -480,13 +480,15 @@ const Messages = () => {
                               </AvatarFallback>
                             </Avatar>
                             {/* Dynamic online status indicator */}
-                            {userStatuses[otherParticipant._id]?.isOnline ? (
+                            {/* {userStatuses[otherParticipant._id]?.isOnline ? (
                               <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white bg-green-500" 
                                    title="Online" />
-                            ) : (
+                            ) 
+                            : (
                               <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white bg-gray-400" 
                                    title={`Last seen ${userStatuses[otherParticipant._id]?.lastSeen ? messageService.formatTime(userStatuses[otherParticipant._id].lastSeen) : 'recently'}`} />
-                            )}
+                            )
+                            } */}
                           </div>
                           
                           <div className="flex-1 min-w-0">
@@ -504,13 +506,13 @@ const Messages = () => {
                             </div>
                             
                             {/* Show last seen if offline */}
-                            {userStatuses[otherParticipant._id] && !userStatuses[otherParticipant._id]?.isOnline && (
+                            {/* {userStatuses[otherParticipant._id] && !userStatuses[otherParticipant._id]?.isOnline && (
                               <p className="text-[10px] text-muted-foreground mb-1">
                                 Last seen {userStatuses[otherParticipant._id]?.lastSeen 
                                   ? messageService.formatTime(userStatuses[otherParticipant._id].lastSeen)
                                   : 'recently'}
                               </p>
-                            )}
+                            )} */}
                             
                             {conversation.property && (
                               <p className="text-xs text-primary font-medium mb-1 truncate">
@@ -587,13 +589,13 @@ const Messages = () => {
                         </AvatarFallback>
                       </Avatar>
                       {/* Dynamic online status indicator */}
-                      {userStatuses[getOtherParticipant(activeConversation)._id]?.isOnline ? (
+                      {/* {userStatuses[getOtherParticipant(activeConversation)._id]?.isOnline ? (
                         <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white bg-green-500" 
                              title="Online" />
                       ) : (
                         <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white bg-gray-400" 
                              title={`Last seen ${userStatuses[getOtherParticipant(activeConversation)._id]?.lastSeen ? messageService.formatTime(userStatuses[getOtherParticipant(activeConversation)._id].lastSeen) : 'recently'}`} />
-                      )}
+                      )} */}
                     </div>
                     
                     <div>
@@ -607,13 +609,13 @@ const Messages = () => {
                         )}
                       </div>
                       {/* Show last seen if offline */}
-                      {userStatuses[getOtherParticipant(activeConversation)._id] && !userStatuses[getOtherParticipant(activeConversation)._id]?.isOnline && (
+                      {/* {userStatuses[getOtherParticipant(activeConversation)._id] && !userStatuses[getOtherParticipant(activeConversation)._id]?.isOnline && (
                         <p className="text-xs text-muted-foreground">
                           Last seen {userStatuses[getOtherParticipant(activeConversation)._id]?.lastSeen 
                             ? messageService.formatTime(userStatuses[getOtherParticipant(activeConversation)._id].lastSeen)
                             : 'recently'}
                         </p>
-                      )}
+                      )} */}
                       {activeConversation.property && (
                         <p className="text-sm text-muted-foreground">{activeConversation.property.title}</p>
                       )}
