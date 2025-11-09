@@ -1,4 +1,4 @@
-import signupHero from "@/assets/signup-hero.jpg";
+import signupHero from "@/assets/reg-pg.png";
 
 const SignupIllustration: React.FC = () => {
   return (
