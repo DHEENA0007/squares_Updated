@@ -148,7 +148,7 @@ const MyFavorites: React.FC = () => {
       cityStr.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesFilter = !filterType || filterType === 'all' ||
-      (filterType === 'available' && (property.status === 'available' || property.status === 'active')) ||
+      (filterType === 'available' && property.status === 'available') ||
       (filterType === 'sold' && property.status === 'sold') ||
       (filterType === 'rented' && property.status === 'rented') ||
       (filterType === 'recent' && new Date(favorite.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));

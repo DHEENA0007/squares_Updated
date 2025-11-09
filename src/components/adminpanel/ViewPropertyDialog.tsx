@@ -57,7 +57,7 @@ export const ViewPropertyDialog = ({ property, open, onOpenChange }: ViewPropert
         <div className="space-y-6 mt-4">
           {/* Status and Type Badges */}
           <div className="flex flex-wrap gap-2">
-            <Badge variant={property.status === 'active' ? 'default' : property.status === 'pending' ? 'outline' : 'destructive'}>
+            <Badge variant={property.status === 'available' ? 'default' : property.status === 'pending' ? 'outline' : 'destructive'}>
               Status: {property.status}
             </Badge>
             <Badge variant="secondary" className="capitalize">

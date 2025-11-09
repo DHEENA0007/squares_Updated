@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle, XCircle, Eye, Search, Filter, MapPin, Home, Users } from "lucide-react";
+import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 
 interface Property {
   _id: string;
@@ -47,17 +48,10 @@ const PropertyReview = () => {
         search: searchTerm,
       });
 
-      const response = await fetch(`/api/admin/properties/review?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setProperties(data.properties);
-        setTotalPages(data.totalPages);
-      }
+      const response = await fetchWithAuth(`/admin/properties/review?${params}`);
+      const data = await handleApiResponse<{ properties: Property[]; totalPages: number }>(response);
+      setProperties(data.properties);
+      setTotalPages(data.totalPages);
     } catch (error) {
       console.error('Failed to fetch properties:', error);
     } finally {
@@ -71,17 +65,12 @@ const PropertyReview = () => {
 
   const handlePropertyAction = async (propertyId: string, action: 'approve' | 'reject') => {
     try {
-      const response = await fetch(`/api/admin/properties/${propertyId}/${action}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await fetchWithAuth(`/admin/properties/${propertyId}/${action}`, {
+        method: 'POST'
       });
 
-      if (response.ok) {
-        fetchProperties(); // Refresh the list
-      }
+      await handleApiResponse(response);
+      fetchProperties(); // Refresh the list
     } catch (error) {
       console.error(`Failed to ${action} property:`, error);
     }

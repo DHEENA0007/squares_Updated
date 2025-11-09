@@ -32,12 +32,12 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
     let queryFilter = {};
     
     if (!req.user || !['admin', 'superadmin', 'subadmin'].includes(req.user.role)) {
-      // For customers: show only available or active verified properties
+      // For customers: show only available verified properties
       queryFilter = { 
-        status: { $in: ['available', 'active'] },
+        status: 'available',
         verified: true  // Only show verified properties to customers
       };
-      console.log('Applying customer filter - showing only available/active verified properties');
+      console.log('Applying customer filter - showing only available verified properties');
     } else {
       console.log('Admin user detected - showing all properties');
     }

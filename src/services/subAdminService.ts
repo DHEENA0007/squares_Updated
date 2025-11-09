@@ -6,7 +6,7 @@ interface Property {
   type: string;
   listingType: string;
   price: number;
-  status: 'pending' | 'active' | 'rejected';
+  status: 'pending' | 'available' | 'rejected';
   owner: {
     _id: string;
     name: string;

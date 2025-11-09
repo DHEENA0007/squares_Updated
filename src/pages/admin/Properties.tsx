@@ -227,8 +227,8 @@ const Properties = () => {
     }
     
     // For safety, also check if vendor field is empty (admin-created properties won't have vendor)
-    // and status is 'active' or 'available' (admin properties don't go through approval)
-    return !property.vendor && (property.status === 'active' || property.status === 'available');
+    // and status is 'available' (admin properties don't go through approval)
+    return !property.vendor && property.status === 'available';
   };
 
   // Create extended type for DataTable
@@ -284,7 +284,6 @@ const Properties = () => {
       label: "Status",
       render: (property) => {
         const statusColors: Record<string, "default" | "destructive" | "outline" | "secondary"> = {
-          active: "default",
           available: "default",
           pending: "outline",
           rejected: "destructive",
@@ -362,8 +361,8 @@ const Properties = () => {
                 </>
               )}
 
-              {/* Featured Toggle for Active Properties */}
-              {property.status === 'active' && (
+              {/* Featured Toggle for Available Properties */}
+              {property.status === 'available' && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => handleToggleFeatured(property)}>
@@ -443,11 +442,11 @@ const Properties = () => {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Active Properties</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Available Properties</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {properties.filter(p => p.status === 'active').length}
+              {properties.filter(p => p.status === 'available').length}
             </div>
           </CardContent>
         </Card>

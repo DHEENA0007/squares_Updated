@@ -1432,7 +1432,7 @@ router.post('/properties', async (req, res) => {
       ...req.body,
       owner: req.user.id, // Admin creating the property
       createdBy: req.user.id,
-      status: 'active', // Admin properties are directly active
+      status: 'available', // Admin properties are directly available
       verified: true, // Admin properties are pre-verified
       createdAt: new Date()
     };
@@ -1469,7 +1469,7 @@ router.patch('/properties/:id/status', asyncHandler(async (req, res) => {
   }
 
   // Validate status
-  const validStatuses = ['pending', 'active', 'available', 'rejected', 'sold', 'rented', 'leased'];
+  const validStatuses = ['pending', 'available', 'rejected', 'sold', 'rented', 'leased'];
   if (!validStatuses.includes(status)) {
     return res.status(400).json({
       success: false,
@@ -1497,7 +1497,7 @@ router.patch('/properties/:id/status', asyncHandler(async (req, res) => {
   }
 
   // Add approval details if approving
-  if ((status === 'active' || status === 'available') && property.status === 'pending') {
+  if (status === 'available' && property.status === 'pending') {
     property.approvedBy = req.user.id;
     property.approvedAt = new Date();
     property.verified = true;
@@ -1511,7 +1511,7 @@ router.patch('/properties/:id/status', asyncHandler(async (req, res) => {
     let emailSubject = 'Property Status Updated';
     let emailBody = '';
     
-    if (status === 'active') {
+    if (status === 'available') {
       emailSubject = 'Property Approved';
       emailBody = `Dear ${owner.profile?.firstName || 'User'},\n\nYour property "${property.title}" has been approved and is now live on our platform.\n\nBest regards,\nBuildHomeMartSquares Team`;
     } else if (status === 'rejected') {

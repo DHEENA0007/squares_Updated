@@ -9,7 +9,7 @@ export interface Property {
   title: string;
   description: string;
   type: 'apartment' | 'house' | 'villa' | 'plot' | 'land' | 'commercial' | 'office' | 'pg';
-  status: 'available' | 'sold' | 'rented' | 'leased' | 'pending' | 'active' | 'rejected';
+  status: 'available' | 'sold' | 'rented' | 'leased' | 'pending' | 'rejected';
   listingType: 'sale' | 'rent' | 'lease';
   price: number;
   area: {

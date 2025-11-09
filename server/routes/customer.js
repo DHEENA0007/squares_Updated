@@ -536,7 +536,7 @@ router.get('/properties/stats', asyncHandler(async (req, res) => {
     totalFavorites
   ] = await Promise.all([
     Property.countDocuments(propertyFilter),
-    Property.countDocuments({ ...propertyFilter, status: { $in: ['active', 'available'] } }),
+    Property.countDocuments({ ...propertyFilter, status: 'available' }),
     Property.countDocuments({ ...propertyFilter, status: 'rented' }),
     Property.countDocuments({ ...propertyFilter, status: 'sold' }),
     Property.countDocuments({ ...propertyFilter, status: 'draft' }),

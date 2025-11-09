@@ -52,7 +52,7 @@ interface Property {
   };
   bedrooms: number;
   bathrooms: number;
-  status: 'pending' | 'active' | 'rejected';
+  status: 'pending' | 'available' | 'rejected';
   images: Array<{ url?: string; caption?: string; isPrimary?: boolean } | string>;
   owner: {
     _id: string;

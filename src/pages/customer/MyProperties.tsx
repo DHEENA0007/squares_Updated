@@ -557,7 +557,7 @@ const MyProperties = () => {
                         <BarChart3 className="w-4 h-4 mr-2" />
                         Analytics
                       </Button>
-                      {property.status === 'active' && (
+                      {property.status === 'available' && (
                         <Button size="sm" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
                           <TrendingUp className="w-4 h-4 mr-2" />
                           Promote

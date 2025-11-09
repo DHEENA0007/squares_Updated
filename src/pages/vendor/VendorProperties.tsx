@@ -363,7 +363,7 @@ const VendorProperties = () => {
                         </DropdownMenuItem>
                         
                         {/* Status Update Option - Only show for approved properties */}
-                        {(property.status === 'active' || property.status === 'available') && (
+                        {property.status === 'available' && (
                           <DropdownMenuItem onClick={() => openStatusDialog(property)}>
                             <Users className="w-4 h-4 mr-2" />
                             {property.listingType === 'sale' ? 'Mark as Sold' : 
@@ -440,7 +440,7 @@ const VendorProperties = () => {
                     </Button>
                     
                     {/* Status Update Button - Only show for approved properties */}
-                    {(property.status === 'active' || property.status === 'available') && (
+                    {property.status === 'available' && (
                       <Button size="sm" variant="outline" onClick={() => openStatusDialog(property)}>
                         {property.listingType === 'sale' ? 'Mark as Sold' : 
                          property.listingType === 'rent' ? 'Mark as Rented' : 'Mark as Leased'}

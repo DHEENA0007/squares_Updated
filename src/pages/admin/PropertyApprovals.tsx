@@ -38,7 +38,7 @@ interface Property {
   type: string;
   listingType: string;
   price: number;
-  status: 'pending' | 'active' | 'rejected';
+  status: 'pending' | 'available' | 'rejected';
   owner: {
     _id: string;
     name: string;
@@ -224,7 +224,7 @@ const PropertyApprovals = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="pending">Pending Approval</SelectItem>
-                <SelectItem value="active">Approved</SelectItem>
+                <SelectItem value="available">Approved</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
                 <SelectItem value="all">All Status</SelectItem>
               </SelectContent>

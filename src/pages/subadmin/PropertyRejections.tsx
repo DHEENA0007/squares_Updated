@@ -31,7 +31,7 @@ interface Property {
   };
   bedrooms: number;
   bathrooms: number;
-  status: 'pending' | 'active' | 'rejected';
+  status: 'pending' | 'available' | 'rejected';
   images: string[];
   owner: {
     _id: string;

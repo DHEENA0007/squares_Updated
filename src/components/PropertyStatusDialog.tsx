@@ -46,7 +46,7 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
   const [customerSearch, setCustomerSearch] = useState('');
 
   // Check if property is approved (active status means admin approved)
-  const isPropertyApproved = property?.status === 'active';
+  const isPropertyApproved = property?.status === 'available';
   
   // Get the target status based on listing type
   const getTargetStatus = () => {
@@ -82,7 +82,7 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
       const response = await userService.getUsers({ 
         role: 'customer',
         limit: 100,
-        status: 'active' // Only active customers
+        status: 'available' // Only available properties
       });
       
       console.log('[PropertyStatusDialog] Customer response:', response);

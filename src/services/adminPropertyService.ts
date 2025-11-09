@@ -204,7 +204,6 @@ class AdminPropertyService {
 
   getStatusText(status: string): string {
     const statusMap: Record<string, string> = {
-      'active': 'Active',
       'available': 'Available',
       'pending': 'Pending Review',
       'sold': 'Sold',

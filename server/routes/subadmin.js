@@ -89,7 +89,8 @@ router.post('/properties/:id/approve',
     const property = await Property.findByIdAndUpdate(
       req.params.id,
       { 
-        status: 'active',
+        status: 'available',
+        verified: true,
         approvedBy: req.user.id,
         approvedAt: new Date()
       },
@@ -101,6 +102,24 @@ router.post('/properties/:id/approve',
         success: false,
         message: 'Property not found'
       });
+    }
+
+    // Send approval email to property owner (non-blocking)
+    const owner = property.owner;
+    if (owner && owner.email) {
+      emailService.sendEmail({
+        to: owner.email,
+        subject: 'Property Approved',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">Property Approved</h2>
+            <p>Dear ${owner.profile?.firstName || 'User'},</p>
+            <p>Great news! Your property "<strong>${property.title}</strong>" has been approved and is now live on our platform.</p>
+            <p>You can view and manage your property from your dashboard.</p>
+            <p>Best regards,<br>BuildHomeMartSquares Team</p>
+          </div>
+        `
+      }).catch(err => console.error('Email send error:', err));
     }
 
     // Emit real-time event for property approval
@@ -550,7 +569,7 @@ router.get('/vendors/performance',
             joinedDate: '$createdAt',
             lastActive: { $ifNull: ['$profile.lastLogin', '$updatedAt'] },
             totalProperties: { $size: '$properties' },
-            activeProperties: {
+            availableProperties: {
               $size: {
                 $filter: {
                   input: '$properties',
@@ -643,13 +662,13 @@ router.get('/vendors/performance',
                   $divide: [
                     {
                       $add: [
-                        // Active properties ratio (40%)
+                        // Available properties ratio (40%)
                         {
                           $multiply: [
                             {
                               $cond: {
                                 if: { $gt: ['$totalProperties', 0] },
-                                then: { $divide: ['$activeProperties', '$totalProperties'] },
+                                then: { $divide: ['$availableProperties', '$totalProperties'] },
                                 else: 0
                               }
                             },
@@ -702,7 +721,7 @@ router.get('/vendors/performance',
             joinedDate: 1,
             lastActive: 1,
             totalProperties: 1,
-            activeProperties: 1,
+            availableProperties: 1,
             rejectedProperties: 1,
             averageRating: 1,
             totalReviews: 1,

@@ -142,7 +142,7 @@ const VendorApprovals: React.FC = () => {
         sortOrder: 'desc'
       });
 
-      const response = await fetchWithAuth(`/api/admin/vendor-approvals?${queryParams}`);
+      const response = await fetchWithAuth(`/admin/vendor-approvals?${queryParams}`);
       const data = await handleApiResponse<{ data: { vendors: VendorApplication[] } }>(response);
       setApplications(data.data.vendors || []);
     } catch (error) {
@@ -159,7 +159,7 @@ const VendorApprovals: React.FC = () => {
   // Fetch statistics
   const fetchStats = async () => {
     try {
-      const response = await fetchWithAuth('/api/admin/vendor-approval-stats');
+      const response = await fetchWithAuth('/admin/vendor-approval-stats');
       const data = await handleApiResponse<{ data: VendorApprovalStats }>(response);
       setStats(data.data || null);
     } catch (error) {
@@ -188,19 +188,17 @@ const VendorApprovals: React.FC = () => {
     setActionLoading('approve');
     
     try {
-      const response = await fetch(`/api/admin/vendor-approvals/${vendorId}/approve`, {
+      const response = await fetchWithAuth(`/admin/vendor-approvals/${vendorId}/approve`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: JSON.stringify({
           approvalNotes,
           verificationLevel: 'basic'
         })
       });
 
-      if (!response.ok) throw new Error('Failed to approve vendor');
+      const data = await handleApiResponse<{ success: boolean; message: string }>(response);
+
+      if (!data.success) throw new Error(data.message || 'Failed to approve vendor');
 
       toast({
         title: "Success",
@@ -215,7 +213,7 @@ const VendorApprovals: React.FC = () => {
       console.error('Error approving vendor:', error);
       toast({
         title: "Error",
-        description: "Failed to approve vendor application",
+        description: error instanceof Error ? error.message : "Failed to approve vendor application",
         variant: "destructive"
       });
     } finally {
@@ -231,19 +229,17 @@ const VendorApprovals: React.FC = () => {
     setActionLoading('reject');
     
     try {
-      const response = await fetch(`/api/admin/vendor-approvals/${vendorId}/reject`, {
+      const response = await fetchWithAuth(`/admin/vendor-approvals/${vendorId}/reject`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: JSON.stringify({
           rejectionReason,
           allowResubmission: true
         })
       });
 
-      if (!response.ok) throw new Error('Failed to reject vendor');
+      const data = await handleApiResponse<{ success: boolean; message: string }>(response);
+
+      if (!data.success) throw new Error(data.message || 'Failed to reject vendor');
 
       toast({
         title: "Success",
@@ -258,7 +254,7 @@ const VendorApprovals: React.FC = () => {
       console.error('Error rejecting vendor:', error);
       toast({
         title: "Error",
-        description: "Failed to reject vendor application",
+        description: error instanceof Error ? error.message : "Failed to reject vendor application",
         variant: "destructive"
       });
     } finally {
