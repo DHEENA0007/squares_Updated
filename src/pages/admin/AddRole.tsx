@@ -145,31 +145,17 @@ const AddRole = () => {
             <CardDescription>Enter the basic details for the role</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="name">
-                  Role Name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Content Manager"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="level">Access Level (1-10)</Label>
-                <Input
-                  id="level"
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={formData.level}
-                  onChange={(e) => setFormData({ ...formData, level: parseInt(e.target.value) || 1 })}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">
+                Role Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Content Manager"
+                required
+              />
             </div>
 
             <div className="space-y-2">

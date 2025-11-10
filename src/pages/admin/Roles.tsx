@@ -213,15 +213,15 @@ const Roles = () => {
         </div>
       )
     },
-    {
-      key: "level",
-      label: "Level",
-      render: (role) => (
-        <Badge variant={role.level >= 8 ? 'destructive' : role.level >= 5 ? 'default' : 'secondary'}>
-          Level {role.level}
-        </Badge>
-      ),
-    },
+    // {
+    //   key: "level",
+    //   label: "Level",
+    //   render: (role) => (
+    //     <Badge variant={role.level >= 8 ? 'destructive' : role.level >= 5 ? 'default' : 'secondary'}>
+    //       Level {role.level}
+    //     </Badge>
+    //   ),
+    // },
     // Pages column removed
     // {
     //   key: "pages",
@@ -353,7 +353,7 @@ const Roles = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3">
           <Card>
             <CardHeader className="pb-1 px-2 md:px-6">
               <CardTitle className="text-xs font-medium text-muted-foreground">Total Roles</CardTitle>
@@ -382,7 +382,7 @@ const Roles = () => {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          {/* <Card>
             <CardHeader className="pb-1 px-2 md:px-6">
               <CardTitle className="text-xs font-medium text-muted-foreground">Custom Roles</CardTitle>
             </CardHeader>
@@ -391,7 +391,7 @@ const Roles = () => {
                 {roles.filter(role => !role.isSystemRole).length}
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
           <Card className="border-destructive/20 bg-destructive/10">
             <CardHeader className="pb-1 px-2 md:px-6">
               <CardTitle className="text-xs font-medium text-destructive flex items-center gap-1">
@@ -445,10 +445,7 @@ const Roles = () => {
                       {superAdminRole.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <span className="text-sm font-medium">Access Level:</span>
-                    <Badge variant="destructive" className="w-fit">Level {superAdminRole.level}</Badge>
-                  </div>
+
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <span className="text-sm font-medium">Total Users:</span>
                     <div className="flex items-center gap-1">
@@ -487,10 +484,7 @@ const Roles = () => {
                       {subAdminRole.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <span className="text-sm font-medium">Access Level:</span>
-                    <Badge variant="default" className="bg-orange-500 hover:bg-orange-500/80 w-fit">Level {subAdminRole.level}</Badge>
-                  </div>
+
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <span className="text-sm font-medium">Total Users:</span>
                     <div className="flex items-center gap-1">
