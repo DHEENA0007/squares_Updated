@@ -1,4 +1,6 @@
 import { toast } from "@/hooks/use-toast";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -384,6 +386,13 @@ class BillingService {
 
   async downloadInvoice(invoiceId: string): Promise<Blob | null> {
     try {
+      // First try to get invoice details to generate PDF
+      const invoiceDetails = await this.getInvoiceDetails(invoiceId);
+      if (invoiceDetails) {
+        return this.generateInvoicePDF(invoiceDetails);
+      }
+
+      // Fallback to server download if invoice details not available
       const response = await fetch(`${API_BASE_URL}/vendors/invoices/${invoiceId}/download`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -391,11 +400,29 @@ class BillingService {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to download invoice");
+        const errorText = await response.text();
+        let errorMessage = "Failed to download invoice";
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/pdf')) {
+        throw new Error("Invalid invoice format received from server");
       }
 
       const blob = await response.blob();
-      
+
+      // Check if blob has content
+      if (blob.size === 0) {
+        throw new Error("Invoice file is empty");
+      }
+
       toast({
         title: "Success",
         description: "Invoice downloaded successfully!",
@@ -404,12 +431,125 @@ class BillingService {
       return blob;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to download invoice";
+      console.error("Invoice download error:", error);
       toast({
         title: "Error",
         description: errorMessage,
         variant: "destructive",
       });
       return null;
+    }
+  }
+
+  private generateInvoicePDF(invoice: Invoice): Blob {
+    const doc = new jsPDF();
+
+    try {
+      // Add header
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INVOICE', 105, 25, { align: 'center' });
+
+      // Invoice details
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Invoice #: ${invoice.invoiceNumber}`, 20, 45);
+      doc.text(`Issue Date: ${this.formatDate(invoice.issueDate)}`, 20, 55);
+      doc.text(`Due Date: ${this.formatDate(invoice.dueDate)}`, 20, 65);
+      doc.text(`Status: ${invoice.status.toUpperCase()}`, 20, 75);
+
+      // Bill to section
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Bill To:', 20, 95);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.text(invoice.vendorDetails.name, 20, 105);
+      doc.text(invoice.vendorDetails.email, 20, 115);
+      doc.text(invoice.vendorDetails.phone, 20, 125);
+      if (invoice.vendorDetails.address) {
+        doc.text(invoice.vendorDetails.address, 20, 135);
+      }
+      if (invoice.vendorDetails.gst) {
+        doc.text(`GST: ${invoice.vendorDetails.gst}`, 20, 145);
+      }
+
+      // Items table
+      let yPosition = 165;
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Items:', 20, yPosition);
+      yPosition += 10;
+
+      const itemsTableData = [
+        ['Description', 'Qty', 'Unit Price', 'Total']
+      ];
+
+      invoice.items.forEach(item => {
+        itemsTableData.push([
+          item.description,
+          item.quantity.toString(),
+          `₹${this.formatCurrency(item.unitPrice)}`,
+          `₹${this.formatCurrency(item.total)}`
+        ]);
+      });
+
+      autoTable(doc, {
+        body: itemsTableData,
+        startY: yPosition,
+        theme: 'grid',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [41, 128, 185] },
+        columnStyles: {
+          0: { cellWidth: 80 },
+          1: { cellWidth: 20, halign: 'center' },
+          2: { cellWidth: 35, halign: 'right' },
+          3: { cellWidth: 35, halign: 'right' }
+        }
+      });
+
+      // Totals section
+      yPosition = (doc as any).lastAutoTable.finalY + 20;
+
+      const totalsY = yPosition;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Subtotal: ₹${this.formatCurrency(invoice.amount)}`, 140, totalsY, { align: 'right' });
+      doc.text(`Tax (${invoice.tax > 0 ? Math.round((invoice.tax / invoice.amount) * 100) : 18}% GST): ₹${this.formatCurrency(invoice.tax)}`, 140, totalsY + 10, { align: 'right' });
+
+      // Total box
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.5);
+      doc.rect(120, totalsY + 20, 70, 15);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`TOTAL: ₹${this.formatCurrency(invoice.total)}`, 155, totalsY + 30, { align: 'center' });
+
+      // Payment info
+      yPosition = totalsY + 50;
+      if (invoice.paidDate) {
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Payment Method: ${invoice.status === 'paid' ? 'Razorpay' : 'Pending'}`, 20, yPosition);
+        doc.text(`Paid Date: ${this.formatDate(invoice.paidDate)}`, 20, yPosition + 10);
+      }
+
+      // Footer
+      const pageHeight = doc.internal.pageSize.height;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Thank you for your business!', 105, pageHeight - 30, { align: 'center' });
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('BuildHomeMartSquares', 105, pageHeight - 20, { align: 'center' });
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text('www.buildhomemartsquares.com', 105, pageHeight - 10, { align: 'center' });
+
+      return doc.output('blob');
+    } catch (error) {
+      console.error('Error generating invoice PDF:', error);
+      throw new Error('Failed to generate invoice PDF');
     }
   }
 
@@ -554,6 +694,13 @@ class BillingService {
 
   async downloadReceipt(paymentId: string): Promise<Blob | null> {
     try {
+      // First try to get payment details to generate PDF
+      const paymentDetails = await this.getPaymentDetails(paymentId);
+      if (paymentDetails) {
+        return this.generateReceiptPDF(paymentDetails);
+      }
+
+      // Fallback to server download if payment details not available
       const response = await fetch(`${API_BASE_URL}/vendors/payments/${paymentId}/receipt`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -602,11 +749,98 @@ class BillingService {
     }
   }
 
+  private generateReceiptPDF(payment: Payment): Blob {
+    const doc = new jsPDF();
+
+    try {
+      // Add header
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text('PAYMENT RECEIPT', 105, 20, { align: 'center' });
+
+      // Add receipt number and date
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Receipt #: ${payment._id.slice(-8).toUpperCase()}`, 20, 40);
+      doc.text(`Date: ${this.formatDate(payment.paidAt || payment.createdAt)}`, 20, 50);
+
+      // Add payment details table
+      const tableData = [
+        ['Description', 'Amount', 'Status'],
+        [payment.description || 'Payment', `₹${this.formatCurrency(payment.amount)}`, payment.status.toUpperCase()],
+      ];
+
+      autoTable(doc, {
+        body: tableData,
+        startY: 60,
+        theme: 'grid',
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [41, 128, 185] },
+        columnStyles: {
+          0: { cellWidth: 80 },
+          1: { cellWidth: 50, halign: 'right' },
+          2: { cellWidth: 40, halign: 'center' }
+        }
+      });
+
+      // Add payment method and transaction details
+      let yPosition = (doc as any).lastAutoTable.finalY + 20;
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Payment Details:', 20, yPosition);
+      yPosition += 10;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`Payment Method: ${payment.paymentMethod.replace('_', ' ').toUpperCase()}`, 20, yPosition);
+      yPosition += 8;
+
+      if (payment.transactionId) {
+        doc.text(`Transaction ID: ${payment.transactionId}`, 20, yPosition);
+        yPosition += 8;
+      }
+
+      if (payment.gatewayOrderId) {
+        doc.text(`Gateway Order ID: ${payment.gatewayOrderId}`, 20, yPosition);
+        yPosition += 8;
+      }
+
+      doc.text(`Payment Gateway: ${payment.paymentGateway.toUpperCase()}`, 20, yPosition);
+      yPosition += 8;
+
+      // Add subscription info if available
+      if (payment.subscriptionId) {
+        doc.text(`Subscription ID: ${payment.subscriptionId.slice(-8).toUpperCase()}`, 20, yPosition);
+        yPosition += 8;
+      }
+
+      // Add footer
+      const pageHeight = doc.internal.pageSize.height;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Thank you for your business!', 105, pageHeight - 20, { align: 'center' });
+      doc.text('This is a computer-generated receipt.', 105, pageHeight - 10, { align: 'center' });
+
+      // Convert to blob and return
+      const pdfOutput = doc.output('blob');
+      return pdfOutput;
+    } catch (error) {
+      console.error('Error generating receipt PDF:', error);
+      throw new Error('Failed to generate receipt PDF');
+    }
+  }
+
   async exportBillingData(format: 'csv' | 'pdf' | 'excel', filters: BillingFilters = {}): Promise<Blob | null> {
     try {
+      if (format === 'pdf') {
+        // Generate PDF client-side for better formatting
+        return this.generateBillingReportPDF(filters);
+      }
+
       const queryParams = new URLSearchParams();
       queryParams.append('format', format);
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           queryParams.append(key, value.toString());
@@ -624,7 +858,7 @@ class BillingService {
       }
 
       const blob = await response.blob();
-      
+
       toast({
         title: "Success",
         description: "Billing data exported successfully!",
@@ -639,6 +873,167 @@ class BillingService {
         variant: "destructive",
       });
       return null;
+    }
+  }
+
+  private async generateBillingReportPDF(filters: BillingFilters = {}): Promise<Blob> {
+    const doc = new jsPDF();
+
+    try {
+      // Add header
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text('BILLING REPORT', 105, 20, { align: 'center' });
+
+      // Add date range
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      const dateRange = filters.dateFrom && filters.dateTo
+        ? `${this.formatDate(filters.dateFrom)} - ${this.formatDate(filters.dateTo)}`
+        : 'All Time';
+      doc.text(`Report Period: ${dateRange}`, 20, 35);
+      doc.text(`Generated: ${this.formatDate(new Date().toISOString())}`, 20, 45);
+
+      let yPosition = 60;
+
+      // Get billing stats
+      const stats = await this.getBillingStats();
+
+      // Add summary section
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Summary', 20, yPosition);
+      yPosition += 10;
+
+      const summaryData = [
+        ['Metric', 'Value'],
+        ['Total Revenue', `₹${this.formatCurrency(stats.totalRevenue)}`],
+        ['Monthly Revenue', `₹${this.formatCurrency(stats.monthlyRevenue)}`],
+        ['Active Subscriptions', stats.activeSubscriptions.toString()],
+        ['Total Invoices', stats.totalInvoices.toString()],
+        ['Paid Invoices', stats.paidInvoices.toString()],
+        ['Overdue Invoices', stats.overdueInvoices.toString()],
+      ];
+
+      autoTable(doc, {
+        body: summaryData,
+        startY: yPosition,
+        theme: 'grid',
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [41, 128, 185] },
+        columnStyles: {
+          0: { cellWidth: 80 },
+          1: { cellWidth: 60, halign: 'right' }
+        }
+      });
+
+      yPosition = (doc as any).lastAutoTable.finalY + 20;
+
+      // Get payments data
+      const paymentsData = await this.getPayments(filters);
+      if (paymentsData.payments.length > 0) {
+        if (yPosition > 200) {
+          doc.addPage();
+          yPosition = 20;
+        }
+
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Recent Payments', 20, yPosition);
+        yPosition += 10;
+
+        const paymentsTableData = [
+          ['Date', 'Description', 'Amount', 'Status', 'Method']
+        ];
+
+        paymentsData.payments.slice(0, 10).forEach(payment => {
+          paymentsTableData.push([
+            this.formatDate(payment.paidAt || payment.createdAt),
+            payment.description,
+            `₹${this.formatCurrency(payment.amount)}`,
+            payment.status.toUpperCase(),
+            payment.paymentMethod.replace('_', ' ').toUpperCase()
+          ]);
+        });
+
+        autoTable(doc, {
+          body: paymentsTableData,
+          startY: yPosition,
+          theme: 'grid',
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [52, 152, 219] },
+          columnStyles: {
+            0: { cellWidth: 25 },
+            1: { cellWidth: 50 },
+            2: { cellWidth: 25, halign: 'right' },
+            3: { cellWidth: 25, halign: 'center' },
+            4: { cellWidth: 30 }
+          }
+        });
+      }
+
+      // Get invoices data
+      const invoicesData = await this.getInvoices(filters);
+      if (invoicesData.invoices.length > 0) {
+        yPosition = (doc as any).lastAutoTable.finalY + 20;
+
+        if (yPosition > 200) {
+          doc.addPage();
+          yPosition = 20;
+        }
+
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Recent Invoices', 20, yPosition);
+        yPosition += 10;
+
+        const invoicesTableData = [
+          ['Invoice #', 'Date', 'Amount', 'Status']
+        ];
+
+        invoicesData.invoices.slice(0, 10).forEach(invoice => {
+          invoicesTableData.push([
+            invoice.invoiceNumber,
+            this.formatDate(invoice.issueDate),
+            `₹${this.formatCurrency(invoice.total)}`,
+            invoice.status.toUpperCase()
+          ]);
+        });
+
+        autoTable(doc, {
+          body: invoicesTableData,
+          startY: yPosition,
+          theme: 'grid',
+          styles: { fontSize: 9 },
+          headStyles: { fillColor: [155, 89, 182] },
+          columnStyles: {
+            0: { cellWidth: 35 },
+            1: { cellWidth: 30 },
+            2: { cellWidth: 30, halign: 'right' },
+            3: { cellWidth: 25, halign: 'center' }
+          }
+        });
+      }
+
+      // Add footer
+      const pageHeight = doc.internal.pageSize.height;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Generated by Squares Billing System', 105, pageHeight - 10, { align: 'center' });
+
+      return doc.output('blob');
+    } catch (error) {
+      console.error('Error generating PDF report:', error);
+      // Create a basic error PDF
+      const errorDoc = new jsPDF();
+      errorDoc.setFontSize(16);
+      errorDoc.setFont('helvetica', 'bold');
+      errorDoc.text('BILLING REPORT', 105, 20, { align: 'center' });
+      errorDoc.setFontSize(12);
+      errorDoc.setFont('helvetica', 'normal');
+      errorDoc.text('Error generating detailed report.', 20, 40);
+      errorDoc.text('Please try again later.', 20, 50);
+      return errorDoc.output('blob');
     }
   }
 }
