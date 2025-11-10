@@ -128,14 +128,14 @@ export const PORTAL_PAGES: PageConfig[] = [
     category: 'subadmin',
     description: 'Manage rejected properties'
   },
-  {
-    id: 'content_moderation',
-    label: 'Content Moderation',
-    path: '/subadmin/content-moderation',
-    icon: Shield,
-    category: 'subadmin',
-    description: 'Moderate user-generated content'
-  },
+  // {
+  //   id: 'content_moderation',
+  //   label: 'Content Moderation',
+  //   path: '/subadmin/content-moderation',
+  //   icon: Shield,
+  //   category: 'subadmin',
+  //   description: 'Moderate user-generated content'
+  // },
   {
     id: 'support_tickets',
     label: 'Support Tickets',

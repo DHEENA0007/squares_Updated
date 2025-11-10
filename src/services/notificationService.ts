@@ -49,13 +49,7 @@ class NotificationService {
   // Connect to SSE notification stream
   connectToStream(): void {
     const token = authService.getToken();
-    if (!token) {
-      console.warn('No auth token available for notification stream');
-      return;
-    }
-
-    if (this.eventSource) {
-      console.log('Already connected to notification stream');
+    if (!token || this.eventSource) {
       return;
     }
 
@@ -66,7 +60,7 @@ class NotificationService {
       this.eventSource = new EventSource(streamUrl);
 
       this.eventSource.onopen = () => {
-        console.log('✅ Connected to notification stream');
+        // Connection successful - silent
       };
 
       this.eventSource.onmessage = (event) => {
@@ -74,12 +68,11 @@ class NotificationService {
           const notification: RealtimeNotification = JSON.parse(event.data);
           this.handleNotification(notification);
         } catch (error) {
-          console.error('Error parsing notification:', error);
+          // Silent error handling
         }
       };
 
-      this.eventSource.onerror = (error) => {
-        console.error('❌ Notification stream error:', error);
+      this.eventSource.onerror = () => {
         this.eventSource?.close();
         this.eventSource = null;
 
@@ -88,12 +81,11 @@ class NotificationService {
           clearTimeout(this.reconnectTimeout);
         }
         this.reconnectTimeout = setTimeout(() => {
-          console.log('🔄 Reconnecting to notification stream...');
           this.connectToStream();
         }, 5000);
       };
     } catch (error) {
-      console.error('Failed to connect to notification stream:', error);
+      // Silent error handling
     }
   }
 
@@ -102,7 +94,6 @@ class NotificationService {
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;
-      console.log('Disconnected from notification stream');
     }
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -120,7 +111,7 @@ class NotificationService {
       try {
         callback(notification);
       } catch (error) {
-        console.error('Error in notification listener:', error);
+        // Silent error handling
       }
     });
 
@@ -158,7 +149,6 @@ class NotificationService {
 
   async requestPushPermission(): Promise<boolean> {
     if (!this.pushSupported) {
-      console.warn('Push notifications not supported');
       return false;
     }
 
@@ -171,7 +161,6 @@ class NotificationService {
       this.pushPermission = permission;
       return permission === 'granted';
     } catch (error) {
-      console.error('Failed to request push permission:', error);
       return false;
     }
   }
@@ -192,7 +181,7 @@ class NotificationService {
         tag: `notification-${Date.now()}`
       });
     } catch (error) {
-      console.error('Failed to show push notification:', error);
+      // Silent error handling
     }
   }
 
@@ -218,7 +207,7 @@ class NotificationService {
         await this.sendPushNotification(notificationData.type, notificationData.data);
       }
     } catch (error) {
-      console.error('Failed to send notification:', error);
+      // Silent error handling
     }
   }
 
@@ -245,8 +234,6 @@ class NotificationService {
       case 'email_verification':
         await emailService.sendVerificationEmail(userEmail, userName, data.verificationToken);
         break;
-      default:
-        console.warn(`Unknown email notification type: ${type}`);
     }
   }
 
@@ -283,7 +270,6 @@ class NotificationService {
         };
         break;
       default:
-        console.warn(`Unknown push notification type: ${type}`);
         return;
     }
 
@@ -353,13 +339,11 @@ class NotificationService {
 
   async testNotification(): Promise<void> {
     if (!this.pushSupported) {
-      console.warn('Push notifications not supported');
       return;
     }
 
     const granted = await this.requestPushPermission();
     if (!granted) {
-      console.warn('Push permission not granted');
       return;
     }
 

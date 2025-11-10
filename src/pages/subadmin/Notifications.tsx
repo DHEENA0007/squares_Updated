@@ -75,7 +75,6 @@ const Notifications = () => {
       const data = await handleApiResponse<{ data: { notifications: Notification[] } }>(response);
       setNotifications(data.data.notifications || []);
     } catch (error: any) {
-      console.error('Error fetching notifications:', error);
       toast({
         title: "Error",
         description: error.message || "Error fetching notifications",
@@ -87,30 +86,11 @@ const Notifications = () => {
     }
   };
 
-  const handleSendNotification = async () => {
-    if (!formData.title.trim() || !formData.message.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.sendEmail && !formData.sendInApp) {
-      toast({
-        title: "Validation Error",
-        description: "Please select at least one delivery method (Email or In-App)",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleSendDraft = async (draftId: string) => {
     try {
       setSendLoading(true);
-      const response = await fetchWithAuth(`/subadmin/notifications/send`, {
+      const response = await fetchWithAuth(`/subadmin/notifications/draft/${draftId}/send`, {
         method: 'POST',
-        body: JSON.stringify(formData)
       });
       
       const result = await handleApiResponse<{ 
@@ -127,6 +107,92 @@ const Notifications = () => {
         title: "Success",
         description: `Notification sent to ${recipientCount} users (${emailsSent} emails, ${inAppSent} in-app)`,
       });
+      
+      fetchNotifications();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send draft notification",
+        variant: "destructive",
+      });
+    } finally {
+      setSendLoading(false);
+    }
+  };
+
+  const handleDeleteDraft = async (draftId: string) => {
+    try {
+      const response = await fetchWithAuth(`/subadmin/notifications/draft/${draftId}`, {
+        method: 'DELETE',
+      });
+      
+      await handleApiResponse<{ success: boolean }>(response);
+      
+      toast({
+        title: "Success",
+        description: "Draft deleted successfully",
+      });
+      
+      fetchNotifications();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete draft",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendNotification = async (saveAsDraft = false) => {
+    if (!formData.title.trim() || !formData.message.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!saveAsDraft && !formData.sendEmail && !formData.sendInApp) {
+      toast({
+        title: "Validation Error",
+        description: "Please select at least one delivery method (Email or In-App)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSendLoading(true);
+      const endpoint = saveAsDraft ? '/subadmin/notifications/draft' : '/subadmin/notifications/send';
+      const response = await fetchWithAuth(endpoint, {
+        method: 'POST',
+        body: JSON.stringify(formData)
+      });
+      
+      if (saveAsDraft) {
+        await handleApiResponse<{ success: boolean }>(response);
+        toast({
+          title: "Success",
+          description: "Notification saved as draft",
+        });
+      } else {
+        const result = await handleApiResponse<{ 
+          data: { 
+            recipientCount: number; 
+            emailsSent: number; 
+            inAppSent: number;
+          } 
+        }>(response);
+        
+        const { recipientCount, emailsSent, inAppSent } = result.data;
+        
+        toast({
+          title: "Success",
+          description: `Notification sent to ${recipientCount} users (${emailsSent} emails, ${inAppSent} in-app)`,
+        });
+      }
+      
       setCreateDialogOpen(false);
       setFormData({
         title: "",
@@ -140,7 +206,7 @@ const Notifications = () => {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to send notification",
+        description: error.message || (saveAsDraft ? "Failed to save draft" : "Failed to send notification"),
         variant: "destructive",
       });
     } finally {
@@ -211,15 +277,17 @@ const Notifications = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sent</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {activeTab === 'sent' ? 'Total Sent' : 'Total Drafts'}
+            </CardTitle>
             <Send className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {notifications.filter(n => n.status === 'sent').length}
+              {notifications.length}
             </div>
             <p className="text-xs text-muted-foreground">
-              Notifications sent
+              {activeTab === 'sent' ? 'Notifications sent' : 'Draft notifications'}
             </p>
           </CardContent>
         </Card>
@@ -241,22 +309,33 @@ const Notifications = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Read Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {activeTab === 'sent' ? 'Read Rate' : 'Average Recipients'}
+            </CardTitle>
             <Eye className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {notifications.length > 0
-                ? Math.round(
-                    (notifications.reduce((sum, n) => sum + n.readCount, 0) /
-                      notifications.reduce((sum, n) => sum + n.recipientCount, 0)) *
-                      100
-                  )
-                : 0
-              }%
+              {activeTab === 'sent' ? (
+                notifications.length > 0
+                  ? Math.round(
+                      (notifications.reduce((sum, n) => sum + n.readCount, 0) /
+                        notifications.reduce((sum, n) => sum + n.recipientCount, 0)) *
+                        100
+                    )
+                  : 0
+              ) : (
+                notifications.length > 0
+                  ? Math.round(
+                      notifications.reduce((sum, n) => sum + n.recipientCount, 0) /
+                        notifications.length
+                    )
+                  : 0
+              )}
+              {activeTab === 'sent' ? '%' : ''}
             </div>
             <p className="text-xs text-muted-foreground">
-              Average read rate
+              {activeTab === 'sent' ? 'Average read rate' : 'Per notification'}
             </p>
           </CardContent>
         </Card>
@@ -333,17 +412,40 @@ const Notifications = () => {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedNotification(notification);
-                        setViewDialogOpen(true);
-                      }}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedNotification(notification);
+                          setViewDialogOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </Button>
+                      
+                      {notification.status === 'draft' && (
+                        <>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleSendDraft(notification._id)}
+                            disabled={sendLoading}
+                          >
+                            <Send className="h-4 w-4 mr-2" />
+                            {sendLoading ? 'Sending...' : 'Send Now'}
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteDraft(notification._id)}
+                          >
+                            Delete Draft
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -589,7 +691,23 @@ const Notifications = () => {
               Cancel
             </Button>
             <Button 
-              onClick={handleSendNotification} 
+              variant="outline"
+              onClick={() => handleSendNotification(true)} 
+              disabled={sendLoading}
+            >
+              {sendLoading ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  Save as Draft
+                </>
+              )}
+            </Button>
+            <Button 
+              onClick={() => handleSendNotification(false)} 
               disabled={sendLoading || (!formData.sendEmail && !formData.sendInApp)}
             >
               {sendLoading ? (

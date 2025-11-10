@@ -817,13 +817,69 @@ router.post('/promotions/:id/end',
 router.get('/notifications',
   hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
   asyncHandler(async (req, res) => {
-    const { status = 'sent', search = '' } = req.query;
+    const { status = 'sent', search = '', page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const Notification = require('../models/Notification');
+    
+    let query = {};
+    
+    // Filter by status
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    
+    // Search filter
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { subject: { $regex: search, $options: 'i' } },
+        { message: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const [notifications, total] = await Promise.all([
+      Notification.find(query)
+        .populate('sentBy', 'email profile')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Notification.countDocuments(query)
+    ]);
+
+    // Transform to match frontend interface
+    const transformedNotifications = notifications.map(notif => ({
+      _id: notif._id,
+      title: notif.title,
+      message: notif.message,
+      type: notif.type === 'informational' ? 'info' : 
+            notif.type === 'alert' ? 'warning' : 
+            notif.type === 'system' ? 'success' : notif.type,
+      recipients: notif.targetAudience === 'all_users' ? 'all' : 
+                  notif.targetAudience === 'vendors' ? 'vendors' : 
+                  notif.targetAudience === 'customers' ? 'customers' : 'specific',
+      recipientCount: notif.statistics?.totalRecipients || 0,
+      sentBy: {
+        _id: notif.sentBy?._id || notif.sentBy,
+        name: notif.sentBy?.profile?.firstName 
+          ? `${notif.sentBy.profile.firstName} ${notif.sentBy.profile.lastName || ''}`.trim()
+          : notif.sentBy?.email || 'System'
+      },
+      createdAt: notif.createdAt,
+      status: notif.status,
+      readCount: notif.statistics?.opened || 0
+    }));
 
     res.json({
       success: true,
       data: {
-        notifications: [],
-        total: 0
+        notifications: transformedNotifications,
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
       }
     });
   })
@@ -952,6 +1008,214 @@ router.post('/notifications/send',
         inAppSent,
         notificationId: notificationRecord._id
       }
+    });
+  })
+);
+
+// Save notification as draft
+router.post('/notifications/draft',
+  hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
+  asyncHandler(async (req, res) => {
+    const { 
+      title, 
+      message, 
+      recipients = 'all', 
+      type = 'info',
+      sendEmail = true,
+      sendInApp = true 
+    } = req.body;
+
+    if (!title || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and message are required'
+      });
+    }
+
+    // Calculate potential recipient count
+    let userQuery = {};
+    if (recipients === 'vendors') {
+      userQuery.role = 'agent';
+    } else if (recipients === 'customers') {
+      userQuery.role = 'customer';
+    } else {
+      userQuery.role = { $in: ['agent', 'customer'] };
+    }
+
+    const recipientCount = await User.countDocuments(userQuery);
+
+    // Create draft notification record
+    const Notification = require('../models/Notification');
+    const draftNotification = await Notification.create({
+      title,
+      subject: title,
+      message,
+      type: type === 'info' ? 'informational' : 
+            type === 'warning' ? 'alert' : 
+            type === 'success' ? 'system' : 'alert',
+      targetAudience: recipients === 'all' ? 'all_users' : 
+                      recipients === 'vendors' ? 'vendors' : 'customers',
+      channels: [
+        sendInApp ? 'in_app' : null,
+        sendEmail ? 'email' : null
+      ].filter(Boolean),
+      status: 'draft',
+      sentBy: req.user.id,
+      statistics: {
+        totalRecipients: recipientCount,
+        delivered: 0,
+        opened: 0
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Notification saved as draft',
+      data: {
+        notificationId: draftNotification._id
+      }
+    });
+  })
+);
+
+// Send a draft notification
+router.post('/notifications/draft/:id/send',
+  hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
+  asyncHandler(async (req, res) => {
+    const Notification = require('../models/Notification');
+    
+    // Get the draft notification
+    const draftNotification = await Notification.findOne({
+      _id: req.params.id,
+      status: 'draft'
+    });
+
+    if (!draftNotification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Draft notification not found'
+      });
+    }
+
+    // Determine recipients based on targetAudience
+    const recipients = draftNotification.targetAudience === 'all_users' ? 'all' :
+                       draftNotification.targetAudience === 'vendors' ? 'vendors' : 'customers';
+    
+    // Determine notification type
+    const type = draftNotification.type === 'informational' ? 'info' :
+                 draftNotification.type === 'alert' ? 'warning' :
+                 draftNotification.type === 'system' ? 'success' : 'info';
+
+    const sendEmail = draftNotification.channels.includes('email');
+    const sendInApp = draftNotification.channels.includes('in_app');
+
+    // Build user query based on recipients
+    let userQuery = {};
+    if (recipients === 'vendors') {
+      userQuery.role = 'agent';
+    } else if (recipients === 'customers') {
+      userQuery.role = 'customer';
+    } else {
+      userQuery.role = { $in: ['agent', 'customer'] };
+    }
+
+    // Fetch target users
+    const targetUsers = await User.find(userQuery)
+      .select('_id email profile.firstName profile.preferences.notifications')
+      .lean();
+
+    let emailsSent = 0;
+    let inAppSent = 0;
+    const notificationService = require('../services/notificationService');
+
+    // Send in-app notifications
+    if (sendInApp) {
+      const userIds = targetUsers.map(u => u._id.toString());
+      
+      notificationService.broadcast({
+        type: type,
+        title: draftNotification.title,
+        message: draftNotification.message,
+        data: {
+          sentBy: req.user.email,
+          sentByName: `${req.user.profile?.firstName || ''} ${req.user.profile?.lastName || ''}`.trim() || req.user.email,
+          recipients,
+          sentAt: new Date(),
+          category: 'system_announcement'
+        }
+      });
+
+      inAppSent = userIds.length;
+    }
+
+    // Send email notifications
+    if (sendEmail) {
+      for (const user of targetUsers) {
+        const emailEnabled = user.profile?.preferences?.notifications?.email !== false;
+        
+        if (emailEnabled && user.email) {
+          try {
+            await emailService.sendTemplateEmail(
+              user.email,
+              'system-notification',
+              {
+                firstName: user.profile?.firstName || 'User',
+                notificationTitle: draftNotification.title,
+                notificationMessage: draftNotification.message,
+                notificationType: type,
+                dashboardUrl: `${process.env.FRONTEND_URL || 'https://buildhomemartsquares.com'}/dashboard`,
+                websiteUrl: process.env.FRONTEND_URL || 'https://buildhomemartsquares.com'
+              }
+            );
+            emailsSent++;
+          } catch (error) {
+            console.error(`Failed to send email to ${user.email}:`, error);
+          }
+        }
+      }
+    }
+
+    // Update notification record to sent status
+    await Notification.findByIdAndUpdate(req.params.id, {
+      status: 'sent',
+      sentAt: new Date(),
+      'statistics.totalRecipients': targetUsers.length,
+      'statistics.delivered': emailsSent + inAppSent
+    });
+
+    res.json({
+      success: true,
+      message: 'Draft notification sent successfully',
+      data: {
+        recipientCount: targetUsers.length,
+        emailsSent,
+        inAppSent
+      }
+    });
+  })
+);
+
+// Delete a draft notification
+router.delete('/notifications/draft/:id',
+  hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
+  asyncHandler(async (req, res) => {
+    const Notification = require('../models/Notification');
+    
+    const draft = await Notification.findOneAndDelete({
+      _id: req.params.id,
+      status: 'draft'
+    });
+
+    if (!draft) {
+      return res.status(404).json({
+        success: false,
+        message: 'Draft notification not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Draft notification deleted successfully'
     });
   })
 );

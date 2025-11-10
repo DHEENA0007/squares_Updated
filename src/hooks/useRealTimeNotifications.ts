@@ -34,16 +34,12 @@ export const useRealTimeNotifications = () => {
       return;
     }
 
-    // Use VITE_API_URL which includes /api
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
     const url = `${apiUrl}/notifications/stream?token=${encodeURIComponent(token)}`;
-
-    console.log('Connecting to notification stream:', url);
 
     const eventSource = new EventSource(url);
 
     eventSource.onopen = () => {
-      console.log('✅ Connected to real-time notifications');
       setIsConnected(true);
     };
 
@@ -51,27 +47,18 @@ export const useRealTimeNotifications = () => {
       try {
         const notification: RealTimeNotification = JSON.parse(event.data);
         
-        // Create unique ID for deduplication
         const notificationId = `${notification.type}-${notification.timestamp}-${notification.userId}`;
         
-        // Skip if already processed
         if (notificationIdsRef.current.has(notificationId)) {
-          console.log('⏭️ Skipping duplicate notification:', notificationId);
           return;
         }
         
-        // Skip connection messages
         if (notification.type === 'connection') {
-          console.log('Connected to notification stream');
           return;
         }
         
-        console.log('📬 Received notification:', notification);
-        
-        // Add to processed set
         notificationIdsRef.current.add(notificationId);
         
-        // Limit set size to prevent memory leaks
         if (notificationIdsRef.current.size > 100) {
           const firstId = Array.from(notificationIdsRef.current)[0];
           notificationIdsRef.current.delete(firstId);
@@ -79,19 +66,17 @@ export const useRealTimeNotifications = () => {
         
         handleNotification(notification);
         
-        // Keep only last 20 notifications
         setNotifications(prev => {
           const updated = [notification, ...prev];
           return updated.slice(0, 20);
         });
         
       } catch (error) {
-        console.error('Error parsing notification:', error);
+        // Silent error handling
       }
     };
 
-    eventSource.onerror = (error) => {
-      console.error('❌ Notification stream error:', error);
+    eventSource.onerror = () => {
       setIsConnected(false);
       
       if (eventSourceRef.current === eventSource) {
@@ -102,7 +87,6 @@ export const useRealTimeNotifications = () => {
       setTimeout(() => {
         const currentToken = authService.getToken();
         if (user && currentToken && !eventSourceRef.current) {
-          console.log('🔄 Attempting to reconnect to notification stream...');
           connect();
         }
       }, 5000);
@@ -244,13 +228,13 @@ export const useRealTimeNotifications = () => {
   // Play notification sound
   const playNotificationSound = () => {
     try {
-      const audio = new Audio('/notification-sound.mp3'); // Add this file to public folder
+      const audio = new Audio('/notification-sound.mp3');
       audio.volume = 0.5;
-      audio.play().catch(error => {
-        console.log('Could not play notification sound:', error);
+      audio.play().catch(() => {
+        // Silent error handling
       });
     } catch (error) {
-      console.log('Notification sound not available:', error);
+      // Silent error handling
     }
   };
 
@@ -286,12 +270,8 @@ export const useRealTimeNotifications = () => {
       if (!response.ok) {
         throw new Error('Failed to send test notification');
       }
-
-      const data = await response.json();
-      console.log('Test notification sent:', data);
       
     } catch (error) {
-      console.error('Error sending test notification:', error);
       toast({
         title: 'Error',
         description: 'Failed to send test notification',
@@ -324,7 +304,6 @@ export const useRealTimeNotifications = () => {
       return data.data;
       
     } catch (error) {
-      console.error('Error fetching notification stats:', error);
       return null;
     }
   };
