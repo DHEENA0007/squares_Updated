@@ -611,7 +611,7 @@ const Notifications = () => {
             <div className="border rounded-lg p-4 space-y-3">
               <Label className="text-base">Delivery Methods *</Label>
               <div className="space-y-3">
-                <div className="flex items-center space-x-3">
+                {/* <div className="flex items-center space-x-3">
                   <Checkbox
                     id="sendInApp"
                     checked={formData.sendInApp}
@@ -629,7 +629,7 @@ const Notifications = () => {
                 </div>
                 <p className="text-xs text-muted-foreground ml-7">
                   Real-time notification shown to users while they're active on the platform
-                </p>
+                </p> */}
 
                 <div className="flex items-center space-x-3">
                   <Checkbox

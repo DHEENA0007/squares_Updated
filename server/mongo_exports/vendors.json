@@ -4,7 +4,7 @@
     "user": "68f8b1214f4741e752f0e18b",
     "businessInfo": {
       "companyName": "Vendor One",
-      "businessType": "individual"
+      "businessType": "real_estate_agent"
     },
     "professionalInfo": {
       "experience": 1,
@@ -126,7 +126,7 @@
     },
     "verification": {
       "isVerified": true,
-      "verificationDate": "2025-10-22T10:25:37.241Z",
+      "verificationDate": "2025-11-07T12:42:05.035Z",
       "verificationLevel": "basic",
       "documents": []
     },
@@ -159,15 +159,24 @@
       ]
     },
     "createdAt": "2025-10-27T11:53:33.315Z",
-    "updatedAt": "2025-11-03T10:56:41.978Z",
-    "__v": 0
+    "updatedAt": "2025-11-07T12:42:05.042Z",
+    "__v": 1,
+    "approval": {
+      "requiredDocuments": [],
+      "status": "approved",
+      "submittedAt": "2025-11-07T06:37:02.790Z",
+      "submittedDocuments": [],
+      "approvalNotes": "oky",
+      "reviewedAt": "2025-11-07T12:42:05.035Z",
+      "reviewedBy": "68f8857275b9205ce27f8ea5"
+    }
   },
   {
     "_id": "68ff5d3d2f4e2406a9c9080e",
     "user": "68f9d919f3de51260fb705f1",
     "businessInfo": {
       "companyName": "Test Vendor",
-      "businessType": "individual"
+      "businessType": "real_estate_agent"
     },
     "professionalInfo": {
       "experience": 0,
@@ -322,7 +331,7 @@
       ]
     },
     "createdAt": "2025-10-27T11:53:33.550Z",
-    "updatedAt": "2025-10-30T03:56:01.331Z",
+    "updatedAt": "2025-11-07T06:53:58.098Z",
     "__v": 0
   },
   {
@@ -330,7 +339,7 @@
     "user": "68fa18a0c9fa98e30aa7a7ac",
     "businessInfo": {
       "companyName": "Test Vendor",
-      "businessType": "individual"
+      "businessType": "real_estate_agent"
     },
     "professionalInfo": {
       "experience": 0,
@@ -485,8 +494,14 @@
       ]
     },
     "createdAt": "2025-10-27T11:53:33.830Z",
-    "updatedAt": "2025-11-04T16:17:11.357Z",
-    "__v": 0
+    "updatedAt": "2025-11-07T06:53:58.098Z",
+    "__v": 1,
+    "approval": {
+      "requiredDocuments": [],
+      "status": "pending",
+      "submittedAt": "2025-11-10T14:51:10.269Z",
+      "submittedDocuments": []
+    }
   },
   {
     "_id": "690a48878236579ad7fd85af",

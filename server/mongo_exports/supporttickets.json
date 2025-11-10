@@ -1,0 +1,37 @@
+[
+  {
+    "_id": "690cea8b28e8243ad5efdae8",
+    "subject": "jhg",
+    "description": "hbjh",
+    "priority": "medium",
+    "status": "in-progress",
+    "category": "general",
+    "user": "68f76792ae8ba267e353c0e9",
+    "assignedTo": "6909834d404a2c48e422ea56",
+    "responses": [
+      {
+        "message": "hbjh",
+        "author": "hj",
+        "isAdmin": false,
+        "createdAt": "2025-11-06T18:35:55.194Z",
+        "_id": "690cea8b28e8243ad5efdae9"
+      },
+      {
+        "message": "okay we see",
+        "author": "Sub Admin",
+        "isAdmin": true,
+        "_id": "690cf080f08c5c3a213cb271",
+        "createdAt": "2025-11-06T19:01:20.141Z"
+      }
+    ],
+    "tags": [],
+    "resolution": null,
+    "resolvedAt": null,
+    "resolvedBy": null,
+    "attachments": [],
+    "createdAt": "2025-11-06T18:35:55.235Z",
+    "updatedAt": "2025-11-06T19:01:23.918Z",
+    "ticketNumber": "TKT-000001",
+    "__v": 1
+  }
+]

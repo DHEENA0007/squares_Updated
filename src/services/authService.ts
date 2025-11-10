@@ -216,11 +216,16 @@ class AuthService {
   }
 
   // OTP-related methods
-  async sendOTP(email: string, firstName: string): Promise<OTPResponse> {
+  async sendOTP(email: string, firstName: string, phone?: string): Promise<OTPResponse> {
     try {
+      const requestBody: any = { email, firstName };
+      if (phone) {
+        requestBody.phone = phone;
+      }
+
       const response = await this.makeRequest<OTPResponse>("/auth/send-otp", {
         method: "POST",
-        body: JSON.stringify({ email, firstName }),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.success) {
@@ -278,6 +283,47 @@ class AuthService {
       return response;
     } catch (error) {
       throw error;
+    }
+  }
+
+  // Validation methods
+  async checkPhoneAvailability(phone: string): Promise<{ available: boolean; message: string }> {
+    try {
+      const response = await this.makeRequest<{ success: boolean; message: string; available: boolean }>("/auth/check-phone", {
+        method: "POST",
+        body: JSON.stringify({ phone }),
+      });
+
+      return {
+        available: response.available,
+        message: response.message
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to check phone availability";
+      return {
+        available: false,
+        message: errorMessage
+      };
+    }
+  }
+
+  async checkBusinessNameAvailability(businessName: string): Promise<{ available: boolean; message: string }> {
+    try {
+      const response = await this.makeRequest<{ success: boolean; message: string; available: boolean }>("/auth/check-business-name", {
+        method: "POST",
+        body: JSON.stringify({ businessName }),
+      });
+
+      return {
+        available: response.available,
+        message: response.message
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to check business name availability";
+      return {
+        available: false,
+        message: errorMessage
+      };
     }
   }
 }

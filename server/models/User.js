@@ -52,7 +52,9 @@ const userSchema = new mongoose.Schema({
     },
     phone: {
       type: String,
-      required: true
+      required: true,
+      unique: true,
+      sparse: true
     },
     avatar: {
       type: String,

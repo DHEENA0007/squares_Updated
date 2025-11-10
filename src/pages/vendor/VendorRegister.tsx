@@ -45,6 +45,27 @@ const VendorRegister = () => {
   const [otpExpiry, setOtpExpiry] = useState<number>(0);
   const [profileSubmitted, setProfileSubmitted] = useState(false);
 
+  // Validation states
+  const [phoneValidation, setPhoneValidation] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    message: string;
+  }>({
+    checking: false,
+    available: null,
+    message: ""
+  });
+
+  const [businessNameValidation, setBusinessNameValidation] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    message: string;
+  }>({
+    checking: false,
+    available: null,
+    message: ""
+  });
+
   const [formData, setFormData] = useState({
     // Personal Information
     firstName: "",
@@ -263,7 +284,7 @@ const VendorRegister = () => {
         address: generatedAddress
       }));
     }
-  }, [selectedLocationNames, formData.pincode]);;
+  }, [selectedLocationNames, formData.pincode, formData.address]);
 
   // Password validation functions
   const validatePassword = (password: string): string[] => {
@@ -309,11 +330,68 @@ const VendorRegister = () => {
     { label: "10+ years", value: 10 }
   ];
 
+  // Phone number availability check
+  const checkPhoneAvailability = async (phone: string) => {
+    if (phone.length < 10) {
+      setPhoneValidation({ checking: false, available: null, message: "" });
+      return;
+    }
+
+    setPhoneValidation({ checking: true, available: null, message: "" });
+    
+    try {
+      const result = await authService.checkPhoneAvailability(phone);
+      setPhoneValidation({
+        checking: false,
+        available: result.available,
+        message: result.message
+      });
+    } catch (error) {
+      setPhoneValidation({
+        checking: false,
+        available: false,
+        message: "Unable to validate phone number"
+      });
+    }
+  };
+
+  // Business name availability check
+  const checkBusinessNameAvailability = async (businessName: string) => {
+    if (businessName.trim().length < 3) {
+      setBusinessNameValidation({ checking: false, available: null, message: "" });
+      return;
+    }
+
+    setBusinessNameValidation({ checking: true, available: null, message: "" });
+    
+    try {
+      const result = await authService.checkBusinessNameAvailability(businessName.trim());
+      setBusinessNameValidation({
+        checking: false,
+        available: result.available,
+        message: result.message
+      });
+    } catch (error) {
+      setBusinessNameValidation({
+        checking: false,
+        available: false,
+        message: "Unable to validate business name"
+      });
+    }
+  };
+
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+
+    // Trigger validations with debounce
+    if (field === "phone" && typeof value === "string") {
+      setTimeout(() => checkPhoneAvailability(value), 500);
+    } else if (field === "businessName" && typeof value === "string") {
+      setTimeout(() => checkBusinessNameAvailability(value), 500);
+    }
   };
 
   // Validation functions
@@ -330,7 +408,8 @@ const VendorRegister = () => {
           formData.password === formData.confirmPassword &&
           validatePassword(formData.password).length === 0 &&
           /\S+@\S+\.\S+/.test(formData.email) &&
-          /^[+]?[1-9]\d{1,14}$/.test(formData.phone)
+          /^[+]?[1-9]\d{1,14}$/.test(formData.phone) &&
+          phoneValidation.available !== false
         );
       case 2:
         return !!(
@@ -338,7 +417,8 @@ const VendorRegister = () => {
           formData.businessType &&
           formData.businessDescription.trim() &&
           formData.businessDescription.trim().length >= 50 &&
-          formData.experience
+          formData.experience &&
+          businessNameValidation.available !== false
         );
       case 3:
         return !!(
@@ -375,6 +455,7 @@ const VendorRegister = () => {
         else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.push("Valid email is required");
         if (!formData.phone.trim()) errors.push("Phone number is required");
         else if (!/^[+]?[1-9]\d{1,14}$/.test(formData.phone)) errors.push("Valid phone number is required");
+        else if (phoneValidation.available === false) errors.push("Phone number is already registered");
         if (!formData.password) errors.push("Password is required");
         else {
           const passwordErrors = validatePassword(formData.password);
@@ -387,6 +468,7 @@ const VendorRegister = () => {
         break;
       case 2:
         if (!formData.businessName.trim()) errors.push("Business name is required");
+        else if (businessNameValidation.available === false) errors.push("Business name is already registered");
         if (!formData.businessType) errors.push("Business type is required");
         if (!formData.businessDescription.trim()) errors.push("Business description is required");
         else if (formData.businessDescription.trim().length < 50) errors.push("Business description must be at least 50 characters");
@@ -810,11 +892,23 @@ const VendorRegister = () => {
                     }
                   }}
                   placeholder="Enter phone number (e.g., +919876543210 or 9876543210)"
-                  className="pl-10"
+                  className={`pl-10 ${
+                    phoneValidation.available === false ? "border-red-500" :
+                    phoneValidation.available === true ? "border-green-500" : ""
+                  }`}
                   maxLength={15}
                   required
                 />
               </div>
+              {phoneValidation.checking && (
+                <p className="text-xs text-muted-foreground">Checking availability...</p>
+              )}
+              {phoneValidation.available === false && (
+                <p className="text-xs text-red-500">{phoneValidation.message}</p>
+              )}
+              {phoneValidation.available === true && (
+                <p className="text-xs text-green-600">Phone number is available</p>
+              )}
               {formData.phone && formData.phone.length > 0 && !/^[+]?[1-9]\d{1,14}$/.test(formData.phone) && (
                 <p className="text-xs text-red-500">Please enter a valid phone number</p>
               )}
@@ -1271,10 +1365,22 @@ const VendorRegister = () => {
                   value={formData.businessName}
                   onChange={(e) => handleInputChange("businessName", e.target.value)}
                   placeholder="Your Business Name"
-                  className="pl-10"
+                  className={`pl-10 ${
+                    businessNameValidation.available === false ? "border-red-500" :
+                    businessNameValidation.available === true ? "border-green-500" : ""
+                  }`}
                   required
                 />
               </div>
+              {businessNameValidation.checking && (
+                <p className="text-xs text-muted-foreground">Checking availability...</p>
+              )}
+              {businessNameValidation.available === false && (
+                <p className="text-xs text-red-500">{businessNameValidation.message}</p>
+              )}
+              {businessNameValidation.available === true && (
+                <p className="text-xs text-green-600">Business name is available</p>
+              )}
             </div>
 
             <div className="space-y-2">

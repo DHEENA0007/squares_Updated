@@ -14,7 +14,8 @@ const vendorSchema = new mongoose.Schema({
     companyName: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
+      unique: true
     },
     businessType: {
       type: String,

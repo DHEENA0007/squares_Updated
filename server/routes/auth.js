@@ -22,6 +22,17 @@ const {
 
 const router = express.Router();
 
+// @desc    Test route to verify auth routes are working
+// @route   GET /api/auth/test
+// @access  Public
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Auth routes are working!',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Helper function to map document types from registration to approval document types
 const mapDocumentType = (type) => {
   const typeMap = {
@@ -39,7 +50,7 @@ const mapDocumentType = (type) => {
 // @route   POST /api/auth/send-otp
 // @access  Public
 router.post('/send-otp', asyncHandler(async (req, res) => {
-  const { email, firstName } = req.body;
+  const { email, firstName, phone } = req.body;
 
   if (!email) {
     return res.status(400).json({
@@ -55,6 +66,17 @@ router.post('/send-otp', asyncHandler(async (req, res) => {
       success: false,
       message: 'User with this email already exists'
     });
+  }
+
+  // Check if phone number already exists (if provided)
+  if (phone) {
+    const existingPhone = await User.findOne({ 'profile.phone': phone });
+    if (existingPhone) {
+      return res.status(400).json({
+        success: false,
+        message: 'This phone number is already registered with another account'
+      });
+    }
   }
 
   // Check rate limiting
@@ -93,6 +115,82 @@ router.post('/send-otp', asyncHandler(async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to send OTP email. Please try again.'
+    });
+  }
+}));
+
+// @desc    Check business name availability
+// @route   POST /api/auth/check-business-name
+// @access  Public
+router.post('/check-business-name', asyncHandler(async (req, res) => {
+  const { businessName } = req.body;
+
+  if (!businessName || businessName.trim().length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Business name is required'
+    });
+  }
+
+  // Check if business name already exists (case-insensitive)
+  const existingBusiness = await Vendor.findOne({ 
+    'businessInfo.companyName': new RegExp(`^${businessName.trim()}$`, 'i') 
+  });
+
+  if (existingBusiness) {
+    return res.status(409).json({
+      success: false,
+      message: 'A business with this name is already registered. Please choose a different business name.',
+      available: false
+    });
+  }
+
+  res.json({
+    success: true,
+    message: 'Business name is available',
+    available: true
+  });
+}));
+
+// @desc    Check phone number availability
+// @route   POST /api/auth/check-phone
+// @access  Public
+router.post('/check-phone', asyncHandler(async (req, res) => {
+  console.log('📞 Check phone route hit with body:', req.body);
+  
+  const { phone } = req.body;
+
+  if (!phone || phone.trim().length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phone number is required'
+    });
+  }
+
+  try {
+    // Check if phone number already exists
+    const existingPhone = await User.findOne({ 'profile.phone': phone.trim() });
+    console.log('📞 Phone check result:', existingPhone ? 'Found existing' : 'Available');
+
+    if (existingPhone) {
+      return res.status(409).json({
+        success: false,
+        message: 'This phone number is already registered with another account. Please use a different phone number.',
+        available: false
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Phone number is available',
+      available: true
+    });
+  } catch (error) {
+    console.error('📞 Error checking phone availability:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking phone availability',
+      available: false
     });
   }
 }));
@@ -190,6 +288,28 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
       success: false,
       message: 'User with this email already exists'
     });
+  }
+
+  // Check if phone number already exists
+  const existingPhone = await User.findOne({ 'profile.phone': phone });
+  if (existingPhone) {
+    return res.status(400).json({
+      success: false,
+      message: 'This phone number is already registered with another account. Please use a different phone number or contact support if this is your number.'
+    });
+  }
+
+  // For vendors, check if business name already exists
+  if (role === 'agent' && businessInfo?.businessName) {
+    const existingBusiness = await Vendor.findOne({ 
+      'businessInfo.companyName': new RegExp(`^${businessInfo.businessName.trim()}$`, 'i') 
+    });
+    if (existingBusiness) {
+      return res.status(400).json({
+        success: false,
+        message: 'A business with this name is already registered. Please choose a different business name or contact support if this is your business.'
+      });
+    }
   }
 
   // Create user profile with business info for vendors

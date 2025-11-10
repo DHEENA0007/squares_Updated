@@ -94,6 +94,40 @@ router.post('/register', authenticateToken, upload.array('documents', 10), async
       });
     }
 
+    // Check for unique constraints before creating vendor profile
+    if (companyName) {
+      const existingBusiness = await Vendor.findOne({ 
+        'businessInfo.companyName': new RegExp(`^${companyName.trim()}$`, 'i') 
+      });
+      if (existingBusiness) {
+        return res.status(400).json({
+          success: false,
+          message: 'A business with this name is already registered. Please choose a different business name.'
+        });
+      }
+    }
+
+    // Check if phone number is unique (vendor's office phone or whatsapp number)
+    if (officePhone && officePhone.trim()) {
+      const existingPhoneUser = await User.findOne({ 'profile.phone': officePhone.trim() });
+      if (existingPhoneUser && existingPhoneUser._id.toString() !== userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'This office phone number is already registered with another account. Please use a different phone number.'
+        });
+      }
+    }
+
+    if (whatsappNumber && whatsappNumber.trim()) {
+      const existingWhatsAppUser = await User.findOne({ 'profile.phone': whatsappNumber.trim() });
+      if (existingWhatsAppUser && existingWhatsAppUser._id.toString() !== userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'This WhatsApp number is already registered with another account. Please use a different phone number.'
+        });
+      }
+    }
+
     // Process uploaded documents
     const submittedDocuments = uploadedFiles.map((file, index) => {
       const documentType = Array.isArray(documentTypes) ? documentTypes[index] : documentTypes;

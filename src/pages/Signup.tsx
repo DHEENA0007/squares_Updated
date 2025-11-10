@@ -25,6 +25,15 @@ const Signup = () => {
     password: "",
     confirmPassword: "",
   });
+  const [phoneValidation, setPhoneValidation] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    message: string;
+  }>({
+    checking: false,
+    available: null,
+    message: ""
+  });
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,11 +75,21 @@ const Signup = () => {
       return;
     }
 
+    // Check if phone validation passed
+    if (phoneValidation.available === false) {
+      toast({
+        title: "Error",
+        description: phoneValidation.message || "Phone number is not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Send OTP first
-      const otpResponse = await authService.sendOTP(formData.email, formData.firstName);
+      // Send OTP first (includes phone validation on backend)
+      const otpResponse = await authService.sendOTP(formData.email, formData.firstName, formData.phone);
       
       if (otpResponse.success) {
         setStep("otp");
@@ -80,6 +99,30 @@ const Signup = () => {
       console.error("OTP sending error:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const checkPhoneAvailability = async (phone: string) => {
+    if (phone.length !== 10) {
+      setPhoneValidation({ checking: false, available: null, message: "" });
+      return;
+    }
+
+    setPhoneValidation({ checking: true, available: null, message: "" });
+    
+    try {
+      const result = await authService.checkPhoneAvailability(phone);
+      setPhoneValidation({
+        checking: false,
+        available: result.available,
+        message: result.message
+      });
+    } catch (error) {
+      setPhoneValidation({
+        checking: false,
+        available: false,
+        message: "Unable to validate phone number"
+      });
     }
   };
 
@@ -212,9 +255,32 @@ const Signup = () => {
                       type="tel"
                       placeholder="10-digit phone number"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                      onChange={(e) => {
+                        const newPhone = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setFormData({ ...formData, phone: newPhone });
+                        
+                        // Debounce phone validation
+                        if (newPhone.length === 10) {
+                          setTimeout(() => checkPhoneAvailability(newPhone), 500);
+                        } else {
+                          setPhoneValidation({ checking: false, available: null, message: "" });
+                        }
+                      }}
                       required
+                      className={
+                        phoneValidation.available === false ? "border-red-500" :
+                        phoneValidation.available === true ? "border-green-500" : ""
+                      }
                     />
+                    {phoneValidation.checking && (
+                      <p className="text-xs text-muted-foreground">Checking availability...</p>
+                    )}
+                    {phoneValidation.available === false && (
+                      <p className="text-xs text-red-500">{phoneValidation.message}</p>
+                    )}
+                    {phoneValidation.available === true && (
+                      <p className="text-xs text-green-600">{phoneValidation.message}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
