@@ -178,15 +178,31 @@ const VendorBilling: React.FC = () => {
 
   const handleExport = async () => {
     try {
+      const periodName = selectedPeriod.replace(/_/g, '-'); // e.g., "last_30_days" -> "last-30-days"
       const blob = await billingService.exportBillingData('pdf', {
         dateFrom: getDateFromPeriod(selectedPeriod),
       });
       
       if (blob) {
-        billingService.downloadBlob(blob, `billing-report-${new Date().toISOString().split('T')[0]}.pdf`);
+        billingService.downloadBlob(blob, `billing-report-${periodName}-${new Date().toISOString().split('T')[0]}.pdf`);
+        toast({
+          title: "Success",
+          description: "Billing report downloaded successfully.",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to generate billing report. No data received.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Export failed:", error);
+      toast({
+        title: "Error",
+        description: "Failed to download billing report. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -212,9 +228,24 @@ const VendorBilling: React.FC = () => {
       const blob = await billingService.downloadReceipt(payment._id);
       if (blob) {
         billingService.downloadBlob(blob, `receipt-${payment._id.slice(-8)}.pdf`);
+        toast({
+          title: "Success",
+          description: "Payment receipt downloaded successfully.",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to generate receipt. No data received.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Failed to download receipt:", error);
+      toast({
+        title: "Error",
+        description: "Failed to download receipt. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -240,9 +271,24 @@ const VendorBilling: React.FC = () => {
       const blob = await billingService.downloadInvoice(invoice._id);
       if (blob) {
         billingService.downloadBlob(blob, `invoice-${invoice.invoiceNumber}.pdf`);
+        toast({
+          title: "Success",
+          description: `Invoice ${invoice.invoiceNumber} downloaded successfully.`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: `Failed to generate invoice ${invoice.invoiceNumber}. No data received.`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Failed to download invoice:", error);
+      toast({
+        title: "Error",
+        description: `Failed to download invoice ${invoice.invoiceNumber}. Please try again.`,
+        variant: "destructive",
+      });
     }
   };
 
