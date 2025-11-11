@@ -1268,6 +1268,11 @@ router.get('/reports',
       ]),
       User.aggregate([
         {
+          $match: {
+            role: { $nin: ['superadmin', 'subadmin'] }
+          }
+        },
+        {
           $group: {
             _id: '$role',
             count: { $sum: 1 }
@@ -1300,7 +1305,8 @@ router.get('/reports',
       SupportTicket.countDocuments({ status: 'open' }),
       SupportTicket.countDocuments({ status: 'resolved' }),
       User.countDocuments({ 
-        createdAt: { $gte: startDate }
+        createdAt: { $gte: startDate },
+        role: { $nin: ['superadmin', 'subadmin'] }
       })
     ]);
 
@@ -1408,7 +1414,9 @@ router.get('/reports/export',
           break;
 
         case 'users':
-          const users = await User.find()
+          const users = await User.find({ 
+            role: { $nin: ['superadmin', 'subadmin'] } 
+          })
             .select('email role profile createdAt status')
             .sort({ createdAt: -1 })
             .limit(1000);
