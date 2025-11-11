@@ -1,4 +1,5 @@
 import { toast } from "@/hooks/use-toast";
+import { reviewsService } from "./reviewsService";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -229,7 +230,25 @@ class VendorService {
       }
 
       if (response.success && response.data) {
-        return response.data.user;
+        const vendorProfile = response.data.user;
+        
+        // Sync rating data from reviews if available
+        try {
+          const reviewStats = await reviewsService.getReviewStats();
+          if (vendorProfile.profile?.vendorInfo?.rating) {
+            vendorProfile.profile.vendorInfo.rating.average = reviewStats.averageRating;
+            vendorProfile.profile.vendorInfo.rating.count = reviewStats.totalReviews;
+          } else if (vendorProfile.profile?.vendorInfo) {
+            vendorProfile.profile.vendorInfo.rating = {
+              average: reviewStats.averageRating,
+              count: reviewStats.totalReviews
+            };
+          }
+        } catch (reviewError) {
+          console.log("Could not sync rating data:", reviewError);
+        }
+        
+        return vendorProfile;
       }
 
       throw new Error("Failed to fetch vendor profile");

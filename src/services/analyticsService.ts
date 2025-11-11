@@ -1,4 +1,5 @@
 import { toast } from "@/hooks/use-toast";
+import { reviewsService } from "./reviewsService";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -128,10 +129,25 @@ class AnalyticsService {
       }>(endpoint);
 
       if (response.success && response.data) {
+        // Ensure we have the latest rating data from reviews
+        try {
+          const reviewStats = await reviewsService.getReviewStats();
+          response.data.averageRating = reviewStats.averageRating;
+        } catch (reviewError) {
+          console.log("Could not fetch review stats for rating:", reviewError);
+        }
         return response.data;
       }
 
-      // Return default stats if endpoint doesn't exist yet
+      // Return default stats with real rating if endpoint doesn't exist yet
+      let averageRating = 0;
+      try {
+        const reviewStats = await reviewsService.getReviewStats();
+        averageRating = reviewStats.averageRating;
+      } catch (reviewError) {
+        console.log("Could not fetch review stats for default rating:", reviewError);
+      }
+
       return {
         totalViews: 0,
         totalLeads: 0,
@@ -142,13 +158,22 @@ class AnalyticsService {
         leasedPropertyRevenue: 0,
         rentedPropertyRevenue: 0,
         totalProperties: 0,
-        averageRating: 0,
+        averageRating,
         responseTime: "Not calculated",
         conversionRate: 0
       };
     } catch (error) {
       console.error("Failed to fetch overview stats:", error);
-      // Return default stats on error
+      
+      // Return default stats with real rating on error
+      let averageRating = 0;
+      try {
+        const reviewStats = await reviewsService.getReviewStats();
+        averageRating = reviewStats.averageRating;
+      } catch (reviewError) {
+        console.log("Could not fetch review stats for error rating:", reviewError);
+      }
+
       return {
         totalViews: 0,
         totalLeads: 0,
@@ -159,7 +184,7 @@ class AnalyticsService {
         leasedPropertyRevenue: 0,
         rentedPropertyRevenue: 0,
         totalProperties: 0,
-        averageRating: 0,
+        averageRating,
         responseTime: "Not calculated",
         conversionRate: 0
       };

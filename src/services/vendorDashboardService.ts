@@ -1,4 +1,5 @@
 import { toast } from "@/hooks/use-toast";
+import { reviewsService } from "./reviewsService";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -192,12 +193,29 @@ class VendorDashboardService {
       }>(`/vendors/stats?dateRange=${dateRange}`);
 
       if (response.success && response.data) {
+        // Ensure rating data is synced from reviews
+        try {
+          const reviewStats = await reviewsService.getReviewStats();
+          response.data.averageRating = reviewStats.averageRating;
+        } catch (reviewError) {
+          console.log("Could not sync rating data:", reviewError);
+        }
         return response.data;
       }
 
       throw new Error("Failed to fetch vendor stats");
     } catch (error) {
       console.error("Failed to fetch vendor stats:", error);
+      
+      // Get real rating data even for fallback stats
+      let averageRating = 0;
+      try {
+        const reviewStats = await reviewsService.getReviewStats();
+        averageRating = reviewStats.averageRating;
+      } catch (reviewError) {
+        console.log("Could not get rating for fallback stats:", reviewError);
+      }
+      
       // Return empty stats for real-time data approach
       return {
         totalProperties: 0,
@@ -211,6 +229,7 @@ class VendorDashboardService {
         revenueChange: "+0%",
         conversionRate: 0,
         conversionChange: "+0%",
+        averageRating,
         phoneCalls: 0,
         phoneCallsChange: "+0%"
       };
@@ -406,7 +425,16 @@ class VendorDashboardService {
     return colors[interest as keyof typeof colors] || 'text-gray-600 bg-gray-100';
   }
 
-  private getEmptyDashboardData(): VendorDashboardData {
+  private async getEmptyDashboardData(): Promise<VendorDashboardData> {
+    // Get real rating data even for empty dashboard
+    let averageRating = 0;
+    try {
+      const reviewStats = await reviewsService.getReviewStats();
+      averageRating = reviewStats.averageRating;
+    } catch (reviewError) {
+      console.log("Could not get rating for empty dashboard:", reviewError);
+    }
+
     return {
       stats: {
         totalProperties: 0,
@@ -420,6 +448,7 @@ class VendorDashboardService {
         revenueChange: "+0%",
         conversionRate: 0,
         conversionChange: "+0%",
+        averageRating,
         phoneCalls: 0,
         phoneCallsChange: "+0%"
       },
