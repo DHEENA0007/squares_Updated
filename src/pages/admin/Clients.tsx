@@ -6,9 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import ExportUtils from "@/utils/exportUtils";
 import {
   Dialog,
   DialogContent,
@@ -140,60 +138,189 @@ const Clients = () => {
 
   const handleExportExcel = () => {
     try {
-      // Prepare data for Excel export
-      const excelData = subscriptions.map((subscription) => ({
+      const currentDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      // Calculate metrics
+      const activeSubscriptions = subscriptions.filter(s => s.status === 'active');
+      const expiredSubscriptions = subscriptions.filter(s => s.status === 'expired');
+      const cancelledSubscriptions = subscriptions.filter(s => s.status === 'cancelled');
+
+      const totalActiveRevenue = activeSubscriptions.reduce((sum, sub) => {
+        const paymentTotal = sub.paymentHistory?.reduce((total, payment) => total + (payment.amount || 0), 0) || 0;
+        return sum + paymentTotal;
+      }, 0);
+
+      const totalRevenueAll = subscriptions.reduce((sum, sub) => {
+        const paymentTotal = sub.paymentHistory?.reduce((total, payment) => total + (payment.amount || 0), 0) || 0;
+        return sum + paymentTotal;
+      }, 0);
+
+      const addonRevenue = subscriptions.reduce((sum, sub) => {
+        const addonTotal = sub.addons?.reduce((total, addon) => total + (addon.price || 0), 0) || 0;
+        return sum + addonTotal;
+      }, 0);
+
+      const grandTotalRevenue = totalRevenueAll + addonRevenue;
+
+      // Summary Statistics Sheet
+      const summaryData = [
+        { 'Metric': 'Total Clients', 'Count / Amount': subscriptions.length },
+        { 'Metric': 'Active Subscriptions', 'Count / Amount': activeSubscriptions.length },
+        { 'Metric': 'Cancelled Subscriptions', 'Count / Amount': cancelledSubscriptions.length },
+        { 'Metric': 'Expired Subscriptions', 'Count / Amount': expiredSubscriptions.length },
+        { 'Metric': 'Total Subscriptions', 'Count / Amount': subscriptions.length },
+        { 'Metric': 'Total Active Revenue', 'Count / Amount': `₹${totalActiveRevenue.toLocaleString()}` },
+        { 'Metric': 'Total Revenue (All)', 'Count / Amount': `₹${totalRevenueAll.toLocaleString()}` },
+        { 'Metric': 'Add-on Revenue', 'Count / Amount': `₹${addonRevenue.toLocaleString()}` },
+        { 'Metric': 'Grand Total Revenue', 'Count / Amount': `₹${grandTotalRevenue.toLocaleString()}` },
+      ];
+
+      // Subscription Details Sheet
+      const subscriptionDetails = activeSubscriptions.map((subscription, index) => ({
+        '#': index + 1,
         'Client Name': subscription.user.name,
         'Email': subscription.user.email,
-        'Phone': subscription.user.phone || 'N/A',
-        'Plan Name': subscription.plan?.name || 'N/A',
-        'Billing Period': subscription.plan?.billingPeriod || 'N/A',
-        'Amount': subscriptionService.formatAmount(subscription),
-        'Currency': subscription.currency,
+        'Plan': subscription.plan?.name || 'N/A',
+        'Plan Price': subscription.plan?.price ? `₹${subscription.plan.price}` : 'N/A',
+        'Total Amount': subscriptionService.formatAmount(subscription),
         'Status': subscriptionService.formatSubscriptionStatus(subscription.status).label,
-        'Start Date': new Date(subscription.startDate).toLocaleDateString(),
-        'End Date': new Date(subscription.endDate).toLocaleDateString(),
+        'Start Date': ExportUtils.formatDate(subscription.startDate),
+        'End Date': ExportUtils.formatDate(subscription.endDate),
         'Auto Renew': subscription.autoRenew ? 'Yes' : 'No',
-        'Payment Method': subscription.paymentMethod || 'N/A',
-        'Addons Count': subscription.addons?.length || 0,
-        'Created At': new Date(subscription.createdAt).toLocaleDateString(),
+        'Add-ons': subscription.addons?.length || 0,
+        'Add-on Amount': `₹${subscription.addons?.reduce((total, addon) => total + (addon.price || 0), 0) || 0}`,
       }));
 
-      // Create workbook and worksheet
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(excelData);
+      // Add total row for active subscriptions
+      subscriptionDetails.push({
+        '#': '',
+        'Client Name': 'Total Active Revenue',
+        'Email': '',
+        'Plan': '',
+        'Plan Price': '',
+        'Total Amount': `₹${totalActiveRevenue.toLocaleString()}`,
+        'Status': '',
+        'Start Date': '',
+        'End Date': '',
+        'Auto Renew': '',
+        'Add-ons': '',
+        'Add-on Amount': '',
+      });
 
-      // Auto-size columns
-      const colWidths = [
-        { wch: 15 }, // Client Name
-        { wch: 25 }, // Email
-        { wch: 15 }, // Phone
-        { wch: 20 }, // Plan Name
-        { wch: 15 }, // Billing Period
-        { wch: 12 }, // Amount
-        { wch: 10 }, // Currency
-        { wch: 12 }, // Status
-        { wch: 12 }, // Start Date
-        { wch: 12 }, // End Date
-        { wch: 10 }, // Auto Renew
-        { wch: 15 }, // Payment Method
-        { wch: 12 }, // Addons Count
-        { wch: 12 }, // Created At
+      // Add-on Details Sheet
+      const addonDetails = [];
+      subscriptions.forEach((subscription) => {
+        if (subscription.addons && subscription.addons.length > 0) {
+          subscription.addons.forEach((addon) => {
+            // Find the latest payment date for this addon
+            const latestPayment = subscription.paymentHistory
+              ?.filter(payment => payment.type === 'addon_purchase' && payment.addons?.includes(addon._id))
+              ?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+            addonDetails.push({
+              '#': addonDetails.length + 1,
+              'Client Name': subscription.user.name,
+              'Add-on Name': addon.name,
+              'Category': addon.category || 'N/A',
+              'Price': `₹${addon.price || 0}`,
+              'Billing Type': addon.billingType?.replace('_', ' ') || 'N/A',
+              'Last Payment Date': latestPayment ? ExportUtils.formatDate(latestPayment.date) : 'N/A',
+            });
+          });
+        }
+      });
+
+      // Add total row for addons
+      if (addonDetails.length > 0) {
+        addonDetails.push({
+          '#': '',
+          'Client Name': 'Total Add-on Revenue',
+          'Add-on Name': '',
+          'Category': '',
+          'Price': `₹${addonRevenue.toLocaleString()}`,
+          'Billing Type': '',
+          'Last Payment Date': '',
+        });
+      }
+
+      // Key Insights Sheet
+      const activeClients = activeSubscriptions.length;
+      const arpc = activeClients > 0 ? Math.round(totalActiveRevenue / activeClients) : 0;
+
+      // Find highest-grossing plan
+      const planRevenue = {};
+      activeSubscriptions.forEach(sub => {
+        const planName = sub.plan?.name || 'Unknown';
+        const revenue = sub.paymentHistory?.reduce((total, payment) => total + (payment.amount || 0), 0) || 0;
+        planRevenue[planName] = (planRevenue[planName] || 0) + revenue;
+      });
+      const topPlan = Object.entries(planRevenue).sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A';
+
+      // Find most purchased addon
+      const addonCount = {};
+      subscriptions.forEach(sub => {
+        sub.addons?.forEach(addon => {
+          addonCount[addon.name] = (addonCount[addon.name] || 0) + 1;
+        });
+      });
+      const topAddon = Object.entries(addonCount).sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A';
+
+      const insightsData = [
+        { 'Insight': 'Total Active Clients', 'Value': activeClients },
+        { 'Insight': 'Average Revenue per Active Client (ARPC)', 'Value': `₹${arpc.toLocaleString()}` },
+        { 'Insight': 'Highest-Grossing Plan', 'Value': topPlan },
+        { 'Insight': 'Most Purchased Add-on', 'Value': topAddon },
+        { 'Insight': 'Total Monthly Recurring Revenue (MRR)', 'Value': `₹${totalActiveRevenue.toLocaleString()}` },
       ];
-      ws['!cols'] = colWidths;
 
-      // Add worksheet to workbook
-      XLSX.utils.book_append_sheet(wb, ws, 'Clients');
+      const config = {
+        filename: 'subscribed_clients_revenue_report',
+        title: 'Subscribed Clients Revenue Report',
+        metadata: {
+          'Generated on': currentDate,
+          'Report Period': 'All Time',
+          'Prepared by': 'Admin System',
+        }
+      };
 
-      // Generate filename with timestamp
-      const timestamp = new Date().toISOString().split('T')[0];
-      const filename = `clients_${timestamp}.xlsx`;
+      const sheets = [
+        {
+          name: 'Summary Statistics',
+          data: summaryData,
+          columns: [{ wch: 30 }, { wch: 20 }]
+        },
+        {
+          name: 'Subscription Details',
+          data: subscriptionDetails,
+          columns: [
+            { wch: 5 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, { wch: 15 },
+            { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 15 }
+          ]
+        },
+        {
+          name: 'Add-on Details',
+          data: addonDetails,
+          columns: [
+            { wch: 5 }, { wch: 25 }, { wch: 25 }, { wch: 15 }, { wch: 12 },
+            { wch: 20 }, { wch: 15 }
+          ]
+        },
+        {
+          name: 'Key Insights',
+          data: insightsData,
+          columns: [{ wch: 35 }, { wch: 25 }]
+        }
+      ];
 
-      // Save file
-      XLSX.writeFile(wb, filename);
+      ExportUtils.generateExcelReport(config, sheets);
 
       toast({
         title: "Export Successful",
-        description: `Data exported to ${filename}`,
+        description: "Comprehensive revenue report has been generated successfully",
       });
     } catch (error) {
       console.error('Excel export error:', error);
@@ -207,74 +334,206 @@ const Clients = () => {
 
   const handleExportPDF = () => {
     try {
-      const doc = new jsPDF();
-
-      // Add title
-      doc.setFontSize(20);
-      doc.text('Subscribed Clients Report', 14, 22);
-
-      // Add timestamp
-      doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 32);
-
-      // Prepare table data
-      const tableData = subscriptions.map((subscription) => [
-        subscription.user.name,
-        subscription.user.email,
-        subscription.plan?.name || 'N/A',
-        subscriptionService.formatAmount(subscription),
-        subscriptionService.formatSubscriptionStatus(subscription.status).label,
-        new Date(subscription.startDate).toLocaleDateString(),
-        new Date(subscription.endDate).toLocaleDateString(),
-      ]);
-
-      // Add table
-      autoTable(doc, {
-        head: [['Client Name', 'Email', 'Plan', 'Amount', 'Status', 'Start Date', 'End Date']],
-        body: tableData,
-        startY: 40,
-        styles: {
-          fontSize: 8,
-          cellPadding: 2,
-        },
-        headStyles: {
-          fillColor: [41, 128, 185],
-          textColor: 255,
-          fontSize: 9,
-          fontStyle: 'bold',
-        },
-        alternateRowStyles: {
-          fillColor: [245, 245, 245],
-        },
-        margin: { top: 40 },
+      const currentDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
       });
 
-      // Add summary at the bottom
-      const pageHeight = doc.internal.pageSize.height;
-      const pageWidth = doc.internal.pageSize.width;
-      const summaryY = pageHeight - 30;
+      // Calculate metrics
+      const activeSubscriptions = subscriptions.filter(s => s.status === 'active');
+      const expiredSubscriptions = subscriptions.filter(s => s.status === 'expired');
+      const cancelledSubscriptions = subscriptions.filter(s => s.status === 'cancelled');
 
-      doc.setFontSize(10);
-      doc.text(`Total Clients: ${subscriptions.length}`, 14, summaryY);
-      doc.text(`Active Subscriptions: ${subscriptions.filter(s => s.status === 'active').length}`, 14, summaryY + 6);
-      doc.text(`Expired Subscriptions: ${subscriptions.filter(s => s.status === 'expired').length}`, 14, summaryY + 12);
+      const totalActiveRevenue = activeSubscriptions.reduce((sum, sub) => {
+        const paymentTotal = sub.paymentHistory?.reduce((total, payment) => total + (payment.amount || 0), 0) || 0;
+        return sum + paymentTotal;
+      }, 0);
 
-      // Generate filename with timestamp
-      const timestamp = new Date().toISOString().split('T')[0];
-      const filename = `clients_${timestamp}.pdf`;
+      const totalRevenueAll = subscriptions.reduce((sum, sub) => {
+        const paymentTotal = sub.paymentHistory?.reduce((total, payment) => total + (payment.amount || 0), 0) || 0;
+        return sum + paymentTotal;
+      }, 0);
 
-      // Save file
-      doc.save(filename);
+      const addonRevenue = subscriptions.reduce((sum, sub) => {
+        const addonTotal = sub.addons?.reduce((total, addon) => total + (addon.price || 0), 0) || 0;
+        return sum + addonTotal;
+      }, 0);
+
+      const grandTotalRevenue = totalRevenueAll + addonRevenue;
+
+      // Summary Statistics Table
+      const summaryTable = {
+        head: [['Metric', 'Count / Amount']],
+        body: [
+          ['Total Clients', subscriptions.length.toString()],
+          ['Active Subscriptions', activeSubscriptions.length.toString()],
+          ['Cancelled Subscriptions', cancelledSubscriptions.length.toString()],
+          ['Expired Subscriptions', expiredSubscriptions.length.toString()],
+          ['Total Subscriptions', subscriptions.length.toString()],
+          ['Total Active Revenue', `₹${totalActiveRevenue.toLocaleString()}`],
+          ['Total Revenue (All)', `₹${totalRevenueAll.toLocaleString()}`],
+          ['Add-on Revenue', `₹${addonRevenue.toLocaleString()}`],
+          ['Grand Total Revenue', `₹${grandTotalRevenue.toLocaleString()}`],
+        ].map(row => [row[0], row[1]]),
+        columnStyles: {
+          0: { cellWidth: 80, fontStyle: 'bold' },
+          1: { cellWidth: 50, halign: 'right' },
+        },
+        theme: 'striped' as const,
+        fontSize: 9,
+      };
+
+      // Subscription Details Table
+      const subscriptionTable = {
+        head: [['#', 'Client Name', 'Email', 'Plan', 'Plan Price', 'Total Amount', 'Status', 'Start Date', 'End Date', 'Auto Renew', 'Add-ons', 'Add-on Amount']],
+        body: [
+          ...activeSubscriptions.map((subscription, index) => [
+            (index + 1).toString(),
+            subscription.user.name,
+            subscription.user.email,
+            subscription.plan?.name || 'N/A',
+            subscription.plan?.price ? `₹${subscription.plan.price}` : 'N/A',
+            subscriptionService.formatAmount(subscription),
+            subscriptionService.formatSubscriptionStatus(subscription.status).label,
+            ExportUtils.formatDate(subscription.startDate),
+            ExportUtils.formatDate(subscription.endDate),
+            subscription.autoRenew ? 'Yes' : 'No',
+            (subscription.addons?.length || 0).toString(),
+            `₹${subscription.addons?.reduce((total, addon) => total + (addon.price || 0), 0) || 0}`,
+          ]),
+          // Total row
+          ['', 'Total Active Revenue', '', '', '', `₹${totalActiveRevenue.toLocaleString()}`, '', '', '', '', '', ''],
+        ],
+        columnStyles: {
+          0: { cellWidth: 8, halign: 'center' },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 40 },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 20, halign: 'right' },
+          5: { cellWidth: 20, halign: 'right' },
+          6: { cellWidth: 15, halign: 'center' },
+          7: { cellWidth: 20, halign: 'center' },
+          8: { cellWidth: 20, halign: 'center' },
+          9: { cellWidth: 15, halign: 'center' },
+          10: { cellWidth: 12, halign: 'center' },
+          11: { cellWidth: 20, halign: 'right' },
+        },
+        theme: 'striped' as const,
+        fontSize: 7,
+      };
+
+      // Add-on Details Table
+      const addonDetails = [];
+      subscriptions.forEach((subscription) => {
+        if (subscription.addons && subscription.addons.length > 0) {
+          subscription.addons.forEach((addon) => {
+            const latestPayment = subscription.paymentHistory
+              ?.filter(payment => payment.type === 'addon_purchase' && payment.addons?.includes(addon._id))
+              ?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+            addonDetails.push([
+              subscription.user.name,
+              addon.name,
+              addon.category || 'N/A',
+              `₹${addon.price || 0}`,
+              addon.billingType?.replace('_', ' ') || 'N/A',
+              latestPayment ? ExportUtils.formatDate(latestPayment.date) : 'N/A',
+            ]);
+          });
+        }
+      });
+
+      const addonTable = {
+        head: [['Client Name', 'Add-on Name', 'Category', 'Price', 'Billing Type', 'Last Payment Date']],
+        body: addonDetails.length > 0 ? [
+          ...addonDetails,
+          ['Total Add-on Revenue', '', '', `₹${addonRevenue.toLocaleString()}`, '', ''],
+        ] : [],
+        columnStyles: {
+          0: { cellWidth: 35 },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 20, halign: 'center' },
+          3: { cellWidth: 20, halign: 'right' },
+          4: { cellWidth: 25, halign: 'center' },
+          5: { cellWidth: 25, halign: 'center' },
+        },
+        theme: 'striped' as const,
+        fontSize: 8,
+      };
+
+      // Key Insights Table
+      const activeClients = activeSubscriptions.length;
+      const arpc = activeClients > 0 ? Math.round(totalActiveRevenue / activeClients) : 0;
+
+      const planRevenue = {};
+      activeSubscriptions.forEach(sub => {
+        const planName = sub.plan?.name || 'Unknown';
+        const revenue = sub.paymentHistory?.reduce((total, payment) => total + (payment.amount || 0), 0) || 0;
+        planRevenue[planName] = (planRevenue[planName] || 0) + revenue;
+      });
+      const topPlan = Object.entries(planRevenue).sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A';
+
+      const addonCount = {};
+      subscriptions.forEach(sub => {
+        sub.addons?.forEach(addon => {
+          addonCount[addon.name] = (addonCount[addon.name] || 0) + 1;
+        });
+      });
+      const topAddon = Object.entries(addonCount).sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A';
+
+      const insightsTable = {
+        head: [['Insight', 'Value']],
+        body: [
+          ['Total Active Clients', activeClients.toString()],
+          ['Average Revenue per Active Client (ARPC)', `₹${arpc.toLocaleString()}`],
+          ['Highest-Grossing Plan', topPlan],
+          ['Most Purchased Add-on', topAddon],
+          ['Total Monthly Recurring Revenue (MRR)', `₹${totalActiveRevenue.toLocaleString()}`],
+        ],
+        columnStyles: {
+          0: { cellWidth: 100, fontStyle: 'bold' },
+          1: { cellWidth: 50, halign: 'right' },
+        },
+        theme: 'striped' as const,
+        fontSize: 9,
+      };
+
+      const config = {
+        filename: 'subscribed_clients_revenue_report',
+        title: 'Subscribed Clients Revenue Report',
+        metadata: {
+          'Generated on': currentDate,
+          'Report Period': 'All Time',
+          'Prepared by': 'Admin System',
+        }
+      };
+
+      const tables = [summaryTable, subscriptionTable];
+
+      if (addonDetails.length > 0) {
+        tables.push(addonTable);
+      }
+
+      tables.push(insightsTable);
+
+      ExportUtils.generatePDFReport(config, tables, {
+        orientation: 'landscape',
+        format: 'a4',
+        includeHeader: true,
+        includeFooter: true,
+        headerColor: [52, 144, 220],
+      });
 
       toast({
         title: "Export Successful",
-        description: `Report exported to ${filename}`,
+        description: "Comprehensive revenue report has been generated successfully",
       });
     } catch (error) {
       console.error('PDF export error:', error);
       toast({
         title: "Export Failed",
-        description: "Failed to export data to PDF. Please try again.",
+        description: "Failed to export PDF report. Please try again.",
         variant: "destructive",
       });
     }
