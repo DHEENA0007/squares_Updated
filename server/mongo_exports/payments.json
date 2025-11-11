@@ -1,1 +1,29 @@
-[]
+[
+  {
+    "_id": "69121522cc913a5defa4c0b4",
+    "user": "68f8b1214f4741e752f0e18b",
+    "razorpayOrderId": "order_Re6dvVz93GFfY8",
+    "amount": 8998,
+    "currency": "INR",
+    "status": "paid",
+    "paymentMethod": "razorpay",
+    "paymentGateway": "razorpay",
+    "type": "subscription_purchase",
+    "description": "Payment for Subscription - ENTERPRISE PLAN - ₹4999 with 1 addon(s)",
+    "metadata": {
+      "planId": "enterprise",
+      "planName": "ENTERPRISE PLAN - ₹4999",
+      "billingCycle": "monthly",
+      "addons": [
+        "68f9e724d75eb0a6ce4ee963"
+      ]
+    },
+    "expiresAt": "2025-11-10T16:53:58.581Z",
+    "createdAt": "2025-11-10T16:38:58.584Z",
+    "updatedAt": "2025-11-10T16:39:52.984Z",
+    "__v": 0,
+    "razorpayPaymentId": "pay_Re6eY4FeU7I3cA",
+    "razorpaySignature": "ed26dddd450ceaf423e6dc417661cfda6aba7f5176410a9468162d3435b66a90",
+    "subscription": "69121558cc913a5defa4c0c5"
+  }
+]

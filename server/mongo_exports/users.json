@@ -19,7 +19,7 @@
       },
       "emailVerified": true,
       "phoneVerified": false,
-      "lastLogin": "2025-11-10T12:55:45.582Z",
+      "lastLogin": "2025-11-11T07:57:36.142Z",
       "preferences": {
         "notifications": {
           "email": true,
@@ -36,7 +36,7 @@
       }
     },
     "createdAt": "2025-10-21T10:59:31.034Z",
-    "updatedAt": "2025-11-10T12:55:45.583Z",
+    "updatedAt": "2025-11-11T07:57:36.145Z",
     "__v": 2,
     "isGuest": false,
     "isOnline": false,
@@ -77,7 +77,7 @@
         }
       },
       "avatar": null,
-      "lastLogin": "2025-11-10T15:40:24.467Z",
+      "lastLogin": "2025-11-11T11:27:54.865Z",
       "vendorInfo": {
         "certifications": [],
         "experience": 0,
@@ -100,7 +100,7 @@
       "phoneVerified": false
     },
     "createdAt": "2025-10-22T07:19:14.070Z",
-    "updatedAt": "2025-11-10T15:40:24.468Z",
+    "updatedAt": "2025-11-11T11:27:54.866Z",
     "__v": 2,
     "isGuest": false,
     "isOnline": false,
@@ -139,15 +139,11 @@
       },
       "emailVerified": true,
       "phoneVerified": false,
-      "lastLogin": "2025-11-10T15:41:11.885Z",
+      "lastLogin": "2025-11-10T17:22:41.075Z",
       "preferences": {
         "notifications": {
           "email": true,
-          "push": true,
-          "desktop": true,
-          "sms": false,
-          "sound": true,
-          "typing": true
+          "push": true
         },
         "privacy": {
           "showEmail": false,
@@ -156,7 +152,7 @@
       }
     },
     "createdAt": "2025-10-22T10:25:37.241Z",
-    "updatedAt": "2025-11-10T15:41:11.886Z",
+    "updatedAt": "2025-11-11T11:09:55.915Z",
     "__v": 2,
     "vendorProfile": "68ff5d3d2f4e2406a9c90807",
     "isGuest": false,

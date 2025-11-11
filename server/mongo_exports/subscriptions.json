@@ -370,7 +370,7 @@
     "addons": [
       "690cd12289210235e0944238"
     ],
-    "status": "active",
+    "status": "cancelled",
     "startDate": "2025-11-03T15:27:11.471Z",
     "endDate": "2025-12-03T15:27:11.471Z",
     "amount": 5199,
@@ -397,7 +397,34 @@
       }
     ],
     "createdAt": "2025-11-03T15:27:11.562Z",
-    "updatedAt": "2025-11-06T16:48:48.494Z",
+    "updatedAt": "2025-11-10T16:39:52.952Z",
+    "__v": 0
+  },
+  {
+    "_id": "69121558cc913a5defa4c0c5",
+    "user": "68f8b1214f4741e752f0e18b",
+    "plan": "6904e6b618522f63a0653bc0",
+    "addons": [
+      "68f9e724d75eb0a6ce4ee963"
+    ],
+    "status": "active",
+    "startDate": "2025-11-10T16:39:52.952Z",
+    "endDate": "2025-12-10T16:39:52.952Z",
+    "amount": 8998,
+    "currency": "INR",
+    "paymentMethod": "razorpay",
+    "transactionId": "pay_Re6eY4FeU7I3cA_monthly_1addons",
+    "paymentDetails": {
+      "razorpayOrderId": "order_Re6dvVz93GFfY8",
+      "razorpayPaymentId": "pay_Re6eY4FeU7I3cA",
+      "razorpaySignature": "ed26dddd450ceaf423e6dc417661cfda6aba7f5176410a9468162d3435b66a90"
+    },
+    "autoRenew": true,
+    "renewalAttempts": 0,
+    "lastPaymentDate": "2025-11-10T16:39:52.971Z",
+    "paymentHistory": [],
+    "createdAt": "2025-11-10T16:39:52.974Z",
+    "updatedAt": "2025-11-10T16:39:52.974Z",
     "__v": 0
   }
 ]

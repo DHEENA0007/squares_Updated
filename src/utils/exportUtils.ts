@@ -1,397 +1,421 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { toast } from '@/hooks/use-toast';
 
-// Export utility interfaces
-export interface ExportConfig {
+// Define basic data types for exports
+type ExportValue = string | number | boolean | null | undefined;
+type ExportRecord = Record<string, ExportValue>;
+type ExportData = ExportRecord[];
+
+interface ExportConfig {
   filename: string;
   title: string;
-  metadata?: Record<string, string | number>;
-  summaryStats?: Record<string, string | number>;
-  filters?: Record<string, string>;
+  metadata?: {
+    [key: string]: string;
+  };
 }
 
-export interface ExcelSheetConfig {
+interface SheetData {
   name: string;
-  data: any[];
-  columns?: { wch: number }[];
+  data: ExportData;
+  columns?: Array<{ wch: number }>;
 }
 
-export interface PDFTableConfig {
+interface ColumnStyle {
+  cellWidth?: number;
+  fontStyle?: string;
+  halign?: 'left' | 'center' | 'right';
+}
+
+interface TableData {
   head: string[][];
   body: string[][];
-  columnStyles?: Record<number, any>;
-  theme?: 'striped' | 'grid' | 'plain';
+  columnStyles?: Record<string, ColumnStyle>;
+  theme?: string;
   fontSize?: number;
 }
 
-export class ExportUtils {
-  
+interface PDFOptions {
+  orientation?: 'portrait' | 'landscape';
+  format?: 'a4' | 'letter';
+  includeHeader?: boolean;
+  includeFooter?: boolean;
+  headerColor?: number[];
+}
+
+interface SummaryConfig {
+  countFields?: string[];
+  sumFields?: string[];
+  avgFields?: string[];
+}
+
+type SummaryResult = Record<string, string | number>;
+
+class ExportUtils {
   /**
-   * Generate comprehensive Excel report with multiple sheets
+   * Generate Excel report with multiple sheets
    */
-  static generateExcelReport(config: ExportConfig, sheets: ExcelSheetConfig[]): void {
+  static generateExcelReport(config: ExportConfig, sheets: SheetData[]): void {
     try {
-      const wb = XLSX.utils.book_new();
-      const timestamp = new Date().toISOString().split('T')[0];
-      const timeString = new Date().toLocaleString();
-
-      // Create overview sheet with metadata
-      const overviewData = [
-        [config.title],
-        ['Generated on:', timeString],
-        [''],
-        ['Report Summary:']
-      ];
-
-      // Add metadata if provided
+      // Create a new workbook
+      const workbook = XLSX.utils.book_new();
+      
+      // Add metadata sheet if provided
       if (config.metadata) {
-        Object.entries(config.metadata).forEach(([key, value]) => {
-          overviewData.push([key, value.toString()]);
-        });
-        overviewData.push(['']);
+        const metadataArray = Object.entries(config.metadata).map(([key, value]) => ({
+          Property: key,
+          Value: value
+        }));
+        
+        const metadataSheet = XLSX.utils.json_to_sheet(metadataArray);
+        XLSX.utils.book_append_sheet(workbook, metadataSheet, 'Report Info');
       }
 
-      // Add summary statistics if provided
-      if (config.summaryStats) {
-        overviewData.push(['Statistics:']);
-        Object.entries(config.summaryStats).forEach(([key, value]) => {
-          overviewData.push([key, value.toString()]);
-        });
-        overviewData.push(['']);
-      }
-
-      // Add filters if provided
-      if (config.filters) {
-        overviewData.push(['Applied Filters:']);
-        Object.entries(config.filters).forEach(([key, value]) => {
-          overviewData.push([key, value]);
-        });
-      }
-
-      const overviewWs = XLSX.utils.aoa_to_sheet(overviewData);
-      XLSX.utils.book_append_sheet(wb, overviewWs, 'Overview');
-
-      // Add data sheets
+      // Add each sheet
       sheets.forEach(sheet => {
-        const ws = XLSX.utils.json_to_sheet(sheet.data);
-        
-        // Apply column widths if provided
-        if (sheet.columns) {
-          ws['!cols'] = sheet.columns;
+        try {
+          // Convert data to worksheet
+          const worksheet = XLSX.utils.json_to_sheet(sheet.data);
+          
+          // Apply column widths if provided
+          if (sheet.columns && sheet.columns.length > 0) {
+            worksheet['!cols'] = sheet.columns;
+          }
+
+          // Auto-size columns if no specific widths provided
+          if (!sheet.columns) {
+            const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:A1');
+            const cols: Array<{ wch: number }> = [];
+            
+            for (let col = range.s.c; col <= range.e.c; col++) {
+              let maxWidth = 10; // minimum width
+              
+              for (let row = range.s.r; row <= range.e.r; row++) {
+                const cellRef = XLSX.utils.encode_cell({ r: row, c: col });
+                const cell = worksheet[cellRef];
+                
+                if (cell && cell.v) {
+                  const cellValue = String(cell.v);
+                  maxWidth = Math.max(maxWidth, Math.min(cellValue.length + 2, 50)); // max width 50
+                }
+              }
+              
+              cols.push({ wch: maxWidth });
+            }
+            
+            worksheet['!cols'] = cols;
+          }
+
+          // Add the sheet to workbook
+          XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name);
+        } catch (sheetError) {
+          console.error(`Error processing sheet ${sheet.name}:`, sheetError);
+          // Continue with other sheets even if one fails
         }
-        
-        XLSX.utils.book_append_sheet(wb, ws, sheet.name);
       });
 
-      // Generate filename and save
-      const filename = config.filename.includes(timestamp) 
-        ? config.filename 
-        : `${config.filename}_${timestamp}.xlsx`;
-      
-      XLSX.writeFile(wb, filename);
-      
-    } catch (error) {
-      console.error('Excel export failed:', error);
-      throw new Error('Failed to export Excel file');
-    }
-  }
-
-  /**
-   * Generate comprehensive PDF report
-   */
-  static generatePDFReport(
-    config: ExportConfig, 
-    tables: PDFTableConfig[], 
-    options: {
-      orientation?: 'portrait' | 'landscape';
-      format?: 'a4' | 'letter';
-      includeHeader?: boolean;
-      includeFooter?: boolean;
-      headerColor?: [number, number, number];
-    } = {}
-  ): void {
-    try {
-      const doc = new jsPDF({
-        orientation: options.orientation || 'landscape',
-        unit: 'mm',
-        format: options.format || 'a4'
-      });
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 14;
-      let currentY = margin;
-
-      // Header section
-      if (options.includeHeader !== false) {
-        currentY = this.addPDFHeader(doc, config, pageWidth, currentY, margin, options.headerColor);
-      }
-
-      // Add tables
-      tables.forEach((table, index) => {
-        // Check if we need a new page
-        if (currentY > pageHeight - 60) {
-          doc.addPage();
-          currentY = margin;
-        }
-
-        autoTable(doc, {
-          head: table.head,
-          body: table.body,
-          startY: currentY,
-          theme: table.theme || 'striped',
-          styles: {
-            fontSize: table.fontSize || 8,
-            cellPadding: 2,
-            overflow: 'linebreak',
-            cellWidth: 'wrap',
-          },
-          headStyles: {
-            fillColor: options.headerColor || [52, 144, 220],
-            textColor: 255,
-            fontSize: (table.fontSize || 8) + 1,
-            fontStyle: 'bold',
-            halign: 'center',
-          },
-          bodyStyles: {
-            textColor: 50,
-          },
-          alternateRowStyles: {
-            fillColor: [249, 249, 249],
-          },
-          columnStyles: table.columnStyles || {},
-          margin: { top: 0, right: margin, bottom: 0, left: margin },
-          tableWidth: 'auto',
-        });
-
-        // Update currentY for next table
-        currentY = (doc as any).lastAutoTable.finalY + 10;
-      });
-
-      // Footer
-      if (options.includeFooter !== false) {
-        this.addPDFFooter(doc, pageWidth, pageHeight);
-      }
-
-      // Generate filename and save
+      // Generate filename with timestamp
       const timestamp = new Date().toISOString().split('T')[0];
-      const filename = config.filename.includes(timestamp) 
-        ? config.filename 
-        : `${config.filename}_${timestamp}.pdf`;
-      
-      doc.save(filename);
-      
+      const filename = `${config.filename}_${timestamp}.xlsx`;
+
+      // Save the file
+      XLSX.writeFile(workbook, filename);
+
+      console.log(`Excel file generated successfully: ${filename}`);
     } catch (error) {
-      console.error('PDF export failed:', error);
-      throw new Error('Failed to export PDF file');
+      console.error('Error generating Excel report:', error);
+      throw new Error('Failed to generate Excel report');
     }
   }
 
   /**
-   * Add PDF header with title, metadata and summary box
+   * Generate PDF report (placeholder for future implementation)
    */
-  private static addPDFHeader(
-    doc: jsPDF, 
-    config: ExportConfig, 
-    pageWidth: number, 
-    startY: number, 
-    margin: number,
-    headerColor?: [number, number, number]
-  ): number {
-    let currentY = startY;
-    const primaryColor = headerColor || [44, 62, 80];
-    const lightColor = [248, 249, 250];
+  static generatePDFReport(config: ExportConfig, tables: TableData[], options?: PDFOptions): void {
+    // This is a placeholder - PDF generation would require jsPDF and autoTable
+    console.warn('PDF generation not implemented in ExportUtils. Use billingService for PDF generation.');
+    throw new Error('PDF generation not implemented. Use specific service methods for PDF exports.');
+  }
 
-    // Title
-    doc.setFontSize(22);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text(config.title, margin, currentY);
-    currentY += 10;
+  /**
+   * Download data as CSV
+   */
+  static downloadCSV(data: Array<Record<string, any>>, filename: string): void {
+    try {
+      if (!data || data.length === 0) {
+        throw new Error('No data to export');
+      }
 
-    // Metadata
-    doc.setFontSize(10);
-    doc.setTextColor(127, 140, 141);
-    const reportDate = new Date().toLocaleString();
-    doc.text(`Generated on: ${reportDate}`, margin, currentY);
-    doc.text(`Page 1`, pageWidth - margin - 20, currentY);
-    currentY += 6;
+      // Convert data to CSV
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const csvOutput = XLSX.utils.sheet_to_csv(worksheet);
 
-    // Add metadata
-    if (config.metadata) {
-      Object.entries(config.metadata).forEach(([key, value]) => {
-        doc.text(`${key}: ${value}`, margin, currentY);
-        currentY += 4;
-      });
-    }
-
-    // Add filters
-    if (config.filters) {
-      let filtersText = 'Filters: ';
-      Object.entries(config.filters).forEach(([key, value], index) => {
-        if (index > 0) filtersText += ' | ';
-        filtersText += `${key}: ${value}`;
-      });
-      doc.text(filtersText, margin, currentY);
-      currentY += 6;
-    }
-
-    currentY += 4;
-
-    // Summary statistics box
-    if (config.summaryStats && Object.keys(config.summaryStats).length > 0) {
-      const statsBoxHeight = 20;
+      // Create blob and download
+      const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
       
-      // Background
-      doc.setFillColor(lightColor[0], lightColor[1], lightColor[2]);
-      doc.rect(margin, currentY, pageWidth - 2 * margin, statsBoxHeight, 'F');
-      doc.setDrawColor(222, 226, 230);
-      doc.rect(margin, currentY, pageWidth - 2 * margin, statsBoxHeight);
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${filename}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Error generating CSV:', error);
+      throw new Error('Failed to generate CSV file');
+    }
+  }
 
-      // Title
-      doc.setFontSize(11);
-      doc.setTextColor(33, 37, 41);
-      doc.text('Summary Statistics', margin + 5, currentY + 7);
+  /**
+   * Download data as JSON
+   */
+  static downloadJSON(data: any, filename: string): void {
+    try {
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const link = document.createElement('a');
+      
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${filename}.json`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Error generating JSON:', error);
+      throw new Error('Failed to generate JSON file');
+    }
+  }
 
-      // Stats
-      doc.setFontSize(9);
-      doc.setTextColor(73, 80, 87);
-      let statsX = margin + 5;
-      let statsY = currentY + 13;
-      let colCount = 0;
-      const maxCols = 4;
-      const colWidth = (pageWidth - 2 * margin - 10) / maxCols;
+  /**
+   * Format date for export
+   */
+  static formatDate(dateString: string | Date | null | undefined): string {
+    if (!dateString) return 'N/A';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Invalid Date';
+    }
+  }
 
-      Object.entries(config.summaryStats).forEach(([key, value]) => {
-        doc.text(`${key}: ${value}`, statsX, statsY);
-        colCount++;
-        if (colCount >= maxCols) {
-          colCount = 0;
-          statsX = margin + 5;
-          statsY += 6;
-        } else {
-          statsX += colWidth;
+  /**
+   * Format currency for export
+   */
+  static formatCurrency(amount: number | null | undefined, currency = 'INR'): string {
+    const safeAmount = amount || 0;
+    const symbol = currency === 'INR' ? '₹' : '$';
+    return `${symbol}${safeAmount.toLocaleString('en-IN')}`;
+  }
+
+  /**
+   * Sanitize data for export (remove null/undefined, handle special characters)
+   */
+  static sanitizeData(data: Array<Record<string, any>>): Array<Record<string, any>> {
+    return data.map(row => {
+      const sanitizedRow: Record<string, any> = {};
+      
+      Object.entries(row).forEach(([key, value]) => {
+        // Handle null/undefined values
+        if (value === null || value === undefined) {
+          sanitizedRow[key] = 'N/A';
+        }
+        // Handle objects and arrays
+        else if (typeof value === 'object' && value !== null) {
+          if (Array.isArray(value)) {
+            sanitizedRow[key] = value.length > 0 ? value.join(', ') : 'None';
+          } else {
+            sanitizedRow[key] = JSON.stringify(value);
+          }
+        }
+        // Handle boolean values
+        else if (typeof value === 'boolean') {
+          sanitizedRow[key] = value ? 'Yes' : 'No';
+        }
+        // Handle other values
+        else {
+          sanitizedRow[key] = String(value);
         }
       });
-
-      currentY += statsBoxHeight + 8;
-    }
-
-    return currentY;
+      
+      return sanitizedRow;
+    });
   }
 
   /**
-   * Add PDF footer with page numbers and timestamp
+   * Create summary statistics from data
    */
-  private static addPDFFooter(doc: jsPDF, pageWidth: number, pageHeight: number): void {
-    const totalPages = (doc as any).internal.getNumberOfPages();
+  static generateSummary(data: Array<Record<string, any>>, config: {
+    countFields?: string[];
+    sumFields?: string[];
+    avgFields?: string[];
+  }): Record<string, any> {
+    const summary: Record<string, any> = {
+      'Total Records': data.length
+    };
+
+    // Count unique values for specified fields
+    if (config.countFields) {
+      config.countFields.forEach(field => {
+        const uniqueValues = new Set(data.map(row => row[field]).filter(val => val != null));
+        summary[`Unique ${field}`] = uniqueValues.size;
+      });
+    }
+
+    // Sum numeric fields
+    if (config.sumFields) {
+      config.sumFields.forEach(field => {
+        const sum = data.reduce((total, row) => {
+          const value = parseFloat(row[field]) || 0;
+          return total + value;
+        }, 0);
+        summary[`Total ${field}`] = sum;
+      });
+    }
+
+    // Average numeric fields
+    if (config.avgFields) {
+      config.avgFields.forEach(field => {
+        const values = data.map(row => parseFloat(row[field]) || 0).filter(val => val > 0);
+        const avg = values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : 0;
+        summary[`Average ${field}`] = Math.round(avg * 100) / 100;
+      });
+    }
+
+    return summary;
+  }
+
+  /**
+   * Validate export data
+   */
+  static validateExportData(data: Array<Record<string, any>>, minRows = 1): boolean {
+    if (!Array.isArray(data)) {
+      toast({
+        title: "Invalid Data",
+        description: "Export data must be an array",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (data.length < minRows) {
+      toast({
+        title: "Insufficient Data",
+        description: `At least ${minRows} record(s) required for export`,
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (data.length > 0 && Object.keys(data[0]).length === 0) {
+      toast({
+        title: "Empty Records",
+        description: "Export data contains empty records",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Get file size estimate
+   */
+  static getFileSizeEstimate(data: Array<Record<string, any>>, format: 'excel' | 'csv' | 'json'): string {
+    const jsonSize = JSON.stringify(data).length;
     
-    for (let i = 1; i <= totalPages; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(108, 117, 125);
-      doc.text(
-        `Generated on ${new Date().toLocaleDateString('en-GB')} | Page ${i} of ${totalPages} | Confidential Report`,
-        pageWidth / 2,
-        pageHeight - 8,
-        { align: 'center' }
-      );
+    let multiplier = 1;
+    switch (format) {
+      case 'excel':
+        multiplier = 0.7; // Excel is typically more compressed
+        break;
+      case 'csv':
+        multiplier = 0.6; // CSV is more compact
+        break;
+      case 'json':
+        multiplier = 1; // JSON baseline
+        break;
+    }
+
+    const estimatedBytes = jsonSize * multiplier;
+    
+    if (estimatedBytes < 1024) {
+      return `${Math.round(estimatedBytes)} B`;
+    } else if (estimatedBytes < 1024 * 1024) {
+      return `${Math.round(estimatedBytes / 1024)} KB`;
+    } else {
+      return `${Math.round(estimatedBytes / (1024 * 1024))} MB`;
     }
   }
 
   /**
-   * Utility to format currency based on currency code
+   * Batch export for large datasets
    */
-  static formatCurrency(amount: number, currency: string = 'INR'): string {
-    const symbol = currency === 'INR' ? '₹' : '$';
-    return `${symbol}${amount.toLocaleString()}`;
-  }
+  static async batchExport(
+    data: Array<Record<string, any>>,
+    config: ExportConfig,
+    batchSize = 1000,
+    format: 'excel' | 'csv' = 'excel'
+  ): Promise<void> {
+    try {
+      if (data.length <= batchSize) {
+        // Small dataset, export normally
+        if (format === 'excel') {
+          this.generateExcelReport(config, [{ name: 'Data', data }]);
+        } else {
+          this.downloadCSV(data, config.filename);
+        }
+        return;
+      }
 
-  /**
-   * Utility to format dates consistently
-   */
-  static formatDate(date: string | Date): string {
-    return new Date(date).toLocaleDateString('en-GB');
-  }
+      // Large dataset, split into batches
+      const batches = [];
+      for (let i = 0; i < data.length; i += batchSize) {
+        batches.push(data.slice(i, i + batchSize));
+      }
 
-  /**
-   * Generate standard column widths for common data types
-   */
-  static getStandardColumnWidths(type: 'client' | 'financial' | 'analytics'): { wch: number }[] {
-    switch (type) {
-      case 'client':
-        return [
-          { wch: 6 },  // Serial
-          { wch: 20 }, // Name
-          { wch: 25 }, // Email
-          { wch: 15 }, // Phone
-          { wch: 20 }, // Plan
-          { wch: 15 }, // Amount
-          { wch: 12 }, // Status
-          { wch: 12 }, // Date
-        ];
-      case 'financial':
-        return [
-          { wch: 6 },  // Serial
-          { wch: 20 }, // Description
-          { wch: 15 }, // Date
-          { wch: 15 }, // Amount
-          { wch: 12 }, // Type
-          { wch: 15 }, // Method
-          { wch: 12 }, // Status
-        ];
-      case 'analytics':
-        return [
-          { wch: 6 },  // Serial
-          { wch: 25 }, // Property/Item
-          { wch: 12 }, // Views
-          { wch: 12 }, // Leads
-          { wch: 15 }, // Revenue
-          { wch: 12 }, // Rate
-          { wch: 12 }, // Score
-        ];
-      default:
-        return [{ wch: 15 }];
-    }
-  }
+      // Export each batch
+      for (let i = 0; i < batches.length; i++) {
+        const batchConfig = {
+          ...config,
+          filename: `${config.filename}_part${i + 1}of${batches.length}`
+        };
 
-  /**
-   * Generate standard PDF column styles
-   */
-  static getStandardPDFColumnStyles(type: 'client' | 'financial' | 'analytics'): Record<number, any> {
-    switch (type) {
-      case 'client':
-        return {
-          0: { cellWidth: 8, halign: 'center' },   // Serial
-          1: { cellWidth: 25 },                    // Name
-          2: { cellWidth: 35 },                    // Email
-          3: { cellWidth: 20 },                    // Phone/Plan
-          4: { cellWidth: 15, halign: 'right' },   // Amount
-          5: { cellWidth: 15, halign: 'center' },  // Status
-          6: { cellWidth: 18, halign: 'center' },  // Date
-        };
-      case 'financial':
-        return {
-          0: { cellWidth: 8, halign: 'center' },   // Serial
-          1: { cellWidth: 30 },                    // Description
-          2: { cellWidth: 20, halign: 'center' },  // Date
-          3: { cellWidth: 15, halign: 'right' },   // Amount
-          4: { cellWidth: 15 },                    // Type
-          5: { cellWidth: 15 },                    // Method
-          6: { cellWidth: 15, halign: 'center' },  // Status
-        };
-      case 'analytics':
-        return {
-          0: { cellWidth: 8, halign: 'center' },   // Serial
-          1: { cellWidth: 30 },                    // Item
-          2: { cellWidth: 12, halign: 'center' },  // Views
-          3: { cellWidth: 12, halign: 'center' },  // Leads
-          4: { cellWidth: 15, halign: 'right' },   // Revenue
-          5: { cellWidth: 12, halign: 'center' },  // Rate
-          6: { cellWidth: 12, halign: 'center' },  // Score
-        };
-      default:
-        return {};
+        if (format === 'excel') {
+          this.generateExcelReport(batchConfig, [{ name: 'Data', data: batches[i] }]);
+        } else {
+          this.downloadCSV(batches[i], batchConfig.filename);
+        }
+
+        // Add delay between downloads to prevent browser blocking
+        if (i < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      toast({
+        title: "Batch Export Complete",
+        description: `Data exported in ${batches.length} files due to size`,
+      });
+    } catch (error) {
+      console.error('Batch export error:', error);
+      throw new Error('Failed to export large dataset');
     }
   }
 }

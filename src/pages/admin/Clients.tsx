@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ExportUtils from "@/utils/exportUtils";
+
+// Custom currency formatter for exports to avoid encoding issues and handle null values
+const formatCurrencyForExport = (amount: number | null | undefined): string => {
+  const safeAmount = amount || 0;
+  return `Rs. ${safeAmount.toLocaleString('en-IN')}`;
+};
 import {
   Dialog,
   DialogContent,
@@ -68,13 +74,20 @@ const Clients = () => {
 
       const response = await subscriptionService.getSubscriptions(filters);
       console.log('Admin Clients - API Response:', response.data.subscriptions);
+      
+      // Validate and clean the data
+      const validSubscriptions = response.data.subscriptions.filter(sub => 
+        sub && sub.user && (sub.user.name || sub.user.email)
+      );
+
       // Debug: Log payment history for subscriptions that have it
-      response.data.subscriptions.forEach((sub, index) => {
+      validSubscriptions.forEach((sub, index) => {
         if (sub.paymentHistory && sub.paymentHistory.length > 0) {
           console.log(`Subscription ${index} Payment History:`, sub.paymentHistory);
         }
       });
-      setSubscriptions(response.data.subscriptions);
+
+      setSubscriptions(validSubscriptions);
       setTotalPages(response.data.pagination.totalPages);
     } catch (error) {
       console.error("Failed to fetch subscriptions:", error);
@@ -108,6 +121,7 @@ const Clients = () => {
 
   useEffect(() => {
     fetchSubscriptions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, searchTerm, statusFilter]);
 
   const handleSearch = (value: string) => {
@@ -136,7 +150,218 @@ const Clients = () => {
     }
   };
 
+  const validateDataForExport = (): boolean => {
+    if (!subscriptions || subscriptions.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No subscription data available for export. Please check if there are any subscriptions in the system.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Check if we have valid subscription data (even without populated user data)
+    const validSubscriptions = subscriptions.filter(sub => 
+      sub && sub._id && sub.user && sub.status
+    );
+
+    if (validSubscriptions.length === 0) {
+      toast({
+        title: "Invalid Data",
+        description: "No valid subscription data found for export. Please contact support if this issue persists.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // Enhanced data processing for exports
+  const processDataForExport = () => {
+    // Ensure we have valid data - fix to use the correct user structure
+    const validSubscriptions = subscriptions.filter(sub => 
+      sub && 
+      sub._id && 
+      sub.user && 
+      sub.status
+    );
+
+    if (validSubscriptions.length === 0) {
+      throw new Error('No valid subscription data found');
+    }
+
+    const activeSubscriptions = validSubscriptions.filter(s => s.status === 'active');
+    const expiredSubscriptions = validSubscriptions.filter(s => s.status === 'expired');
+    const cancelledSubscriptions = validSubscriptions.filter(s => s.status === 'cancelled');
+
+    // Calculate revenues with proper null checking and validation using actual amount from subscription
+    const calculateRevenue = (subscription: Subscription): number => {
+      // Use the actual subscription amount which is the charged amount
+      const subscriptionAmount = subscription.amount || 0;
+      return subscriptionAmount;
+    };
+
+    const totalActiveRevenue = activeSubscriptions.reduce((sum, sub) => {
+      return sum + calculateRevenue(sub);
+    }, 0);
+
+    const totalRevenueAll = validSubscriptions.reduce((sum, sub) => {
+      return sum + calculateRevenue(sub);
+    }, 0);
+
+    // Calculate revenue by status
+    const cancelledRevenue = cancelledSubscriptions.reduce((sum, sub) => {
+      return sum + calculateRevenue(sub);
+    }, 0);
+
+    const expiredRevenue = expiredSubscriptions.reduce((sum, sub) => {
+      return sum + calculateRevenue(sub);
+    }, 0);
+
+    // Calculate addon revenue from active subscriptions only
+    const addonRevenue = activeSubscriptions.reduce((sum, sub) => {
+      if (!sub.addons || !Array.isArray(sub.addons)) return sum;
+      const addonTotal = sub.addons.reduce((total, addon) => {
+        return total + (addon?.price || 0);
+      }, 0);
+      return sum + addonTotal;
+    }, 0);
+
+    const grandTotalRevenue = totalActiveRevenue + addonRevenue;
+
+    return {
+      validSubscriptions,
+      activeSubscriptions,
+      expiredSubscriptions, 
+      cancelledSubscriptions,
+      totalActiveRevenue,
+      totalRevenueAll,
+      cancelledRevenue,
+      expiredRevenue,
+      addonRevenue,
+      grandTotalRevenue,
+      calculateRevenue
+    };
+  };
+
+  // Generate client details with proper data validation based on actual subscription structure
+  const generateClientDetails = (processedData: ReturnType<typeof processDataForExport>) => {
+    const { activeSubscriptions, calculateRevenue } = processedData;
+    
+    return activeSubscriptions.map((subscription, index) => {
+      // The user field in subscription contains a string ID, not the user object
+      // We need to handle this properly - user field might be populated or might be just an ID
+      const userName = typeof subscription.user === 'object' && subscription.user !== null 
+        ? (subscription.user.name || subscription.user.email || `Client ${index + 1}`)
+        : `Client ${index + 1}`; // If user is just an ID string
+      
+      const userEmail = typeof subscription.user === 'object' && subscription.user !== null 
+        ? (subscription.user.email || 'N/A')
+        : 'N/A';
+
+      // Plan might also be just an ID string, not populated object
+      const planName = typeof subscription.plan === 'object' && subscription.plan !== null
+        ? (subscription.plan.name || 'Unknown Plan')
+        : 'Unknown Plan';
+      
+      const planPrice = typeof subscription.plan === 'object' && subscription.plan !== null
+        ? (subscription.plan.price || 0)
+        : 0;
+
+      const revenue = calculateRevenue(subscription);
+      const addonCount = Array.isArray(subscription.addons) ? subscription.addons.length : 0;
+      
+      // Calculate addon amount based on actual addon data or payment history
+      let addonAmount = 0;
+      if (Array.isArray(subscription.addons) && subscription.addons.length > 0) {
+        // Try to calculate from addon prices if available
+        addonAmount = subscription.addons.reduce((total, addon) => {
+          if (typeof addon === 'object' && addon !== null) {
+            return total + (addon.price || 0);
+          }
+          return total;
+        }, 0);
+      }
+      
+      // If no addon prices available, try to get from payment history
+      if (addonAmount === 0 && Array.isArray(subscription.paymentHistory)) {
+        addonAmount = subscription.paymentHistory
+          .filter(payment => payment?.type === 'addon_purchase')
+          .reduce((total, payment) => total + (payment?.amount || 0), 0);
+      }
+
+      return {
+        '#': index + 1,
+        'Client Name': userName,
+        'Email': userEmail,
+        'Plan': planName,
+        'Plan Price': formatCurrencyForExport(planPrice),
+        'Total Amount': formatCurrencyForExport(revenue),
+        'Status': subscriptionService.formatSubscriptionStatus(subscription.status || 'unknown').label,
+        'Start Date': ExportUtils.formatDate(subscription.startDate),
+        'End Date': ExportUtils.formatDate(subscription.endDate),
+        'Auto Renew': subscription.autoRenew ? 'Yes' : 'No',
+        'Add-ons': addonCount,
+        'Add-on Amount': formatCurrencyForExport(addonAmount),
+      };
+    });
+  };
+
+  // Generate addon details with proper data validation based on actual subscription structure
+  const generateAddonDetails = (processedData: ReturnType<typeof processDataForExport>) => {
+    const { validSubscriptions } = processedData;
+    const addonDetails: Array<{
+      '#': number | string;
+      'Client Name': string;
+      'Add-on Name': string;
+      'Category': string;
+      'Price': string;
+      'Billing Type': string;
+      'Last Payment Date': string;
+    }> = [];
+
+    validSubscriptions.forEach((subscription) => {
+      // Handle case where user might be just an ID
+      const userName = typeof subscription.user === 'object' && subscription.user !== null 
+        ? (subscription.user.name || subscription.user.email || 'Unknown Client')
+        : 'Unknown Client';
+
+      if (Array.isArray(subscription.addons) && subscription.addons.length > 0) {
+        subscription.addons.forEach((addon) => {
+          // Ensure addon has required properties - might be just ID strings
+          if (typeof addon === 'object' && addon !== null && addon.name) {
+            const latestPayment = Array.isArray(subscription.paymentHistory)
+              ? subscription.paymentHistory
+                  .filter(payment => 
+                    payment && 
+                    payment.type === 'addon_purchase' && 
+                    Array.isArray(payment.addons) &&
+                    payment.addons.includes(addon._id)
+                  )
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+              : null;
+
+            addonDetails.push({
+              '#': addonDetails.length + 1,
+              'Client Name': userName,
+              'Add-on Name': addon.name,
+              'Category': addon.category || 'N/A',
+              'Price': formatCurrencyForExport(addon.price),
+              'Billing Type': addon.billingType?.replace('_', ' ') || 'N/A',
+              'Last Payment Date': latestPayment ? ExportUtils.formatDate(latestPayment.date) : 'N/A',
+            });
+          }
+        });
+      }
+    });
+
+    return addonDetails;
+  };
+
   const handleExportExcel = () => {
+    if (!validateDataForExport()) return;
+
     try {
       const currentDate = new Date().toLocaleDateString('en-US', {
         year: 'numeric',
@@ -144,137 +369,94 @@ const Clients = () => {
         day: 'numeric'
       });
 
-      // Calculate metrics
-      const activeSubscriptions = subscriptions.filter(s => s.status === 'active');
-      const expiredSubscriptions = subscriptions.filter(s => s.status === 'expired');
-      const cancelledSubscriptions = subscriptions.filter(s => s.status === 'cancelled');
+      // Process data for export
+      const processedData = processDataForExport();
 
-      const totalActiveRevenue = activeSubscriptions.reduce((sum, sub) => {
-        const paymentTotal = sub.paymentHistory?.reduce((total, payment) => total + (payment.amount || 0), 0) || 0;
-        return sum + paymentTotal;
-      }, 0);
-
-      const totalRevenueAll = subscriptions.reduce((sum, sub) => {
-        const paymentTotal = sub.paymentHistory?.reduce((total, payment) => total + (payment.amount || 0), 0) || 0;
-        return sum + paymentTotal;
-      }, 0);
-
-      const addonRevenue = subscriptions.reduce((sum, sub) => {
-        const addonTotal = sub.addons?.reduce((total, addon) => total + (addon.price || 0), 0) || 0;
-        return sum + addonTotal;
-      }, 0);
-
-      const grandTotalRevenue = totalRevenueAll + addonRevenue;
-
-      // Summary Statistics Sheet
+      // Generate sheets data
       const summaryData = [
-        { 'Metric': 'Total Clients', 'Count / Amount': subscriptions.length },
-        { 'Metric': 'Active Subscriptions', 'Count / Amount': activeSubscriptions.length },
-        { 'Metric': 'Cancelled Subscriptions', 'Count / Amount': cancelledSubscriptions.length },
-        { 'Metric': 'Expired Subscriptions', 'Count / Amount': expiredSubscriptions.length },
-        { 'Metric': 'Total Subscriptions', 'Count / Amount': subscriptions.length },
-        { 'Metric': 'Total Active Revenue', 'Count / Amount': `₹${totalActiveRevenue.toLocaleString()}` },
-        { 'Metric': 'Total Revenue (All)', 'Count / Amount': `₹${totalRevenueAll.toLocaleString()}` },
-        { 'Metric': 'Add-on Revenue', 'Count / Amount': `₹${addonRevenue.toLocaleString()}` },
-        { 'Metric': 'Grand Total Revenue', 'Count / Amount': `₹${grandTotalRevenue.toLocaleString()}` },
+        { 'Metric': 'Total Clients', 'Count / Amount': processedData.validSubscriptions.length },
+        { 'Metric': 'Active Subscriptions', 'Count / Amount': processedData.activeSubscriptions.length },
+        { 'Metric': 'Cancelled Subscriptions', 'Count / Amount': processedData.cancelledSubscriptions.length },
+        { 'Metric': 'Expired Subscriptions', 'Count / Amount': processedData.expiredSubscriptions.length },
+        { 'Metric': 'Total Subscriptions', 'Count / Amount': processedData.validSubscriptions.length },
+        { 'Metric': 'Total Active Revenue', 'Count / Amount': formatCurrencyForExport(processedData.totalActiveRevenue) },
+        { 'Metric': 'Total Revenue (All)', 'Count / Amount': formatCurrencyForExport(processedData.totalRevenueAll) },
+        { 'Metric': 'Add-on Revenue', 'Count / Amount': formatCurrencyForExport(processedData.addonRevenue) },
+        { 'Metric': 'Grand Total Revenue', 'Count / Amount': formatCurrencyForExport(processedData.grandTotalRevenue) },
       ];
 
-      // Subscription Details Sheet
-      const subscriptionDetails = activeSubscriptions.map((subscription, index) => ({
-        '#': index + 1,
-        'Client Name': subscription.user.name,
-        'Email': subscription.user.email,
-        'Plan': subscription.plan?.name || 'N/A',
-        'Plan Price': subscription.plan?.price ? `₹${subscription.plan.price}` : 'N/A',
-        'Total Amount': subscriptionService.formatAmount(subscription),
-        'Status': subscriptionService.formatSubscriptionStatus(subscription.status).label,
-        'Start Date': ExportUtils.formatDate(subscription.startDate),
-        'End Date': ExportUtils.formatDate(subscription.endDate),
-        'Auto Renew': subscription.autoRenew ? 'Yes' : 'No',
-        'Add-ons': subscription.addons?.length || 0,
-        'Add-on Amount': `₹${subscription.addons?.reduce((total, addon) => total + (addon.price || 0), 0) || 0}`,
+      // Status breakdown with revenue
+      const totalRevenue = processedData.totalActiveRevenue + processedData.cancelledRevenue + processedData.expiredRevenue;
+      const statusBreakdownData = [
+        { 
+          'Status': 'Active', 
+          'Count': processedData.activeSubscriptions.length,
+          'Total Amount': formatCurrencyForExport(processedData.totalActiveRevenue),
+          '% of Total Amount': totalRevenue > 0 ? `${((processedData.totalActiveRevenue / totalRevenue) * 100).toFixed(1)}%` : '0%'
+        },
+        { 
+          'Status': 'Cancelled', 
+          'Count': processedData.cancelledSubscriptions.length,
+          'Total Amount': formatCurrencyForExport(processedData.cancelledRevenue),
+          '% of Total Amount': totalRevenue > 0 ? `${((processedData.cancelledRevenue / totalRevenue) * 100).toFixed(1)}%` : '0%'
+        },
+        { 
+          'Status': 'Expired', 
+          'Count': processedData.expiredSubscriptions.length,
+          'Total Amount': formatCurrencyForExport(processedData.expiredRevenue),
+          '% of Total Amount': totalRevenue > 0 ? `${((processedData.expiredRevenue / totalRevenue) * 100).toFixed(1)}%` : '0%'
+        }
+      ];
+
+      const clientDetails = generateClientDetails(processedData);
+
+      const subscriptionDetails = clientDetails.map((client) => ({
+        '#': client['#'],
+        'Client Name': client['Client Name'],
+        'Email': client['Email'],
+        'Plan': client['Plan'],
+        'Plan Price': client['Plan Price'],
+        'Total Amount': client['Total Amount'],
+        'Status': client['Status'],
+        'Start Date': client['Start Date'],
+        'End Date': client['End Date'],
+        'Auto Renew': client['Auto Renew'],
+        'Add-ons': client['Add-ons'],
+        'Add-on Amount': client['Add-on Amount'],
       }));
 
-      // Add total row for active subscriptions
-      subscriptionDetails.push({
-        '#': '',
-        'Client Name': 'Total Active Revenue',
-        'Email': '',
-        'Plan': '',
-        'Plan Price': '',
-        'Total Amount': `₹${totalActiveRevenue.toLocaleString()}`,
-        'Status': '',
-        'Start Date': '',
-        'End Date': '',
-        'Auto Renew': '',
-        'Add-ons': '',
-        'Add-on Amount': '',
-      });
+      const addonDetails = generateAddonDetails(processedData);
 
-      // Add-on Details Sheet
-      const addonDetails = [];
-      subscriptions.forEach((subscription) => {
-        if (subscription.addons && subscription.addons.length > 0) {
-          subscription.addons.forEach((addon) => {
-            // Find the latest payment date for this addon
-            const latestPayment = subscription.paymentHistory
-              ?.filter(payment => payment.type === 'addon_purchase' && payment.addons?.includes(addon._id))
-              ?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      // Key Insights Sheet - fix calculation issues
+      const activeClients = processedData.activeSubscriptions.length;
+      const arpc = activeClients > 0 ? Math.round(processedData.totalActiveRevenue / activeClients) : 0;
 
-            addonDetails.push({
-              '#': addonDetails.length + 1,
-              'Client Name': subscription.user.name,
-              'Add-on Name': addon.name,
-              'Category': addon.category || 'N/A',
-              'Price': `₹${addon.price || 0}`,
-              'Billing Type': addon.billingType?.replace('_', ' ') || 'N/A',
-              'Last Payment Date': latestPayment ? ExportUtils.formatDate(latestPayment.date) : 'N/A',
-            });
-          });
-        }
-      });
-
-      // Add total row for addons
-      if (addonDetails.length > 0) {
-        addonDetails.push({
-          '#': '',
-          'Client Name': 'Total Add-on Revenue',
-          'Add-on Name': '',
-          'Category': '',
-          'Price': `₹${addonRevenue.toLocaleString()}`,
-          'Billing Type': '',
-          'Last Payment Date': '',
-        });
-      }
-
-      // Key Insights Sheet
-      const activeClients = activeSubscriptions.length;
-      const arpc = activeClients > 0 ? Math.round(totalActiveRevenue / activeClients) : 0;
-
-      // Find highest-grossing plan
-      const planRevenue = {};
-      activeSubscriptions.forEach(sub => {
+      // Find highest-grossing plan with proper type handling
+      const planRevenue: Record<string, number> = {};
+      processedData.activeSubscriptions.forEach(sub => {
         const planName = sub.plan?.name || 'Unknown';
-        const revenue = sub.paymentHistory?.reduce((total, payment) => total + (payment.amount || 0), 0) || 0;
+        const revenue = processedData.calculateRevenue(sub);
         planRevenue[planName] = (planRevenue[planName] || 0) + revenue;
       });
-      const topPlan = Object.entries(planRevenue).sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A';
+      const topPlan = Object.entries(planRevenue).sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'N/A';
 
-      // Find most purchased addon
-      const addonCount = {};
-      subscriptions.forEach(sub => {
+      // Find most purchased addon with proper type handling
+      const addonCount: Record<string, number> = {};
+      processedData.validSubscriptions.forEach(sub => {
         sub.addons?.forEach(addon => {
-          addonCount[addon.name] = (addonCount[addon.name] || 0) + 1;
+          if (addon?.name) {
+            addonCount[addon.name] = (addonCount[addon.name] || 0) + 1;
+          }
         });
       });
-      const topAddon = Object.entries(addonCount).sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A';
+      const topAddon = Object.entries(addonCount).sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'N/A';
 
       const insightsData = [
         { 'Insight': 'Total Active Clients', 'Value': activeClients },
-        { 'Insight': 'Average Revenue per Active Client (ARPC)', 'Value': `₹${arpc.toLocaleString()}` },
+        { 'Insight': 'Average Revenue per Active Client (ARPC)', 'Value': formatCurrencyForExport(arpc) },
         { 'Insight': 'Highest-Grossing Plan', 'Value': topPlan },
         { 'Insight': 'Most Purchased Add-on', 'Value': topAddon },
-        { 'Insight': 'Total Monthly Recurring Revenue (MRR)', 'Value': `₹${totalActiveRevenue.toLocaleString()}` },
+        { 'Insight': 'Total Monthly Recurring Revenue (MRR)', 'Value': formatCurrencyForExport(processedData.totalActiveRevenue) },
       ];
 
       const config = {
@@ -292,6 +474,11 @@ const Clients = () => {
           name: 'Summary Statistics',
           data: summaryData,
           columns: [{ wch: 30 }, { wch: 20 }]
+        },
+        {
+          name: 'Status Breakdown',
+          data: statusBreakdownData,
+          columns: [{ wch: 15 }, { wch: 10 }, { wch: 20 }, { wch: 20 }]
         },
         {
           name: 'Subscription Details',
@@ -333,6 +520,8 @@ const Clients = () => {
   };
 
   const handleExportPDF = () => {
+    if (!validateDataForExport()) return;
+
     try {
       const currentDate = new Date().toLocaleDateString('en-US', {
         year: 'numeric',
@@ -340,41 +529,22 @@ const Clients = () => {
         day: 'numeric'
       });
 
-      // Calculate metrics
-      const activeSubscriptions = subscriptions.filter(s => s.status === 'active');
-      const expiredSubscriptions = subscriptions.filter(s => s.status === 'expired');
-      const cancelledSubscriptions = subscriptions.filter(s => s.status === 'cancelled');
+      // Process data for export
+      const processedData = processDataForExport();
 
-      const totalActiveRevenue = activeSubscriptions.reduce((sum, sub) => {
-        const paymentTotal = sub.paymentHistory?.reduce((total, payment) => total + (payment.amount || 0), 0) || 0;
-        return sum + paymentTotal;
-      }, 0);
-
-      const totalRevenueAll = subscriptions.reduce((sum, sub) => {
-        const paymentTotal = sub.paymentHistory?.reduce((total, payment) => total + (payment.amount || 0), 0) || 0;
-        return sum + paymentTotal;
-      }, 0);
-
-      const addonRevenue = subscriptions.reduce((sum, sub) => {
-        const addonTotal = sub.addons?.reduce((total, addon) => total + (addon.price || 0), 0) || 0;
-        return sum + addonTotal;
-      }, 0);
-
-      const grandTotalRevenue = totalRevenueAll + addonRevenue;
-
-      // Summary Statistics Table
+      // Generate tables data for PDF
       const summaryTable = {
         head: [['Metric', 'Count / Amount']],
         body: [
-          ['Total Clients', subscriptions.length.toString()],
-          ['Active Subscriptions', activeSubscriptions.length.toString()],
-          ['Cancelled Subscriptions', cancelledSubscriptions.length.toString()],
-          ['Expired Subscriptions', expiredSubscriptions.length.toString()],
-          ['Total Subscriptions', subscriptions.length.toString()],
-          ['Total Active Revenue', `₹${totalActiveRevenue.toLocaleString()}`],
-          ['Total Revenue (All)', `₹${totalRevenueAll.toLocaleString()}`],
-          ['Add-on Revenue', `₹${addonRevenue.toLocaleString()}`],
-          ['Grand Total Revenue', `₹${grandTotalRevenue.toLocaleString()}`],
+          ['Total Clients', processedData.validSubscriptions.length.toString()],
+          ['Active Subscriptions', processedData.activeSubscriptions.length.toString()],
+          ['Cancelled Subscriptions', processedData.cancelledSubscriptions.length.toString()],
+          ['Expired Subscriptions', processedData.expiredSubscriptions.length.toString()],
+          ['Total Subscriptions', processedData.validSubscriptions.length.toString()],
+          ['Total Active Revenue', `₹${processedData.totalActiveRevenue.toLocaleString()}`],
+          ['Total Revenue (All)', `₹${processedData.totalRevenueAll.toLocaleString()}`],
+          ['Add-on Revenue', `₹${processedData.addonRevenue.toLocaleString()}`],
+          ['Grand Total Revenue', `₹${processedData.grandTotalRevenue.toLocaleString()}`],
         ].map(row => [row[0], row[1]]),
         columnStyles: {
           0: { cellWidth: 80, fontStyle: 'bold' },
@@ -384,26 +554,46 @@ const Clients = () => {
         fontSize: 9,
       };
 
-      // Subscription Details Table
-      const subscriptionTable = {
+      // Status breakdown table
+      const totalRevenue = processedData.totalActiveRevenue + processedData.cancelledRevenue + processedData.expiredRevenue;
+      const statusTable = {
+        head: [['Status', 'Count', 'Total Amount (₹)', '% of Total Amount']],
+        body: [
+          ['Active', processedData.activeSubscriptions.length.toString(), processedData.totalActiveRevenue.toLocaleString(), totalRevenue > 0 ? `${((processedData.totalActiveRevenue / totalRevenue) * 100).toFixed(1)}%` : '0%'],
+          ['Cancelled', processedData.cancelledSubscriptions.length.toString(), processedData.cancelledRevenue.toLocaleString(), totalRevenue > 0 ? `${((processedData.cancelledRevenue / totalRevenue) * 100).toFixed(1)}%` : '0%'],
+          ['Expired', processedData.expiredSubscriptions.length.toString(), processedData.expiredRevenue.toLocaleString(), totalRevenue > 0 ? `${((processedData.expiredRevenue / totalRevenue) * 100).toFixed(1)}%` : '0%']
+        ],
+        columnStyles: {
+          0: { cellWidth: 20, halign: 'center' },
+          1: { cellWidth: 15, halign: 'center' },
+          2: { cellWidth: 30, halign: 'right' },
+          3: { cellWidth: 25, halign: 'right' },
+        },
+        theme: 'striped' as const,
+        fontSize: 9,
+      };
+
+      // Convert client details to table rows
+      const clientDetails = generateClientDetails(processedData);
+      const clientTable = {
         head: [['#', 'Client Name', 'Email', 'Plan', 'Plan Price', 'Total Amount', 'Status', 'Start Date', 'End Date', 'Auto Renew', 'Add-ons', 'Add-on Amount']],
         body: [
-          ...activeSubscriptions.map((subscription, index) => [
-            (index + 1).toString(),
-            subscription.user.name,
-            subscription.user.email,
-            subscription.plan?.name || 'N/A',
-            subscription.plan?.price ? `₹${subscription.plan.price}` : 'N/A',
-            subscriptionService.formatAmount(subscription),
-            subscriptionService.formatSubscriptionStatus(subscription.status).label,
-            ExportUtils.formatDate(subscription.startDate),
-            ExportUtils.formatDate(subscription.endDate),
-            subscription.autoRenew ? 'Yes' : 'No',
-            (subscription.addons?.length || 0).toString(),
-            `₹${subscription.addons?.reduce((total, addon) => total + (addon.price || 0), 0) || 0}`,
+          ...clientDetails.map(client => [
+            client['#'].toString(),
+            client['Client Name'],
+            client['Email'],
+            client['Plan'],
+            client['Plan Price'],
+            client['Total Amount'],
+            client['Status'],
+            client['Start Date'],
+            client['End Date'],
+            client['Auto Renew'],
+            client['Add-ons'].toString(),
+            client['Add-on Amount'],
           ]),
           // Total row
-          ['', 'Total Active Revenue', '', '', '', `₹${totalActiveRevenue.toLocaleString()}`, '', '', '', '', '', ''],
+          ['', 'Total Active Revenue', '', '', '', `₹${processedData.totalActiveRevenue.toLocaleString()}`, '', '', '', '', '', `₹${processedData.addonRevenue.toLocaleString()}`],
         ],
         columnStyles: {
           0: { cellWidth: 8, halign: 'center' },
@@ -423,33 +613,21 @@ const Clients = () => {
         fontSize: 7,
       };
 
-      // Add-on Details Table
-      const addonDetails = [];
-      subscriptions.forEach((subscription) => {
-        if (subscription.addons && subscription.addons.length > 0) {
-          subscription.addons.forEach((addon) => {
-            const latestPayment = subscription.paymentHistory
-              ?.filter(payment => payment.type === 'addon_purchase' && payment.addons?.includes(addon._id))
-              ?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-
-            addonDetails.push([
-              subscription.user.name,
-              addon.name,
-              addon.category || 'N/A',
-              `₹${addon.price || 0}`,
-              addon.billingType?.replace('_', ' ') || 'N/A',
-              latestPayment ? ExportUtils.formatDate(latestPayment.date) : 'N/A',
-            ]);
-          });
-        }
-      });
-
+      // Convert addon details to table rows
+      const addonDetails = generateAddonDetails(processedData);
       const addonTable = {
         head: [['Client Name', 'Add-on Name', 'Category', 'Price', 'Billing Type', 'Last Payment Date']],
-        body: addonDetails.length > 0 ? [
-          ...addonDetails,
-          ['Total Add-on Revenue', '', '', `₹${addonRevenue.toLocaleString()}`, '', ''],
-        ] : [],
+        body: [
+          ...addonDetails.map(addon => [
+            addon['Client Name'],
+            addon['Add-on Name'],
+            addon['Category'],
+            addon['Price'],
+            addon['Billing Type'],
+            addon['Last Payment Date'],
+          ]),
+          ...(addonDetails.length > 0 ? [['Total Add-on Revenue', '', '', `₹${processedData.addonRevenue.toLocaleString()}`, '', '']] : []),
+        ],
         columnStyles: {
           0: { cellWidth: 35 },
           1: { cellWidth: 35 },
@@ -462,25 +640,27 @@ const Clients = () => {
         fontSize: 8,
       };
 
-      // Key Insights Table
-      const activeClients = activeSubscriptions.length;
-      const arpc = activeClients > 0 ? Math.round(totalActiveRevenue / activeClients) : 0;
+      // Key insights with improved calculations
+      const activeClients = processedData.activeSubscriptions.length;
+      const arpc = activeClients > 0 ? Math.round(processedData.totalActiveRevenue / activeClients) : 0;
 
-      const planRevenue = {};
-      activeSubscriptions.forEach(sub => {
+      const planRevenue: Record<string, number> = {};
+      processedData.activeSubscriptions.forEach(sub => {
         const planName = sub.plan?.name || 'Unknown';
-        const revenue = sub.paymentHistory?.reduce((total, payment) => total + (payment.amount || 0), 0) || 0;
+        const revenue = processedData.calculateRevenue(sub);
         planRevenue[planName] = (planRevenue[planName] || 0) + revenue;
       });
-      const topPlan = Object.entries(planRevenue).sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A';
+      const topPlan = Object.entries(planRevenue).sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'N/A';
 
-      const addonCount = {};
-      subscriptions.forEach(sub => {
+      const addonCount: Record<string, number> = {};
+      processedData.validSubscriptions.forEach(sub => {
         sub.addons?.forEach(addon => {
-          addonCount[addon.name] = (addonCount[addon.name] || 0) + 1;
+          if (addon?.name) {
+            addonCount[addon.name] = (addonCount[addon.name] || 0) + 1;
+          }
         });
       });
-      const topAddon = Object.entries(addonCount).sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A';
+      const topAddon = Object.entries(addonCount).sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'N/A';
 
       const insightsTable = {
         head: [['Insight', 'Value']],
@@ -489,7 +669,7 @@ const Clients = () => {
           ['Average Revenue per Active Client (ARPC)', `₹${arpc.toLocaleString()}`],
           ['Highest-Grossing Plan', topPlan],
           ['Most Purchased Add-on', topAddon],
-          ['Total Monthly Recurring Revenue (MRR)', `₹${totalActiveRevenue.toLocaleString()}`],
+          ['Total Monthly Recurring Revenue (MRR)', `₹${processedData.totalActiveRevenue.toLocaleString()}`],
         ],
         columnStyles: {
           0: { cellWidth: 100, fontStyle: 'bold' },
@@ -509,7 +689,7 @@ const Clients = () => {
         }
       };
 
-      const tables = [summaryTable, subscriptionTable];
+      const tables = [summaryTable, statusTable, clientTable];
 
       if (addonDetails.length > 0) {
         tables.push(addonTable);
@@ -531,9 +711,10 @@ const Clients = () => {
       });
     } catch (error) {
       console.error('PDF export error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       toast({
         title: "Export Failed",
-        description: "Failed to export PDF report. Please try again.",
+        description: `Failed to export PDF report: ${errorMessage}`,
         variant: "destructive",
       });
     }
@@ -619,10 +800,10 @@ const Clients = () => {
               <FileSpreadsheet className="w-4 h-4" />
               <span className="ml-2">Export Excel</span>
             </Button>
-            <Button variant="outline" onClick={handleExportPDF}>
+            {/* <Button variant="outline" onClick={handleExportPDF}>
               <FileText className="w-4 h-4" />
               <span className="ml-2">Export PDF</span>
-            </Button>
+            </Button> */}
           </div>
         </div>
 
