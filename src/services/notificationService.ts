@@ -174,8 +174,8 @@ class NotificationService {
       const registration = await navigator.serviceWorker.ready;
       await registration.showNotification(options.title, {
         body: options.body,
-        icon: options.icon || '/favicon.ico',
-        badge: options.badge || '/favicon.ico',
+        icon: options.icon || '/favicon.png',
+        badge: options.badge || '/favicon.png',
         data: options.data || {},
         requireInteraction: true,
         tag: `notification-${Date.now()}`

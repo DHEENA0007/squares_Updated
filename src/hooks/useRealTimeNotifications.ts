@@ -127,7 +127,7 @@ export const useRealTimeNotifications = () => {
     if (notificationConfig.showBrowserNotification && Notification.permission === 'granted') {
       new Notification(notification.title, {
         body: notification.message,
-        icon: '/favicon.ico',
+        icon: '/favicon.png',
         tag: notification.type,
       });
     }
