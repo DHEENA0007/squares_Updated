@@ -1,22 +1,22 @@
-# Welcome to your Lovable project
+# BuildHomeMart Squares
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/02c92ed1-b556-415c-9d37-ada5644522a8
+**URL**: https://squares-v2.vercel.app/
+
+**Description**: Complete property management solution for buying, selling, and renting properties across India.
 
 ## How can I edit this code?
 
 There are several ways of editing your application.
 
-**Use Lovable**
+**Development Workflow**
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/02c92ed1-b556-415c-9d37-ada5644522a8) and start prompting.
+You can work on this project locally using your preferred IDE. Clone this repo and push changes to deploy updates to the live application.
 
-Changes made via Lovable will be committed automatically to this repo.
+**Local Development**
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Install dependencies and start the development server:
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
@@ -62,15 +62,11 @@ This project is built with:
 
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/02c92ed1-b556-415c-9d37-ada5644522a8) and click on Share -> Publish.
+Deploy this project using Vercel, Netlify, or any other static hosting service that supports Vite builds.
 
-## Can I connect a custom domain to my Lovable project?
+## Can I connect a custom domain?
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Yes! You can connect a custom domain through your hosting provider's dashboard.
 
 ## Deployment & Environment
 
