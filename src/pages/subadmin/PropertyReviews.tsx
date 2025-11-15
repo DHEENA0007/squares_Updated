@@ -18,7 +18,7 @@ import { useRealtimeEvent } from "@/contexts/RealtimeContext";
 import { DEFAULT_PROPERTY_IMAGE } from "@/utils/imageUtils";
 import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://api.buildhomemartsquares.com/api";
 
 const getImageUrl = (image: string | { url?: string } | undefined): string => {
   if (!image) return DEFAULT_PROPERTY_IMAGE;

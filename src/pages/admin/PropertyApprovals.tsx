@@ -62,7 +62,7 @@ const PropertyApprovals = () => {
   const [statusFilter, setStatusFilter] = useState("pending");
   const { toast } = useToast();
 
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://api.buildhomemartsquares.com/api';
 
   const fetchProperties = async () => {
     try {

@@ -1,6 +1,6 @@
 server {
     listen 80;
-    server_name buildhomemartsquares.com www.buildhomemartsquares.com;
+    server_name api.buildhomemartsquares.com;
     
     # Redirect HTTP to HTTPS
     return 301 https://$server_name$request_uri;
@@ -8,18 +8,17 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name buildhomemartsquares.com www.buildhomemartsquares.com;
+    server_name api.buildhomemartsquares.com;
 
     # SSL Configuration (managed by Certbot)
     ssl_certificate /etc/letsencrypt/live/buildhomemartsquares.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/buildhomemartsquares.com/privkey.pem;
     
-    # Security headers
+    # Security headers (but allow CORS)
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "no-referrer-when-downgrade" always;
-    add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     # Gzip compression
@@ -38,27 +37,21 @@ server {
         application/atom+xml
         image/svg+xml;
 
-    # Frontend - Serve static files
-    location / {
-        root /var/www/squares-v2/dist;
-        try_files $uri $uri/ /index.html;
-        
-        # Cache static assets
-        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-            expires 1y;
-            add_header Cache-Control "public, immutable";
-            access_log off;
-        }
-        
-        # Cache HTML files for shorter duration
-        location ~* \.(html)$ {
-            expires 1h;
-            add_header Cache-Control "public";
-        }
+    # Determine the origin dynamically
+    set $allowed_origin $http_origin;
+    
+    # Validate against whitelist
+    if ($http_origin ~* ^https?://(localhost|127\.0\.0\.1|buildhomemartsquares\.com|www\.buildhomemartsquares\.com|.*\.vercel\.app|.*\.ngrok-free\.app|.*\.loca\.lt)$) {
+        set $allowed_origin $http_origin;
+    }
+    
+    # Default to main domain if not in whitelist (for security)
+    if ($allowed_origin = $http_origin) {
+        set $allowed_origin "https://buildhomemartsquares.com";
     }
 
-    # Backend API
-    location /api {
+    # API routes - proxy to backend
+    location / {
         proxy_pass http://localhost:8000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -72,41 +65,34 @@ server {
         proxy_read_timeout 300s;
         proxy_connect_timeout 75s;
         
-        # CORS headers - allow dynamic origins
+        # CORS headers - Allow from any origin for API flexibility
         add_header Access-Control-Allow-Origin "$http_origin" always;
         add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Authorization, Content-Type, Accept, X-Requested-With, Accept-Language, Content-Language" always;
         add_header Access-Control-Allow-Credentials "true" always;
         add_header Access-Control-Max-Age "86400" always;
         
-        # Handle preflight requests
+        # Handle preflight OPTIONS requests
         if ($request_method = 'OPTIONS') {
             add_header Access-Control-Allow-Origin "$http_origin" always;
             add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
             add_header Access-Control-Allow-Headers "Authorization, Content-Type, Accept, X-Requested-With, Accept-Language, Content-Language" always;
             add_header Access-Control-Allow-Credentials "true" always;
             add_header Access-Control-Max-Age "86400" always;
-            add_header Content-Length 0 always;
+            add_header Content-Length "0" always;
             add_header Content-Type "text/plain charset=UTF-8" always;
             return 204;
         }
     }
 
-    # WebSocket support for Socket.IO
-    location /socket.io/ {
-        proxy_pass http://localhost:8000;
+    # Specific route for health checks with reduced logging
+    location /health {
+        proxy_pass http://localhost:8000/health;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Health check endpoint
-    location /health {
-        proxy_pass http://localhost:8000/health;
         access_log off;
     }
 
@@ -122,11 +108,11 @@ server {
     }
 
     # Optimize file uploads
-    client_max_body_size 10M;
-    client_body_timeout 60s;
+    client_max_body_size 50M;
+    client_body_timeout 300s;
     client_header_timeout 60s;
     
     # Log configuration
-    access_log /var/log/nginx/buildhomemartsquares.access.log;
-    error_log /var/log/nginx/buildhomemartsquares.error.log;
+    access_log /var/log/nginx/api.buildhomemartsquares.access.log combined;
+    error_log /var/log/nginx/api.buildhomemartsquares.error.log warn;
 }

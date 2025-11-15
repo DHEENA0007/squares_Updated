@@ -1,6 +1,6 @@
 import { toast } from "@/hooks/use-toast";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://api.buildhomemartsquares.com/api";
 
 export interface Message {
   _id: string;
@@ -270,7 +270,7 @@ class MessageService {
   }
 
   async uploadAttachment(file: File): Promise<{type: 'image' | 'document'; url: string; name: string; size: number}> {
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.buildhomemartsquares.com";
     
     try {
       // Validate file size (max 10MB)

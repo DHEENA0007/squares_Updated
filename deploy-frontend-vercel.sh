@@ -13,8 +13,9 @@ fi
 echo "⚙️  Creating production environment file..."
 cat > .env.production << EOF
 # Vercel Frontend Environment Variables
-VITE_API_URL=https://your-hostinger-domain.com/api
-VITE_API_BASE_URL=https://your-hostinger-domain.com
+VITE_API_URL=https://api.buildhomemartsquares.com/api
+VITE_API_BASE_URL=https://api.buildhomemartsquares.com
+VITE_FRONTEND_URL=https://buildhomemartsquares.com/v2
 VITE_SUPABASE_URL=https://fiwawbrrfznxiuymgeyn.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_key
 EOF

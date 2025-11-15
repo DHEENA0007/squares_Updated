@@ -10,7 +10,7 @@ module.exports = {
     env_production: {
       NODE_ENV: 'production',
       PORT: 3000,
-      CLIENT_URL: 'https://buildhomemartsquares.com'
+      CLIENT_URL: 'https://buildhomemartsquares.com/v2'
     },
     instances: 2,
     exec_mode: 'cluster',

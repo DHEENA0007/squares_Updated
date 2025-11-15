@@ -51,11 +51,12 @@ const server = createServer(app);
 // CORS configuration for both development and production
 const allowedOrigins = [
   process.env.CLIENT_URL,
+  "https://buildhomemartsquares.com/v2",
   "https://squares-v2.vercel.app", 
   "https://squares.vercel.app",
   "http://localhost:5173",
   "http://localhost:3000",
-  "http://localhost:8001"
+  "http://localhost:8001",
 ].filter(Boolean);
 
 // Add additional origins from environment variable
