@@ -51,7 +51,11 @@ const server = createServer(app);
 // CORS configuration for both development and production
 const allowedOrigins = [
   process.env.CLIENT_URL,
+  process.env.FRONTEND_URL,
+  "https://buildhomemartsquares.com",
   "https://buildhomemartsquares.com/v2",
+  "https://www.buildhomemartsquares.com",
+  "https://www.buildhomemartsquares.com/v2",
   "https://squares-v2.vercel.app", 
   "https://squares.vercel.app",
   "http://localhost:5173",
@@ -62,7 +66,8 @@ const allowedOrigins = [
 // Add additional origins from environment variable
 const additionalOriginsEnv = process.env.ADDITIONAL_ALLOWED_ORIGINS;
 let additionalOrigins = [
-  "https://squares-v2.onrender.com", // Allow self-requests
+  "https://squares-v2.onrender.com",
+  "https://api.buildhomemartsquares.com",
 ];
 
 if (additionalOriginsEnv) {
@@ -70,7 +75,6 @@ if (additionalOriginsEnv) {
   additionalOrigins = [...additionalOrigins, ...envOrigins];
 }
 
-// Add your current deployment domain
 additionalOrigins.push("https://squares-h1ev7dmj1-dheenadhayalans-projects.vercel.app");
 additionalOrigins.push("https://cool-profiterole-5e0feb.netlify.app");
 additionalOrigins.push("https://69cc952bc2a5.ngrok-free.app");
