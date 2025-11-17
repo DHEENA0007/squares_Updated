@@ -474,7 +474,7 @@ const gracefulShutdown = (signal) => {
       
       console.log('Process terminated gracefully');
       process.exit(0);
-    } catch (error) {x`
+    } catch (error) {
       console.error('Error during graceful shutdown:', error);
       process.exit(1);
     }
