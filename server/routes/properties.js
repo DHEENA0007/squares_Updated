@@ -6,6 +6,11 @@ const { authenticateToken, optionalAuth } = require('../middleware/authMiddlewar
 const mongoose = require('mongoose');
 const router = express.Router();
 
+// Handle OPTIONS preflight requests
+router.options('*', (req, res) => {
+  res.sendStatus(200);
+});
+
 // @desc    Get all properties
 // @route   GET /api/properties
 // @access  Public (with optional auth for admin users)
@@ -27,17 +32,17 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
     
     // Debug: Log user info
     console.log('Properties API - User:', req.user ? { id: req.user.id, role: req.user.role } : 'Not authenticated');
+    console.log('Query params:', { page, limit, location, search, propertyType, bedrooms, listingType });
     
     // Admin users can see all properties, customers only see available/active verified properties
     let queryFilter = {};
     
     if (!req.user || !['admin', 'superadmin', 'subadmin'].includes(req.user.role)) {
-      // For customers: show only available verified properties
+      // For customers: show only available properties (remove verified check for now)
       queryFilter = { 
-        status: 'available',
-        verified: true  // Only show verified properties to customers
+        status: 'available'
       };
-      console.log('Applying customer filter - showing only available verified properties');
+      console.log('Applying customer filter - showing only available properties');
     } else {
       console.log('Admin user detected - showing all properties');
     }
@@ -109,6 +114,8 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
     console.log('Property query filter:', JSON.stringify(queryFilter, null, 2));
 
     const totalProperties = await Property.countDocuments(queryFilter);
+    console.log(`Total properties matching filter: ${totalProperties}`);
+    
     const properties = await Property.find(queryFilter)
       .populate('owner', 'profile.firstName profile.lastName profile.phone email role')
       .sort({ createdAt: -1 })
@@ -130,7 +137,12 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
     });
   } catch (error) {
     console.error('Get properties error:', error);
-    throw error;
+    console.error('Error stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch properties',
+      error: error.message
+    });
   }
 }));
 
