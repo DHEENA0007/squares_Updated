@@ -48,6 +48,7 @@ export default defineConfig(({ mode }) => ({
     assetsDir: "assets",
     sourcemap: false,
     minify: 'terser',
+    cssCodeSplit: false,
     terserOptions: {
       compress: {
         drop_console: true,
@@ -65,6 +66,12 @@ export default defineConfig(({ mode }) => ({
             "@radix-ui/react-tabs",
             "@radix-ui/react-progress",
           ],
+        },
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name === 'index.css') {
+            return 'assets/main.[hash].css';
+          }
+          return 'assets/[name].[hash][extname]';
         },
       },
     },

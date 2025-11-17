@@ -18,8 +18,16 @@ Promise.all([
   console.error('Service initialization error:', err);
 });
 
-createRoot(document.getElementById("root")!).render(
-  <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-    <App />
-  </ThemeProvider>
-);
+const rootElement = document.getElementById("root");
+if (rootElement) {
+  createRoot(rootElement).render(
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+      <App />
+    </ThemeProvider>
+  );
+  
+  // Mark root as loaded to remove FOUC
+  requestAnimationFrame(() => {
+    rootElement.classList.add('loaded');
+  });
+}
