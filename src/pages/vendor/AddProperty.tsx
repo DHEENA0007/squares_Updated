@@ -564,7 +564,9 @@ const AddProperty = () => {
 
 
 
-  const handleImageUpload = async (files: FileList | File[]) => {
+  const handleImageUpload = useCallback(async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
+    
     const fileArray = Array.from(files);
     setUploadingImages(true);
 
@@ -589,18 +591,20 @@ const AddProperty = () => {
           id: Date.now() + Math.random(),
           name: file.name,
           url: URL.createObjectURL(blob),
-          file: new File([blob], file.name, { type: file.type }) // Re-create File from Blob
+          file: new File([blob], file.name, { type: file.type })
         };
       });
 
       const newImages = await Promise.all(imagePromises);
-      setUploadedImages(prev => [...prev, ...newImages]);
-
-      toast({
-        title: "Images Added",
-        description: `${newImages.length} image(s) ready for upload`,
-      });
+      if (newImages.length > 0) {
+        setUploadedImages(prev => [...prev, ...newImages]);
+        toast({
+          title: "Images Added",
+          description: `${newImages.length} image(s) ready for upload`,
+        });
+      }
     } catch (error) {
+      console.error('Image upload error:', error);
       toast({
         title: "Upload Error",
         description: error instanceof Error ? error.message : "Failed to process images",
@@ -609,7 +613,7 @@ const AddProperty = () => {
     } finally {
       setUploadingImages(false);
     }
-  };
+  }, [toast]);
 
   const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -620,6 +624,8 @@ const AddProperty = () => {
   };
 
   const handleVideoUpload = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
+    
     const fileArray = Array.from(files);
     setUploadingVideos(true);
 
@@ -644,18 +650,20 @@ const AddProperty = () => {
           id: Date.now() + Math.random(),
           name: file.name,
           url: URL.createObjectURL(blob),
-          file: new File([blob], file.name, { type: file.type }) // Re-create File from Blob
+          file: new File([blob], file.name, { type: file.type })
         };
       });
 
       const newVideos = await Promise.all(videoPromises);
-      setUploadedVideos(prev => [...prev, ...newVideos]);
-
-      toast({
-        title: "Videos Added",
-        description: `${newVideos.length} video(s) ready for upload`,
-      });
+      if (newVideos.length > 0) {
+        setUploadedVideos(prev => [...prev, ...newVideos]);
+        toast({
+          title: "Videos Added",
+          description: `${newVideos.length} video(s) ready for upload`,
+        });
+      }
     } catch (error) {
+      console.error('Video upload error:', error);
       toast({
         title: "Upload Error",
         description: error instanceof Error ? error.message : "Failed to process videos",
@@ -695,19 +703,19 @@ const AddProperty = () => {
   }, [uploadedImages, uploadedVideos]);
 
   // Drag and drop handlers
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(true);
-  };
+  }, []);
 
-  const handleDragLeave = (e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-  };
+  }, []);
 
-  const handleDrop = async (e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
@@ -716,7 +724,7 @@ const AddProperty = () => {
     if (files && files.length > 0) {
       await handleImageUpload(files);
     }
-  };
+  }, [handleImageUpload]);
 
   const renderStepContent = () => {
     switch (currentStep) {
