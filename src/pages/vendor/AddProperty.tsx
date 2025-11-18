@@ -61,10 +61,9 @@ const uploadToCloudinary = async (file: File, folder: string): Promise<string> =
     }
     
     return data.data.url;
-  } catch (error) {
-    console.error('File upload error:', error);
-    throw new Error('Failed to upload file');
-  }
+    } catch (error) {
+      throw new Error('Failed to upload file');
+    }
 };
 
 const AddProperty = () => {
@@ -174,9 +173,7 @@ const AddProperty = () => {
         await locaService.initialize();
         const statesData = locaService.getStates();
         setStates(statesData);
-        console.log(`Loaded ${statesData.length} states from loca.json`);
       } catch (error) {
-        console.error('Error initializing loca service:', error);
         toast({
           title: "Error",
           description: "Failed to load location data. Please refresh the page.",
@@ -201,14 +198,13 @@ const AddProperty = () => {
     try {
       const districtsData = locaService.getDistricts(formData.state);
       setDistricts(districtsData);
-      console.log(`Loaded ${districtsData.length} districts for ${formData.state}`);
-      
+
       // Reset dependent fields
-      setFormData(prev => ({ 
-        ...prev, 
+      setFormData(prev => ({
+        ...prev,
         district: '',
-        city: '', 
-        pincode: '' 
+        city: '',
+        pincode: ''
       }));
       setSelectedLocationNames(prev => ({
         ...prev,
@@ -217,7 +213,6 @@ const AddProperty = () => {
       }));
       setCities([]);
     } catch (error) {
-      console.error('Error loading districts:', error);
       toast({
         title: "Error",
         description: "Failed to load districts. Please try again.",
@@ -239,20 +234,18 @@ const AddProperty = () => {
     try {
       const citiesData = locaService.getCities(formData.state, formData.district);
       setCities(citiesData);
-      console.log(`Loaded ${citiesData.length} cities for ${formData.district}`);
-      
+
       // Reset dependent fields
-      setFormData(prev => ({ 
-        ...prev, 
-        city: '', 
-        pincode: '' 
+      setFormData(prev => ({
+        ...prev,
+        city: '',
+        pincode: ''
       }));
       setSelectedLocationNames(prev => ({
         ...prev,
         city: ''
       }));
     } catch (error) {
-      console.error('Error loading cities:', error);
       toast({
         title: "Error",
         description: "Failed to load cities. Please try again.",
@@ -302,12 +295,10 @@ const AddProperty = () => {
   const checkSubscriptionLimits = useCallback(async () => {
     setIsCheckingSubscription(true);
     try {
-      console.log('🔄 Checking subscription limits...');
       const limits = await vendorService.getSubscriptionLimits();
-      console.log('📊 Subscription limits received:', limits);
       setSubscriptionLimits(limits);
       setHasAddPropertySubscription(limits.canAddMore);
-      
+
       if (!limits.canAddMore) {
         if (limits.maxProperties === 0) {
           toast({
@@ -324,7 +315,6 @@ const AddProperty = () => {
         }
       }
     } catch (error) {
-      console.error("Error checking subscription:", error);
       setHasAddPropertySubscription(false);
       toast({
         title: "Error",
@@ -343,7 +333,6 @@ const AddProperty = () => {
   // Refresh subscription limits when window gains focus (user returns from payment)
   useEffect(() => {
     const handleFocus = () => {
-      console.log('Window focused - checking subscription limits...');
       checkSubscriptionLimits();
     };
 
@@ -534,9 +523,6 @@ const AddProperty = () => {
         propertyData.cornerPlot = formData.cornerPlot;
       }
 
-      // Log the data being sent for debugging
-      console.log('Property data being sent:', JSON.stringify(propertyData, null, 2));
-
       // Submit property to backend
       const response = await propertyService.createProperty(propertyData);
       
@@ -547,13 +533,11 @@ const AddProperty = () => {
 
       navigate("/vendor/properties");
     } catch (error) {
-      console.error("Error submitting property:", error);
-      
       let errorMessage = "Failed to submit property. Please try again.";
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
+
       toast({
         title: "Error",
         description: errorMessage,
@@ -597,11 +581,15 @@ const AddProperty = () => {
           throw new Error(`${file.name} is too large. Maximum size is 10MB`);
         }
 
+        // Read file as ArrayBuffer to ensure cross-browser compatibility
+        const arrayBuffer = await file.arrayBuffer();
+        const blob = new Blob([arrayBuffer], { type: file.type });
+
         return {
           id: Date.now() + Math.random(),
           name: file.name,
-          url: URL.createObjectURL(file),
-          file: file // Store the actual file for upload
+          url: URL.createObjectURL(blob),
+          file: new File([blob], file.name, { type: file.type }) // Re-create File from Blob
         };
       });
 
@@ -613,7 +601,6 @@ const AddProperty = () => {
         description: `${newImages.length} image(s) ready for upload`,
       });
     } catch (error) {
-      console.error('Error processing images:', error);
       toast({
         title: "Upload Error",
         description: error instanceof Error ? error.message : "Failed to process images",
@@ -649,11 +636,15 @@ const AddProperty = () => {
           throw new Error(`${file.name} is too large. Maximum size is 100MB`);
         }
 
+        // Read file as ArrayBuffer to ensure cross-browser compatibility
+        const arrayBuffer = await file.arrayBuffer();
+        const blob = new Blob([arrayBuffer], { type: file.type });
+
         return {
           id: Date.now() + Math.random(),
           name: file.name,
-          url: URL.createObjectURL(file),
-          file: file // Store the actual file for upload
+          url: URL.createObjectURL(blob),
+          file: new File([blob], file.name, { type: file.type }) // Re-create File from Blob
         };
       });
 
@@ -665,7 +656,6 @@ const AddProperty = () => {
         description: `${newVideos.length} video(s) ready for upload`,
       });
     } catch (error) {
-      console.error('Error processing videos:', error);
       toast({
         title: "Upload Error",
         description: error instanceof Error ? error.message : "Failed to process videos",
@@ -899,13 +889,10 @@ const AddProperty = () => {
               <PincodeAutocomplete
                 value={formData.pincode}
                 onChange={(pincode, locationData) => {
-                  console.log('Pincode selected:', pincode, locationData);
                   setFormData(prev => ({ ...prev, pincode }));
 
                   // Auto-fill location fields if suggestion provides data
                   if (locationData) {
-                    console.log('Auto-filling location from pincode:', locationData);
-
                     // Set state if available
                     if (locationData.state && states.includes(locationData.state.toUpperCase())) {
                       setFormData(prev => ({

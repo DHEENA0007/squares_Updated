@@ -194,19 +194,33 @@ const EditProperty = () => {
     }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      setUploadedImages(prev => [
-        ...prev,
-        ...files.map(file => ({
+      const newImages = [];
+
+      for (const file of files) {
+        // Read file as ArrayBuffer to ensure cross-browser compatibility
+        const arrayBuffer = await file.arrayBuffer();
+        const blob = new Blob([arrayBuffer], { type: file.type });
+
+        newImages.push({
           id: Date.now() + Math.random(),
           name: file.name,
-          url: URL.createObjectURL(file),
-          file: file,
-          isPrimary: prev.length === 0 // First image is primary
-        }))
-      ]);
+          url: URL.createObjectURL(blob),
+          file: new File([blob], file.name, { type: file.type }),
+          isPrimary: false
+        });
+      }
+
+      setUploadedImages(prev => {
+        const updated = [...prev, ...newImages];
+        // First image is primary if none is marked
+        if (updated.length > 0 && !updated.some(img => img.isPrimary)) {
+          updated[0].isPrimary = true;
+        }
+        return updated;
+      });
     }
   };
 
@@ -221,18 +235,25 @@ const EditProperty = () => {
     });
   };
 
-  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      setUploadedVideos(prev => [
-        ...prev,
-        ...files.map(file => ({
+      const newVideos = [];
+
+      for (const file of files) {
+        // Read file as ArrayBuffer to ensure cross-browser compatibility
+        const arrayBuffer = await file.arrayBuffer();
+        const blob = new Blob([arrayBuffer], { type: file.type });
+
+        newVideos.push({
           id: Date.now() + Math.random(),
           name: file.name,
-          url: URL.createObjectURL(file),
-          file: file
-        }))
-      ]);
+          url: URL.createObjectURL(blob),
+          file: new File([blob], file.name, { type: file.type })
+        });
+      }
+
+      setUploadedVideos(prev => [...prev, ...newVideos]);
     }
   };
 

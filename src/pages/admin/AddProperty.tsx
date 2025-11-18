@@ -554,11 +554,15 @@ const AddProperty = () => {
       
       try {
         const imagePromises = files.map(async (file) => {
+          // Read file as ArrayBuffer to ensure cross-browser compatibility
+          const arrayBuffer = await file.arrayBuffer();
+          const blob = new Blob([arrayBuffer], { type: file.type });
+
           return {
             id: Date.now() + Math.random(),
             name: file.name,
-            url: URL.createObjectURL(file),
-            file: file // Store the actual file for upload
+            url: URL.createObjectURL(blob),
+            file: new File([blob], file.name, { type: file.type }) // Re-create File from Blob
           };
         });
         
@@ -579,11 +583,15 @@ const AddProperty = () => {
       
       try {
         const videoPromises = files.map(async (file) => {
+          // Read file as ArrayBuffer to ensure cross-browser compatibility
+          const arrayBuffer = await file.arrayBuffer();
+          const blob = new Blob([arrayBuffer], { type: file.type });
+
           return {
             id: Date.now() + Math.random(),
             name: file.name,
-            url: URL.createObjectURL(file),
-            file: file // Store the actual file for upload
+            url: URL.createObjectURL(blob),
+            file: new File([blob], file.name, { type: file.type }) // Re-create File from Blob
           };
         });
         
