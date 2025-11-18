@@ -29,22 +29,29 @@ const Footer = () => {
               Your trusted partner in finding the perfect property across India.
             </p>
             <div className="flex gap-4 mt-4">
-              <a href="#" className="hover:text-primary transition-colors">
+              <a href="https://www.facebook.com/people/Buildhomemart/61573164864973/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
                 <Facebook className="h-5 w-5" />
               </a>
-              <a href="#" className="hover:text-primary transition-colors">
-                <Twitter className="h-5 w-5" />
-              </a>
-              <a href="#" className="hover:text-primary transition-colors">
+              <a href="https://www.instagram.com/buildhomemart_squares/?e=b4491b1a-3d54-44c7-bb78-a6b9312d01e1&g=5" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
                 <Instagram className="h-5 w-5" />
               </a>
-              <a href="#" className="hover:text-primary transition-colors">
+              <a href="https://www.linkedin.com/company/buildhomemart-techno-solutions-pvt-ltd/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
                 <Linkedin className="h-5 w-5" />
               </a>
             </div>
+            <div className="mt-6 space-y-2">
+              <div className="text-sm text-muted-foreground">
+                <p className="font-medium">Address:</p>
+                <p>No : 8B/16, Arumugam North Street,<br />Thirumangalam, Madurai, Tamil Nadu - 625706, India.</p>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p className="font-medium">Phone:</p>
+                <p>+91 90807 20215</p>
+              </div>
+            </div>
             <div className="mt-6">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full"
                 onClick={() => setSupportDialogOpen(true)}
               >

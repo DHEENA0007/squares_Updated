@@ -158,9 +158,6 @@ const Navbar = () => {
                     <DropdownMenuItem onClick={() => navigate('/vendor/login')}>
                       Post Property for Free
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/contact?service=valuation')}>
-                      Property Valuation
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/vendor/properties')}>
                       My Listed Properties
                     </DropdownMenuItem>
@@ -360,13 +357,7 @@ const Navbar = () => {
                 >
                   Post Property
                 </Link>
-                <Link
-                  to="/contact?service=valuation"
-                  className="block py-2 text-sm hover:text-primary transition-colors"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Property Valuation
-                </Link>
+
                 <Link
                   to="/vendor/properties"
                   className="block py-2 text-sm hover:text-primary transition-colors"

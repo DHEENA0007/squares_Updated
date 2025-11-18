@@ -150,7 +150,7 @@ const Signup = () => {
         phone: formData.phone,
         role: "customer",
         agreeToTerms: true,
-        otp: otp, // Include OTP for verification
+        otp: otp, // Include OTP in registration
       });
 
       if (response.success) {
@@ -176,7 +176,7 @@ const Signup = () => {
   const resendOtp = async () => {
     try {
       setIsLoading(true);
-      await authService.sendOTP(formData.email, formData.firstName);
+      await authService.sendOTP(formData.email, formData.firstName, formData.phone);
       setOtp("");
     } catch (error) {
       console.error("Resend OTP error:", error);
@@ -367,10 +367,6 @@ const Signup = () => {
                       Back to Form
                     </Button>
                   </div>
-
-                  <p className="text-xs text-muted-foreground text-center">
-                    For demo: Use OTP <span className="font-mono font-semibold">123456</span>
-                  </p>
                 </form>
               ) : step === "success" ? (
                 <div className="text-center space-y-6">

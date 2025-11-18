@@ -220,14 +220,14 @@ export const PORTAL_PAGES: PageConfig[] = [
     category: 'vendor',
     description: 'Add new property listing'
   },
-  {
-    id: 'vendor_leads',
-    label: 'Leads',
-    path: '/vendor/leads',
-    icon: Users,
-    category: 'vendor',
-    description: 'View and manage leads'
-  },
+  // {
+  //   id: 'vendor_leads',
+  //   label: 'Leads',
+  //   path: '/vendor/leads',
+  //   icon: Users,
+  //   category: 'vendor',
+  //   description: 'View and manage leads'
+  // },
   {
     id: 'vendor_messages',
     label: 'Messages',
@@ -244,14 +244,14 @@ export const PORTAL_PAGES: PageConfig[] = [
     category: 'vendor',
     description: 'View analytics and insights'
   },
-  {
-    id: 'vendor_services',
-    label: 'Services',
-    path: '/vendor/services',
-    icon: Briefcase,
-    category: 'vendor',
-    description: 'Manage services offered'
-  },
+  // {
+  //   id: 'vendor_services',
+  //   label: 'Services',
+  //   path: '/vendor/services',
+  //   icon: Briefcase,
+  //   category: 'vendor',
+  //   description: 'Manage services offered'
+  // },
   {
     id: 'vendor_subscription',
     label: 'Subscription',
@@ -334,14 +334,14 @@ export const PORTAL_PAGES: PageConfig[] = [
     category: 'customer',
     description: 'Customer messaging'
   },
-  {
-    id: 'customer_services',
-    label: 'Services',
-    path: '/customer/services',
-    icon: Wrench,
-    category: 'customer',
-    description: 'Request services'
-  },
+  // {
+  //   id: 'customer_services',
+  //   label: 'Services',
+  //   path: '/customer/services',
+  //   icon: Wrench,
+  //   category: 'customer',
+  //   description: 'Request services'
+  // },
   {
     id: 'customer_reviews',
     label: 'Reviews',
