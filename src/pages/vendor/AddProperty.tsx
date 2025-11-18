@@ -602,6 +602,30 @@ const AddProperty = () => {
     }
     
     const fileArray = Array.from(files);
+    const maxImages = 10;
+    const currentImageCount = uploadedImages.length;
+    const remainingSlots = maxImages - currentImageCount;
+
+    // Check if already at max limit
+    if (currentImageCount >= maxImages) {
+      toast({
+        title: "Maximum Images Reached",
+        description: `You can only upload a maximum of ${maxImages} images`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if adding these files would exceed the limit
+    if (fileArray.length > remainingSlots) {
+      toast({
+        title: "Too Many Images",
+        description: `You can only upload ${remainingSlots} more image(s). Maximum limit is ${maxImages} images`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     console.log('Starting image upload process for', fileArray.length, 'files');
     setUploadingImages(true);
 
@@ -653,7 +677,7 @@ const AddProperty = () => {
         });
         toast({
           title: "Images Added",
-          description: `${newImages.length} image(s) ready for upload`,
+          description: `${newImages.length} image(s) ready for upload (${currentImageCount + newImages.length}/${maxImages})`,
         });
       }
     } catch (error) {
@@ -1582,7 +1606,7 @@ const AddProperty = () => {
             <div>
               <Label className="text-base font-medium">Property Images</Label>
               <p className="text-sm text-muted-foreground mb-4">
-                Upload high-quality images of your property (up to 20 images)
+                Upload high-quality images of your property (up to 10 images, max 10MB each)
               </p>
               <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
