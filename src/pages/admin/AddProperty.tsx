@@ -553,20 +553,15 @@ const AddProperty = () => {
       setUploadingImages(true);
       
       try {
-        const imagePromises = files.map(async (file) => {
-          // Read file as ArrayBuffer to ensure cross-browser compatibility
-          const arrayBuffer = await file.arrayBuffer();
-          const blob = new Blob([arrayBuffer], { type: file.type });
-
+        const newImages = files.map((file) => {
           return {
             id: Date.now() + Math.random(),
             name: file.name,
-            url: URL.createObjectURL(blob),
-            file: new File([blob], file.name, { type: file.type }) // Re-create File from Blob
+            url: URL.createObjectURL(file),
+            file: file
           };
         });
         
-        const newImages = await Promise.all(imagePromises);
         setUploadedImages(prev => [...prev, ...newImages]);
       } catch (error) {
         console.error('Error processing images:', error);
@@ -582,20 +577,15 @@ const AddProperty = () => {
       setUploadingVideos(true);
       
       try {
-        const videoPromises = files.map(async (file) => {
-          // Read file as ArrayBuffer to ensure cross-browser compatibility
-          const arrayBuffer = await file.arrayBuffer();
-          const blob = new Blob([arrayBuffer], { type: file.type });
-
+        const newVideos = files.map((file) => {
           return {
             id: Date.now() + Math.random(),
             name: file.name,
-            url: URL.createObjectURL(blob),
-            file: new File([blob], file.name, { type: file.type }) // Re-create File from Blob
+            url: URL.createObjectURL(file),
+            file: file
           };
         });
         
-        const newVideos = await Promise.all(videoPromises);
         setUploadedVideos(prev => [...prev, ...newVideos]);
       } catch (error) {
         console.error('Error processing videos:', error);

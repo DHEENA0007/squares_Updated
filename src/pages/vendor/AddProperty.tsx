@@ -571,7 +571,7 @@ const AddProperty = () => {
     setUploadingImages(true);
 
     try {
-      const imagePromises = fileArray.map(async (file) => {
+      const newImages = fileArray.map((file) => {
         // Validate file type
         if (!file.type.startsWith('image/')) {
           throw new Error(`${file.name} is not a valid image file`);
@@ -583,19 +583,14 @@ const AddProperty = () => {
           throw new Error(`${file.name} is too large. Maximum size is 10MB`);
         }
 
-        // Read file as ArrayBuffer to ensure cross-browser compatibility
-        const arrayBuffer = await file.arrayBuffer();
-        const blob = new Blob([arrayBuffer], { type: file.type });
-
         return {
           id: Date.now() + Math.random(),
           name: file.name,
-          url: URL.createObjectURL(blob),
-          file: new File([blob], file.name, { type: file.type })
+          url: URL.createObjectURL(file),
+          file: file
         };
       });
 
-      const newImages = await Promise.all(imagePromises);
       if (newImages.length > 0) {
         setUploadedImages(prev => [...prev, ...newImages]);
         toast({
@@ -630,7 +625,7 @@ const AddProperty = () => {
     setUploadingVideos(true);
 
     try {
-      const videoPromises = fileArray.map(async (file) => {
+      const newVideos = fileArray.map((file) => {
         // Validate file type
         if (!file.type.startsWith('video/')) {
           throw new Error(`${file.name} is not a valid video file`);
@@ -642,19 +637,14 @@ const AddProperty = () => {
           throw new Error(`${file.name} is too large. Maximum size is 100MB`);
         }
 
-        // Read file as ArrayBuffer to ensure cross-browser compatibility
-        const arrayBuffer = await file.arrayBuffer();
-        const blob = new Blob([arrayBuffer], { type: file.type });
-
         return {
           id: Date.now() + Math.random(),
           name: file.name,
-          url: URL.createObjectURL(blob),
-          file: new File([blob], file.name, { type: file.type })
+          url: URL.createObjectURL(file),
+          file: file
         };
       });
 
-      const newVideos = await Promise.all(videoPromises);
       if (newVideos.length > 0) {
         setUploadedVideos(prev => [...prev, ...newVideos]);
         toast({

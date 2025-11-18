@@ -197,21 +197,13 @@ const EditProperty = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      const newImages = [];
-
-      for (const file of files) {
-        // Read file as ArrayBuffer to ensure cross-browser compatibility
-        const arrayBuffer = await file.arrayBuffer();
-        const blob = new Blob([arrayBuffer], { type: file.type });
-
-        newImages.push({
-          id: Date.now() + Math.random(),
-          name: file.name,
-          url: URL.createObjectURL(blob),
-          file: new File([blob], file.name, { type: file.type }),
-          isPrimary: false
-        });
-      }
+      const newImages = files.map((file) => ({
+        id: Date.now() + Math.random(),
+        name: file.name,
+        url: URL.createObjectURL(file),
+        file: file,
+        isPrimary: false
+      }));
 
       setUploadedImages(prev => {
         const updated = [...prev, ...newImages];
@@ -238,20 +230,12 @@ const EditProperty = () => {
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      const newVideos = [];
-
-      for (const file of files) {
-        // Read file as ArrayBuffer to ensure cross-browser compatibility
-        const arrayBuffer = await file.arrayBuffer();
-        const blob = new Blob([arrayBuffer], { type: file.type });
-
-        newVideos.push({
-          id: Date.now() + Math.random(),
-          name: file.name,
-          url: URL.createObjectURL(blob),
-          file: new File([blob], file.name, { type: file.type })
-        });
-      }
+      const newVideos = files.map((file) => ({
+        id: Date.now() + Math.random(),
+        name: file.name,
+        url: URL.createObjectURL(file),
+        file: file
+      }));
 
       setUploadedVideos(prev => [...prev, ...newVideos]);
     }
