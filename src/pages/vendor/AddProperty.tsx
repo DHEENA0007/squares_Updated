@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -141,6 +141,10 @@ const AddProperty = () => {
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadingVideos, setUploadingVideos] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  
+  // Refs for file inputs
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   // Store selected location names for display
   const [selectedLocationNames, setSelectedLocationNames] = useState({
@@ -571,25 +575,40 @@ const AddProperty = () => {
     setUploadingImages(true);
 
     try {
-      const newImages = fileArray.map((file) => {
+      const newImages = [];
+      
+      for (const file of fileArray) {
         // Validate file type
         if (!file.type.startsWith('image/')) {
-          throw new Error(`${file.name} is not a valid image file`);
+          toast({
+            title: "Invalid File Type",
+            description: `${file.name} is not a valid image file`,
+            variant: "destructive",
+          });
+          continue;
         }
 
         // Validate file size (max 10MB)
         const maxSize = 10 * 1024 * 1024; // 10MB
         if (file.size > maxSize) {
-          throw new Error(`${file.name} is too large. Maximum size is 10MB`);
+          toast({
+            title: "File Too Large",
+            description: `${file.name} is too large. Maximum size is 10MB`,
+            variant: "destructive",
+          });
+          continue;
         }
 
-        return {
+        // Create object URL for preview
+        const url = URL.createObjectURL(file);
+        
+        newImages.push({
           id: Date.now() + Math.random(),
           name: file.name,
-          url: URL.createObjectURL(file),
+          url: url,
           file: file
-        };
-      });
+        });
+      }
 
       if (newImages.length > 0) {
         setUploadedImages(prev => [...prev, ...newImages]);
@@ -610,12 +629,13 @@ const AddProperty = () => {
     }
   }, [toast]);
 
-  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      await handleImageUpload(e.target.files);
-      // Reset input value to allow re-uploading same file
-      e.target.value = '';
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleImageUpload(files);
     }
+    // Reset input value to allow re-uploading same file
+    e.target.value = '';
   };
 
   const handleVideoUpload = async (files: FileList | File[]) => {
@@ -1538,8 +1558,12 @@ const AddProperty = () => {
                 <Camera className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <div className="space-y-2">
                   <Button
+                    type="button"
                     variant="outline"
-                    onClick={() => document.getElementById('image-upload')?.click()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }}
                     disabled={uploadingImages}
                   >
                     {uploadingImages ? (
@@ -1559,7 +1583,7 @@ const AddProperty = () => {
                   </p>
                 </div>
                 <input
-                  id="image-upload"
+                  ref={fileInputRef}
                   type="file"
                   multiple
                   accept="image/*"
