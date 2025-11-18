@@ -296,7 +296,7 @@ const AddProperty = () => {
     }
   }, [selectedLocationNames, formData.pincode]);
 
-  // Check subscription limits and property count
+  // Check subscription limits and property count - only on initial load
   const checkSubscriptionLimits = useCallback(async () => {
     setIsCheckingSubscription(true);
     try {
@@ -331,19 +331,10 @@ const AddProperty = () => {
     }
   }, [toast]);
 
+  // Only check subscription on component mount
   useEffect(() => {
     checkSubscriptionLimits();
-  }, [checkSubscriptionLimits]);
-
-  // Refresh subscription limits when window gains focus (user returns from payment)
-  useEffect(() => {
-    const handleFocus = () => {
-      checkSubscriptionLimits();
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [checkSubscriptionLimits]);
+  }, []);
 
   const steps = [
     { id: 1, title: "Basic Details", description: "Property type and listing details" },
@@ -393,6 +384,41 @@ const AddProperty = () => {
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
+    
+    // Re-check subscription before submission
+    setIsCheckingSubscription(true);
+    try {
+      const limits = await vendorService.getSubscriptionLimits();
+      setSubscriptionLimits(limits);
+      setHasAddPropertySubscription(limits.canAddMore);
+
+      if (!limits.canAddMore) {
+        if (limits.maxProperties === 0) {
+          toast({
+            title: "Subscription Required",
+            description: "You need an active subscription to add properties. Please upgrade your plan.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Property Limit Reached",
+            description: `You have reached your plan limit of ${limits.maxProperties} properties. Please upgrade to add more.`,
+            variant: "destructive",
+          });
+        }
+        setIsCheckingSubscription(false);
+        return;
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to verify subscription status. Please try again.",
+        variant: "destructive",
+      });
+      setIsCheckingSubscription(false);
+      return;
+    }
+    setIsCheckingSubscription(false);
     
     // Validate required fields
     const requiredFields = {
@@ -569,16 +595,22 @@ const AddProperty = () => {
 
 
 
-  const handleImageUpload = useCallback(async (files: FileList | File[]) => {
-    if (!files || files.length === 0) return;
+  const handleImageUpload = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) {
+      console.log('No files to upload');
+      return;
+    }
     
     const fileArray = Array.from(files);
+    console.log('Starting image upload process for', fileArray.length, 'files');
     setUploadingImages(true);
 
     try {
       const newImages = [];
       
       for (const file of fileArray) {
+        console.log('Processing file:', file.name, file.type, file.size);
+        
         // Validate file type
         if (!file.type.startsWith('image/')) {
           toast({
@@ -602,6 +634,7 @@ const AddProperty = () => {
 
         // Create object URL for preview
         const url = URL.createObjectURL(file);
+        console.log('Created preview URL for', file.name);
         
         newImages.push({
           id: Date.now() + Math.random(),
@@ -611,8 +644,13 @@ const AddProperty = () => {
         });
       }
 
+      console.log('Adding', newImages.length, 'images to state');
       if (newImages.length > 0) {
-        setUploadedImages(prev => [...prev, ...newImages]);
+        setUploadedImages(prev => {
+          const updated = [...prev, ...newImages];
+          console.log('Updated images state:', updated);
+          return updated;
+        });
         toast({
           title: "Images Added",
           description: `${newImages.length} image(s) ready for upload`,
@@ -627,8 +665,9 @@ const AddProperty = () => {
       });
     } finally {
       setUploadingImages(false);
+      console.log('Image upload process completed');
     }
-  }, [toast]);
+  };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log('File input change triggered', e.target.files);
@@ -636,6 +675,8 @@ const AddProperty = () => {
     if (files && files.length > 0) {
       console.log(`Processing ${files.length} files`);
       handleImageUpload(files);
+    } else {
+      console.log('No files selected');
     }
     // Reset input value to allow re-uploading same file
     e.target.value = '';
@@ -716,28 +757,29 @@ const AddProperty = () => {
   }, [uploadedImages, uploadedVideos]);
 
   // Drag and drop handlers
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(true);
-  }, []);
+  };
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
+  const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-  }, []);
+  };
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
+      console.log('Files dropped:', files.length);
       await handleImageUpload(files);
     }
-  }, [handleImageUpload]);
+  };
 
   const renderStepContent = () => {
     switch (currentStep) {
