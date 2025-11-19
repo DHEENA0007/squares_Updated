@@ -1399,9 +1399,11 @@ router.post('/confirm-deletion', asyncHandler(async (req, res) => {
     try {
       await sendEmail({
         to: userEmail,
-        template: 'account-deleted-confirmation',
+        template: 'account-deleted',
         data: {
           firstName: userName,
+          email: userEmail,
+          role: user.role,
           deletionDate: new Date().toLocaleString('en-IN', {
             timeZone: 'Asia/Kolkata',
             year: 'numeric',
@@ -1409,7 +1411,8 @@ router.post('/confirm-deletion', asyncHandler(async (req, res) => {
             day: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
-          })
+          }),
+          websiteUrl: process.env.CLIENT_URL || 'https://buildhomemartsquares.com'
         }
       });
     } catch (emailError) {

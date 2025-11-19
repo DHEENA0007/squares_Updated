@@ -539,7 +539,153 @@ const emailTemplates = {
     `
   }),
 
-  // Account deletion notification template
+  // Account deactivation request - sends confirmation link
+  'account-deactivation': (data) => ({
+    subject: 'Confirm Account Deactivation - BuildHomeMart Squares',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin: 0;">BuildHomeMart Squares</h1>
+          <p style="color: #666; margin: 5px 0 0 0;">Account Deactivation Request</p>
+        </div>
+        
+        <div style="background: #fff3cd; border: 1px solid #ffd54f; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
+          <h2 style="color: #92400e; margin: 0 0 20px 0;">⏸️ Deactivate Your Account</h2>
+          <p style="color: #92400e; line-height: 1.6; margin: 0 0 20px 0;">
+            Hello ${data.firstName}, we received a request to temporarily deactivate your BuildHomeMart Squares account.
+          </p>
+          
+          <div style="background: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+            <h3 style="color: #1e293b; margin: 0 0 15px 0;">What happens when you deactivate?</h3>
+            <ul style="color: #475569; line-height: 1.6; padding-left: 20px; margin: 0;">
+              <li>Your profile will be hidden from public view</li>
+              <li>Your listings will be temporarily inactive</li>
+              <li>You won't receive notifications</li>
+              <li>You can reactivate anytime by logging in</li>
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${data.deactivationUrl}" style="background: #dc2626; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
+              Confirm Deactivation
+            </a>
+          </div>
+          
+          <p style="color: #64748b; font-size: 14px; margin: 20px 0 0 0; text-align: center;">
+            This link will expire in 24 hours. If you didn't request this, please ignore this email or contact support.
+          </p>
+        </div>
+        
+        <div style="text-align: center; color: #94a3b8; font-size: 12px;">
+          <p>&copy; 2024 BuildHomeMart Squares. All rights reserved.</p>
+          <p>Support: support@buildhomemartsquares.com</p>
+        </div>
+      </div>
+    `
+  }),
+
+  // Account deactivation confirmation - after account is deactivated
+  'account-deactivated-confirmation': (data) => ({
+    subject: 'Account Deactivated - BuildHomeMart Squares',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin: 0;">BuildHomeMart Squares</h1>
+          <p style="color: #666; margin: 5px 0 0 0;">Account Status Update</p>
+        </div>
+        
+        <div style="background: #fff3cd; border: 1px solid #ffd54f; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
+          <h2 style="color: #92400e; margin: 0 0 20px 0;">⏸️ Account Deactivated</h2>
+          <p style="color: #92400e; line-height: 1.6; margin: 0 0 20px 0;">
+            Hello ${data.firstName}, your BuildHomeMart Squares account has been temporarily deactivated.
+          </p>
+          
+          <div style="background: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Deactivated on:</strong> ${data.deactivationDate}</p>
+            <p style="margin: 15px 0 5px 0;"><strong>Your account status:</strong></p>
+            <ul style="color: #475569; line-height: 1.6; padding-left: 20px; margin: 5px 0;">
+              <li>Profile hidden from searches</li>
+              <li>Listings temporarily inactive</li>
+              <li>Data safely stored</li>
+              <li>Ready to reactivate anytime</li>
+            </ul>
+          </div>
+
+          <div style="background: #e0f2fe; border: 1px solid #81d4fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
+            <h3 style="color: #0277bd; margin: 0 0 15px 0;">🔄 Easy Reactivation</h3>
+            <p style="color: #0277bd; margin: 0; font-size: 14px;">
+              To reactivate your account, simply log in again. All your data and settings will be restored immediately.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${data.reactivationLink}" style="background: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
+              Reactivate My Account
+            </a>
+          </div>
+        </div>
+        
+        <div style="text-align: center; color: #94a3b8; font-size: 12px;">
+          <p>&copy; 2024 BuildHomeMart Squares. All rights reserved.</p>
+          <p>Support: support@buildhomemartsquares.com</p>
+        </div>
+      </div>
+    `
+  }),
+
+  // Account deletion request - sends confirmation link
+  'account-deletion': (data) => ({
+    subject: 'Confirm Account Deletion - BuildHomeMart Squares',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin: 0;">BuildHomeMart Squares</h1>
+          <p style="color: #666; margin: 5px 0 0 0;">Account Deletion Request</p>
+        </div>
+        
+        <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
+          <h2 style="color: #991b1b; margin: 0 0 20px 0;">🗑️ Delete Your Account</h2>
+          <p style="color: #991b1b; line-height: 1.6; margin: 0 0 20px 0;">
+            Hello ${data.firstName}, we received a request to permanently delete your BuildHomeMart Squares account.
+          </p>
+          
+          <div style="background: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+            <h3 style="color: #991b1b; margin: 0 0 15px 0;">⚠️ Warning: This action is permanent!</h3>
+            <ul style="color: #475569; line-height: 1.6; padding-left: 20px; margin: 0;">
+              <li>All your personal data will be permanently deleted</li>
+              <li>Your property listings will be removed</li>
+              <li>Active subscriptions will be cancelled</li>
+              <li>Messages and notifications will be deleted</li>
+              <li>This action cannot be undone</li>
+            </ul>
+          </div>
+
+          <div style="background: #fff3cd; border: 1px solid #ffd54f; padding: 20px; border-radius: 6px; margin: 20px 0;">
+            <p style="color: #92400e; margin: 0; font-size: 14px;">
+              <strong>💡 Alternative:</strong> Consider deactivating your account instead if you want to take a break. You can reactivate it anytime.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${data.deletionUrl}" style="background: #dc2626; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
+              Confirm Permanent Deletion
+            </a>
+          </div>
+          
+          <p style="color: #64748b; font-size: 14px; margin: 20px 0 0 0; text-align: center;">
+            This link will expire in 24 hours. If you didn't request this, please secure your account immediately.
+          </p>
+        </div>
+        
+        <div style="text-align: center; color: #94a3b8; font-size: 12px;">
+          <p>&copy; 2024 BuildHomeMart Squares. All rights reserved.</p>
+          <p>Support: support@buildhomemartsquares.com</p>
+        </div>
+      </div>
+    `
+  }),
+
+  // Account deletion notification - after account is deleted
   'account-deleted': (data) => ({
     subject: 'Account Deleted - BuildHomeMart Squares',
     html: `

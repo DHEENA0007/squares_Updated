@@ -20,6 +20,10 @@ const VendorLogin = lazy(() => import("@/pages/vendor/VendorLogin"));
 const VendorRegister = lazy(() => import("@/pages/vendor/VendorRegister"));
 const VendorForgotPassword = lazy(() => import("@/pages/vendor/VendorForgotPassword"));
 
+// Lazy load account confirmation pages
+const ConfirmDeactivation = lazy(() => import("@/pages/auth/ConfirmDeactivation"));
+const ConfirmDeletion = lazy(() => import("@/pages/auth/ConfirmDeletion"));
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -37,6 +41,18 @@ const App = () => (
                 <Route path="/admin/*" element={<AdminRoutes />} />
                 <Route path="/subadmin/*" element={<SubAdminRoutes />} />
                 <Route path="/customer/*" element={<CustomerRoutes />} />
+                
+                {/* Account confirmation routes (public) */}
+                <Route path="/confirm-deactivation" element={
+                  <Suspense fallback={<div>Loading...</div>}>
+                    <ConfirmDeactivation />
+                  </Suspense>
+                } />
+                <Route path="/confirm-deletion" element={
+                  <Suspense fallback={<div>Loading...</div>}>
+                    <ConfirmDeletion />
+                  </Suspense>
+                } />
                 
                 {/* Vendor Authentication Routes (outside protection) */}
                 <Route path="/vendor/login" element={
