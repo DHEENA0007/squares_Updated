@@ -1,32 +1,35 @@
 #!/usr/bin/env node
 
-// Test email configuration with Resend
+// Test email configuration with Hostinger SMTP
 require('dotenv').config();
 const { sendEmail, testEmailConnection, sendTemplateEmail } = require('../utils/emailService');
 
 async function testEmailConfiguration() {
-  console.log('🧪 Testing BuildHomeMart Squares Email Configuration (Resend)');
-  console.log('==========================================================\n');
+  console.log('🧪 Testing BuildHomeMart Squares Email Configuration (Hostinger SMTP)');
+  console.log('====================================================================\n');
 
-  // Test Resend connection
-  console.log('1. Testing Resend Connection...');
+  // Test SMTP connection
+  console.log('1. Testing SMTP Connection...');
   try {
     const connectionResult = await testEmailConnection();
     if (connectionResult.success) {
-      console.log('✅ Resend Connection successful');
+      console.log('✅ SMTP Connection successful');
     } else {
-      console.log('❌ Resend Connection failed:', connectionResult.error);
+      console.log('❌ SMTP Connection failed:', connectionResult.error);
       return;
     }
   } catch (error) {
-    console.log('❌ Resend Connection error:', error.message);
+    console.log('❌ SMTP Connection error:', error.message);
     return;
   }
 
   console.log('\n2. Current Configuration:');
-  console.log(`   Service: Resend`);
-  console.log(`   API Key: ${process.env.RESEND_API_KEY ? '✓ Set' : '❌ Not set'}`);
-  console.log(`   From Email: ${process.env.EMAIL_FROM || 'onboarding@resend.dev'}`);
+  console.log(`   Service: Hostinger SMTP`);
+  console.log(`   SMTP Host: ${process.env.SMTP_HOST || 'smtp.hostinger.com'}`);
+  console.log(`   SMTP Port: ${process.env.SMTP_PORT || '465'}`);
+  console.log(`   SMTP User: ${process.env.SMTP_USER ? '✓ Set' : '❌ Not set'}`);
+  console.log(`   SMTP Pass: ${process.env.SMTP_PASS ? '✓ Set' : '❌ Not set'}`);
+  console.log(`   From Email: ${process.env.SMTP_FROM || process.env.SMTP_USER}`);
 
   // Test sending a simple email
   console.log('\n3. Testing Simple Email...');
@@ -36,11 +39,11 @@ async function testEmailConfiguration() {
       subject: 'BuildHomeMart Squares - Email Configuration Test',
       html: `
         <h2>Email Configuration Test</h2>
-        <p>This is a test email to verify the Resend configuration is working correctly.</p>
+        <p>This is a test email to verify the Hostinger SMTP configuration is working correctly.</p>
         <p><strong>Configuration Details:</strong></p>
         <ul>
-          <li>Service: Resend</li>
-          <li>From: ${process.env.EMAIL_FROM || 'onboarding@resend.dev'}</li>
+          <li>Service: Hostinger SMTP</li>
+          <li>From: ${process.env.SMTP_FROM || process.env.SMTP_USER}</li>
           <li>Test Time: ${new Date().toISOString()}</li>
         </ul>
         <p>If you received this email, the configuration is working correctly!</p>
@@ -85,10 +88,11 @@ async function testEmailConfiguration() {
 
   console.log('\n✅ Email configuration testing completed!');
   console.log('\n📧 Email Settings Summary:');
-  console.log('   • Service: Resend');
-  console.log('   • API Key: re_Lw3kDf93_FmnQPRSGpWeGejkXPkvF5iWb');
-  console.log('   • From Email: onboarding@resend.dev');
-  console.log('\nNote: Resend provides reliable email delivery with built-in analytics.');
+  console.log('   • Service: Hostinger SMTP');
+  console.log(`   • SMTP Host: ${process.env.SMTP_HOST || 'smtp.hostinger.com'}`);
+  console.log(`   • SMTP Port: ${process.env.SMTP_PORT || '465'}`);
+  console.log(`   • From Email: ${process.env.SMTP_FROM || process.env.SMTP_USER}`);
+  console.log('\nNote: Hostinger SMTP provides reliable email delivery through your domain.');
 }
 
 // Run the test
