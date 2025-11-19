@@ -276,7 +276,7 @@ app.use('/api/support', supportRoutes);
 app.use('/api/policies', policyRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/refund_policy', refund_policyRoutes);
-app.use('/api/email', require('./routes/email'));
+
 
 // Import admin real-time service
 const adminRealtimeService = require('./services/adminRealtimeService');
