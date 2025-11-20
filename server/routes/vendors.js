@@ -3014,8 +3014,6 @@ router.get('/invoices', requireVendorRole, asyncHandler(async (req, res) => {
       const user = sub.user;
       const plan = sub.plan;
       const amount = sub.amount || (plan ? plan.price : 0);
-      const tax = Math.round(amount * 0.18); // 18% GST
-      const total = amount + tax;
       
       return {
         _id: sub._id,
@@ -3023,8 +3021,8 @@ router.get('/invoices', requireVendorRole, asyncHandler(async (req, res) => {
         vendorId: sub.user,
         subscriptionId: sub._id,
         amount,
-        tax,
-        total,
+        tax: 0,
+        total: amount,
         currency: sub.currency || 'INR',
         status: sub.status === 'active' ? 'paid' : 'sent',
         issueDate: sub.createdAt,
@@ -3310,8 +3308,6 @@ router.get('/invoices/:id', requireVendorRole, asyncHandler(async (req, res) => 
     const user = subscription.user;
     const plan = subscription.plan;
     const amount = subscription.amount || (plan ? plan.price : 0);
-    const tax = Math.round(amount * 0.18);
-    const total = amount + tax;
     
     const invoice = {
       _id: subscription._id,
@@ -3319,8 +3315,8 @@ router.get('/invoices/:id', requireVendorRole, asyncHandler(async (req, res) => 
       vendorId: subscription.user,
       subscriptionId: subscription._id,
       amount,
-      tax,
-      total,
+      tax: 0,
+      total: amount,
       currency: subscription.currency || 'INR',
       status: subscription.status === 'active' ? 'paid' : subscription.status === 'expired' ? 'overdue' : 'sent',
       issueDate: subscription.createdAt,
@@ -3380,8 +3376,6 @@ router.get('/invoices/:id/download', requireVendorRole, asyncHandler(async (req,
     const user = subscription.user;
     const plan = subscription.plan;
     const amount = subscription.amount || (plan ? plan.price : 0);
-    const tax = Math.round(amount * 0.18);
-    const total = amount + tax;
     
     const invoiceNumber = `INV-${new Date().getFullYear()}-${subscription._id.toString().slice(-6).toUpperCase()}`;
     
@@ -3409,10 +3403,8 @@ Unit Price: ₹${amount}
 Total: ₹${amount}
 
 -------------------------------------
-Subtotal: ₹${amount}
-Tax (18% GST): ₹${tax}
 =====================================
-TOTAL: ₹${total}
+TOTAL: ₹${amount}
 =====================================
 
 Payment Method: Razorpay

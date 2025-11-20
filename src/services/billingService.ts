@@ -564,17 +564,13 @@ class BillingService {
       // Totals section
       doc.setFontSize(10);
       doc.setFont('courier', 'normal');
-      doc.text(`Subtotal: ₹${this.formatCurrency(invoice.amount)}`, marginLeft, yPosition);
-      yPosition += 6;
-      doc.text(`Tax (${invoice.tax > 0 ? Math.round((invoice.tax / invoice.amount) * 100) : 18}% GST): ₹${this.formatCurrency(invoice.tax)}`, marginLeft, yPosition);
-      yPosition += 10;
 
       // Total with borders
       doc.setFontSize(12);
       doc.setFont('courier', 'bold');
       doc.text('=====================================', pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 7;
-      doc.text(`TOTAL: ₹${this.formatCurrency(invoice.total)}`, pageWidth / 2, yPosition, { align: 'center' });
+      doc.text(`TOTAL: ₹${this.formatCurrency(invoice.amount)}`, pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 7;
       doc.text('=====================================', pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 15;
@@ -1102,7 +1098,7 @@ class BillingService {
           invoicesTableData.push([
             invoice.invoiceNumber,
             this.formatDate(invoice.issueDate),
-            `₹${this.formatCurrency(invoice.total)}`,
+            `₹${this.formatCurrency(invoice.amount)}`,
             invoice.status.toUpperCase()
           ]);
         });
@@ -1184,8 +1180,6 @@ class BillingService {
         'Due Date': ExportUtils.formatDate(invoice.dueDate),
         'Paid Date': invoice.paidDate ? ExportUtils.formatDate(invoice.paidDate) : 'N/A',
         'Amount': invoice.amount,
-        'Tax': invoice.tax,
-        'Total': invoice.total,
         'Currency': invoice.currency,
         'Status': invoice.status.toUpperCase(),
         'Vendor Name': invoice.vendorDetails.name || 'N/A',
@@ -1261,8 +1255,8 @@ class BillingService {
           data: invoicesExportData,
           columns: [
             { wch: 5 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, 
-            { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, 
-            { wch: 10 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 15 }
+            { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, 
+            { wch: 20 }, { wch: 20 }, { wch: 15 }
           ]
         }
       ];
