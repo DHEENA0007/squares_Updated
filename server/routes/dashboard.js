@@ -325,7 +325,7 @@ router.get('/', asyncHandler(async (req, res) => {
         $lte: lastDayOfLastMonth 
       } 
     }),
-    // Calculate total revenue - sum all paid subscription amounts
+    // Calculate total revenue - sum subscription amounts + addon payments
     Subscription.aggregate([
       {
         $match: {
@@ -333,59 +333,164 @@ router.get('/', asyncHandler(async (req, res) => {
         }
       },
       {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: '$amount' }
-        }
-      }
-    ]).then(result => result.length > 0 ? result[0].totalAmount : 0),
-    // Calculate revenue this month - subscriptions paid/created this month
-    Subscription.aggregate([
-      {
-        $match: {
-          status: { $in: ['active', 'expired'] },
-          $or: [
-            { lastPaymentDate: { $gte: firstDayOfMonth } },
-            { 
-              lastPaymentDate: { $exists: false },
-              createdAt: { $gte: firstDayOfMonth }
+        $project: {
+          subscriptionAmount: '$amount',
+          addonRevenue: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ['$paymentHistory', []] },
+                as: 'payment',
+                in: {
+                  $cond: [
+                    { $eq: ['$$payment.type', 'addon_purchase'] },
+                    { $ifNull: ['$$payment.amount', 0] },
+                    0
+                  ]
+                }
+              }
             }
-          ]
+          }
         }
       },
       {
         $group: {
           _id: null,
-          totalAmount: { $sum: '$amount' }
+          totalSubscriptionRevenue: { $sum: '$subscriptionAmount' },
+          totalAddonRevenue: { $sum: '$addonRevenue' }
+        }
+      },
+      {
+        $project: {
+          totalAmount: { $add: ['$totalSubscriptionRevenue', '$totalAddonRevenue'] }
         }
       }
     ]).then(result => result.length > 0 ? result[0].totalAmount : 0),
-    // Calculate revenue last month - subscriptions paid/created last month
+    // Calculate revenue this month - subscriptions + addons paid this month
     Subscription.aggregate([
       {
         $match: {
-          status: { $in: ['active', 'expired'] },
-          $or: [
-            { 
-              lastPaymentDate: { 
-                $gte: firstDayOfLastMonth, 
-                $lt: firstDayOfMonth
-              }
-            },
-            { 
-              lastPaymentDate: { $exists: false },
-              createdAt: { 
-                $gte: firstDayOfLastMonth, 
-                $lt: firstDayOfMonth
+          status: { $in: ['active', 'expired'] }
+        }
+      },
+      {
+        $project: {
+          subscriptionAmount: {
+            $cond: [
+              {
+                $or: [
+                  { $gte: ['$lastPaymentDate', firstDayOfMonth] },
+                  {
+                    $and: [
+                      { $not: ['$lastPaymentDate'] },
+                      { $gte: ['$createdAt', firstDayOfMonth] }
+                    ]
+                  }
+                ]
+              },
+              '$amount',
+              0
+            ]
+          },
+          addonRevenue: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ['$paymentHistory', []] },
+                as: 'payment',
+                in: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $eq: ['$$payment.type', 'addon_purchase'] },
+                        { $gte: ['$$payment.date', firstDayOfMonth] }
+                      ]
+                    },
+                    { $ifNull: ['$$payment.amount', 0] },
+                    0
+                  ]
+                }
               }
             }
-          ]
+          }
         }
       },
       {
         $group: {
           _id: null,
-          totalAmount: { $sum: '$amount' }
+          totalSubscriptionRevenue: { $sum: '$subscriptionAmount' },
+          totalAddonRevenue: { $sum: '$addonRevenue' }
+        }
+      },
+      {
+        $project: {
+          totalAmount: { $add: ['$totalSubscriptionRevenue', '$totalAddonRevenue'] }
+        }
+      }
+    ]).then(result => result.length > 0 ? result[0].totalAmount : 0),
+    // Calculate revenue last month - subscriptions + addons paid last month
+    Subscription.aggregate([
+      {
+        $match: {
+          status: { $in: ['active', 'expired'] }
+        }
+      },
+      {
+        $project: {
+          subscriptionAmount: {
+            $cond: [
+              {
+                $or: [
+                  {
+                    $and: [
+                      { $gte: ['$lastPaymentDate', firstDayOfLastMonth] },
+                      { $lt: ['$lastPaymentDate', firstDayOfMonth] }
+                    ]
+                  },
+                  {
+                    $and: [
+                      { $not: ['$lastPaymentDate'] },
+                      { $gte: ['$createdAt', firstDayOfLastMonth] },
+                      { $lt: ['$createdAt', firstDayOfMonth] }
+                    ]
+                  }
+                ]
+              },
+              '$amount',
+              0
+            ]
+          },
+          addonRevenue: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ['$paymentHistory', []] },
+                as: 'payment',
+                in: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $eq: ['$$payment.type', 'addon_purchase'] },
+                        { $gte: ['$$payment.date', firstDayOfLastMonth] },
+                        { $lt: ['$$payment.date', firstDayOfMonth] }
+                      ]
+                    },
+                    { $ifNull: ['$$payment.amount', 0] },
+                    0
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalSubscriptionRevenue: { $sum: '$subscriptionAmount' },
+          totalAddonRevenue: { $sum: '$addonRevenue' }
+        }
+      },
+      {
+        $project: {
+          totalAmount: { $add: ['$totalSubscriptionRevenue', '$totalAddonRevenue'] }
         }
       }
     ]).then(result => result.length > 0 ? result[0].totalAmount : 0)
