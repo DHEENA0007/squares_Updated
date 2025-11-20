@@ -10,7 +10,7 @@ require('dotenv').config();
 
 // Import routes
 const authRoutes = require('./routes/auth');
-const twoFactorRoutes = require('./routes/twoFactor');
+// const twoFactorRoutes = require('./routes/twoFactor');
 const userRoutes = require('./routes/users');
 const propertyRoutes = require('./routes/properties');
 const dashboardRoutes = require('./routes/dashboard');
@@ -253,7 +253,7 @@ app.get('/', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/2fa', twoFactorRoutes);
+// app.use('/api/2fa', twoFactorRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/dashboard', dashboardRoutes);
