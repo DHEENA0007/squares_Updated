@@ -325,7 +325,7 @@ router.get('/', asyncHandler(async (req, res) => {
         $lte: lastDayOfLastMonth 
       } 
     }),
-    // Calculate total revenue from all subscriptions with payment history
+    // Calculate total revenue - sum all paid subscription amounts
     Subscription.aggregate([
       {
         $match: {
@@ -335,109 +335,60 @@ router.get('/', asyncHandler(async (req, res) => {
       {
         $group: {
           _id: null,
-          totalAmount: { 
-            $sum: {
-              $cond: [
-                { $and: [
-                  { $isArray: "$paymentHistory" },
-                  { $gt: [{ $size: "$paymentHistory" }, 0] }
-                ]},
-                { 
-                  $reduce: {
-                    input: "$paymentHistory",
-                    initialValue: 0,
-                    in: { $add: ["$$value", "$$this.amount"] }
-                  }
-                },
-                { $cond: [{ $ifNull: ["$lastPaymentDate", false] }, "$amount", 0] }
-              ]
-            }
-          }
+          totalAmount: { $sum: '$amount' }
         }
       }
     ]).then(result => result.length > 0 ? result[0].totalAmount : 0),
-    // Calculate revenue this month from payment history
+    // Calculate revenue this month - subscriptions paid/created this month
     Subscription.aggregate([
       {
-        $unwind: {
-          path: "$paymentHistory",
-          preserveNullAndEmptyArrays: false
-        }
-      },
-      {
         $match: {
-          "paymentHistory.paymentDate": { $gte: firstDayOfMonth },
-          "paymentHistory.status": "completed"
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: "$paymentHistory.amount" }
-        }
-      }
-    ]).then(result => {
-      if (result.length > 0) return result[0].totalAmount;
-      // Fallback to simple method if no payment history
-      return Subscription.aggregate([
-        {
-          $match: {
-            status: { $in: ['active', 'expired'] },
-            lastPaymentDate: { $gte: firstDayOfMonth }
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            totalAmount: { $sum: '$amount' }
-          }
-        }
-      ]).then(r => r.length > 0 ? r[0].totalAmount : 0);
-    }),
-    // Calculate revenue last month from payment history
-    Subscription.aggregate([
-      {
-        $unwind: {
-          path: "$paymentHistory",
-          preserveNullAndEmptyArrays: false
-        }
-      },
-      {
-        $match: {
-          "paymentHistory.paymentDate": { 
-            $gte: firstDayOfLastMonth, 
-            $lte: lastDayOfLastMonth 
-          },
-          "paymentHistory.status": "completed"
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: "$paymentHistory.amount" }
-        }
-      }
-    ]).then(result => {
-      if (result.length > 0) return result[0].totalAmount;
-      // Fallback to simple method if no payment history
-      return Subscription.aggregate([
-        {
-          $match: {
-            status: { $in: ['active', 'expired'] },
-            lastPaymentDate: { 
-              $gte: firstDayOfLastMonth, 
-              $lte: lastDayOfLastMonth 
+          status: { $in: ['active', 'expired'] },
+          $or: [
+            { lastPaymentDate: { $gte: firstDayOfMonth } },
+            { 
+              lastPaymentDate: { $exists: false },
+              createdAt: { $gte: firstDayOfMonth }
             }
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            totalAmount: { $sum: '$amount' }
-          }
+          ]
         }
-      ]).then(r => r.length > 0 ? r[0].totalAmount : 0);
-    })
+      },
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: '$amount' }
+        }
+      }
+    ]).then(result => result.length > 0 ? result[0].totalAmount : 0),
+    // Calculate revenue last month - subscriptions paid/created last month
+    Subscription.aggregate([
+      {
+        $match: {
+          status: { $in: ['active', 'expired'] },
+          $or: [
+            { 
+              lastPaymentDate: { 
+                $gte: firstDayOfLastMonth, 
+                $lt: firstDayOfMonth
+              }
+            },
+            { 
+              lastPaymentDate: { $exists: false },
+              createdAt: { 
+                $gte: firstDayOfLastMonth, 
+                $lt: firstDayOfMonth
+              }
+            }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: '$amount' }
+        }
+      }
+    ]).then(result => result.length > 0 ? result[0].totalAmount : 0)
   ]);
 
   // Calculate engagement rate (favorites per property)

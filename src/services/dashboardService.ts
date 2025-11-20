@@ -6,10 +6,15 @@ export interface DashboardStats {
   totalProperties: number;
   totalRevenue: number;
   activeListings: number;
+  pendingProperties: number;
+  soldProperties: number;
   newUsersThisMonth: number;
   newPropertiesThisMonth: number;
   revenueThisMonth: number;
   engagementRate: number;
+  userGrowth: number;
+  propertyGrowth: number;
+  revenueGrowth: number;
 }
 
 export interface RecentActivity {
@@ -103,10 +108,15 @@ class DashboardService {
             totalProperties: 0,
             totalRevenue: 0,
             activeListings: 0,
+            pendingProperties: 0,
+            soldProperties: 0,
             newUsersThisMonth: 0,
             newPropertiesThisMonth: 0,
             revenueThisMonth: 0,
-            engagementRate: 0
+            engagementRate: 0,
+            userGrowth: 0,
+            propertyGrowth: 0,
+            revenueGrowth: 0
           },
           recentActivities: []
         }

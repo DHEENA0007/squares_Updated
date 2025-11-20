@@ -49,7 +49,7 @@ const Dashboard = () => {
     {
       title: "Total Revenue",
       value: dashboardService.formatRevenue(stats.totalRevenue),
-      change: `${stats.revenueThisMonth > 0 ? '+' : ''}${dashboardService.formatRevenue(stats.revenueThisMonth)} this month`,
+      change: `${stats.revenueGrowth > 0 ? '+' : ''}${stats.revenueGrowth}% from last month`,
       icon: DollarSign,
       color: "text-emerald-500 dark:text-emerald-400",
       bgColor: "bg-emerald-500/10",
