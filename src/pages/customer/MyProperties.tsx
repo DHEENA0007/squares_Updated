@@ -19,7 +19,6 @@ import {
   Star,
   Trash2,
   Camera,
-  DollarSign,
   BarChart3,
   RefreshCw
 } from "lucide-react";

@@ -27,8 +27,8 @@ import {
   Camera,
   Video,
   Globe,
-  IndianRupee,
-  ExternalLink
+  ExternalLink,
+  IndianRupee
 } from "lucide-react";
 import { propertyService, type Property } from "@/services/propertyService";
 

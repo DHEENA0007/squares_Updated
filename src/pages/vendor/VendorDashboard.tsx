@@ -32,7 +32,6 @@ import {
 } from "recharts";
 import {
   Home,
-  Users,
   Eye,
   MessageSquare,
   TrendingUp,
@@ -47,11 +46,11 @@ import {
   Phone,
   Mail,
   Activity,
-  DollarSign,
   Target,
   BarChart3,
   RefreshCw,
   Loader2,
+  IndianRupee,
 } from "lucide-react";
 import { useVendorDashboard } from "@/hooks/useVendorDashboard";
 import { vendorDashboardService } from "@/services/vendorDashboardService";
@@ -158,7 +157,7 @@ const VendorDashboard = () => {
       title: "Total Revenue",
       value: vendorDashboardService.formatPrice(stats?.totalRevenue || 0),
       change: stats?.revenueChange || "+0%",
-      icon: DollarSign,
+      icon: IndianRupee,
       color: "text-emerald-600",
     },
     {

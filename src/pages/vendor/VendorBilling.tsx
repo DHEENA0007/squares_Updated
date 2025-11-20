@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   CreditCard,
-  DollarSign,
   TrendingUp,
   Calendar,
   Download,
@@ -27,7 +26,8 @@ import {
   Eye,
   FileText,
   BarChart3,
-  FileSpreadsheet
+  FileSpreadsheet,
+  IndianRupee
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -768,7 +768,7 @@ const VendorBilling: React.FC = () => {
                     >
                       <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'items-center space-x-4'}`}>
                         <div className="p-2 bg-muted rounded-full">
-                          <DollarSign className="w-4 h-4" />
+                          <IndianRupee className="w-4 h-4" />
                         </div>
                         <div>
                           <p className={`${isMobile ? 'text-sm' : 'font-medium'}`}>
@@ -795,7 +795,7 @@ const VendorBilling: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <IndianRupee className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No transactions found</p>
                 </div>
               )}
@@ -818,7 +818,7 @@ const VendorBilling: React.FC = () => {
                     >
                       <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'items-center space-x-4'}`}>
                         <div className="p-2 bg-muted rounded-full">
-                          <DollarSign className="w-4 h-4" />
+                          <IndianRupee className="w-4 h-4" />
                         </div>
                         <div>
                           <p className={`${isMobile ? 'text-sm' : 'font-medium'}`}>
@@ -865,7 +865,7 @@ const VendorBilling: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <IndianRupee className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Payment History</h3>
                   <p className="text-muted-foreground">Your payment history will appear here</p>
                 </div>

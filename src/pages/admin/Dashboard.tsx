@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, DollarSign, Activity, Loader2 } from "lucide-react";
+import { TrendingUp, Users, Activity, Loader2, IndianRupee } from "lucide-react";
 import { dashboardService, DashboardStats, RecentActivity } from "@/services/dashboardService";
 
 const Dashboard = () => {
@@ -50,7 +50,7 @@ const Dashboard = () => {
       title: "Total Revenue",
       value: dashboardService.formatRevenue(stats.totalRevenue),
       change: `${stats.revenueGrowth > 0 ? '+' : ''}${stats.revenueGrowth}% from last month`,
-      icon: DollarSign,
+      icon: IndianRupee,
       color: "text-emerald-500 dark:text-emerald-400",
       bgColor: "bg-emerald-500/10",
       onClick: () => navigate('/admin/revenue-details'),

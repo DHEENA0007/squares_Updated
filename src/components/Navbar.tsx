@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import newBadge from "@/assets/new-badge.gif";
 import logoLight from "@/assets/logo-light.png";
 import logoDark from "@/assets/logo-dark.png";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,8 +26,15 @@ const Navbar = () => {
   const [rentExpanded, setRentExpanded] = useState(false);
   const [commercialExpanded, setCommercialExpanded] = useState(false);
   const { theme } = useTheme();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, checkAuth } = useAuth();
   const navigate = useNavigate();
+
+  // Re-check authentication when component mounts to ensure auth state is fresh
+  useEffect(() => {
+    if (!user && localStorage.getItem('token')) {
+      checkAuth();
+    }
+  }, []);
 
   // Property categories for dropdown - mapped to database values
   const residentialProperties = [
@@ -58,8 +65,50 @@ const Navbar = () => {
     { label: "Farm House", value: "house" },
   ];
 
-  const handlePostPropertyClick = () => {
-    if (isAuthenticated && user?.role === 'customer') {
+  const handlePostPropertyClick = async () => {
+    console.log('Post Property clicked - Auth State:', { 
+      isAuthenticated, 
+      userRole: user?.role,
+      user: user 
+    });
+
+    // Re-check authentication to ensure fresh state
+    await checkAuth();
+
+    // Get fresh user data after auth check
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    
+    if (!token || !storedUser) {
+      console.log('Not authenticated, redirecting to vendor login');
+      navigate('/vendor/login');
+      return;
+    }
+
+    let currentUser;
+    try {
+      currentUser = JSON.parse(storedUser);
+    } catch (e) {
+      console.log('Invalid user data, redirecting to vendor login');
+      navigate('/vendor/login');
+      return;
+    }
+
+    console.log('Current user role:', currentUser.role);
+
+    if (currentUser.role === 'superadmin' || currentUser.role === 'admin') {
+      console.log('Admin user, redirecting to admin properties');
+      navigate('/admin/properties');
+      return;
+    }
+
+    if (currentUser.role === 'agent') {
+      console.log('Vendor user, redirecting to vendor properties');
+      navigate('/vendor/properties');
+      return;
+    }
+
+    if (currentUser.role === 'customer') {
       toast({
         title: "Vendor Portal Required",
         description: "Contact the Squares team for vendor access to post properties",
@@ -67,7 +116,64 @@ const Navbar = () => {
       });
       return;
     }
+
+    console.log('Unknown role or not authenticated, redirecting to vendor login');
     navigate('/vendor/login');
+  };
+
+  const handleMyListedPropertiesClick = async () => {
+    // Re-check authentication to ensure fresh state
+    await checkAuth();
+
+    // Get fresh user data after auth check
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    
+    if (!token || !storedUser) {
+      console.log('Not authenticated, redirecting to vendor login');
+      navigate('/vendor/login');
+      return;
+    }
+
+    let currentUser;
+    try {
+      currentUser = JSON.parse(storedUser);
+    } catch (e) {
+      console.log('Invalid user data, redirecting to vendor login');
+      navigate('/vendor/login');
+      return;
+    }
+
+    console.log('My Listed Properties clicked - User role:', currentUser.role);
+
+    if (currentUser.role === 'superadmin' || currentUser.role === 'admin') {
+      console.log('Admin user, redirecting to admin properties');
+      navigate('/admin/properties');
+      return;
+    }
+
+    if (currentUser.role === 'agent') {
+      console.log('Vendor user, redirecting to vendor properties');
+      navigate('/vendor/properties');
+      return;
+    }
+
+    if (currentUser.role === 'customer') {
+      toast({
+        title: "Vendor Portal Required",
+        description: "Contact the Squares team for vendor access to view listed properties",
+        variant: "default",
+      });
+      return;
+    }
+
+    console.log('Unknown role or not authenticated, redirecting to vendor login');
+    navigate('/vendor/login');
+  };
+
+  const shouldShowPostPropertyButton = () => {
+    if (!isAuthenticated) return true;
+    return user?.role !== 'subadmin';
   };
 
   const handlePropertyTypeClick = (listingType: string, propertyType?: string) => {
@@ -171,7 +277,7 @@ const Navbar = () => {
                     <DropdownMenuItem onClick={handlePostPropertyClick}>
                       Post Property for Free
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/vendor/login')}>
+                    <DropdownMenuItem onClick={handleMyListedPropertiesClick}>
                       My Listed Properties
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -216,12 +322,14 @@ const Navbar = () => {
 
             {/* Right Side Actions */}
             <div className="flex items-center gap-2 xs:gap-3 sm:gap-4 mr-2 xs:mr-0">
-              <Button 
-                onClick={handlePostPropertyClick}
-                className="hidden md:block bg-primary text-primary-foreground hover:bg-primary/90 text-xs sm:text-sm whitespace-nowrap px-3 sm:px-4"
-              >
-                Post Property
-              </Button>
+              {shouldShowPostPropertyButton() && (
+                <Button 
+                  onClick={handlePostPropertyClick}
+                  className="hidden md:block bg-primary text-primary-foreground hover:bg-primary/90 text-xs sm:text-sm whitespace-nowrap px-3 sm:px-4"
+                >
+                  Post Property
+                </Button>
+              )}
               
               {isAuthenticated ? (
                 <UnifiedProfileDropdown />
@@ -363,23 +471,27 @@ const Navbar = () => {
                 >
                   Post Property for Free
                 </button>
+                {shouldShowPostPropertyButton() && (
+                  <button
+                    onClick={() => {
+                      handlePostPropertyClick();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="block py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 px-3 rounded-md text-center w-full"
+                  >
+                    Post Property
+                  </button>
+                )}
+
                 <button
                   onClick={() => {
-                    handlePostPropertyClick();
+                    handleMyListedPropertiesClick();
                     setMobileMenuOpen(false);
                   }}
-                  className="block py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 px-3 rounded-md text-center w-full"
-                >
-                  Post Property
-                </button>
-
-                <Link
-                  to="/vendor/properties"
-                  className="block py-2 text-sm hover:text-primary transition-colors"
-                  onClick={() => setMobileMenuOpen(false)}
+                  className="block w-full text-left py-2 text-sm hover:text-primary transition-colors"
                 >
                   My Listed Properties
-                </Link>
+                </button>
               </div>
 
               {/* Commercial Section */}

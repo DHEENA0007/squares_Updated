@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, Download, BarChart3, TrendingUp, Users, Building2, DollarSign, Calendar } from "lucide-react";
+import { FileText, Download, BarChart3, TrendingUp, Users, Building2, Calendar, IndianRupee } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ReportConfig {
@@ -160,7 +160,7 @@ const GenerateReports = () => {
       type: 'financial_summary',
       title: 'Financial Summary Report',
       description: 'Revenue, subscriptions, and financial metrics',
-      icon: DollarSign,
+      icon: IndianRupee,
       dataPoints: [
         'Total Revenue',
         'Subscription Revenue',

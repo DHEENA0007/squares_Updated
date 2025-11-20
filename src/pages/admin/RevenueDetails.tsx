@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, DollarSign, TrendingUp, Calendar, CheckCircle, XCircle, Clock } from "lucide-react";
+import { ArrowLeft, Download, TrendingUp, Calendar, CheckCircle, XCircle, Clock, IndianRupee } from "lucide-react";
 import { authService } from "@/services/authService";
 import { toast } from "@/hooks/use-toast";
 

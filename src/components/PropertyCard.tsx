@@ -19,7 +19,7 @@ interface PropertyCardProps {
 
 const PropertyCard = ({ property }: PropertyCardProps) => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, isVendor } = useAuth();
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showContactDialog, setShowContactDialog] = useState(false);
   const [showEnterpriseDialog, setShowEnterpriseDialog] = useState(false);
@@ -55,9 +55,15 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
   }, [property.vendor?._id, property.owner?._id]);
 
   const handleViewDetails = () => {
-    // Navigate to public property preview - allows viewing basic details
-    // If authenticated, will auto-redirect to customer property page with full features
-    navigate(`/property/${property._id}`);
+    // Check if the current user is the vendor owner of this property
+    if (isAuthenticated && isVendor && (property.owner?._id === user?.id || property.vendor?._id === user?.id)) {
+      // Navigate to vendor property details page
+      navigate(`/vendor/properties/details/${property._id}`);
+    } else {
+      // Navigate to public property preview - allows viewing basic details
+      // If authenticated, will auto-redirect to customer property page with full features
+      navigate(`/property/${property._id}`);
+    }
   };
 
   const handleMessageClick = () => {

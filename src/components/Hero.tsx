@@ -1,4 +1,4 @@
-import { Search, MapPin, Sparkles, Home, DollarSign, MapPinIcon, Bed, Bath, Maximize, Heart, Phone, Mail, Eye, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Calculator, List, Settings } from "lucide-react";
+import { Search, MapPin, Sparkles, Home, MapPinIcon, Bed, Bath, Maximize, Heart, Phone, Mail, Eye, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Calculator, List, Settings, IndianRupee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,10 +17,11 @@ import { DEFAULT_PROPERTY_IMAGE } from "@/utils/imageUtils";
 import { useDebounce } from "../hooks/use-debounce";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { locaService } from "@/services/locaService";
 
 const Hero = () => {
     const navigate = useNavigate();
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, user, checkAuth } = useAuth();
     const searchContainerRef = useRef<HTMLDivElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
     const lastSearchRef = useRef<string>("");
@@ -38,10 +39,53 @@ const Hero = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [priceRange, setPriceRange] = useState<{ min?: number; max?: number }>({});
     const [bedrooms, setBedrooms] = useState<number | undefined>();
-    const [propertyType, setPropertyType] = useState<string | undefined>();
+    // Keep select values as strings to avoid controlled/uncontrolled warnings
+    const [propertyType, setPropertyType] = useState<string>("");
+    
+    // Location filters using locaService
+    const [selectedState, setSelectedState] = useState<string>("");
+    const [selectedDistrict, setSelectedDistrict] = useState<string>("");
+    const [selectedCity, setSelectedCity] = useState<string>("");
+    const [states, setStates] = useState<string[]>([]);
+    const [districts, setDistricts] = useState<string[]>([]);
+    const [cities, setCities] = useState<string[]>([]);
     
     // Increased debounce delay to reduce API calls and prevent rate limiting
     const debouncedSearchQuery = useDebounce(searchQuery, 800);
+
+    // Handle post property navigation based on role
+    const handlePostProperty = async () => {
+      // Re-check authentication to ensure fresh state
+      await checkAuth();
+      
+      const token = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+      
+      if (!token || !storedUser) {
+        navigate('/vendor/login');
+        return;
+      }
+
+      let currentUser;
+      try {
+        currentUser = JSON.parse(storedUser);
+      } catch (e) {
+        navigate('/vendor/login');
+        return;
+      }
+
+      if (currentUser.role === 'superadmin' || currentUser.role === 'admin') {
+        navigate('/admin/properties');
+        return;
+      }
+
+      if (currentUser.role === 'agent') {
+        navigate('/vendor/properties');
+        return;
+      }
+
+      navigate('/vendor/login');
+    };
 
     // Selling options configuration
     const sellingOptions = [
@@ -50,10 +94,7 @@ const Hero = () => {
         label: "Post Property",
         description: "List your property for sale or rent",
         icon: Plus,
-        action: () => {
-          // Check if user is authenticated as vendor, otherwise redirect to vendor login
-          navigate("/vendor/add-property");
-        }
+        action: handlePostProperty
       },
       {
         id: "property-valuation", 
@@ -61,7 +102,6 @@ const Hero = () => {
         description: "Get your property valued by experts",
         icon: Calculator,
         action: () => {
-          // For now, redirect to vendor properties or contact page
           navigate("/contact?service=valuation");
         }
       },
@@ -70,17 +110,39 @@ const Hero = () => {
         label: "Quick Listing", 
         description: "Fast-track your property listing",
         icon: List,
-        action: () => {
-          navigate("/vendor/add-property?mode=quick");
-        }
+        action: handlePostProperty
       },
       {
         id: "manage-properties",
         label: "Manage Properties",
         description: "View and manage your listings",
         icon: Settings,
-        action: () => {
-          navigate("/vendor/properties");
+        action: async () => {
+          await checkAuth();
+          
+          const token = localStorage.getItem('token');
+          const storedUser = localStorage.getItem('user');
+          
+          if (!token || !storedUser) {
+            navigate('/vendor/login');
+            return;
+          }
+          
+          let currentUser;
+          try {
+            currentUser = JSON.parse(storedUser);
+          } catch (e) {
+            navigate('/vendor/login');
+            return;
+          }
+          
+          if (currentUser.role === 'agent') {
+            navigate('/vendor/properties');
+          } else if (currentUser.role === 'superadmin' || currentUser.role === 'admin') {
+            navigate('/admin/properties');
+          } else {
+            navigate('/vendor/login');
+          }
         }
       }
     ];
@@ -129,6 +191,40 @@ const Hero = () => {
       }
     }, []);
 
+    // Initialize states on mount
+    useEffect(() => {
+      const loadedStates = locaService.getStates();
+      setStates(loadedStates);
+    }, []);
+
+    // Load districts when state changes
+    useEffect(() => {
+      if (selectedState) {
+        const loadedDistricts = locaService.getDistricts(selectedState);
+        setDistricts(loadedDistricts);
+        // reset dependent selects to empty string (controlled)
+        setSelectedDistrict("");
+        setSelectedCity("");
+        setCities([]);
+      } else {
+        setDistricts([]);
+        setSelectedDistrict("");
+        setCities([]);
+      }
+    }, [selectedState]);
+
+    // Load cities when district changes
+    useEffect(() => {
+      if (selectedState && selectedDistrict) {
+        const loadedCities = locaService.getCities(selectedState, selectedDistrict);
+        setCities(loadedCities);
+        setSelectedCity("");
+      } else {
+        setCities([]);
+        setSelectedCity("");
+      }
+    }, [selectedState, selectedDistrict]);
+
     // Save search to recent searches
     const saveToRecentSearches = useCallback((query: string) => {
       if (!query.trim()) return;
@@ -138,45 +234,65 @@ const Hero = () => {
       localStorage.setItem('recentSearches', JSON.stringify(updated));
     }, [recentSearches]);
 
-    // Generate search suggestions
+    // Generate search suggestions using locaService
     const generateSuggestions = useCallback(async (query: string) => {
       if (!query.trim() || query.length < 2) {
         setSuggestions([]);
         return;
       }
 
-      // Simple suggestion logic - can be enhanced with API call
-      const locationSuggestions = [
-        "Mumbai, Maharashtra",
-        "Delhi, Delhi",
-        "Bangalore, Karnataka",
-        "Hyderabad, Telangana",
-        "Chennai, Tamil Nadu",
-        "Pune, Maharashtra",
-        "Kolkata, West Bengal",
-        "Gurgaon, Haryana",
-        "Noida, Uttar Pradesh",
-        "Ahmedabad, Gujarat"
-      ].filter(location => 
-        location.toLowerCase().includes(query.toLowerCase())
-      );
+      try {
+        // Search for matching locations from loca.json
+        const locationResults = locaService.searchLocations(query);
+        
+        // Format suggestions as "City, District, State"
+        const formattedSuggestions = locationResults
+          .slice(0, 8)
+          .map(result => {
+            const parts = [];
+            if (result.city && result.city !== result.district) {
+              parts.push(result.city);
+            }
+            if (result.district) {
+              parts.push(result.district);
+            }
+            if (result.state) {
+              parts.push(result.state);
+            }
+            return parts.join(', ');
+          })
+          .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
 
-      setSuggestions(locationSuggestions.slice(0, 5));
+        setSuggestions(formattedSuggestions);
+      } catch (error) {
+        console.error('Error generating suggestions:', error);
+        setSuggestions([]);
+      }
     }, []);
 
     // Search properties function with rate limiting and request cancellation
     const searchProperties = useCallback(async (query: string, additionalFilters: Partial<PropertyFilters> = {}) => {
-      if (!query.trim() || query.length < 2) {
+      // Allow search with either query or location filters
+      const hasLocationFilter = selectedState || selectedDistrict || selectedCity;
+      
+      if (!query.trim() && !hasLocationFilter) {
         setProperties([]);
         setShowResults(false);
         setError(null);
         return;
       }
 
+      // Build location search query
+      let locationQuery = query;
+      if (hasLocationFilter) {
+        const locationParts = [selectedCity, selectedDistrict, selectedState].filter(Boolean);
+        locationQuery = locationParts.join(', ') || query;
+      }
+
       // Rate limiting: prevent searches within 1 second of each other
       const now = Date.now();
       const timeSinceLastSearch = now - lastSearchTimeRef.current;
-      if (timeSinceLastSearch < 1000 && lastSearchRef.current === query) {
+      if (timeSinceLastSearch < 1000 && lastSearchRef.current === locationQuery) {
         return;
 }
 
@@ -189,7 +305,7 @@ const Hero = () => {
       abortControllerRef.current = new AbortController();
       
       // Update tracking refs
-      lastSearchRef.current = query;
+      lastSearchRef.current = locationQuery;
       lastSearchTimeRef.current = now;
 
       setIsLoading(true);
@@ -198,7 +314,7 @@ const Hero = () => {
       
       try {
         const filters: PropertyFilters = {
-          search: query,
+          search: locationQuery,
           listingType: listingTypeMap[activeTab] as 'sale' | 'rent' | 'lease',
           limit: 9, // Show more results
           page: 1,
@@ -232,7 +348,9 @@ const Hero = () => {
         if (response.success) {
           setProperties(response.data.properties);
           setShowResults(true);
-          saveToRecentSearches(query);
+          if (query.trim()) {
+            saveToRecentSearches(query);
+          }
         }
       } catch (error) {
         // Don't show error if request was aborted
@@ -263,7 +381,7 @@ const Hero = () => {
         setIsLoading(false);
         abortControllerRef.current = null;
       }
-    }, [activeTab, propertyType, bedrooms, priceRange, saveToRecentSearches]);
+    }, [activeTab, propertyType, bedrooms, priceRange, selectedState, selectedDistrict, selectedCity, saveToRecentSearches]);
 
     // Effect to search when debounced query changes
     useEffect(() => {
@@ -470,75 +588,128 @@ const Hero = () => {
                 </DropdownMenu>
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                <div className="flex-1 relative group">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
-                  <Input 
-                    placeholder="Search by locality, project, or landmark" 
-                    className="pl-9 sm:pl-10 h-10 sm:h-12 text-sm sm:text-base border-2 hover:border-primary/50 focus:border-primary transition-all duration-300"
-                    value={searchQuery}
-                    onChange={handleSearchChange}
-                  />
-                  {isLoading && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  )}
-                  
-                  {/* Search Suggestions Dropdown */}
-                  {showSuggestions && (suggestions.length > 0 || recentSearches.length > 0) && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-card border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
-                      {suggestions.length > 0 && (
-                        <div className="p-2">
-                          <div className="text-xs text-gray-500 dark:text-gray-400 font-medium px-2 py-1">
-                            Suggestions
-                          </div>
-                          {suggestions.map((suggestion, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center gap-2 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer rounded"
-                              onClick={() => {
-                                setSearchQuery(suggestion);
-                                setShowSuggestions(false);
-                                searchProperties(suggestion);
-                              }}
-                            >
-                              <MapPin className="h-3 w-3 text-gray-400" />
-                              <span className="text-sm">{suggestion}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {recentSearches.length > 0 && (
-                        <div className="p-2 border-t border-gray-200 dark:border-gray-700">
-                          <div className="text-xs text-gray-500 dark:text-gray-400 font-medium px-2 py-1 flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            Recent Searches
-                          </div>
-                          {recentSearches.map((search, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center gap-2 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer rounded"
-                              onClick={() => {
-                                setSearchQuery(search);
-                                setShowSuggestions(false);
-                                searchProperties(search);
-                              }}
-                            >
-                              <Clock className="h-3 w-3 text-gray-400" />
-                              <span className="text-sm">{search}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
+              
+              <div className="flex flex-col gap-3">
+                {/* Location Dropdowns Row */}
+                <div className="grid grid-cols-3 gap-2">
+                  <Select value={selectedState} onValueChange={(value) => setSelectedState(value)}>
+                    <SelectTrigger className="h-10 sm:h-12 text-xs sm:text-sm">
+                      <SelectValue placeholder="All States" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {states.map((state) => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={selectedDistrict}
+                    onValueChange={(value) => setSelectedDistrict(value)}
+                    disabled={!selectedState}
+                  >
+                    <SelectTrigger className="h-10 sm:h-12 text-xs sm:text-sm">
+                      <SelectValue placeholder="All Districts" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {districts.map((district) => (
+                        <SelectItem key={district} value={district}>
+                          {district}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={selectedCity}
+                    onValueChange={(value) => setSelectedCity(value)}
+                    disabled={!selectedDistrict}
+                  >
+                    <SelectTrigger className="h-10 sm:h-12 text-xs sm:text-sm">
+                      <SelectValue placeholder="All Cities" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cities.map((city) => (
+                        <SelectItem key={city} value={city}>
+                          {city}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                
-                {/* Quick Filters */}
-                <Popover open={showFilters} onOpenChange={setShowFilters}>
-                  <PopoverTrigger asChild>
+
+                {/* Search Input and Buttons Row */}
+                <div className="flex gap-2 sm:gap-3">
+                  <div className="flex-1 relative group">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
+                    <Input 
+                      placeholder="Search by locality, project, or landmark" 
+                      className="pl-9 sm:pl-10 h-10 sm:h-12 text-sm sm:text-base border-2 hover:border-primary/50 focus:border-primary transition-all duration-300"
+                      value={searchQuery}
+                      onChange={handleSearchChange}
+                    />
+                    {isLoading && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                    
+                    {/* Search Suggestions Dropdown */}
+                    {showSuggestions && (suggestions.length > 0 || recentSearches.length > 0) && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-card border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                        {suggestions.length > 0 && (
+                          <div className="p-2">
+                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium px-2 py-1">
+                              Suggestions
+                            </div>
+                            {suggestions.map((suggestion, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-2 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer rounded"
+                                onClick={() => {
+                                  setSearchQuery(suggestion);
+                                  setShowSuggestions(false);
+                                  searchProperties(suggestion);
+                                }}
+                              >
+                                <MapPin className="h-3 w-3 text-gray-400" />
+                                <span className="text-sm">{suggestion}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {recentSearches.length > 0 && (
+                          <div className="p-2 border-t border-gray-200 dark:border-gray-700">
+                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium px-2 py-1 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Recent Searches
+                            </div>
+                            {recentSearches.map((search, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-2 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer rounded"
+                                onClick={() => {
+                                  setSearchQuery(search);
+                                  setShowSuggestions(false);
+                                  searchProperties(search);
+                                }}
+                              >
+                                <Clock className="h-3 w-3 text-gray-400" />
+                                <span className="text-sm">{search}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Quick Filters */}
+                  <Popover open={showFilters} onOpenChange={setShowFilters}>
+                    <PopoverTrigger asChild>
                     <Button 
                       variant="outline" 
                       size="lg"
@@ -559,7 +730,10 @@ const Hero = () => {
                           onClick={() => {
                             setPriceRange({});
                             setBedrooms(undefined);
-                            setPropertyType(undefined);
+                            setPropertyType("");
+                            setSelectedState("");
+                            setSelectedDistrict("");
+                            setSelectedCity("");
                           }}
                         >
                           Clear All
@@ -569,7 +743,7 @@ const Hero = () => {
                       {activeTab !== 'commercial' && (
                         <div>
                           <label className="text-sm font-medium mb-2 block">Property Type</label>
-                          <Select value={propertyType} onValueChange={setPropertyType}>
+                          <Select value={propertyType} onValueChange={(v) => setPropertyType(v)}>
                             <SelectTrigger>
                               <SelectValue placeholder="Select type" />
                             </SelectTrigger>
@@ -586,7 +760,8 @@ const Hero = () => {
                       
                       <div>
                         <label className="text-sm font-medium mb-2 block">Bedrooms</label>
-                        <Select value={bedrooms?.toString()} onValueChange={(value) => setBedrooms(value ? parseInt(value) : undefined)}>
+                        {/* Ensure bedrooms Select is always controlled by using empty string when undefined */}
+                        <Select value={bedrooms?.toString() ?? ""} onValueChange={(value) => setBedrooms(value ? parseInt(value) : undefined)}>
                           <SelectTrigger>
                             <SelectValue placeholder="Any" />
                           </SelectTrigger>
@@ -637,12 +812,13 @@ const Hero = () => {
                   size="lg" 
                   className="h-10 sm:h-12 px-4 sm:px-8 text-xs sm:text-sm shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95"
                   onClick={handleSearchClick}
-                  disabled={!searchQuery.trim() || isLoading}
+                  disabled={isLoading}
                 >
                   <Search className="mr-1 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                   <span className="hidden xs:inline">Search Properties</span>
                   <span className="xs:hidden">Search</span>
                 </Button>
+                </div>
               </div>
               
               <div className="mt-3 sm:mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs text-muted-foreground">

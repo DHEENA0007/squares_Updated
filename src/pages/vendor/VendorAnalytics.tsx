@@ -31,7 +31,6 @@ import {
   Users,
   Phone,
   MessageSquare,
-  DollarSign,
   Calendar,
   Download,
   Filter,
@@ -630,8 +629,8 @@ const VendorAnalytics = () => {
           value: "₹0",
           change: "0%",
           changeType: "neutral" as "neutral" | "increase" | "decrease",
-          icon: DollarSign,
-          description: "All properties"
+          icon: Star,
+          description: "Customer reviews"
         },
         {
           title: "Avg. Rating",
@@ -699,7 +698,7 @@ const VendorAnalytics = () => {
       value: `₹${analyticsService.formatNumber(stats.totalRevenue)}`,
       change: revenueChange.change,
       changeType: revenueChange.changeType,
-      icon: DollarSign,
+      icon: Star,
       description: "All property revenue"
     },
     {
@@ -707,7 +706,7 @@ const VendorAnalytics = () => {
       value: `₹${analyticsService.formatNumber(stats.soldPropertyRevenue)}`,
       change: revenueChange.change,
       changeType: revenueChange.changeType,
-      icon: DollarSign,
+      icon: Star,
       description: "Revenue from sold properties"
     },
     {
@@ -715,7 +714,7 @@ const VendorAnalytics = () => {
       value: `₹${analyticsService.formatNumber(stats.leasedPropertyRevenue)}`,
       change: revenueChange.change,
       changeType: revenueChange.changeType,
-      icon: DollarSign,
+      icon: Star,
       description: "Revenue from leased properties"
     },
     {
@@ -723,7 +722,7 @@ const VendorAnalytics = () => {
       value: `₹${analyticsService.formatNumber(stats.rentedPropertyRevenue)}`,
       change: revenueChange.change,
       changeType: revenueChange.changeType,
-      icon: DollarSign,
+      icon: Star,
       description: "Revenue from rented properties"
     },
     {
@@ -815,7 +814,7 @@ const VendorAnalytics = () => {
             <SelectContent>
               <SelectItem value="7days">Last 7 days</SelectItem>
               <SelectItem value="30days">Last 30 days</SelectItem>
-              <SelectItem value="90days">Last 90 days</SelectItem>
+              <SelectItem value="90days">Last 90 Days</SelectItem>
               <SelectItem value="1year">Last year</SelectItem>
             </SelectContent>
           </Select>
@@ -1286,182 +1285,93 @@ const VendorAnalytics = () => {
                     dataKey="views"
                     fill="url(#colorViews)"
                     stroke="#3b82f6"
-                    strokeWidth={3}
-                    name="Property Views"
+                    strokeWidth={2}
+                    name="Views"
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              
-              {/* Property Performance Summary Cards */}
-              <div className={`grid gap-4 pt-4 border-t ${isMobile ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <div className="text-xs text-blue-600 font-medium mb-1">Total Views</div>
-                  <div className="text-2xl font-bold text-blue-700">
-                    {propertyPerformance.reduce((acc, p) => acc + (p.views || 0), 0).toLocaleString()}
-                  </div>
-                </div>
-                <div className="text-center p-3 bg-purple-50 rounded-lg">
-                  <div className="text-xs text-purple-600 font-medium mb-1">Total Favorites</div>
-                  <div className="text-2xl font-bold text-purple-700">
-                    {propertyPerformance.reduce((acc, p) => acc + (p.favorites || 0), 0).toLocaleString()}
-                  </div>
-                </div>
-                <div className="text-center p-3 bg-purple-50 rounded-lg">
-                  <div className="text-xs text-purple-600 font-medium mb-1">Active Properties</div>
-                  <div className="text-2xl font-bold text-purple-700">
-                    {propertyPerformance.length}
-                  </div>
-                </div>
-                <div className="text-center p-3 bg-amber-50 rounded-lg">
-                  <div className="text-xs text-amber-600 font-medium mb-1">Avg Views/Property</div>
-                  <div className="text-2xl font-bold text-amber-700">
-                    {propertyPerformance.length > 0
-                      ? Math.round(propertyPerformance.reduce((acc, p) => acc + (p.views || 0), 0) / propertyPerformance.length)
-                      : '0'
-                    }
-                  </div>
-                </div>
+
+              {/* Top Properties Table */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Property Title
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Views
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Favorites
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Conv. Rate
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Revenue
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Rank
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {[...propertyPerformance].sort((a, b) => (b.revenue || 0) - (a.revenue || 0)).map((property, index) => (
+                      <tr key={property.propertyId}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {property.title || 'Untitled Property'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`text-xs font-semibold inline-block py-1 px-2 rounded-full ${property.revenue && property.revenue > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {property.revenue && property.revenue > 0 ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {analyticsService.formatNumber(property.views || 0)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {analyticsService.formatNumber(property.favorites || 0)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {property.conversionRate ? `${property.conversionRate.toFixed(1)}%` : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {`₹${analyticsService.formatNumber(property.revenue || 0)}`}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                              #{index + 1}
+                            </Badge>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-[400px] text-center">
-              <Clock className="w-16 h-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Coming Soon</h3>
-              <p className="text-muted-foreground max-w-md">
-                Property performance analytics will be available once your properties receive sufficient views and interactions.
+              <Home className="w-16 h-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Performance Data Found</h3>
+              <p className="text-muted-foreground max-w-md mb-4">
+                Performance data will be available once your properties start receiving views and interactions.
               </p>
+              <Button 
+                onClick={() => navigate('/vendor/properties/add')} 
+                className="mt-2"
+              >
+                Add Your First Property
+              </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
-        {/* Weekly Engagement */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Weekly Engagement</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {engagementData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={engagementData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line 
-                    type="monotone" 
-                    dataKey="favorites" 
-                    stroke="#8884d8" 
-                    strokeWidth={2}
-                    name="Favorites"
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="shares" 
-                    stroke="#82ca9d" 
-                    strokeWidth={2}
-                    name="Shares"
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="inquiries" 
-                    stroke="#ffc658" 
-                    strokeWidth={2}
-                    name="Inquiries"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-[300px] text-center">
-                <Clock className="w-16 h-16 text-gray-300 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-600 mb-2">Coming Soon</h3>
-                <p className="text-sm text-gray-500">Weekly engagement data will be displayed once sufficient activity is recorded</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Top Performing Properties */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Performing Properties</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {topProperties.length > 0 ? (
-              <div className="space-y-4">
-                {topProperties.map((property, index) => (
-                  <div key={property.propertyId || index} className="flex items-center space-x-4">
-                    <div className="flex-shrink-0">
-                      <div className="w-16 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                        <Home className="w-6 h-6 text-gray-400" />
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium truncate">{property.title || 'Untitled Property'}</h4>
-                      <div className="flex items-center space-x-4 mt-1">
-                        <span className="flex items-center text-xs text-muted-foreground">
-                          <Eye className="w-3 h-3 mr-1" />
-                          {property.views || 0}
-                        </span>
-                        <span className="flex items-center text-xs text-muted-foreground">
-                          <Users className="w-3 h-3 mr-1" />
-                          {property.leads || 0}
-                        </span>
-                        <span className="flex items-center text-xs text-muted-foreground">
-                          <TrendingUp className="w-3 h-3 mr-1" />
-                          {property.conversionRate || 0}%
-                        </span>
-                      </div>
-                    </div>
-                    <Badge 
-                      variant="default"
-                      className="flex-shrink-0"
-                    >
-                      {analyticsService.formatCurrency(property.revenue || 0)}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-48 text-center">
-                <Home className="w-16 h-16 text-gray-300 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-600 mb-2">No Data Available</h3>
-                <p className="text-sm text-gray-500">
-                  Top performing properties will appear here once you have property data and analytics
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Insights & Recommendations */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Insights & Recommendations</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h4 className="font-semibold text-blue-900 mb-2">Performance Analytics</h4>
-              <p className="text-sm text-blue-700">
-                Detailed analytics insights will be available once sufficient data is collected from your property listings.
-              </p>
-            </div>
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <h4 className="font-semibold text-green-900 mb-2">Content Optimization</h4>
-              <p className="text-sm text-green-700">
-                Recommendations for improving your property listings will appear here based on performance data.
-              </p>
-            </div>
-            <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-              <h4 className="font-semibold text-amber-900 mb-2">Market Insights</h4>
-              <p className="text-sm text-amber-700">
-                Market trends and pricing strategy insights will be generated from your property performance data.
-              </p>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>

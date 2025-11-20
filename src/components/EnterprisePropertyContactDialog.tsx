@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Building2, MapPin, DollarSign } from "lucide-react";
+import { MessageSquare, Building2, MapPin, IndianRupee } from "lucide-react";
 import { Property } from "@/services/propertyService";
 
 interface EnterprisePropertyContactDialogProps {
@@ -52,7 +52,7 @@ const EnterprisePropertyContactDialog: React.FC<EnterprisePropertyContactDialogP
               {property.address.city}, {property.address.state}
             </div>
             <div className="flex items-center text-sm text-gray-600">
-              <DollarSign className="w-4 h-4 mr-1" />
+              <IndianRupee className="w-4 h-4 mr-1" />
               ₹{property.price.toLocaleString('en-IN')}
               {property.listingType === 'rent' && '/month'}
               {property.listingType === 'lease' && '/year'}

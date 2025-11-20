@@ -9,7 +9,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Home, 
   MapPin, 
-  IndianRupee, 
   Upload,
   Camera,
   Plus,
@@ -20,7 +19,8 @@ import {
   Eye,
   Loader2,
   Search,
-  Shield
+  Shield,
+  IndianRupee
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, Link } from "react-router-dom";
