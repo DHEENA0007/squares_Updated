@@ -330,7 +330,7 @@ const VendorSubscriptionPlans: React.FC = () => {
         </h1>
         <p className="text-muted-foreground text-lg mb-8">
           {currentSubscription 
-            ? `You currently have the ${currentSubscription.planName}. Select a higher plan to upgrade.`
+            ? `You currently have the ${currentSubscription.planName} (₹${currentSubscription.amount?.toLocaleString() || 0}/month). Select a higher-priced plan to upgrade.`
             : 'Select the plan that best fits your business needs'
           }
         </p>
@@ -339,21 +339,36 @@ const VendorSubscriptionPlans: React.FC = () => {
           <Badge variant="outline" className="px-4 py-2 text-sm">
             Monthly Billing - No Long-term Commitments
           </Badge>
+          {currentSubscription && (
+            <div className="mt-2">
+              <Badge variant="secondary" className="px-3 py-1 text-xs">
+                {plans.filter(plan => {
+                  if (plan.id === 'free') return false;
+                  const currentPlanPrice = currentSubscription.amount || 0;
+                  return plan.price > currentPlanPrice;
+                }).length} Upgrade Options Available
+              </Badge>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-8">
         {plans
           .filter(plan => {
-            // Hide free plan from display
+            // Hide free plan from display in subscription page
             if (plan.id === 'free') {
               return false;
             }
-            // Hide current plan if upgrading
+            
+            // If user has existing subscription, only show plans with higher price
+            // This ensures users can only upgrade to better plans, not downgrade
             if (currentSubscription) {
-              const currentPlanName = currentSubscription.planName?.toLowerCase();
-              return !currentPlanName?.includes(plan.name.toLowerCase());
+              const currentPlanPrice = currentSubscription.amount || 0;
+              return plan.price > currentPlanPrice;
             }
+            
+            // For new subscribers, show all paid plans
             return true;
           })
           .map((plan) => {
@@ -418,13 +433,18 @@ const VendorSubscriptionPlans: React.FC = () => {
           if (plan.id === 'free') {
             return false;
           }
-          const currentPlanName = currentSubscription.planName?.toLowerCase();
-          return !currentPlanName?.includes(plan.name.toLowerCase());
+          
+          // If upgrading, only show higher-priced plans
+          const currentPlanPrice = currentSubscription.amount || 0;
+          return plan.price > currentPlanPrice;
         }).length === 0 && (
           <div className="col-span-full text-center py-12">
             <Shield className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold mb-2">You're on the highest plan!</h3>
-            <p className="text-gray-600 mb-6">You currently have the best subscription plan available.</p>
+            <h3 className="text-2xl font-bold mb-2">You're on the best plan available!</h3>
+            <p className="text-gray-600 mb-2">
+              You currently have the {currentSubscription.planName} (₹{currentSubscription.amount?.toLocaleString() || 0}/month)
+            </p>
+            <p className="text-gray-600 mb-6">There are no higher plans available to upgrade to at this time.</p>
             <Button 
               variant="outline" 
               onClick={() => navigate('/vendor/subscription-manager')}

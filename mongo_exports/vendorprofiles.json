@@ -1,0 +1,39 @@
+[
+  {
+    "_id": "691177fecf7a293986384d77",
+    "userId": "6910ab124afd0a80b5f9e2d0",
+    "__v": 0,
+    "address": {
+      "street": "zxczxc",
+      "area": "Gandhi Nagar Bazar SO",
+      "city": "Gandhi Nagar Bazar SO",
+      "state": "DELHI",
+      "district": "SHAHDARA",
+      "zipCode": "110031"
+    },
+    "approvals": {
+      "subadmin": {
+        "status": "pending"
+      },
+      "superadmin": {
+        "status": "approved",
+        "comments": "Application approved",
+        "reviewedBy": "68f8857275b9205ce27f8ea5",
+        "reviewedAt": "2025-11-10T05:51:02.415Z"
+      }
+    },
+    "bio": "sdhasdhsadhlsadsladlsadjsaldjsldjasldjasldjasdjlsjdsad",
+    "businessType": "legal_services",
+    "companyName": "NCC",
+    "createdAt": "2025-11-10T05:28:30.194Z",
+    "experience": 3,
+    "gstNumber": "",
+    "licenseNumber": "",
+    "panNumber": "ASDFW1234A",
+    "serviceAreas": [],
+    "specializations": [],
+    "status": "pending",
+    "updatedAt": "2025-11-10T05:51:02.442Z",
+    "website": ""
+  }
+]

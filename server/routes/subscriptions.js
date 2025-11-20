@@ -3,6 +3,7 @@ const router = express.Router();
 const Subscription = require('../models/Subscription');
 const User = require('../models/User');
 const Plan = require('../models/Plan');
+const Payment = require('../models/Payment');
 const { authenticateToken } = require('../middleware/authMiddleware');
 
 // @desc    Get all subscriptions with filtering and pagination
@@ -156,7 +157,13 @@ router.get('/stats', authenticateToken, async (req, res) => {
       Subscription.countDocuments({ status: 'active' }),
       Subscription.countDocuments({ status: 'expired' }),
       Subscription.countDocuments({ status: 'cancelled' }),
-      Subscription.aggregate([
+      // Calculate revenue properly - only from paid/active subscriptions
+      Payment.aggregate([
+        {
+          $match: {
+            status: { $in: ['paid', 'completed'] }
+          }
+        },
         {
           $group: {
             _id: null,
@@ -198,6 +205,151 @@ router.get('/stats', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch subscription statistics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @desc    Get detailed revenue statistics (corrected calculation)
+// @route   GET /api/subscriptions/revenue-stats
+// @access  Private (Admin only)
+router.get('/revenue-stats', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    // Get all subscriptions with payment details
+    const subscriptions = await Subscription.find({})
+      .populate('user', 'name email')
+      .populate('plan', 'name price')
+      .populate('addons', 'name price')
+      .lean();
+
+    // Get all successful payments
+    const payments = await Payment.find({ 
+      status: { $in: ['paid', 'completed'] } 
+    }).lean();
+
+    // Create a map for quick payment lookup
+    const paymentMap = new Map();
+    payments.forEach(payment => {
+      if (payment.subscription) {
+        if (!paymentMap.has(payment.subscription.toString())) {
+          paymentMap.set(payment.subscription.toString(), []);
+        }
+        paymentMap.get(payment.subscription.toString()).push(payment);
+      }
+    });
+
+    let totalPaidRevenue = 0;
+    let activePaidRevenue = 0;
+    let cancelledPaidRevenue = 0;
+    let expiredPaidRevenue = 0;
+    let addonPaidRevenue = 0;
+
+    // Calculate revenue based on actual payments with proper handling of edge cases
+    subscriptions.forEach(subscription => {
+      const subscriptionPayments = paymentMap.get(subscription._id.toString()) || [];
+      
+      let subscriptionRevenue = 0;
+      let addonRevenue = 0;
+      
+      if (subscriptionPayments.length > 0) {
+        // Process subscription payments (excluding addons)
+        const subPayments = subscriptionPayments.filter(p => p.type !== 'addon_purchase');
+        
+        // Handle upgrades properly - avoid double counting
+        let lastPlanAmount = 0;
+        subPayments.forEach(payment => {
+          if (payment.type === 'subscription_purchase') {
+            subscriptionRevenue += payment.amount || 0;
+            lastPlanAmount = payment.amount || 0;
+          } else if (payment.type === 'renewal') {
+            subscriptionRevenue += payment.amount || 0;
+          } else if (payment.type === 'upgrade') {
+            const newPlanAmount = payment.amount || 0;
+            const upgradeDifference = newPlanAmount - lastPlanAmount;
+            if (upgradeDifference > 0) {
+              subscriptionRevenue += upgradeDifference;
+            }
+            lastPlanAmount = newPlanAmount;
+          }
+        });
+        
+        // Calculate addon revenue
+        addonRevenue = subscriptionPayments
+          .filter(p => p.type === 'addon_purchase')
+          .reduce((sum, p) => sum + (p.amount || 0), 0);
+        
+        // Handle cancellations - if cancelled within 1 day of payment, reduce revenue
+        if (subscription.status === 'cancelled' && subscription.lastPaymentDate && subscription.updatedAt) {
+          const paymentDate = new Date(subscription.lastPaymentDate);
+          const cancellationDate = new Date(subscription.updatedAt);
+          const daysDiff = (cancellationDate.getTime() - paymentDate.getTime()) / (1000 * 3600 * 24);
+          
+          if (daysDiff <= 1) {
+            subscriptionRevenue *= 0.5; // Reduce revenue for quick cancellations
+            addonRevenue *= 0.5;
+          }
+        }
+        
+      } else if (subscription.lastPaymentDate && subscription.paymentDetails && subscription.paymentDetails.razorpayPaymentId) {
+        // Subscription was paid but no payment history record
+        // Only count if not cancelled immediately
+        if (subscription.status === 'cancelled' && subscription.updatedAt) {
+          const paymentDate = new Date(subscription.lastPaymentDate);
+          const cancellationDate = new Date(subscription.updatedAt);
+          const daysDiff = (cancellationDate.getTime() - paymentDate.getTime()) / (1000 * 3600 * 24);
+          
+          if (daysDiff > 1) {
+            subscriptionRevenue = subscription.amount || 0;
+          }
+        } else if (subscription.status === 'active') {
+          subscriptionRevenue = subscription.amount || 0;
+        }
+      }
+
+      totalPaidRevenue += subscriptionRevenue;
+      addonPaidRevenue += addonRevenue;
+
+      // Categorize by subscription status
+      if (subscription.status === 'active') {
+        activePaidRevenue += subscriptionRevenue;
+      } else if (subscription.status === 'cancelled') {
+        cancelledPaidRevenue += subscriptionRevenue;
+      } else if (subscription.status === 'expired') {
+        expiredPaidRevenue += subscriptionRevenue;
+      }
+    });
+
+    // Calculate monthly revenue from payments created this month
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const monthlyPaidRevenue = payments
+      .filter(p => p.createdAt >= startOfMonth)
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    res.json({
+      success: true,
+      data: {
+        totalPaidRevenue,
+        monthlyPaidRevenue,
+        activePaidRevenue,
+        cancelledPaidRevenue,
+        expiredPaidRevenue,
+        addonPaidRevenue,
+        grandTotalRevenue: totalPaidRevenue + addonPaidRevenue,
+        paymentBasedCalculation: true
+      }
+    });
+  } catch (error) {
+    console.error('Get revenue stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch revenue statistics',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -536,6 +688,102 @@ router.patch('/:id/renew', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to renew subscription',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @desc    Upgrade subscription to a higher plan
+// @route   PATCH /api/subscriptions/:id/upgrade
+// @access  Private
+router.patch('/:id/upgrade', authenticateToken, async (req, res) => {
+  try {
+    const { newPlanId } = req.body;
+    
+    if (!newPlanId) {
+      return res.status(400).json({
+        success: false,
+        message: 'New plan ID is required'
+      });
+    }
+
+    const subscription = await Subscription.findById(req.params.id)
+      .populate('plan');
+
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        message: 'Subscription not found'
+      });
+    }
+
+    // Check if user can upgrade this subscription
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin' && 
+        subscription.user.toString() !== req.user.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    // Get the new plan
+    const newPlan = await Plan.findById(newPlanId);
+    if (!newPlan || !newPlan.isActive) {
+      return res.status(404).json({
+        success: false,
+        message: 'New plan not found or not active'
+      });
+    }
+
+    // Validate upgrade - new plan should cost more than current plan
+    if (newPlan.price <= subscription.plan.price) {
+      return res.status(400).json({
+        success: false,
+        message: 'Can only upgrade to a higher-priced plan'
+      });
+    }
+
+    // Update subscription plan and amount
+    subscription.plan = newPlanId;
+    subscription.amount = newPlan.price;
+    subscription.updatedAt = new Date();
+    
+    // Add upgrade to payment history
+    if (!subscription.paymentHistory) {
+      subscription.paymentHistory = [];
+    }
+    subscription.paymentHistory.push({
+      type: 'upgrade',
+      amount: newPlan.price,
+      date: new Date(),
+      paymentMethod: 'upgrade'
+    });
+
+    await subscription.save();
+
+    // Update plan subscriber counts
+    await Plan.findByIdAndUpdate(subscription.plan, {
+      $inc: { subscriberCount: -1 }
+    });
+    await Plan.findByIdAndUpdate(newPlanId, {
+      $inc: { subscriberCount: 1 }
+    });
+
+    await subscription.populate([
+      { path: 'user', select: 'name email phone' },
+      { path: 'plan', select: 'name description price billingPeriod' }
+    ]);
+
+    res.json({
+      success: true,
+      data: { subscription },
+      message: 'Subscription upgraded successfully'
+    });
+  } catch (error) {
+    console.error('Upgrade subscription error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upgrade subscription',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

@@ -319,6 +319,38 @@ class PlanService {
       throw error;
     }
   }
+
+  // Get available upgrade plans for current subscription
+  async getUpgradePlans(currentPlanPrice: number): Promise<PlanResponse> {
+    try {
+      const allPlansResponse = await this.getPlans({ isActive: true });
+      
+      // Filter plans that cost more than current plan
+      if (allPlansResponse.success) {
+        const upgradePlans = allPlansResponse.data.plans.filter(plan => 
+          plan.price > currentPlanPrice && plan.isActive
+        );
+        
+        return {
+          ...allPlansResponse,
+          data: {
+            ...allPlansResponse.data,
+            plans: upgradePlans
+          }
+        };
+      }
+      
+      return allPlansResponse;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch upgrade plans";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
 }
 
 export const planService = new PlanService();

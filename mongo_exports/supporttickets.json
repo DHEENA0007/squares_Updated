@@ -1,0 +1,107 @@
+[
+  {
+    "_id": "690cea8b28e8243ad5efdae8",
+    "subject": "jhg",
+    "description": "hbjh",
+    "priority": "medium",
+    "status": "resolved",
+    "category": "general",
+    "user": "68f76792ae8ba267e353c0e9",
+    "assignedTo": "6909834d404a2c48e422ea56",
+    "responses": [
+      {
+        "message": "hbjh",
+        "author": "hj",
+        "isAdmin": false,
+        "createdAt": "2025-11-06T18:35:55.194Z",
+        "_id": "690cea8b28e8243ad5efdae9"
+      },
+      {
+        "message": "okay we see",
+        "author": "Sub Admin",
+        "isAdmin": true,
+        "_id": "690cf080f08c5c3a213cb271",
+        "createdAt": "2025-11-06T19:01:20.141Z"
+      }
+    ],
+    "tags": [],
+    "resolution": null,
+    "resolvedAt": null,
+    "resolvedBy": null,
+    "attachments": [],
+    "createdAt": "2025-11-06T18:35:55.235Z",
+    "updatedAt": "2025-11-19T11:46:37.329Z",
+    "ticketNumber": "TKT-000001",
+    "__v": 1
+  },
+  {
+    "_id": "691d5d2b5432b546e6f50730",
+    "subject": "Inquiry about Z1",
+    "description": "Technical issue detected. The link may not open correctly",
+    "priority": "high",
+    "status": "in-progress",
+    "category": "technical",
+    "user": "68f76792ae8ba267e353c0e9",
+    "assignedTo": "6909834d404a2c48e422ea56",
+    "responses": [
+      {
+        "message": "Technical issue detected. The link may not open correctly",
+        "author": "Ruby T",
+        "isAdmin": false,
+        "createdAt": "2025-11-19T06:01:15.471Z",
+        "_id": "691d5d2b5432b546e6f50731"
+      }
+    ],
+    "tags": [],
+    "resolution": null,
+    "resolvedAt": null,
+    "resolvedBy": null,
+    "attachments": [],
+    "createdAt": "2025-11-19T06:01:15.474Z",
+    "updatedAt": "2025-11-19T11:46:23.948Z",
+    "ticketNumber": "TKT-000002",
+    "__v": 0
+  },
+  {
+    "_id": "691da9def7579fd2e468936c",
+    "subject": "how to post property",
+    "description": "help me to upload property ",
+    "priority": "high",
+    "status": "resolved",
+    "category": "account",
+    "user": "68f8857275b9205ce27f8ea5",
+    "assignedTo": "6909834d404a2c48e422ea56",
+    "responses": [
+      {
+        "message": "help me to upload property ",
+        "author": "Vignesh V",
+        "isAdmin": false,
+        "createdAt": "2025-11-19T11:28:30.201Z",
+        "_id": "691da9def7579fd2e468936d"
+      },
+      {
+        "message": "I will check",
+        "author": "Sub Admin",
+        "isAdmin": true,
+        "_id": "691dad48f7579fd2e4689480",
+        "createdAt": "2025-11-19T11:43:04.481Z"
+      },
+      {
+        "message": "ok",
+        "author": "Super Admin",
+        "isAdmin": true,
+        "createdAt": "2025-11-19T11:44:29.603Z",
+        "_id": "691dad9df7579fd2e468958a"
+      }
+    ],
+    "tags": [],
+    "resolution": null,
+    "resolvedAt": null,
+    "resolvedBy": null,
+    "attachments": [],
+    "createdAt": "2025-11-19T11:28:30.206Z",
+    "updatedAt": "2025-11-19T11:46:43.015Z",
+    "ticketNumber": "TKT-000003",
+    "__v": 2
+  }
+]

@@ -228,6 +228,29 @@ class BillingService {
     }
   }
 
+  // Check if upgrades are available for current subscription
+  async getUpgradeOptions(): Promise<SubscriptionPlan[]> {
+    try {
+      const currentSubscription = await this.getCurrentSubscription();
+      if (!currentSubscription) {
+        return [];
+      }
+
+      const plans = await this.getSubscriptionPlans();
+      const currentPrice = currentSubscription.amount || 0;
+      const billingCycle = currentSubscription.billingCycle || 'monthly';
+      
+      // Return only plans that cost more than current plan
+      return plans.filter(plan => {
+        const planPrice = billingCycle === 'yearly' ? plan.price.yearly : plan.price.monthly;
+        return planPrice > currentPrice;
+      });
+    } catch (error) {
+      console.error("Failed to get upgrade options:", error);
+      return [];
+    }
+  }
+
   async cancelSubscription(reason?: string): Promise<boolean> {
     try {
       const response = await this.makeRequest<{
@@ -541,17 +564,13 @@ class BillingService {
       // Totals section
       doc.setFontSize(10);
       doc.setFont('courier', 'normal');
-      doc.text(`Subtotal: ₹${this.formatCurrency(invoice.amount)}`, marginLeft, yPosition);
-      yPosition += 6;
-      doc.text(`Tax (${invoice.tax > 0 ? Math.round((invoice.tax / invoice.amount) * 100) : 18}% GST): ₹${this.formatCurrency(invoice.tax)}`, marginLeft, yPosition);
-      yPosition += 10;
 
       // Total with borders
       doc.setFontSize(12);
       doc.setFont('courier', 'bold');
       doc.text('=====================================', pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 7;
-      doc.text(`TOTAL: ₹${this.formatCurrency(invoice.total)}`, pageWidth / 2, yPosition, { align: 'center' });
+      doc.text(`TOTAL: ₹${this.formatCurrency(invoice.amount)}`, pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 7;
       doc.text('=====================================', pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 15;
@@ -631,6 +650,57 @@ class BillingService {
           leads: { used: 0, limit: 0 },
           messages: { used: 0, limit: 0 },
         },
+      };
+    }
+  }
+
+  // Get corrected revenue statistics for admin
+  async getRevenueStats(): Promise<{
+    totalPaidRevenue: number;
+    monthlyPaidRevenue: number;
+    activePaidRevenue: number;
+    cancelledPaidRevenue: number;
+    expiredPaidRevenue: number;
+    addonPaidRevenue: number;
+    grandTotalRevenue: number;
+  }> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: {
+          totalPaidRevenue: number;
+          monthlyPaidRevenue: number;
+          activePaidRevenue: number;
+          cancelledPaidRevenue: number;
+          expiredPaidRevenue: number;
+          addonPaidRevenue: number;
+          grandTotalRevenue: number;
+        };
+      }>("/subscriptions/revenue-stats");
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      return {
+        totalPaidRevenue: 0,
+        monthlyPaidRevenue: 0,
+        activePaidRevenue: 0,
+        cancelledPaidRevenue: 0,
+        expiredPaidRevenue: 0,
+        addonPaidRevenue: 0,
+        grandTotalRevenue: 0,
+      };
+    } catch (error) {
+      console.error("Failed to fetch revenue stats:", error);
+      return {
+        totalPaidRevenue: 0,
+        monthlyPaidRevenue: 0,
+        activePaidRevenue: 0,
+        cancelledPaidRevenue: 0,
+        expiredPaidRevenue: 0,
+        addonPaidRevenue: 0,
+        grandTotalRevenue: 0,
       };
     }
   }
@@ -1079,7 +1149,7 @@ class BillingService {
           invoicesTableData.push([
             invoice.invoiceNumber,
             this.formatDate(invoice.issueDate),
-            `₹${this.formatCurrency(invoice.total)}`,
+            `₹${this.formatCurrency(invoice.amount)}`,
             invoice.status.toUpperCase()
           ]);
         });
@@ -1161,8 +1231,6 @@ class BillingService {
         'Due Date': ExportUtils.formatDate(invoice.dueDate),
         'Paid Date': invoice.paidDate ? ExportUtils.formatDate(invoice.paidDate) : 'N/A',
         'Amount': invoice.amount,
-        'Tax': invoice.tax,
-        'Total': invoice.total,
         'Currency': invoice.currency,
         'Status': invoice.status.toUpperCase(),
         'Vendor Name': invoice.vendorDetails.name || 'N/A',
@@ -1238,8 +1306,8 @@ class BillingService {
           data: invoicesExportData,
           columns: [
             { wch: 5 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, 
-            { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, 
-            { wch: 10 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 15 }
+            { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, 
+            { wch: 20 }, { wch: 20 }, { wch: 15 }
           ]
         }
       ];

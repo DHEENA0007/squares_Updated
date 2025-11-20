@@ -1,0 +1,1469 @@
+[
+  {
+    "_id": "68ff5d3d2f4e2406a9c90807",
+    "user": "68f8b1214f4741e752f0e18b",
+    "businessInfo": {
+      "companyName": "Vendor One",
+      "businessType": "real_estate_agent"
+    },
+    "professionalInfo": {
+      "experience": 1,
+      "specializations": [],
+      "serviceAreas": [],
+      "languages": [
+        "english"
+      ],
+      "certifications": []
+    },
+    "contactInfo": {
+      "officeAddress": {
+        "street": "123 Business Street",
+        "city": "Badabandha",
+        "state": "ODISHA",
+        "district": "BOUDH",
+        "country": "India",
+        "countryCode": "IN",
+        "stateCode": "ODISHA",
+        "districtCode": "BOUDH",
+        "cityCode": "Badabandha",
+        "pincode": "762013"
+      },
+      "officePhone": "+91 9876543210",
+      "whatsappNumber": "+91 9876543210",
+      "socialMedia": {
+        "facebook": "",
+        "instagram": "",
+        "linkedin": "",
+        "twitter": "",
+        "youtube": ""
+      }
+    },
+    "performance": {
+      "rating": {
+        "average": 0,
+        "count": 0,
+        "breakdown": {
+          "five": 0,
+          "four": 0,
+          "three": 0,
+          "two": 0,
+          "one": 0
+        }
+      },
+      "statistics": {
+        "totalProperties": 0,
+        "activeListing": 0,
+        "soldProperties": 0,
+        "rentedProperties": 0,
+        "totalViews": 0,
+        "totalLeads": 0,
+        "totalClients": 0,
+        "responseTime": {
+          "average": 0,
+          "lastCalculated": "2025-10-27T11:53:33.266Z"
+        }
+      },
+      "achievements": []
+    },
+    "settings": {
+      "notifications": {
+        "emailNotifications": true,
+        "smsNotifications": true,
+        "leadAlerts": true,
+        "marketingEmails": false,
+        "weeklyReports": true,
+        "reviewAlerts": true
+      },
+      "privacy": {
+        "showContactInfo": true,
+        "showPerformanceStats": true,
+        "allowDirectContact": true
+      },
+      "businessHours": {
+        "monday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "tuesday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "wednesday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "thursday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "friday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "saturday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "sunday": {
+          "open": "10:00",
+          "close": "17:00",
+          "isOpen": false
+        }
+      },
+      "autoResponder": {
+        "enabled": false,
+        "message": "Thank you for your interest! I'll get back to you soon.",
+        "onlyAfterHours": true
+      },
+      "preferences": {
+        "language": "en",
+        "currency": "INR",
+        "timezone": "Asia/Kolkata"
+      }
+    },
+    "verification": {
+      "isVerified": true,
+      "verificationDate": "2025-11-07T12:42:05.035Z",
+      "verificationLevel": "basic",
+      "documents": []
+    },
+    "status": "active",
+    "memberSince": "2025-10-22T10:25:37.241Z",
+    "lastActive": "2025-10-27T11:53:33.375Z",
+    "financial": {
+      "accountDetails": {
+        "bankName": "",
+        "accountNumber": "",
+        "ifscCode": "",
+        "accountHolderName": "Vendor One",
+        "branchName": ""
+      },
+      "billingAddress": {
+        "isSameAsOffice": true
+      }
+    },
+    "seo": {
+      "slug": "vendor-one",
+      "metaTitle": "",
+      "metaDescription": "",
+      "keywords": []
+    },
+    "metadata": {
+      "source": "migration",
+      "notes": "Migrated from User model",
+      "tags": [
+        "migrated"
+      ]
+    },
+    "createdAt": "2025-10-27T11:53:33.315Z",
+    "updatedAt": "2025-11-20T02:52:57.400Z",
+    "__v": 1,
+    "approval": {
+      "requiredDocuments": [],
+      "status": "approved",
+      "submittedAt": "2025-11-07T06:37:02.790Z",
+      "submittedDocuments": [],
+      "approvalNotes": "oky",
+      "reviewedAt": "2025-11-07T12:42:05.035Z",
+      "reviewedBy": "68f8857275b9205ce27f8ea5"
+    }
+  },
+  {
+    "_id": "68ff5d3d2f4e2406a9c9080e",
+    "user": "68f9d919f3de51260fb705f1",
+    "businessInfo": {
+      "companyName": "Test Vendor",
+      "businessType": "real_estate_agent"
+    },
+    "professionalInfo": {
+      "experience": 0,
+      "specializations": [],
+      "serviceAreas": [],
+      "languages": [
+        "english"
+      ],
+      "certifications": []
+    },
+    "contactInfo": {
+      "officeAddress": {
+        "street": "123 Test Street",
+        "area": "",
+        "city": "Mumbai",
+        "state": "Maharashtra",
+        "country": "India",
+        "pincode": "400001",
+        "landmark": "",
+        "cityCode": "mumbai",
+        "countryCode": "IN",
+        "district": "Mumbai City",
+        "districtCode": "mumbai-city",
+        "stateCode": "maharashtra"
+      },
+      "officePhone": "+91-9876543210",
+      "whatsappNumber": "+91-9876543210",
+      "socialMedia": {
+        "facebook": "",
+        "instagram": "",
+        "linkedin": "",
+        "twitter": "",
+        "youtube": ""
+      }
+    },
+    "performance": {
+      "rating": {
+        "average": 0,
+        "count": 0,
+        "breakdown": {
+          "five": 0,
+          "four": 0,
+          "three": 0,
+          "two": 0,
+          "one": 0
+        }
+      },
+      "statistics": {
+        "totalProperties": 0,
+        "activeListing": 0,
+        "soldProperties": 0,
+        "rentedProperties": 0,
+        "totalViews": 0,
+        "totalLeads": 0,
+        "totalClients": 0,
+        "responseTime": {
+          "average": 0,
+          "lastCalculated": "2025-10-27T11:53:33.515Z"
+        }
+      },
+      "achievements": []
+    },
+    "settings": {
+      "notifications": {
+        "emailNotifications": true,
+        "smsNotifications": true,
+        "leadAlerts": true,
+        "marketingEmails": false,
+        "weeklyReports": true,
+        "reviewAlerts": true
+      },
+      "privacy": {
+        "showContactInfo": true,
+        "showPerformanceStats": true,
+        "allowDirectContact": true
+      },
+      "businessHours": {
+        "monday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "tuesday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "wednesday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "thursday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "friday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "saturday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "sunday": {
+          "open": "10:00",
+          "close": "17:00",
+          "isOpen": false
+        }
+      },
+      "autoResponder": {
+        "enabled": false,
+        "message": "",
+        "onlyAfterHours": true
+      }
+    },
+    "verification": {
+      "isVerified": true,
+      "verificationDate": "2025-10-23T07:28:25.628Z",
+      "verificationLevel": "basic",
+      "documents": []
+    },
+    "status": "active",
+    "memberSince": "2025-10-23T07:28:25.628Z",
+    "lastActive": "2025-10-27T11:53:33.602Z",
+    "financial": {
+      "accountDetails": {
+        "bankName": "",
+        "accountNumber": "",
+        "ifscCode": "",
+        "accountHolderName": "Test Vendor",
+        "branchName": ""
+      },
+      "billingAddress": {
+        "isSameAsOffice": true
+      }
+    },
+    "seo": {
+      "slug": "test-vendor",
+      "metaTitle": "",
+      "metaDescription": "",
+      "keywords": []
+    },
+    "metadata": {
+      "source": "migration",
+      "notes": "Migrated from User model",
+      "tags": [
+        "migrated"
+      ]
+    },
+    "createdAt": "2025-10-27T11:53:33.550Z",
+    "updatedAt": "2025-11-07T06:53:58.098Z",
+    "__v": 0
+  },
+  {
+    "_id": "68ff5d3d2f4e2406a9c90815",
+    "user": "68fa18a0c9fa98e30aa7a7ac",
+    "businessInfo": {
+      "companyName": "Test Vendor",
+      "businessType": "real_estate_agent"
+    },
+    "professionalInfo": {
+      "experience": 0,
+      "specializations": [],
+      "serviceAreas": [],
+      "languages": [
+        "english"
+      ],
+      "certifications": []
+    },
+    "contactInfo": {
+      "officeAddress": {
+        "street": "123 Test Street",
+        "area": "",
+        "city": "Mumbai",
+        "state": "Maharashtra",
+        "country": "India",
+        "pincode": "400001",
+        "landmark": "",
+        "cityCode": "mumbai",
+        "countryCode": "IN",
+        "district": "Mumbai City",
+        "districtCode": "mumbai-city",
+        "stateCode": "maharashtra"
+      },
+      "officePhone": "+91-9876543210",
+      "whatsappNumber": "+91-9876543210",
+      "socialMedia": {
+        "facebook": "",
+        "instagram": "",
+        "linkedin": "",
+        "twitter": "",
+        "youtube": ""
+      }
+    },
+    "performance": {
+      "rating": {
+        "average": 0,
+        "count": 0,
+        "breakdown": {
+          "five": 0,
+          "four": 0,
+          "three": 0,
+          "two": 0,
+          "one": 0
+        }
+      },
+      "statistics": {
+        "totalProperties": 0,
+        "activeListing": 0,
+        "soldProperties": 0,
+        "rentedProperties": 0,
+        "totalViews": 0,
+        "totalLeads": 0,
+        "totalClients": 0,
+        "responseTime": {
+          "average": 0,
+          "lastCalculated": "2025-10-27T11:53:33.760Z"
+        }
+      },
+      "achievements": []
+    },
+    "settings": {
+      "notifications": {
+        "emailNotifications": true,
+        "smsNotifications": true,
+        "leadAlerts": true,
+        "marketingEmails": false,
+        "weeklyReports": true,
+        "reviewAlerts": true
+      },
+      "privacy": {
+        "showContactInfo": true,
+        "showPerformanceStats": true,
+        "allowDirectContact": true
+      },
+      "businessHours": {
+        "monday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "tuesday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "wednesday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "thursday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "friday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "saturday": {
+          "open": "09:00",
+          "close": "18:00",
+          "isOpen": true
+        },
+        "sunday": {
+          "open": "10:00",
+          "close": "17:00",
+          "isOpen": false
+        }
+      },
+      "autoResponder": {
+        "enabled": false,
+        "message": "Thank you for your interest! I will get back to you soon.",
+        "onlyAfterHours": true
+      }
+    },
+    "verification": {
+      "isVerified": true,
+      "verificationDate": "2025-10-23T11:59:28.457Z",
+      "verificationLevel": "basic",
+      "documents": []
+    },
+    "status": "active",
+    "memberSince": "2025-10-23T11:59:28.457Z",
+    "lastActive": "2025-10-27T11:53:33.950Z",
+    "financial": {
+      "accountDetails": {
+        "bankName": "",
+        "accountNumber": "",
+        "ifscCode": "",
+        "accountHolderName": "Test Vendor",
+        "branchName": ""
+      },
+      "billingAddress": {
+        "isSameAsOffice": true
+      }
+    },
+    "seo": {
+      "slug": "test-vendor-1",
+      "metaTitle": "",
+      "metaDescription": "",
+      "keywords": []
+    },
+    "metadata": {
+      "source": "migration",
+      "notes": "Migrated from User model",
+      "tags": [
+        "migrated"
+      ]
+    },
+    "createdAt": "2025-10-27T11:53:33.830Z",
+    "updatedAt": "2025-11-07T06:53:58.098Z",
+    "__v": 1,
+    "approval": {
+      "requiredDocuments": [],
+      "status": "pending",
+      "submittedAt": "2025-11-10T14:51:10.269Z",
+      "submittedDocuments": []
+    }
+  },
+  {
+    "_id": "690a48878236579ad7fd85af",
+    "user": "690a48868236579ad7fd85ad",
+    "businessInfo": {
+      "companyName": "ASO",
+      "businessType": "construction_company",
+      "panNumber": "ASDED1234A"
+    },
+    "professionalInfo": {
+      "experience": 0,
+      "specializations": [],
+      "serviceAreas": [],
+      "languages": [
+        "english"
+      ],
+      "certifications": []
+    },
+    "contactInfo": {
+      "officeAddress": {
+        "street": "CHANDIGARH",
+        "area": "",
+        "city": "Uzanbazar S.O",
+        "state": "ASSAM",
+        "district": "",
+        "country": "India",
+        "countryCode": "IN",
+        "stateCode": "",
+        "districtCode": "",
+        "cityCode": "",
+        "pincode": "781001",
+        "landmark": ""
+      },
+      "officePhone": "8944545455",
+      "whatsappNumber": "8944545455",
+      "socialMedia": {
+        "facebook": "",
+        "instagram": "",
+        "linkedin": "",
+        "twitter": "",
+        "youtube": ""
+      }
+    },
+    "performance": {
+      "rating": {
+        "breakdown": {
+          "five": 0,
+          "four": 0,
+          "three": 0,
+          "two": 0,
+          "one": 0
+        },
+        "average": 0,
+        "count": 0
+      },
+      "statistics": {
+        "responseTime": {
+          "average": 0
+        },
+        "totalProperties": 0,
+        "activeListing": 0,
+        "soldProperties": 0,
+        "rentedProperties": 0,
+        "totalViews": 0,
+        "totalLeads": 0,
+        "totalClients": 0
+      },
+      "achievements": []
+    },
+    "settings": {
+      "notifications": {
+        "emailNotifications": true,
+        "smsNotifications": true,
+        "leadAlerts": true,
+        "marketingEmails": false,
+        "weeklyReports": true,
+        "reviewAlerts": true
+      },
+      "privacy": {
+        "showContactInfo": true,
+        "showPerformanceStats": true,
+        "allowDirectContact": true
+      },
+      "autoResponder": {
+        "enabled": false,
+        "onlyAfterHours": true
+      }
+    },
+    "verification": {
+      "isVerified": true,
+      "verificationLevel": "basic",
+      "documents": [
+        {
+          "type": "business_license",
+          "name": "output.pdf",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1762280731/ninety-nine-acres/vendor-documents/eceicknu8ifc9pxkxstv.pdf",
+          "status": "pending",
+          "uploadDate": "2025-11-04T18:40:06.419Z",
+          "_id": "690a48878236579ad7fd85b0"
+        },
+        {
+          "type": "identity",
+          "name": "output.pdf",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1762280735/ninety-nine-acres/vendor-documents/hyrnwberig1qhn9et1es.pdf",
+          "status": "pending",
+          "uploadDate": "2025-11-04T18:40:06.419Z",
+          "_id": "690a48878236579ad7fd85b1"
+        }
+      ],
+      "verificationDate": "2025-11-04T18:52:50.765Z"
+    },
+    "approval": {
+      "status": "approved",
+      "requiredDocuments": [],
+      "submittedAt": "2025-11-04T18:40:07.096Z",
+      "submittedDocuments": [
+        {
+          "documentType": "business_license",
+          "documentName": "output.pdf",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1762280731/ninety-nine-acres/vendor-documents/eceicknu8ifc9pxkxstv.pdf",
+          "uploadedAt": "2025-11-04T18:40:06.419Z",
+          "verified": true,
+          "_id": "690a4b49e9a1f21f3bc9b4f4",
+          "verifiedAt": "2025-11-04T18:52:50.769Z",
+          "verifiedBy": "68f8857275b9205ce27f8ea5"
+        },
+        {
+          "documentType": "identity_proof",
+          "documentName": "output.pdf",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1762280735/ninety-nine-acres/vendor-documents/hyrnwberig1qhn9et1es.pdf",
+          "uploadedAt": "2025-11-04T18:40:06.419Z",
+          "verified": true,
+          "_id": "690a4b49e9a1f21f3bc9b4f5",
+          "verifiedAt": "2025-11-04T18:52:50.771Z",
+          "verifiedBy": "68f8857275b9205ce27f8ea5"
+        }
+      ],
+      "approvalNotes": "hooh",
+      "reviewedAt": "2025-11-04T18:52:50.763Z",
+      "reviewedBy": "68f8857275b9205ce27f8ea5"
+    },
+    "status": "active",
+    "financial": {
+      "billingAddress": {
+        "isSameAsOffice": true
+      }
+    },
+    "seo": {
+      "keywords": [],
+      "slug": "aso"
+    },
+    "metadata": {
+      "source": "website",
+      "notes": "Created during registration - Awaiting admin approval",
+      "tags": []
+    },
+    "memberSince": "2025-11-04T18:40:07.096Z",
+    "lastActive": "2025-11-04T18:52:50.801Z",
+    "createdAt": "2025-11-04T18:40:07.111Z",
+    "updatedAt": "2025-11-04T18:52:50.800Z",
+    "__v": 1
+  },
+  {
+    "_id": "69145cb1cae51ecf5fcd1366",
+    "user": "69145cb1cae51ecf5fcd1364",
+    "businessInfo": {
+      "companyName": "Builthomemart Techno Solutions",
+      "businessType": "real_estate_agent",
+      "panNumber": "ABCDE1546F"
+    },
+    "professionalInfo": {
+      "experience": 3,
+      "specializations": [],
+      "serviceAreas": [],
+      "languages": [
+        "english"
+      ],
+      "certifications": []
+    },
+    "contactInfo": {
+      "officeAddress": {
+        "street": "no 11 madurai coimbatore thirumanagalam",
+        "area": "",
+        "city": "Tirumangalam South SO",
+        "state": "TAMIL NADU",
+        "district": "",
+        "country": "India",
+        "countryCode": "IN",
+        "stateCode": "",
+        "districtCode": "",
+        "cityCode": "",
+        "pincode": "625706",
+        "landmark": ""
+      },
+      "officePhone": "9080720215",
+      "whatsappNumber": "9080720215",
+      "socialMedia": {
+        "facebook": "",
+        "instagram": "",
+        "linkedin": "",
+        "twitter": "",
+        "youtube": ""
+      }
+    },
+    "performance": {
+      "rating": {
+        "breakdown": {
+          "five": 0,
+          "four": 0,
+          "three": 0,
+          "two": 0,
+          "one": 0
+        },
+        "average": 0,
+        "count": 0
+      },
+      "statistics": {
+        "responseTime": {
+          "average": 0
+        },
+        "totalProperties": 0,
+        "activeListing": 0,
+        "soldProperties": 0,
+        "rentedProperties": 0,
+        "totalViews": 0,
+        "totalLeads": 0,
+        "totalClients": 0
+      },
+      "achievements": []
+    },
+    "settings": {
+      "notifications": {
+        "emailNotifications": true,
+        "smsNotifications": true,
+        "leadAlerts": true,
+        "marketingEmails": false,
+        "weeklyReports": true,
+        "reviewAlerts": true
+      },
+      "privacy": {
+        "showContactInfo": true,
+        "showPerformanceStats": true,
+        "allowDirectContact": true
+      },
+      "autoResponder": {
+        "enabled": false,
+        "onlyAfterHours": true
+      }
+    },
+    "verification": {
+      "isVerified": true,
+      "verificationLevel": "basic",
+      "documents": [
+        {
+          "type": "business_license",
+          "name": "Screenshot 2025-11-12 092949.png",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1762942067/ninety-nine-acres/vendor-documents/ytfxfymajzclolnaeefe.png",
+          "status": "pending",
+          "uploadDate": "2025-11-12T10:10:08.974Z",
+          "_id": "69145cb1cae51ecf5fcd1367"
+        },
+        {
+          "type": "identity",
+          "name": "Screenshot 2025-11-12 093049.png",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1762942078/ninety-nine-acres/vendor-documents/nxqwfwkcabxu7m0tozyt.png",
+          "status": "pending",
+          "uploadDate": "2025-11-12T10:10:08.974Z",
+          "_id": "69145cb1cae51ecf5fcd1368"
+        }
+      ],
+      "verificationDate": "2025-11-12T10:11:35.516Z"
+    },
+    "approval": {
+      "status": "approved",
+      "submittedAt": "2025-11-12T10:08:49.514Z",
+      "submittedDocuments": [
+        {
+          "documentType": "business_license",
+          "documentName": "Screenshot 2025-11-12 092949.png",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1762942067/ninety-nine-acres/vendor-documents/ytfxfymajzclolnaeefe.png",
+          "uploadedAt": "2025-11-12T10:10:08.974Z",
+          "verified": true,
+          "_id": "69145cb1cae51ecf5fcd1369",
+          "verifiedAt": "2025-11-12T10:11:35.517Z",
+          "verifiedBy": "68f8857275b9205ce27f8ea5"
+        },
+        {
+          "documentType": "identity_proof",
+          "documentName": "Screenshot 2025-11-12 093049.png",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1762942078/ninety-nine-acres/vendor-documents/nxqwfwkcabxu7m0tozyt.png",
+          "uploadedAt": "2025-11-12T10:10:08.974Z",
+          "verified": true,
+          "_id": "69145cb1cae51ecf5fcd136a",
+          "verifiedAt": "2025-11-12T10:11:35.517Z",
+          "verifiedBy": "68f8857275b9205ce27f8ea5"
+        }
+      ],
+      "requiredDocuments": [],
+      "approvalNotes": "Approved",
+      "reviewedAt": "2025-11-12T10:11:35.516Z",
+      "reviewedBy": "68f8857275b9205ce27f8ea5"
+    },
+    "status": "active",
+    "financial": {
+      "billingAddress": {
+        "isSameAsOffice": true
+      }
+    },
+    "seo": {
+      "keywords": [],
+      "slug": "builthomemart-techno-solutions"
+    },
+    "metadata": {
+      "source": "website",
+      "notes": "Created during registration - Awaiting admin approval",
+      "tags": []
+    },
+    "memberSince": "2025-11-12T10:08:49.519Z",
+    "lastActive": "2025-11-12T10:11:35.520Z",
+    "createdAt": "2025-11-12T10:08:49.525Z",
+    "updatedAt": "2025-11-12T10:11:35.520Z",
+    "__v": 0
+  },
+  {
+    "_id": "69146c0eac46b277b9073c7f",
+    "user": "69146c0eac46b277b9073c7d",
+    "businessInfo": {
+      "companyName": "NOC",
+      "businessType": "real_estate_agent",
+      "panNumber": "ABCDG1234D"
+    },
+    "professionalInfo": {
+      "experience": 0,
+      "specializations": [],
+      "serviceAreas": [],
+      "languages": [
+        "english"
+      ],
+      "certifications": []
+    },
+    "contactInfo": {
+      "officeAddress": {
+        "street": "2k street",
+        "area": "",
+        "city": "Attarang",
+        "state": "ARUNACHAL PRADESH",
+        "district": "",
+        "country": "India",
+        "countryCode": "IN",
+        "stateCode": "",
+        "districtCode": "",
+        "cityCode": "",
+        "pincode": "790102",
+        "landmark": ""
+      },
+      "officePhone": "7539514680",
+      "whatsappNumber": "7539514680",
+      "socialMedia": {
+        "facebook": "",
+        "instagram": "",
+        "linkedin": "",
+        "twitter": "",
+        "youtube": ""
+      }
+    },
+    "performance": {
+      "rating": {
+        "breakdown": {
+          "five": 0,
+          "four": 0,
+          "three": 0,
+          "two": 0,
+          "one": 0
+        },
+        "average": 0,
+        "count": 0
+      },
+      "statistics": {
+        "responseTime": {
+          "average": 0
+        },
+        "totalProperties": 0,
+        "activeListing": 0,
+        "soldProperties": 0,
+        "rentedProperties": 0,
+        "totalViews": 0,
+        "totalLeads": 0,
+        "totalClients": 0
+      },
+      "achievements": []
+    },
+    "settings": {
+      "notifications": {
+        "emailNotifications": true,
+        "smsNotifications": true,
+        "leadAlerts": true,
+        "marketingEmails": false,
+        "weeklyReports": true,
+        "reviewAlerts": true
+      },
+      "privacy": {
+        "showContactInfo": true,
+        "showPerformanceStats": true,
+        "allowDirectContact": true
+      },
+      "autoResponder": {
+        "enabled": false,
+        "onlyAfterHours": true
+      }
+    },
+    "verification": {
+      "isVerified": true,
+      "verificationLevel": "basic",
+      "documents": [
+        {
+          "type": "business_license",
+          "name": "pp.pdf",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1762946025/ninety-nine-acres/vendor-documents/xji7asbqc8cem8nwtakh.pdf",
+          "status": "pending",
+          "uploadDate": "2025-11-12T11:14:21.814Z",
+          "_id": "69146c0eac46b277b9073c80"
+        },
+        {
+          "type": "identity",
+          "name": "dataprocess.png",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1762946036/ninety-nine-acres/vendor-documents/a3vdp1fs1hg7c6exvi58.png",
+          "status": "pending",
+          "uploadDate": "2025-11-12T11:14:21.814Z",
+          "_id": "69146c0eac46b277b9073c81"
+        }
+      ],
+      "verificationDate": "2025-11-12T11:15:33.120Z"
+    },
+    "approval": {
+      "status": "approved",
+      "submittedAt": "2025-11-12T11:14:22.297Z",
+      "submittedDocuments": [
+        {
+          "documentType": "business_license",
+          "documentName": "pp.pdf",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1762946025/ninety-nine-acres/vendor-documents/xji7asbqc8cem8nwtakh.pdf",
+          "uploadedAt": "2025-11-12T11:14:21.814Z",
+          "verified": true,
+          "_id": "69146c0eac46b277b9073c82",
+          "verifiedAt": "2025-11-12T11:15:33.120Z",
+          "verifiedBy": "68f8857275b9205ce27f8ea5"
+        },
+        {
+          "documentType": "identity_proof",
+          "documentName": "dataprocess.png",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1762946036/ninety-nine-acres/vendor-documents/a3vdp1fs1hg7c6exvi58.png",
+          "uploadedAt": "2025-11-12T11:14:21.814Z",
+          "verified": true,
+          "_id": "69146c0eac46b277b9073c83",
+          "verifiedAt": "2025-11-12T11:15:33.121Z",
+          "verifiedBy": "68f8857275b9205ce27f8ea5"
+        }
+      ],
+      "requiredDocuments": [],
+      "approvalNotes": "ok",
+      "reviewedAt": "2025-11-12T11:15:33.120Z",
+      "reviewedBy": "68f8857275b9205ce27f8ea5"
+    },
+    "status": "active",
+    "financial": {
+      "billingAddress": {
+        "isSameAsOffice": true
+      }
+    },
+    "seo": {
+      "keywords": [],
+      "slug": "noc"
+    },
+    "metadata": {
+      "source": "website",
+      "notes": "Created during registration - Awaiting admin approval",
+      "tags": []
+    },
+    "memberSince": "2025-11-12T11:14:22.302Z",
+    "lastActive": "2025-11-12T11:15:33.123Z",
+    "createdAt": "2025-11-12T11:14:22.307Z",
+    "updatedAt": "2025-11-12T11:15:33.123Z",
+    "__v": 0
+  },
+  {
+    "_id": "691c199a5432b546e6f4ca0b",
+    "user": "691c199a5432b546e6f4ca09",
+    "businessInfo": {
+      "companyName": "Squares",
+      "businessType": "other",
+      "panNumber": "AKSHK1234F"
+    },
+    "professionalInfo": {
+      "experience": 3,
+      "specializations": [],
+      "serviceAreas": [],
+      "languages": [
+        "english"
+      ],
+      "certifications": []
+    },
+    "contactInfo": {
+      "officeAddress": {
+        "street": "11 Siruvani Nagar",
+        "city": "Kuniamuthur SO",
+        "state": "TAMIL NADU",
+        "district": "",
+        "country": "India",
+        "countryCode": "IN",
+        "pincode": "641008"
+      },
+      "officePhone": "6383810697",
+      "whatsappNumber": "6383810697",
+      "socialMedia": {
+        "facebook": "",
+        "instagram": "",
+        "linkedin": "",
+        "twitter": "",
+        "youtube": ""
+      }
+    },
+    "performance": {
+      "rating": {
+        "breakdown": {
+          "five": 0,
+          "four": 0,
+          "three": 0,
+          "two": 0,
+          "one": 0
+        },
+        "average": 0,
+        "count": 0
+      },
+      "statistics": {
+        "responseTime": {
+          "average": 0
+        },
+        "totalProperties": 0,
+        "activeListing": 0,
+        "soldProperties": 1,
+        "rentedProperties": 0,
+        "totalViews": 0,
+        "totalLeads": 0,
+        "totalClients": 0
+      },
+      "achievements": []
+    },
+    "settings": {
+      "notifications": {
+        "emailNotifications": true,
+        "smsNotifications": true,
+        "leadAlerts": true,
+        "marketingEmails": false,
+        "weeklyReports": true,
+        "reviewAlerts": true
+      },
+      "privacy": {
+        "showContactInfo": true,
+        "showPerformanceStats": true,
+        "allowDirectContact": true
+      },
+      "autoResponder": {
+        "enabled": false,
+        "onlyAfterHours": true,
+        "message": "Thank you for your interest! I will get back to you soon."
+      }
+    },
+    "verification": {
+      "isVerified": true,
+      "verificationLevel": "basic",
+      "documents": [
+        {
+          "type": "business_license",
+          "name": "WhatsApp Image 2025-11-18 at 10.32.34 AM (2).jpeg",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1763449184/ninety-nine-acres/vendor-documents/svxyuwveoimq1cavdugk.jpg",
+          "status": "pending",
+          "uploadDate": "2025-11-18T07:00:54.271Z",
+          "_id": "691c199a5432b546e6f4ca0c"
+        },
+        {
+          "type": "identity",
+          "name": "WhatsApp Image 2025-11-18 at 10.32.34 AM (2).jpeg",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1763449175/ninety-nine-acres/vendor-documents/ikt6zygwo1gjwb2zcwgs.jpg",
+          "status": "pending",
+          "uploadDate": "2025-11-18T07:00:54.272Z",
+          "_id": "691c199a5432b546e6f4ca0d"
+        }
+      ],
+      "verificationDate": "2025-11-18T07:07:50.778Z"
+    },
+    "approval": {
+      "status": "approved",
+      "submittedAt": "2025-11-18T07:00:42.402Z",
+      "submittedDocuments": [
+        {
+          "documentType": "business_license",
+          "documentName": "WhatsApp Image 2025-11-18 at 10.32.34 AM (2).jpeg",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1763449184/ninety-nine-acres/vendor-documents/svxyuwveoimq1cavdugk.jpg",
+          "uploadedAt": "2025-11-18T07:00:54.271Z",
+          "verified": true,
+          "_id": "691c199a5432b546e6f4ca0e",
+          "verifiedAt": "2025-11-18T07:07:50.779Z",
+          "verifiedBy": "68f8857275b9205ce27f8ea5"
+        },
+        {
+          "documentType": "identity_proof",
+          "documentName": "WhatsApp Image 2025-11-18 at 10.32.34 AM (2).jpeg",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1763449175/ninety-nine-acres/vendor-documents/ikt6zygwo1gjwb2zcwgs.jpg",
+          "uploadedAt": "2025-11-18T07:00:54.272Z",
+          "verified": true,
+          "_id": "691c199a5432b546e6f4ca0f",
+          "verifiedAt": "2025-11-18T07:07:50.779Z",
+          "verifiedBy": "68f8857275b9205ce27f8ea5"
+        }
+      ],
+      "requiredDocuments": [],
+      "approvalNotes": "approve",
+      "reviewedAt": "2025-11-18T07:07:50.778Z",
+      "reviewedBy": "68f8857275b9205ce27f8ea5"
+    },
+    "status": "active",
+    "financial": {
+      "billingAddress": {
+        "isSameAsOffice": true
+      }
+    },
+    "seo": {
+      "keywords": [],
+      "slug": "squares"
+    },
+    "metadata": {
+      "source": "website",
+      "notes": "Created during registration - Awaiting admin approval",
+      "tags": []
+    },
+    "memberSince": "2025-11-18T07:00:42.407Z",
+    "lastActive": "2025-11-19T07:06:24.917Z",
+    "createdAt": "2025-11-18T07:00:42.411Z",
+    "updatedAt": "2025-11-19T10:24:10.651Z",
+    "__v": 0
+  },
+  {
+    "_id": "691c1ec35432b546e6f4ce43",
+    "user": "691c1ec35432b546e6f4ce41",
+    "businessInfo": {
+      "companyName": "ghgjh",
+      "businessType": "other",
+      "panNumber": "ASDFF1234E"
+    },
+    "professionalInfo": {
+      "experience": 0,
+      "specializations": [],
+      "serviceAreas": [],
+      "languages": [
+        "english"
+      ],
+      "certifications": []
+    },
+    "contactInfo": {
+      "officeAddress": {
+        "street": "BIHAR",
+        "area": "",
+        "city": "Amaridih BO",
+        "state": "BIHAR",
+        "district": "",
+        "country": "India",
+        "countryCode": "IN",
+        "stateCode": "",
+        "districtCode": "",
+        "cityCode": "",
+        "pincode": "848202",
+        "landmark": ""
+      },
+      "officePhone": "74108562390",
+      "whatsappNumber": "74108562390",
+      "socialMedia": {
+        "facebook": "",
+        "instagram": "",
+        "linkedin": "",
+        "twitter": "",
+        "youtube": ""
+      }
+    },
+    "performance": {
+      "rating": {
+        "breakdown": {
+          "five": 0,
+          "four": 0,
+          "three": 0,
+          "two": 0,
+          "one": 0
+        },
+        "average": 0,
+        "count": 0
+      },
+      "statistics": {
+        "responseTime": {
+          "average": 0
+        },
+        "totalProperties": 0,
+        "activeListing": 0,
+        "soldProperties": 0,
+        "rentedProperties": 0,
+        "totalViews": 0,
+        "totalLeads": 0,
+        "totalClients": 0
+      },
+      "achievements": []
+    },
+    "settings": {
+      "notifications": {
+        "emailNotifications": true,
+        "smsNotifications": true,
+        "leadAlerts": true,
+        "marketingEmails": false,
+        "weeklyReports": true,
+        "reviewAlerts": true
+      },
+      "privacy": {
+        "showContactInfo": true,
+        "showPerformanceStats": true,
+        "allowDirectContact": true
+      },
+      "autoResponder": {
+        "enabled": false,
+        "onlyAfterHours": true
+      }
+    },
+    "verification": {
+      "isVerified": false,
+      "verificationLevel": "basic",
+      "documents": [
+        {
+          "type": "business_license",
+          "name": "Screenshot 2025-10-27 at 15-42-40 rawpressery.png",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1763450517/ninety-nine-acres/vendor-documents/wkjv5xbvb2jibpejr6zo.png",
+          "status": "pending",
+          "uploadDate": "2025-11-18T07:22:42.975Z",
+          "_id": "691c1ec35432b546e6f4ce44"
+        },
+        {
+          "type": "identity",
+          "name": "spatial.png",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1763450532/ninety-nine-acres/vendor-documents/vb6jfts1mpwv1i4mbynz.png",
+          "status": "pending",
+          "uploadDate": "2025-11-18T07:22:42.975Z",
+          "_id": "691c1ec35432b546e6f4ce45"
+        }
+      ]
+    },
+    "approval": {
+      "status": "pending",
+      "submittedAt": "2025-11-18T07:22:43.485Z",
+      "submittedDocuments": [
+        {
+          "documentType": "business_license",
+          "documentName": "Screenshot 2025-10-27 at 15-42-40 rawpressery.png",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1763450517/ninety-nine-acres/vendor-documents/wkjv5xbvb2jibpejr6zo.png",
+          "uploadedAt": "2025-11-18T07:22:42.975Z",
+          "verified": false,
+          "_id": "691c1ec35432b546e6f4ce46"
+        },
+        {
+          "documentType": "identity_proof",
+          "documentName": "spatial.png",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1763450532/ninety-nine-acres/vendor-documents/vb6jfts1mpwv1i4mbynz.png",
+          "uploadedAt": "2025-11-18T07:22:42.975Z",
+          "verified": false,
+          "_id": "691c1ec35432b546e6f4ce47"
+        }
+      ],
+      "requiredDocuments": []
+    },
+    "status": "pending_approval",
+    "financial": {
+      "billingAddress": {
+        "isSameAsOffice": true
+      }
+    },
+    "seo": {
+      "keywords": [],
+      "slug": "ghgjh"
+    },
+    "metadata": {
+      "source": "website",
+      "notes": "Created during registration - Awaiting admin approval",
+      "tags": []
+    },
+    "memberSince": "2025-11-18T07:22:43.488Z",
+    "lastActive": "2025-11-18T07:22:43.498Z",
+    "createdAt": "2025-11-18T07:22:43.491Z",
+    "updatedAt": "2025-11-18T07:22:43.491Z",
+    "__v": 0
+  },
+  {
+    "_id": "691e2e51f532c880ed1dfcf6",
+    "user": "691e2e50f532c880ed1dfcf4",
+    "businessInfo": {
+      "companyName": "CornerStone",
+      "businessType": "legal_services",
+      "panNumber": "ABCDE1234A"
+    },
+    "professionalInfo": {
+      "experience": 8,
+      "specializations": [],
+      "serviceAreas": [],
+      "languages": [
+        "english"
+      ],
+      "certifications": []
+    },
+    "contactInfo": {
+      "officeAddress": {
+        "street": "Bbajar road",
+        "area": "",
+        "city": "Adyar S.O (Chennai)",
+        "state": "TAMIL NADU",
+        "district": "",
+        "country": "India",
+        "countryCode": "IN",
+        "stateCode": "",
+        "districtCode": "",
+        "cityCode": "",
+        "pincode": "600020",
+        "landmark": ""
+      },
+      "officePhone": "1234567890",
+      "whatsappNumber": "1234567890",
+      "socialMedia": {
+        "facebook": "",
+        "instagram": "",
+        "linkedin": "",
+        "twitter": "",
+        "youtube": ""
+      }
+    },
+    "performance": {
+      "rating": {
+        "breakdown": {
+          "five": 0,
+          "four": 0,
+          "three": 0,
+          "two": 0,
+          "one": 0
+        },
+        "average": 0,
+        "count": 0
+      },
+      "statistics": {
+        "responseTime": {
+          "average": 0
+        },
+        "totalProperties": 0,
+        "activeListing": 0,
+        "soldProperties": 0,
+        "rentedProperties": 0,
+        "totalViews": 0,
+        "totalLeads": 0,
+        "totalClients": 0
+      },
+      "achievements": []
+    },
+    "settings": {
+      "preferences": {
+        "language": "en",
+        "currency": "INR",
+        "timezone": "Asia/Kolkata"
+      },
+      "notifications": {
+        "emailNotifications": true,
+        "smsNotifications": true,
+        "leadAlerts": true,
+        "marketingEmails": false,
+        "weeklyReports": true,
+        "reviewAlerts": true
+      },
+      "privacy": {
+        "showContactInfo": true,
+        "showPerformanceStats": true,
+        "allowDirectContact": true
+      },
+      "autoResponder": {
+        "enabled": false,
+        "onlyAfterHours": true,
+        "message": "Thank you for your interest! I will get back to you soon."
+      }
+    },
+    "verification": {
+      "isVerified": true,
+      "verificationLevel": "basic",
+      "documents": [
+        {
+          "type": "business_license",
+          "name": "india-blank-map.jpg",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1763585108/ninety-nine-acres/vendor-documents/qa9ypquhrz0cksdrdywl.jpg",
+          "status": "pending",
+          "uploadDate": "2025-11-19T20:53:36.738Z",
+          "_id": "691e2e51f532c880ed1dfcf7"
+        },
+        {
+          "type": "identity",
+          "name": "india-blank-map.jpg",
+          "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1763585183/ninety-nine-acres/vendor-documents/gl2nfacrqaoovzloosj0.jpg",
+          "status": "pending",
+          "uploadDate": "2025-11-19T20:53:36.739Z",
+          "_id": "691e2e51f532c880ed1dfcf8"
+        }
+      ],
+      "verificationDate": "2025-11-19T20:58:49.494Z"
+    },
+    "approval": {
+      "status": "approved",
+      "submittedAt": "2025-11-19T20:53:37.026Z",
+      "submittedDocuments": [
+        {
+          "documentType": "business_license",
+          "documentName": "india-blank-map.jpg",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1763585108/ninety-nine-acres/vendor-documents/qa9ypquhrz0cksdrdywl.jpg",
+          "uploadedAt": "2025-11-19T20:53:36.738Z",
+          "verified": true,
+          "_id": "691e2e51f532c880ed1dfcf9",
+          "verifiedAt": "2025-11-19T20:58:49.495Z",
+          "verifiedBy": "68f8857275b9205ce27f8ea5"
+        },
+        {
+          "documentType": "identity_proof",
+          "documentName": "india-blank-map.jpg",
+          "documentUrl": "https://res.cloudinary.com/dm87kok62/image/upload/v1763585183/ninety-nine-acres/vendor-documents/gl2nfacrqaoovzloosj0.jpg",
+          "uploadedAt": "2025-11-19T20:53:36.739Z",
+          "verified": true,
+          "_id": "691e2e51f532c880ed1dfcfa",
+          "verifiedAt": "2025-11-19T20:58:49.495Z",
+          "verifiedBy": "68f8857275b9205ce27f8ea5"
+        }
+      ],
+      "requiredDocuments": [],
+      "approvalNotes": "it's me",
+      "reviewedAt": "2025-11-19T20:58:49.494Z",
+      "reviewedBy": "68f8857275b9205ce27f8ea5"
+    },
+    "status": "active",
+    "financial": {
+      "billingAddress": {
+        "isSameAsOffice": true
+      }
+    },
+    "seo": {
+      "keywords": [],
+      "slug": "cornerstone"
+    },
+    "metadata": {
+      "source": "website",
+      "notes": "Created during registration - Awaiting admin approval",
+      "tags": []
+    },
+    "memberSince": "2025-11-19T20:53:37.030Z",
+    "lastActive": "2025-11-19T20:58:49.497Z",
+    "createdAt": "2025-11-19T20:53:37.033Z",
+    "updatedAt": "2025-11-19T21:14:37.831Z",
+    "__v": 0
+  }
+]

@@ -1,0 +1,81 @@
+[
+  {
+    "_id": "app_settings",
+    "version": 3,
+    "general": {
+      "siteName": "BuildHomeMart Squares",
+      "siteDescription": "Premium Real Estate Platform",
+      "contactEmail": "support@buildhomemartsquares.com",
+      "supportEmail": "support@buildhomemartsquares.com",
+      "maintenanceMode": false,
+      "registrationEnabled": true,
+      "defaultCurrency": "INR",
+      "defaultLanguage": "en",
+      "timezone": "Asia/Kolkata",
+      "_id": "6908d8d277ffc25d5cb361c5"
+    },
+    "notifications": {
+      "emailNotifications": true,
+      "smsNotifications": true,
+      "pushNotifications": true,
+      "adminAlerts": true,
+      "systemAlerts": true,
+      "userActivityAlerts": false,
+      "marketingEmails": true,
+      "weeklyReports": true,
+      "_id": "6908d8d277ffc25d5cb361c6"
+    },
+    "security": {
+      "twoFactorAuth": false,
+      "sessionTimeout": 30,
+      "passwordMinLength": 8,
+      "maxLoginAttempts": 5,
+      "requireEmailVerification": true,
+      "requirePhoneVerification": false,
+      "allowPasswordReset": true,
+      "autoLockAccount": true,
+      "ipWhitelisting": false,
+      "_id": "6908d8d277ffc25d5cb361c7"
+    },
+    "payment": {
+      "currency": "INR",
+      "taxRate": 18,
+      "processingFee": 2.5,
+      "refundPolicy": "7 days",
+      "autoRefund": false,
+      "paymentMethods": [],
+      "minimumAmount": 100,
+      "maximumAmount": 1000000,
+      "_id": "6908d8d277ffc25d5cb361c8"
+    },
+    "system": {
+      "backupEnabled": true,
+      "backupFrequency": "daily",
+      "backupRetention": 30,
+      "maintenanceWindow": "02:00-04:00",
+      "debugMode": false,
+      "logLevel": "info",
+      "performanceMode": "balanced",
+      "_id": "6908d8d277ffc25d5cb361c9"
+    },
+    "integrations": {
+      "emailProvider": "smtp",
+      "smsProvider": "twilio",
+      "paymentGateway": "razorpay",
+      "_id": "6908d8d277ffc25d5cb361ca"
+    },
+    "location": {
+      "defaultCountry": "India",
+      "defaultState": "CHHATTISGARH",
+      "defaultCity": "Badekakler",
+      "enableLocationAutodetection": true,
+      "locationDataSource": "loca",
+      "radiusUnit": "km",
+      "defaultRadius": 25,
+      "_id": "6908d8d277ffc25d5cb361cb"
+    },
+    "createdAt": "2025-11-03T16:31:14.886Z",
+    "updatedAt": "2025-11-20T07:42:43.272Z",
+    "lastUpdatedBy": "68f8857275b9205ce27f8ea5"
+  }
+]

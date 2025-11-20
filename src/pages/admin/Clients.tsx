@@ -28,7 +28,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import subscriptionService, { Subscription } from "@/services/subscriptionService";
+import subscriptionService, { Subscription, PaymentHistoryItem } from "@/services/subscriptionService";
 import { SearchFilter } from "@/components/adminpanel/shared/SearchFilter";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -177,7 +177,12 @@ const Clients = () => {
     return true;
   };
 
-  // Enhanced data processing for exports
+  // Enhanced data processing for exports with corrected revenue calculations
+  // Fixed issues:
+  // 1. Only counts revenue from actually paid subscriptions
+  // 2. Handles plan upgrades correctly (no double counting)
+  // 3. Cancelled/expired subscriptions only count if they were paid
+  // 4. Addon revenue only counted if actually purchased and paid
   const processDataForExport = () => {
     // Ensure we have valid data - fix to use the correct user structure
     const validSubscriptions = subscriptions.filter(sub => 
@@ -195,37 +200,182 @@ const Clients = () => {
     const expiredSubscriptions = validSubscriptions.filter(s => s.status === 'expired');
     const cancelledSubscriptions = validSubscriptions.filter(s => s.status === 'cancelled');
 
-    // Calculate revenues with proper null checking and validation using actual amount from subscription
+    // Calculate revenues with proper payment verification - only count actually paid amounts
+    // This handles: upgrades (no double counting), cancellations, unpaid subscriptions
     const calculateRevenue = (subscription: Subscription): number => {
-      // Use the actual subscription amount which is the charged amount
-      const subscriptionAmount = subscription.amount || 0;
-      return subscriptionAmount;
+      // Step 1: Check if there's actual payment data
+      const hasPaymentDetails = subscription.paymentDetails && 
+        (subscription.paymentDetails.razorpayPaymentId || subscription.transactionId);
+      
+      // Step 2: Check payment history for verified transactions
+      let paidPayments: PaymentHistoryItem[] = [];
+      if (subscription.paymentHistory && subscription.paymentHistory.length > 0) {
+        paidPayments = subscription.paymentHistory.filter(payment => 
+          payment && 
+          payment.amount && 
+          payment.amount > 0 &&
+          (payment.type === 'subscription_purchase' || 
+           payment.type === 'renewal' || 
+           payment.type === 'upgrade')
+        );
+      }
+
+      // Step 3: If no payment history but has payment details and lastPaymentDate, it's likely paid
+      if (paidPayments.length === 0 && hasPaymentDetails && subscription.lastPaymentDate) {
+        // Subscription was paid but no detailed payment history
+        // Only count if not cancelled immediately (within 1 day of payment)
+        if (subscription.status === 'cancelled' && subscription.updatedAt) {
+          const paymentDate = new Date(subscription.lastPaymentDate);
+          const cancellationDate = new Date(subscription.updatedAt);
+          const daysDiff = (cancellationDate.getTime() - paymentDate.getTime()) / (1000 * 3600 * 24);
+          
+          // If cancelled within 1 day, don't count as revenue
+          if (daysDiff <= 1) {
+            return 0;
+          }
+        }
+        
+        // Count as revenue if payment was made
+        return subscription.amount || 0;
+      }
+
+      // Step 4: Process detailed payment history
+      if (paidPayments.length === 0) {
+        return 0; // No verified payments
+      }
+
+      // Sort payments chronologically
+      const sortedPayments = paidPayments.sort((a, b) => 
+        new Date(a.date || '').getTime() - new Date(b.date || '').getTime()
+      );
+
+      let totalRevenue = 0;
+      let lastPlanAmount = 0;
+
+      sortedPayments.forEach((payment, index) => {
+        if (payment.type === 'subscription_purchase') {
+          // Initial subscription - full amount counts as revenue
+          totalRevenue += payment.amount || 0;
+          lastPlanAmount = payment.amount || 0;
+          
+        } else if (payment.type === 'renewal') {
+          // Renewal - full amount counts as revenue
+          totalRevenue += payment.amount || 0;
+          
+        } else if (payment.type === 'upgrade') {
+          // Upgrade - only count the price difference to avoid double counting
+          const newPlanAmount = payment.amount || 0;
+          const upgradeDifference = newPlanAmount - lastPlanAmount;
+          
+          // Only add positive differences (actual upgrades)
+          if (upgradeDifference > 0) {
+            totalRevenue += upgradeDifference;
+          }
+          lastPlanAmount = newPlanAmount;
+        }
+      });
+
+      // Step 5: Handle cancellations - if cancelled shortly after payment, reduce revenue
+      if (subscription.status === 'cancelled' && sortedPayments.length > 0) {
+        const lastPayment = sortedPayments[sortedPayments.length - 1];
+        const cancellationDate = new Date(subscription.updatedAt || '');
+        const lastPaymentDate = new Date(lastPayment.date || '');
+        const daysDiff = (cancellationDate.getTime() - lastPaymentDate.getTime()) / (1000 * 3600 * 24);
+        
+        // If cancelled within 1 day of last payment, reduce revenue by 50%
+        if (daysDiff <= 1) {
+          totalRevenue *= 0.5;
+        }
+      }
+
+      return Math.max(0, totalRevenue);
     };
 
     const totalActiveRevenue = activeSubscriptions.reduce((sum, sub) => {
       return sum + calculateRevenue(sub);
     }, 0);
 
+    // Calculate total revenue from all paid subscriptions
     const totalRevenueAll = validSubscriptions.reduce((sum, sub) => {
       return sum + calculateRevenue(sub);
     }, 0);
 
-    // Calculate revenue by status
+    // Revenue by status - only count revenue from subscriptions that were actually paid
+    // Cancelled subscriptions should only count revenue if they were paid before cancellation
     const cancelledRevenue = cancelledSubscriptions.reduce((sum, sub) => {
-      return sum + calculateRevenue(sub);
+      // For cancelled subscriptions, only count if there's evidence of payment
+      if (sub.paymentHistory && sub.paymentHistory.length > 0) {
+        const paidAmount = calculateRevenue(sub);
+        return sum + paidAmount;
+      }
+      // If no payment history, don't count cancelled subscriptions as revenue
+      return sum;
     }, 0);
 
     const expiredRevenue = expiredSubscriptions.reduce((sum, sub) => {
-      return sum + calculateRevenue(sub);
+      // For expired subscriptions, only count if they were actually paid during their active period
+      if (sub.paymentHistory && sub.paymentHistory.length > 0) {
+        const paidAmount = calculateRevenue(sub);
+        return sum + paidAmount;
+      }
+      // If no payment history, don't count expired subscriptions as revenue
+      return sum;
     }, 0);
 
-    // Calculate addon revenue from active subscriptions only
-    const addonRevenue = activeSubscriptions.reduce((sum, sub) => {
-      if (!sub.addons || !Array.isArray(sub.addons)) return sum;
-      const addonTotal = sub.addons.reduce((total, addon) => {
-        return total + (addon?.price || 0);
-      }, 0);
-      return sum + addonTotal;
+    // Calculate addon revenue only from subscriptions where addons were actually paid for
+    // This ensures we only count addon revenue when payment was made
+    const addonRevenue = validSubscriptions.reduce((sum, sub) => {
+      if (!sub.addons || !Array.isArray(sub.addons) || sub.addons.length === 0) return sum;
+      
+      let addonAmount = 0;
+      
+      // Method 1: Check payment history for specific addon purchases
+      if (sub.paymentHistory && sub.paymentHistory.length > 0) {
+        const addonPayments = sub.paymentHistory.filter(payment => 
+          payment && 
+          payment.type === 'addon_purchase' && 
+          payment.amount &&
+          payment.amount > 0
+        );
+        
+        if (addonPayments.length > 0) {
+          addonAmount = addonPayments.reduce((total, payment) => 
+            total + (payment.amount || 0), 0
+          );
+          return sum + addonAmount;
+        }
+      }
+      
+      // Method 2: If subscription has verified payment and addons, calculate addon contribution
+      const hasPayment = (sub.paymentDetails && sub.paymentDetails.razorpayPaymentId) || 
+                        sub.lastPaymentDate || 
+                        sub.transactionId;
+      
+      if (hasPayment && sub.status === 'active') {
+        // Calculate addon contribution from subscription amount
+        const planBasePrice = typeof sub.plan === 'object' && sub.plan !== null ? (sub.plan.price || 0) : 0;
+        const subscriptionAmount = sub.amount || 0;
+        const addonContribution = subscriptionAmount - planBasePrice;
+        
+        // Only count positive contributions (when subscription amount > plan price)
+        if (addonContribution > 0) {
+          addonAmount = addonContribution;
+          
+          // For cancelled subscriptions, check if cancelled shortly after payment
+          if (sub.status === 'cancelled' && sub.lastPaymentDate && sub.updatedAt) {
+            const paymentDate = new Date(sub.lastPaymentDate);
+            const cancellationDate = new Date(sub.updatedAt);
+            const daysDiff = (cancellationDate.getTime() - paymentDate.getTime()) / (1000 * 3600 * 24);
+            
+            // If cancelled within 1 day, reduce addon revenue
+            if (daysDiff <= 1) {
+              addonAmount *= 0.5;
+            }
+          }
+        }
+      }
+      
+      return sum + addonAmount;
     }, 0);
 
     const grandTotalRevenue = totalActiveRevenue + addonRevenue;
@@ -247,20 +397,19 @@ const Clients = () => {
 
   // Generate client details with proper data validation based on actual subscription structure
   const generateClientDetails = (processedData: ReturnType<typeof processDataForExport>) => {
-    const { activeSubscriptions, calculateRevenue } = processedData;
+    const { validSubscriptions, calculateRevenue } = processedData;
     
-    return activeSubscriptions.map((subscription, index) => {
-      // The user field in subscription contains a string ID, not the user object
-      // We need to handle this properly - user field might be populated or might be just an ID
+    return validSubscriptions.map((subscription, index) => {
+      // Handle user data properly
       const userName = typeof subscription.user === 'object' && subscription.user !== null 
         ? (subscription.user.name || subscription.user.email || `Client ${index + 1}`)
-        : `Client ${index + 1}`; // If user is just an ID string
+        : `Client ${index + 1}`;
       
       const userEmail = typeof subscription.user === 'object' && subscription.user !== null 
         ? (subscription.user.email || 'N/A')
         : 'N/A';
 
-      // Plan might also be just an ID string, not populated object
+      // Handle plan data properly
       const planName = typeof subscription.plan === 'object' && subscription.plan !== null
         ? (subscription.plan.name || 'Unknown Plan')
         : 'Unknown Plan';
@@ -269,26 +418,43 @@ const Clients = () => {
         ? (subscription.plan.price || 0)
         : 0;
 
-      const revenue = calculateRevenue(subscription);
+      // Get the actual paid revenue for this subscription
+      const paidRevenue = calculateRevenue(subscription);
       const addonCount = Array.isArray(subscription.addons) ? subscription.addons.length : 0;
       
-      // Calculate addon amount based on actual addon data or payment history
+      // Calculate addon amount based on actual payments, not just addon prices
       let addonAmount = 0;
       if (Array.isArray(subscription.addons) && subscription.addons.length > 0) {
-        // Try to calculate from addon prices if available
-        addonAmount = subscription.addons.reduce((total, addon) => {
-          if (typeof addon === 'object' && addon !== null) {
-            return total + (addon.price || 0);
+        // First, check payment history for actual addon purchase payments
+        if (Array.isArray(subscription.paymentHistory)) {
+          const addonPayments = subscription.paymentHistory
+            .filter(payment => 
+              payment && 
+              payment.type === 'addon_purchase' && 
+              payment.amount &&
+              payment.amount > 0
+            )
+            .reduce((total, payment) => total + (payment?.amount || 0), 0);
+          
+          if (addonPayments > 0) {
+            addonAmount = addonPayments;
+          } else {
+            // If no addon payment history but subscription is active and amount > plan price
+            // Calculate the difference as addon contribution
+            if (subscription.status === 'active') {
+              const subscriptionAmount = subscription.amount || 0;
+              const addonContribution = subscriptionAmount - planPrice;
+              addonAmount = addonContribution > 0 ? addonContribution : 0;
+            }
           }
-          return total;
-        }, 0);
-      }
-      
-      // If no addon prices available, try to get from payment history
-      if (addonAmount === 0 && Array.isArray(subscription.paymentHistory)) {
-        addonAmount = subscription.paymentHistory
-          .filter(payment => payment?.type === 'addon_purchase')
-          .reduce((total, payment) => total + (payment?.amount || 0), 0);
+        } else {
+          // No payment history - if active subscription, check if amount includes addons
+          if (subscription.status === 'active') {
+            const subscriptionAmount = subscription.amount || 0;
+            const addonContribution = subscriptionAmount - planPrice;
+            addonAmount = addonContribution > 0 ? addonContribution : 0;
+          }
+        }
       }
 
       return {
@@ -297,13 +463,14 @@ const Clients = () => {
         'Email': userEmail,
         'Plan': planName,
         'Plan Price': formatCurrencyForExport(planPrice),
-        'Total Amount': formatCurrencyForExport(revenue),
+        'Paid Amount': formatCurrencyForExport(paidRevenue),
         'Status': subscriptionService.formatSubscriptionStatus(subscription.status || 'unknown').label,
         'Start Date': ExportUtils.formatDate(subscription.startDate),
         'End Date': ExportUtils.formatDate(subscription.endDate),
         'Auto Renew': subscription.autoRenew ? 'Yes' : 'No',
         'Add-ons': addonCount,
         'Add-on Amount': formatCurrencyForExport(addonAmount),
+        'Payment Status': paidRevenue > 0 ? 'Paid' : 'Unpaid'
       };
     });
   };
@@ -369,42 +536,52 @@ const Clients = () => {
         day: 'numeric'
       });
 
-      // Process data for export
+      // REVENUE CALCULATION FIXES IMPLEMENTED:
+      // 1. Plan Upgrades: Only count the difference between old and new plan amounts (no double counting)
+      // 2. Cancelled Subscriptions: Revenue reduced by 50% if cancelled within 1 day of payment
+      // 3. Unpaid Subscriptions: Only count revenue from verified payments (razorpayPaymentId, lastPaymentDate, etc.)
+      // 4. Addon Revenue: Only count when actually purchased and paid for
+      // 5. Monthly Reports: Show accurate month-by-month breakdown with corrected calculations
+      // 6. Overall Analysis: Comprehensive business metrics including growth, churn, and plan performance
+
+      // Process data for export with corrected calculations
       const processedData = processDataForExport();
 
-      // Generate sheets data
+      // Generate sheets data with corrected revenue calculations
       const summaryData = [
         { 'Metric': 'Total Clients', 'Count / Amount': processedData.validSubscriptions.length },
         { 'Metric': 'Active Subscriptions', 'Count / Amount': processedData.activeSubscriptions.length },
         { 'Metric': 'Cancelled Subscriptions', 'Count / Amount': processedData.cancelledSubscriptions.length },
         { 'Metric': 'Expired Subscriptions', 'Count / Amount': processedData.expiredSubscriptions.length },
         { 'Metric': 'Total Subscriptions', 'Count / Amount': processedData.validSubscriptions.length },
-        { 'Metric': 'Total Active Revenue', 'Count / Amount': formatCurrencyForExport(processedData.totalActiveRevenue) },
-        { 'Metric': 'Total Revenue (All)', 'Count / Amount': formatCurrencyForExport(processedData.totalRevenueAll) },
-        { 'Metric': 'Add-on Revenue', 'Count / Amount': formatCurrencyForExport(processedData.addonRevenue) },
-        { 'Metric': 'Grand Total Revenue', 'Count / Amount': formatCurrencyForExport(processedData.grandTotalRevenue) },
+        { 'Metric': 'Total Active Revenue (Verified Paid)', 'Count / Amount': formatCurrencyForExport(processedData.totalActiveRevenue) },
+        { 'Metric': 'Total Revenue from All Paid Subscriptions', 'Count / Amount': formatCurrencyForExport(processedData.totalRevenueAll) },
+        { 'Metric': 'Revenue from Cancelled Subscriptions (Paid)', 'Count / Amount': formatCurrencyForExport(processedData.cancelledRevenue) },
+        { 'Metric': 'Revenue from Expired Subscriptions (Paid)', 'Count / Amount': formatCurrencyForExport(processedData.expiredRevenue) },
+        { 'Metric': 'Add-on Revenue (Verified Paid)', 'Count / Amount': formatCurrencyForExport(processedData.addonRevenue) },
+        { 'Metric': 'Grand Total Revenue (All Verified Payments)', 'Count / Amount': formatCurrencyForExport(processedData.grandTotalRevenue) },
       ];
 
-      // Status breakdown with revenue
-      const totalRevenue = processedData.totalActiveRevenue + processedData.cancelledRevenue + processedData.expiredRevenue;
+      // Status breakdown with corrected revenue - only showing verified paid amounts
+      const totalPaidRevenue = processedData.totalActiveRevenue + processedData.cancelledRevenue + processedData.expiredRevenue;
       const statusBreakdownData = [
         { 
-          'Status': 'Active', 
+          'Status': 'Active (Verified Paid)', 
           'Count': processedData.activeSubscriptions.length,
           'Total Amount': formatCurrencyForExport(processedData.totalActiveRevenue),
-          '% of Total Amount': totalRevenue > 0 ? `${((processedData.totalActiveRevenue / totalRevenue) * 100).toFixed(1)}%` : '0%'
+          '% of Total Amount': totalPaidRevenue > 0 ? `${((processedData.totalActiveRevenue / totalPaidRevenue) * 100).toFixed(1)}%` : '0%'
         },
         { 
-          'Status': 'Cancelled', 
+          'Status': 'Cancelled (Previously Paid)', 
           'Count': processedData.cancelledSubscriptions.length,
           'Total Amount': formatCurrencyForExport(processedData.cancelledRevenue),
-          '% of Total Amount': totalRevenue > 0 ? `${((processedData.cancelledRevenue / totalRevenue) * 100).toFixed(1)}%` : '0%'
+          '% of Total Amount': totalPaidRevenue > 0 ? `${((processedData.cancelledRevenue / totalPaidRevenue) * 100).toFixed(1)}%` : '0%'
         },
         { 
-          'Status': 'Expired', 
+          'Status': 'Expired (Previously Paid)', 
           'Count': processedData.expiredSubscriptions.length,
           'Total Amount': formatCurrencyForExport(processedData.expiredRevenue),
-          '% of Total Amount': totalRevenue > 0 ? `${((processedData.expiredRevenue / totalRevenue) * 100).toFixed(1)}%` : '0%'
+          '% of Total Amount': totalPaidRevenue > 0 ? `${((processedData.expiredRevenue / totalPaidRevenue) * 100).toFixed(1)}%` : '0%'
         }
       ];
 
@@ -416,13 +593,14 @@ const Clients = () => {
         'Email': client['Email'],
         'Plan': client['Plan'],
         'Plan Price': client['Plan Price'],
-        'Total Amount': client['Total Amount'],
+        'Paid Amount': client['Paid Amount'],
         'Status': client['Status'],
         'Start Date': client['Start Date'],
         'End Date': client['End Date'],
         'Auto Renew': client['Auto Renew'],
         'Add-ons': client['Add-ons'],
         'Add-on Amount': client['Add-on Amount'],
+        'Payment Status': client['Payment Status']
       }));
 
       const addonDetails = generateAddonDetails(processedData);
@@ -454,10 +632,195 @@ const Clients = () => {
       const insightsData = [
         { 'Insight': 'Total Active Clients', 'Value': activeClients },
         { 'Insight': 'Average Revenue per Active Client (ARPC)', 'Value': formatCurrencyForExport(arpc) },
+        { 'Insight': 'Total Paid Revenue (All Time)', 'Value': formatCurrencyForExport(processedData.totalRevenueAll) },
+        { 'Insight': 'Active Subscriptions Revenue', 'Value': formatCurrencyForExport(processedData.totalActiveRevenue) },
+        { 'Insight': 'Addon Revenue (Active)', 'Value': formatCurrencyForExport(processedData.addonRevenue) },
         { 'Insight': 'Highest-Grossing Plan', 'Value': topPlan },
         { 'Insight': 'Most Purchased Add-on', 'Value': topAddon },
-        { 'Insight': 'Total Monthly Recurring Revenue (MRR)', 'Value': formatCurrencyForExport(processedData.totalActiveRevenue) },
       ];
+
+      // Generate Monthly Report Data with corrected revenue calculations
+      // This report shows month-by-month breakdown of subscriptions and revenue
+      // Key fixes:
+      // - Upgrades only count the price difference, not full new plan amount
+      // - Cancelled subscriptions are tracked but revenue adjusted if cancelled quickly
+      // - Only paid subscriptions count toward revenue
+      const generateMonthlyReport = () => {
+        const monthlyData: Record<string, {
+          subscriptionRevenue: number,
+          addonRevenue: number,
+          newSubscriptions: number,
+          cancelledSubscriptions: number,
+          upgrades: number,
+          totalRevenue: number
+        }> = {};
+
+        processedData.validSubscriptions.forEach(subscription => {
+          // Process subscription start date
+          if (subscription.createdAt || subscription.startDate) {
+            const startDate = new Date(subscription.createdAt || subscription.startDate);
+            const monthKey = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
+            
+            if (!monthlyData[monthKey]) {
+              monthlyData[monthKey] = {
+                subscriptionRevenue: 0,
+                addonRevenue: 0,
+                newSubscriptions: 0,
+                cancelledSubscriptions: 0,
+                upgrades: 0,
+                totalRevenue: 0
+              };
+            }
+
+            // Count new subscription
+            monthlyData[monthKey].newSubscriptions += 1;
+            
+            // Add subscription revenue if paid
+            const paidRevenue = processedData.calculateRevenue(subscription);
+            if (paidRevenue > 0) {
+              monthlyData[monthKey].subscriptionRevenue += paidRevenue;
+            }
+          }
+
+          // Process cancellation date
+          if (subscription.status === 'cancelled' && subscription.updatedAt) {
+            const cancelDate = new Date(subscription.updatedAt);
+            const monthKey = `${cancelDate.getFullYear()}-${String(cancelDate.getMonth() + 1).padStart(2, '0')}`;
+            
+            if (!monthlyData[monthKey]) {
+              monthlyData[monthKey] = {
+                subscriptionRevenue: 0,
+                addonRevenue: 0,
+                newSubscriptions: 0,
+                cancelledSubscriptions: 0,
+                upgrades: 0,
+                totalRevenue: 0
+              };
+            }
+            monthlyData[monthKey].cancelledSubscriptions += 1;
+          }
+
+          // Process payment history for monthly breakdown
+          if (subscription.paymentHistory && subscription.paymentHistory.length > 0) {
+            subscription.paymentHistory.forEach(payment => {
+              if (payment.date && payment.amount && payment.amount > 0) {
+                const paymentDate = new Date(payment.date);
+                const monthKey = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`;
+                
+                if (!monthlyData[monthKey]) {
+                  monthlyData[monthKey] = {
+                    subscriptionRevenue: 0,
+                    addonRevenue: 0,
+                    newSubscriptions: 0,
+                    cancelledSubscriptions: 0,
+                    upgrades: 0,
+                    totalRevenue: 0
+                  };
+                }
+
+                if (payment.type === 'addon_purchase') {
+                  monthlyData[monthKey].addonRevenue += payment.amount;
+                } else if (payment.type === 'upgrade') {
+                  monthlyData[monthKey].upgrades += 1;
+                  // For upgrades, we need to handle properly to avoid double counting
+                  // Find the previous plan amount to calculate the difference
+                  const previousPayments = subscription.paymentHistory?.filter(p => 
+                    p.date && new Date(p.date) < paymentDate && 
+                    (p.type === 'subscription_purchase' || p.type === 'upgrade')
+                  ).sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
+                  
+                  const previousAmount = previousPayments && previousPayments.length > 0 ? 
+                    previousPayments[0].amount || 0 : 0;
+                  const upgradeDifference = payment.amount - previousAmount;
+                  
+                  // Only add the upgrade difference, not the full amount
+                  if (upgradeDifference > 0) {
+                    monthlyData[monthKey].subscriptionRevenue += upgradeDifference;
+                  }
+                } else if (payment.type === 'subscription_purchase' || payment.type === 'renewal') {
+                  monthlyData[monthKey].subscriptionRevenue += payment.amount;
+                }
+              }
+            });
+          }
+        });
+
+        // Calculate total revenue for each month
+        Object.keys(monthlyData).forEach(month => {
+          monthlyData[month].totalRevenue = monthlyData[month].subscriptionRevenue + monthlyData[month].addonRevenue;
+        });
+
+        return Object.keys(monthlyData).sort().map(month => ({
+          'Month': month,
+          'New Subscriptions': monthlyData[month].newSubscriptions,
+          'Cancelled Subscriptions': monthlyData[month].cancelledSubscriptions,
+          'Upgrades': monthlyData[month].upgrades,
+          'Subscription Revenue': formatCurrencyForExport(monthlyData[month].subscriptionRevenue),
+          'Addon Revenue': formatCurrencyForExport(monthlyData[month].addonRevenue),
+          'Total Revenue': formatCurrencyForExport(monthlyData[month].totalRevenue),
+        }));
+      };
+
+      const monthlyReportData = generateMonthlyReport();
+
+      // Generate Overall Report Data - comprehensive business metrics and analysis
+      // This provides high-level insights including growth trends, churn analysis, and plan performance
+      const generateOverallReport = () => {
+        const currentDate = new Date();
+        const currentMonth = currentDate.getMonth();
+        const currentYear = currentDate.getFullYear();
+        
+        // Calculate year-over-year growth
+        const thisYearRevenue = processedData.validSubscriptions
+          .filter(sub => {
+            const subDate = new Date(sub.createdAt || sub.startDate);
+            return subDate.getFullYear() === currentYear;
+          })
+          .reduce((sum, sub) => sum + processedData.calculateRevenue(sub), 0);
+
+        const lastYearRevenue = processedData.validSubscriptions
+          .filter(sub => {
+            const subDate = new Date(sub.createdAt || sub.startDate);
+            return subDate.getFullYear() === currentYear - 1;
+          })
+          .reduce((sum, sub) => sum + processedData.calculateRevenue(sub), 0);
+
+        const yearOverYearGrowth = lastYearRevenue > 0 
+          ? ((thisYearRevenue - lastYearRevenue) / lastYearRevenue * 100).toFixed(1) 
+          : 'N/A';
+
+        // Calculate churn rate
+        const totalCancelled = processedData.cancelledSubscriptions.length;
+        const totalSubscriptions = processedData.validSubscriptions.length;
+        const churnRate = totalSubscriptions > 0 ? ((totalCancelled / totalSubscriptions) * 100).toFixed(1) : '0';
+
+        // Calculate plan distribution
+        const planDistribution: Record<string, number> = {};
+        processedData.activeSubscriptions.forEach(sub => {
+          const planName = sub.plan?.name || 'Unknown';
+          planDistribution[planName] = (planDistribution[planName] || 0) + 1;
+        });
+
+        const overallData = [
+          { 'Metric': 'Total Revenue (All Time)', 'Value': formatCurrencyForExport(processedData.totalRevenueAll) },
+          { 'Metric': 'Active Subscriptions Revenue', 'Value': formatCurrencyForExport(processedData.totalActiveRevenue) },
+          { 'Metric': 'Addon Revenue', 'Value': formatCurrencyForExport(processedData.addonRevenue) },
+          { 'Metric': 'This Year Revenue', 'Value': formatCurrencyForExport(thisYearRevenue) },
+          { 'Metric': 'Last Year Revenue', 'Value': formatCurrencyForExport(lastYearRevenue) },
+          { 'Metric': 'Year-over-Year Growth', 'Value': `${yearOverYearGrowth}%` },
+          { 'Metric': 'Churn Rate', 'Value': `${churnRate}%` },
+          { 'Metric': 'Average Revenue per Client (ARPC)', 'Value': formatCurrencyForExport(arpc) },
+          { 'Metric': 'Total Active Clients', 'Value': activeClients },
+          { 'Metric': 'Total Clients (All Time)', 'Value': processedData.validSubscriptions.length },
+          { 'Metric': 'Conversion Rate (Active/Total)', 'Value': `${totalSubscriptions > 0 ? ((activeClients / totalSubscriptions) * 100).toFixed(1) : 0}%` },
+          { 'Metric': 'Most Popular Plan', 'Value': topPlan },
+          { 'Metric': 'Plan Distribution', 'Value': Object.entries(planDistribution).map(([plan, count]) => `${plan}: ${count}`).join(', ') },
+        ];
+
+        return overallData;
+      };
+
+      const overallReportData = generateOverallReport();
 
       const config = {
         filename: 'subscribed_clients_revenue_report',
@@ -469,6 +832,9 @@ const Clients = () => {
         }
       };
 
+      // Excel sheets with corrected revenue calculations and new monthly/overall reports
+      // Added: Monthly Report - shows month-by-month breakdown of subscriptions and revenue
+      // Added: Overall Analysis - provides comprehensive business metrics and growth analysis
       const sheets = [
         {
           name: 'Summary Statistics',
@@ -481,11 +847,25 @@ const Clients = () => {
           columns: [{ wch: 15 }, { wch: 10 }, { wch: 20 }, { wch: 20 }]
         },
         {
+          name: 'Monthly Report',
+          data: monthlyReportData,
+          columns: [
+            { wch: 12 }, { wch: 15 }, { wch: 18 }, { wch: 12 },
+            { wch: 18 }, { wch: 15 }, { wch: 15 }
+          ]
+        },
+        {
+          name: 'Overall Analysis',
+          data: overallReportData,
+          columns: [{ wch: 35 }, { wch: 25 }]
+        },
+        {
           name: 'Subscription Details',
           data: subscriptionDetails,
           columns: [
             { wch: 5 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, { wch: 15 },
-            { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 15 }
+            { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, 
+            { wch: 8 }, { wch: 15 }, { wch: 12 }
           ]
         },
         {
@@ -507,7 +887,7 @@ const Clients = () => {
 
       toast({
         title: "Export Successful",
-        description: "Comprehensive revenue report has been generated successfully",
+        description: "Comprehensive revenue report with monthly analysis and corrected calculations has been generated successfully",
       });
     } catch (error) {
       console.error('Excel export error:', error);
@@ -541,10 +921,9 @@ const Clients = () => {
           ['Cancelled Subscriptions', processedData.cancelledSubscriptions.length.toString()],
           ['Expired Subscriptions', processedData.expiredSubscriptions.length.toString()],
           ['Total Subscriptions', processedData.validSubscriptions.length.toString()],
-          ['Total Active Revenue', `₹${processedData.totalActiveRevenue.toLocaleString()}`],
-          ['Total Revenue (All)', `₹${processedData.totalRevenueAll.toLocaleString()}`],
-          ['Add-on Revenue', `₹${processedData.addonRevenue.toLocaleString()}`],
-          ['Grand Total Revenue', `₹${processedData.grandTotalRevenue.toLocaleString()}`],
+          ['Total Active Revenue (Verified)', `₹${processedData.totalActiveRevenue.toLocaleString()}`],
+          ['Add-on Revenue (Verified)', `₹${processedData.addonRevenue.toLocaleString()}`],
+          ['Grand Total Revenue (All Verified)', `₹${processedData.grandTotalRevenue.toLocaleString()}`],
         ].map(row => [row[0], row[1]]),
         columnStyles: {
           0: { cellWidth: 80, fontStyle: 'bold' },

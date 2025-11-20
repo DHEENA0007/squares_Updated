@@ -48,6 +48,15 @@ export interface Subscription {
   paymentMethod?: string;
   autoRenew: boolean;
   paymentHistory?: PaymentHistoryItem[];
+  // Additional fields from actual database structure
+  transactionId?: string;
+  paymentDetails?: {
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    razorpaySignature?: string;
+  };
+  lastPaymentDate?: string;
+  renewalAttempts?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -277,6 +286,31 @@ class SubscriptionService {
       return response;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to renew subscription";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  // Upgrade subscription to a higher plan
+  async upgradeSubscription(currentSubscriptionId: string, newPlanId: string): Promise<SingleSubscriptionResponse> {
+    try {
+      const response = await this.makeRequest<SingleSubscriptionResponse>(`/subscriptions/${currentSubscriptionId}/upgrade`, {
+        method: "PATCH",
+        body: JSON.stringify({ newPlanId }),
+      });
+
+      toast({
+        title: "Success",
+        description: "Subscription upgraded successfully!",
+      });
+
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to upgrade subscription";
       toast({
         title: "Error",
         description: errorMessage,

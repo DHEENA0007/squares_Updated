@@ -1,0 +1,185 @@
+[
+  {
+    "_id": "69118f9c1ce0bfafcefe6f07",
+    "title": "hi",
+    "subject": "hi",
+    "message": "helo",
+    "type": "informational",
+    "targetAudience": "customers",
+    "channels": [
+      "email"
+    ],
+    "recipients": [
+      {
+        "user": "68f76792ae8ba267e353c0e9",
+        "delivered": true,
+        "deliveredAt": null,
+        "opened": false,
+        "openedAt": null,
+        "clicked": false,
+        "clickedAt": null,
+        "_id": "69118f9c1ce0bfafcefe6f08"
+      },
+      {
+        "user": "690b8922bbe24151c4955f59",
+        "delivered": true,
+        "deliveredAt": null,
+        "opened": false,
+        "openedAt": null,
+        "clicked": false,
+        "clickedAt": null,
+        "_id": "69118f9c1ce0bfafcefe6f09"
+      },
+      {
+        "user": "690b8ac5bbe24151c4955f69",
+        "delivered": true,
+        "deliveredAt": null,
+        "opened": false,
+        "openedAt": null,
+        "clicked": false,
+        "clickedAt": null,
+        "_id": "69118f9c1ce0bfafcefe6f0a"
+      }
+    ],
+    "status": "sent",
+    "isScheduled": false,
+    "scheduledDate": null,
+    "sentAt": "2025-11-10T07:09:16.073Z",
+    "sentBy": "6909834d404a2c48e422ea56",
+    "statistics": {
+      "totalRecipients": 3,
+      "delivered": 3,
+      "opened": 0,
+      "clicked": 0,
+      "failed": 0,
+      "deliveryRate": 100,
+      "openRate": 0,
+      "clickRate": 0
+    },
+    "settings": {
+      "cityFilter": [],
+      "userTypeFilter": []
+    },
+    "templateId": null,
+    "attachments": [],
+    "metadata": {
+      "tags": [],
+      "priority": "medium"
+    },
+    "createdAt": "2025-11-10T07:09:16.156Z",
+    "updatedAt": "2025-11-10T07:09:16.156Z",
+    "__v": 0
+  },
+  {
+    "_id": "691190151ce0bfafcefe6f14",
+    "title": "hi",
+    "subject": "hi",
+    "message": "helo",
+    "type": "informational",
+    "targetAudience": "customers",
+    "channels": [
+      "in_app"
+    ],
+    "recipients": [
+      {
+        "user": "68f76792ae8ba267e353c0e9",
+        "delivered": true,
+        "deliveredAt": null,
+        "opened": false,
+        "openedAt": null,
+        "clicked": false,
+        "clickedAt": null,
+        "_id": "691190151ce0bfafcefe6f15"
+      },
+      {
+        "user": "690b8922bbe24151c4955f59",
+        "delivered": true,
+        "deliveredAt": null,
+        "opened": false,
+        "openedAt": null,
+        "clicked": false,
+        "clickedAt": null,
+        "_id": "691190151ce0bfafcefe6f16"
+      },
+      {
+        "user": "690b8ac5bbe24151c4955f69",
+        "delivered": true,
+        "deliveredAt": null,
+        "opened": false,
+        "openedAt": null,
+        "clicked": false,
+        "clickedAt": null,
+        "_id": "691190151ce0bfafcefe6f17"
+      }
+    ],
+    "status": "sent",
+    "isScheduled": false,
+    "scheduledDate": null,
+    "sentAt": "2025-11-10T07:11:17.501Z",
+    "sentBy": "6909834d404a2c48e422ea56",
+    "statistics": {
+      "totalRecipients": 3,
+      "delivered": 3,
+      "opened": 0,
+      "clicked": 0,
+      "failed": 0,
+      "deliveryRate": 100,
+      "openRate": 0,
+      "clickRate": 0
+    },
+    "settings": {
+      "cityFilter": [],
+      "userTypeFilter": []
+    },
+    "templateId": null,
+    "attachments": [],
+    "metadata": {
+      "tags": [],
+      "priority": "medium"
+    },
+    "createdAt": "2025-11-10T07:11:17.520Z",
+    "updatedAt": "2025-11-10T07:11:17.520Z",
+    "__v": 0
+  },
+  {
+    "_id": "6911929471823c00ff2fc6bc",
+    "title": "hi",
+    "subject": "hi",
+    "message": "hj",
+    "type": "informational",
+    "targetAudience": "all_users",
+    "channels": [
+      "in_app",
+      "email"
+    ],
+    "status": "draft",
+    "isScheduled": false,
+    "scheduledDate": null,
+    "sentAt": null,
+    "sentBy": "6909834d404a2c48e422ea56",
+    "statistics": {
+      "totalRecipients": 8,
+      "delivered": 0,
+      "opened": 0,
+      "clicked": 0,
+      "failed": 0,
+      "deliveryRate": 0,
+      "openRate": 0,
+      "clickRate": 0
+    },
+    "settings": {
+      "cityFilter": [],
+      "userTypeFilter": []
+    },
+    "templateId": null,
+    "attachments": [],
+    "metadata": {
+      "tags": [],
+      "priority": "medium"
+    },
+    "recipients": [],
+    "createdAt": "2025-11-10T07:21:56.867Z",
+    "updatedAt": "2025-11-10T07:21:56.867Z",
+    "__v": 0
+  }
+]

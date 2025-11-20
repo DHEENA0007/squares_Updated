@@ -1,0 +1,223 @@
+[
+  {
+    "_id": "69121522cc913a5defa4c0b4",
+    "user": "68f8b1214f4741e752f0e18b",
+    "razorpayOrderId": "order_Re6dvVz93GFfY8",
+    "amount": 8998,
+    "currency": "INR",
+    "status": "paid",
+    "paymentMethod": "razorpay",
+    "paymentGateway": "razorpay",
+    "type": "subscription_purchase",
+    "description": "Payment for Subscription - ENTERPRISE PLAN - ₹4999 with 1 addon(s)",
+    "metadata": {
+      "planId": "enterprise",
+      "planName": "ENTERPRISE PLAN - ₹4999",
+      "billingCycle": "monthly",
+      "addons": [
+        "68f9e724d75eb0a6ce4ee963"
+      ]
+    },
+    "expiresAt": "2025-11-10T16:53:58.581Z",
+    "createdAt": "2025-11-10T16:38:58.584Z",
+    "updatedAt": "2025-11-10T16:39:52.984Z",
+    "__v": 0,
+    "razorpayPaymentId": "pay_Re6eY4FeU7I3cA",
+    "razorpaySignature": "ed26dddd450ceaf423e6dc417661cfda6aba7f5176410a9468162d3435b66a90",
+    "subscription": "69121558cc913a5defa4c0c5"
+  },
+  {
+    "_id": "69146b12ac46b277b9073b9d",
+    "user": "68fa18a0c9fa98e30aa7a7ac",
+    "razorpayOrderId": "order_Reo6pvElkscnP1",
+    "amount": 199,
+    "currency": "INR",
+    "status": "paid",
+    "paymentMethod": "razorpay",
+    "paymentGateway": "razorpay",
+    "type": "subscription_purchase",
+    "description": "Payment for Subscription - BASIC PLAN - ₹199",
+    "metadata": {
+      "planId": "basic",
+      "planName": "BASIC PLAN - ₹199",
+      "billingCycle": "monthly",
+      "addons": []
+    },
+    "expiresAt": "2025-11-12T11:25:10.102Z",
+    "createdAt": "2025-11-12T11:10:10.105Z",
+    "updatedAt": "2025-11-12T11:10:42.684Z",
+    "__v": 0,
+    "razorpayPaymentId": "pay_Reo78P8hTVadYO",
+    "razorpaySignature": "ca3147d4a8a589b102935e057b4b8dad345c8fc25aecc96ea24ad909b93a85df",
+    "subscription": "69146b32ac46b277b9073ba9"
+  },
+  {
+    "_id": "69146e8fac46b277b9073df8",
+    "user": "68fa18a0c9fa98e30aa7a7ac",
+    "razorpayOrderId": "order_ReoMYfg5kGgId4",
+    "amount": 4999,
+    "currency": "INR",
+    "status": "paid",
+    "paymentMethod": "razorpay",
+    "paymentGateway": "razorpay",
+    "type": "subscription_purchase",
+    "description": "Payment for Subscription - ENTERPRISE PLAN - ₹4999",
+    "metadata": {
+      "planId": "enterprise",
+      "planName": "ENTERPRISE PLAN - ₹4999",
+      "billingCycle": "monthly",
+      "addons": []
+    },
+    "expiresAt": "2025-11-12T11:40:03.132Z",
+    "createdAt": "2025-11-12T11:25:03.136Z",
+    "updatedAt": "2025-11-12T11:25:19.721Z",
+    "__v": 0,
+    "razorpayPaymentId": "pay_ReoMd2XQRWXncb",
+    "razorpaySignature": "d45588775ba91bbc45e01aec8365ed792578e4fb70cb2f937c2dd32a2f9b98fe",
+    "subscription": "69146e9fac46b277b9073e1a"
+  },
+  {
+    "_id": "691d9ca05432b546e6f53620",
+    "user": "691c199a5432b546e6f4ca09",
+    "razorpayOrderId": "order_RhZCMv29sG6Zpl",
+    "amount": 499,
+    "currency": "INR",
+    "status": "cancelled",
+    "paymentMethod": "razorpay",
+    "paymentGateway": "razorpay",
+    "type": "subscription_purchase",
+    "description": "Payment for Subscription - STANDARD PLAN - ₹499",
+    "metadata": {
+      "planId": "standard",
+      "planName": "STANDARD PLAN - ₹499",
+      "billingCycle": "monthly",
+      "addons": []
+    },
+    "expiresAt": "2025-11-19T10:47:00.428Z",
+    "createdAt": "2025-11-19T10:32:00.430Z",
+    "updatedAt": "2025-11-19T10:48:19.430Z",
+    "__v": 0,
+    "failureReason": "Payment timeout - exceeded Razorpay's 15-minute limit (16 minutes elapsed)"
+  },
+  {
+    "_id": "691e3145f532c880ed1dfff2",
+    "user": "691e2e50f532c880ed1dfcf4",
+    "razorpayOrderId": "order_Rhk0J644flHHoi",
+    "amount": 4999,
+    "currency": "INR",
+    "status": "paid",
+    "paymentMethod": "razorpay",
+    "paymentGateway": "razorpay",
+    "type": "subscription_purchase",
+    "description": "Payment for Subscription - ENTERPRISE PLAN - ₹4999",
+    "metadata": {
+      "planId": "enterprise",
+      "planName": "ENTERPRISE PLAN - ₹4999",
+      "billingCycle": "monthly",
+      "addons": []
+    },
+    "expiresAt": "2025-11-19T21:21:13.096Z",
+    "createdAt": "2025-11-19T21:06:13.098Z",
+    "updatedAt": "2025-11-19T21:08:21.803Z",
+    "__v": 0,
+    "razorpayPaymentId": "pay_Rhk23PAP1u1o1C",
+    "razorpaySignature": "2c63a6a2b5fae1aa096a848f9ecfff4522ea81f49a5b4c2ee004f525e879d1ef",
+    "subscription": "691e31c5f532c880ed1e0002"
+  },
+  {
+    "_id": "691e3280f532c880ed1e0158",
+    "user": "691e2e50f532c880ed1dfcf4",
+    "razorpayOrderId": "order_Rhk5qyCHB4zaaD",
+    "amount": 499,
+    "currency": "INR",
+    "status": "cancelled",
+    "paymentMethod": "razorpay",
+    "paymentGateway": "razorpay",
+    "type": "subscription_purchase",
+    "description": "Payment for Subscription - STANDARD PLAN - ₹499",
+    "metadata": {
+      "planId": "standard",
+      "planName": "STANDARD PLAN - ₹499",
+      "billingCycle": "monthly",
+      "addons": []
+    },
+    "expiresAt": "2025-11-19T21:26:28.102Z",
+    "createdAt": "2025-11-19T21:11:28.103Z",
+    "updatedAt": "2025-11-19T21:29:19.849Z",
+    "__v": 0,
+    "failureReason": "Payment timeout - exceeded Razorpay's 15-minute limit (17 minutes elapsed)"
+  },
+  {
+    "_id": "691ed3220bd0341bdc215ad8",
+    "user": "68f8b1214f4741e752f0e18b",
+    "subscription": "69121558cc913a5defa4c0c5",
+    "razorpayOrderId": "order_RhvlqC7uf9jojS",
+    "amount": 2999,
+    "currency": "INR",
+    "status": "cancelled",
+    "paymentMethod": "razorpay",
+    "paymentGateway": "razorpay",
+    "type": "addon_purchase",
+    "description": "Payment for 1 Addon(s)",
+    "metadata": {
+      "addons": [
+        "68f9e724d75eb0a6ce4ee960"
+      ]
+    },
+    "expiresAt": "2025-11-20T08:51:50.768Z",
+    "createdAt": "2025-11-20T08:36:50.770Z",
+    "updatedAt": "2025-11-20T08:52:54.228Z",
+    "__v": 0,
+    "failureReason": "Payment timeout - exceeded Razorpay's 15-minute limit (16 minutes elapsed)"
+  },
+  {
+    "_id": "691ee6da0bd0341bdc215fe2",
+    "user": "68f8b1214f4741e752f0e18b",
+    "razorpayOrderId": "order_RhxCiTDM8WoDI7",
+    "amount": 4999,
+    "currency": "INR",
+    "status": "paid",
+    "paymentMethod": "razorpay",
+    "paymentGateway": "razorpay",
+    "type": "subscription_purchase",
+    "description": "Payment for Subscription - ENTERPRISE PLAN - ₹4999",
+    "metadata": {
+      "planId": "enterprise",
+      "planName": "ENTERPRISE PLAN - ₹4999",
+      "billingCycle": "monthly",
+      "addons": []
+    },
+    "expiresAt": "2025-11-20T10:15:58.932Z",
+    "createdAt": "2025-11-20T10:00:58.935Z",
+    "updatedAt": "2025-11-20T10:01:27.242Z",
+    "__v": 0,
+    "razorpayPaymentId": "pay_RhxCxAjsx7Dl6G",
+    "razorpaySignature": "02593092fc233eb5fec0a3be4772b67e2f2c374c9e48eb445e4cd328cf6a4172",
+    "subscription": "691ee6f70bd0341bdc215ff2"
+  },
+  {
+    "_id": "691ef7137b99d9eda834d5ab",
+    "user": "68f8b1214f4741e752f0e18b",
+    "razorpayOrderId": "order_RhyNgC6bqV5lO8",
+    "amount": 499,
+    "currency": "INR",
+    "status": "paid",
+    "paymentMethod": "razorpay",
+    "paymentGateway": "razorpay",
+    "type": "subscription_purchase",
+    "description": "Payment for Subscription - STANDARD PLAN - ₹499",
+    "metadata": {
+      "planId": "standard",
+      "planName": "STANDARD PLAN - ₹499",
+      "billingCycle": "monthly",
+      "addons": []
+    },
+    "expiresAt": "2025-11-20T11:25:11.203Z",
+    "createdAt": "2025-11-20T11:10:11.208Z",
+    "updatedAt": "2025-11-20T11:10:36.062Z",
+    "__v": 0,
+    "razorpayPaymentId": "pay_RhyNqaOh1O3KJd",
+    "razorpaySignature": "3d187ec3ddd21435f6223bbfd5d6c3ef4549770d0b6856f25b3e27d80358da21",
+    "subscription": "691ef72c7b99d9eda834d5b8"
+  }
+]

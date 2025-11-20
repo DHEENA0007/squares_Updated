@@ -210,8 +210,6 @@ const VendorBilling: React.FC = () => {
         'Due Date': ExportUtils.formatDate(invoice.dueDate),
         'Paid Date': invoice.paidDate ? ExportUtils.formatDate(invoice.paidDate) : 'N/A',
         'Amount': `₹${invoice.amount}`,
-        'Tax': `₹${invoice.tax}`,
-        'Total': `₹${invoice.total}`,
         'Currency': invoice.currency,
         'Status': invoice.status.toUpperCase(),
         'Vendor Name': invoice.vendorDetails.name || 'N/A',
@@ -584,17 +582,9 @@ const VendorBilling: React.FC = () => {
                     ))}
                   </tbody>
                   <tfoot className="border-t-2">
-                    <tr className="border-t">
-                      <td colSpan={3} className="p-3 text-sm text-right font-medium">Subtotal</td>
-                      <td className="p-3 text-sm text-right font-medium">{formatAmount(selectedInvoice.amount, selectedInvoice.currency)}</td>
-                    </tr>
-                    <tr className="border-t">
-                      <td colSpan={3} className="p-3 text-sm text-right font-medium">Tax</td>
-                      <td className="p-3 text-sm text-right font-medium">{formatAmount(selectedInvoice.tax, selectedInvoice.currency)}</td>
-                    </tr>
                     <tr className="border-t bg-muted">
                       <td colSpan={3} className="p-3 text-base text-right font-bold">Total</td>
-                      <td className="p-3 text-base text-right font-bold">{formatAmount(selectedInvoice.total, selectedInvoice.currency)}</td>
+                      <td className="p-3 text-base text-right font-bold">{formatAmount(selectedInvoice.amount, selectedInvoice.currency)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -924,7 +914,7 @@ const VendorBilling: React.FC = () => {
                         <div className={`flex ${isMobile ? 'justify-between items-center' : 'items-center space-x-2'} mb-1`}>
                           {getStatusIcon(invoice.status)}
                           <span className={`${isMobile ? 'text-sm' : 'font-semibold'}`}>
-                            {formatAmount(invoice.total, invoice.currency)}
+                            {formatAmount(invoice.amount, invoice.currency)}
                           </span>
                         </div>
                         <Badge className={`text-xs ${getStatusColor(invoice.status)}`}>

@@ -1,0 +1,25 @@
+[
+  {
+    "_id": "690ac0e29e3bd92740054b1c",
+    "vendor": "68f8b1214f4741e752f0e18b",
+    "client": "68f76792ae8ba267e353c0e9",
+    "property": "6904dba6db61804738da08f2",
+    "service": null,
+    "rating": 5,
+    "title": "better",
+    "comment": "good aminity better approach",
+    "reviewType": "property",
+    "isVerified": false,
+    "isPublic": true,
+    "helpfulVotes": 0,
+    "unhelpfulVotes": 0,
+    "tags": [],
+    "images": [],
+    "helpfulBy": [],
+    "unhelpfulBy": [],
+    "status": "active",
+    "createdAt": "2025-11-05T03:13:38.406Z",
+    "updatedAt": "2025-11-05T07:17:32.390Z",
+    "__v": 0
+  }
+]

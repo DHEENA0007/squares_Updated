@@ -1,0 +1,371 @@
+[
+  {
+    "_id": "6904e6b518522f63a0653ba2",
+    "identifier": "free",
+    "name": "FREE LISTING",
+    "description": "5 Properties/Products - Perfect for getting started",
+    "price": 0,
+    "currency": "INR",
+    "billingPeriod": "monthly",
+    "features": [
+      {
+        "name": "5 Property listings",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653ba3"
+      },
+      {
+        "name": "Basic property details",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653ba4"
+      },
+      {
+        "name": "Standard visibility",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653ba5"
+      },
+      {
+        "name": "Email support",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653ba6"
+      }
+    ],
+    "limits": {
+      "properties": -1,
+      "featuredListings": 0,
+      "photos": 10,
+      "videoTours": 0,
+      "leads": 0,
+      "posters": 0,
+      "topRated": false,
+      "verifiedBadge": false,
+      "messages": 50
+    },
+    "isActive": true,
+    "isPopular": false,
+    "sortOrder": 1,
+    "priceHistory": [],
+    "featureHistory": [],
+    "createdAt": "2025-10-31T16:41:25.684Z",
+    "updatedAt": "2025-11-20T11:13:32.991Z",
+    "__v": 0
+  },
+  {
+    "_id": "6904e6b518522f63a0653ba8",
+    "identifier": "basic",
+    "name": "BASIC PLAN - ₹199",
+    "description": "10 Properties + Top Rated + Verified Owner Badge",
+    "price": 199,
+    "currency": "INR",
+    "billingPeriod": "monthly",
+    "features": [
+      {
+        "name": "10 Property listings",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653ba9"
+      },
+      {
+        "name": "Top Rated in Website",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653baa"
+      },
+      {
+        "name": "Verified Owner Badge",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bab"
+      },
+      {
+        "name": "Priority email support",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bac"
+      },
+      {
+        "name": "Enhanced visibility",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bad"
+      }
+    ],
+    "limits": {
+      "properties": 10,
+      "featuredListings": 2,
+      "photos": 15,
+      "videoTours": 0,
+      "videos": 0,
+      "leads": 5,
+      "posters": 0,
+      "topRated": true,
+      "verifiedBadge": true,
+      "messages": 100,
+      "marketingManager": false,
+      "commissionBased": false,
+      "support": "email",
+      "leadManagement": "basic"
+    },
+    "isActive": true,
+    "isPopular": true,
+    "sortOrder": 2,
+    "priceHistory": [],
+    "featureHistory": [],
+    "createdAt": "2025-10-31T16:41:25.782Z",
+    "updatedAt": "2025-11-12T11:10:42.692Z",
+    "__v": 0
+  },
+  {
+    "_id": "6904e6b518522f63a0653baf",
+    "identifier": "standard",
+    "name": "STANDARD PLAN - ₹499",
+    "description": "15 Properties + Benefits + 1 Poster with 6 leads",
+    "price": 499,
+    "currency": "INR",
+    "billingPeriod": "monthly",
+    "features": [
+      {
+        "name": "15 Property listings",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bb0"
+      },
+      {
+        "name": "Top Rated in Website",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bb1"
+      },
+      {
+        "name": "Verified Owner Badge",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bb2"
+      },
+      {
+        "name": "1 Poster with 6 leads",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bb3"
+      },
+      {
+        "name": "Priority support",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bb4"
+      },
+      {
+        "name": "Enhanced marketing",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bb5"
+      }
+    ],
+    "limits": {
+      "properties": 15,
+      "featuredListings": 3,
+      "photos": 20,
+      "videoTours": 1,
+      "videos": 0,
+      "leads": 6,
+      "posters": 1,
+      "topRated": true,
+      "verifiedBadge": true,
+      "messages": 200,
+      "marketingManager": false,
+      "commissionBased": false,
+      "support": "priority",
+      "leadManagement": "advanced"
+    },
+    "isActive": true,
+    "isPopular": false,
+    "sortOrder": 3,
+    "priceHistory": [],
+    "featureHistory": [],
+    "createdAt": "2025-10-31T16:41:25.881Z",
+    "updatedAt": "2025-11-20T11:10:36.105Z",
+    "__v": 0
+  },
+  {
+    "_id": "6904e6b518522f63a0653bb7",
+    "identifier": "premium",
+    "name": "PREMIUM PLAN - ₹1999",
+    "description": "Unlimited Properties + 4 Posters with 20 leads",
+    "price": 1999,
+    "currency": "INR",
+    "billingPeriod": "monthly",
+    "features": [
+      {
+        "name": "Unlimited Property listings",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bb8"
+      },
+      {
+        "name": "Top Rated in Website",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bb9"
+      },
+      {
+        "name": "Verified Owner Badge",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bba"
+      },
+      {
+        "name": "4 Posters with 20 leads",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bbb"
+      },
+      {
+        "name": "Priority phone & email support",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bbc"
+      },
+      {
+        "name": "Advanced analytics",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bbd"
+      },
+      {
+        "name": "Featured listings",
+        "enabled": true,
+        "_id": "6904e6b518522f63a0653bbe"
+      }
+    ],
+    "limits": {
+      "properties": 0,
+      "featuredListings": 10,
+      "photos": 30,
+      "videoTours": 3,
+      "videos": 0,
+      "leads": 20,
+      "posters": 4,
+      "topRated": true,
+      "verifiedBadge": true,
+      "messages": 500,
+      "marketingManager": false,
+      "commissionBased": false,
+      "support": "phone",
+      "leadManagement": "premium"
+    },
+    "isActive": true,
+    "isPopular": false,
+    "sortOrder": 4,
+    "priceHistory": [],
+    "featureHistory": [],
+    "createdAt": "2025-10-31T16:41:25.955Z",
+    "updatedAt": "2025-11-02T12:26:56.974Z",
+    "__v": 0
+  },
+  {
+    "_id": "6904e6b618522f63a0653bc0",
+    "identifier": "enterprise",
+    "name": "ENTERPRISE PLAN - ₹4999",
+    "description": "Unlimited + Videos + 30+ leads + Marketing Manager",
+    "price": 4999,
+    "currency": "INR",
+    "billingPeriod": "monthly",
+    "features": [
+      {
+        "name": "Unlimited Property listings",
+        "enabled": true,
+        "_id": "6904e6b618522f63a0653bc1"
+      },
+      {
+        "name": "Top Rated in Website",
+        "enabled": true,
+        "_id": "6904e6b618522f63a0653bc2"
+      },
+      {
+        "name": "Verified Owner Badge",
+        "enabled": true,
+        "_id": "6904e6b618522f63a0653bc3"
+      },
+      {
+        "name": "4 Posters & 1 Video with 30+ leads",
+        "enabled": true,
+        "_id": "6904e6b618522f63a0653bc4"
+      },
+      {
+        "name": "Consultation with Marketing Manager",
+        "enabled": true,
+        "_id": "6904e6b618522f63a0653bc5"
+      },
+      {
+        "name": "Commission based revenue",
+        "enabled": true,
+        "_id": "6904e6b618522f63a0653bc6"
+      },
+      {
+        "name": "24/7 dedicated support",
+        "enabled": true,
+        "_id": "6904e6b618522f63a0653bc7"
+      },
+      {
+        "name": "Custom branding",
+        "enabled": true,
+        "_id": "6904e6b618522f63a0653bc8"
+      },
+      {
+        "name": "API access",
+        "enabled": true,
+        "_id": "6904e6b618522f63a0653bc9"
+      }
+    ],
+    "limits": {
+      "properties": 0,
+      "featuredListings": 0,
+      "photos": 0,
+      "videoTours": 0,
+      "videos": 1,
+      "leads": 30,
+      "posters": 4,
+      "topRated": true,
+      "verifiedBadge": true,
+      "messages": 0,
+      "marketingManager": true,
+      "commissionBased": true,
+      "support": "dedicated",
+      "leadManagement": "enterprise"
+    },
+    "isActive": true,
+    "isPopular": false,
+    "sortOrder": 5,
+    "priceHistory": [],
+    "featureHistory": [],
+    "createdAt": "2025-10-31T16:41:26.038Z",
+    "updatedAt": "2025-11-20T11:09:06.034Z",
+    "__v": 0
+  },
+  {
+    "_id": "691ef21e0bd0341bdc2165cf",
+    "identifier": "lite",
+    "name": "Lite",
+    "description": "property listing\nphotoshoot",
+    "price": 899,
+    "currency": "INR",
+    "billingPeriod": "monthly",
+    "features": [
+      {
+        "name": "Relationship manager",
+        "description": "will support to take calls",
+        "enabled": true,
+        "_id": "691ef21e0bd0341bdc2165d0"
+      }
+    ],
+    "limits": {
+      "properties": 20,
+      "featuredListings": 0,
+      "photos": 10,
+      "videoTours": 3,
+      "leads": 6,
+      "posters": 0,
+      "topRated": true,
+      "verifiedBadge": false,
+      "messages": 100
+    },
+    "isActive": false,
+    "isPopular": false,
+    "sortOrder": 0,
+    "priceHistory": [
+      {
+        "price": 899,
+        "changedAt": "2025-11-20T10:49:02.814Z",
+        "changedBy": "68f8857275b9205ce27f8ea5",
+        "reason": "Initial price",
+        "_id": "691ef21e0bd0341bdc2165d1"
+      }
+    ],
+    "featureHistory": [],
+    "createdAt": "2025-11-20T10:49:02.819Z",
+    "updatedAt": "2025-11-20T10:50:51.036Z",
+    "__v": 0
+  }
+]

@@ -1,0 +1,28 @@
+[
+  {
+    "_id": "691ec9c00bd0341bdc215687",
+    "email": "informationtechkongu123@gmail.com",
+    "ipAddress": "::ffff:127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "attempts": 0,
+    "isLocked": false,
+    "lockedUntil": null,
+    "lastAttempt": "2025-11-20T07:56:48.557Z",
+    "createdAt": "2025-11-20T07:56:48.557Z",
+    "updatedAt": "2025-11-20T07:56:57.433Z",
+    "__v": 0
+  },
+  {
+    "_id": "691ed19bd5492adf1accea44",
+    "email": "admin@ninetyneacres.com",
+    "ipAddress": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0",
+    "attempts": 0,
+    "isLocked": false,
+    "lockedUntil": null,
+    "lastAttempt": "2025-11-20T08:30:42.256Z",
+    "createdAt": "2025-11-20T08:30:20.323Z",
+    "updatedAt": "2025-11-20T08:47:18.274Z",
+    "__v": 0
+  }
+]
