@@ -30,20 +30,15 @@
       }
     ],
     "limits": {
-      "properties": 5,
+      "properties": -1,
       "featuredListings": 0,
       "photos": 10,
       "videoTours": 0,
-      "videos": 0,
       "leads": 0,
       "posters": 0,
       "topRated": false,
       "verifiedBadge": false,
-      "messages": 50,
-      "marketingManager": false,
-      "commissionBased": false,
-      "support": "email",
-      "leadManagement": "basic"
+      "messages": 50
     },
     "isActive": true,
     "isPopular": false,
@@ -51,7 +46,7 @@
     "priceHistory": [],
     "featureHistory": [],
     "createdAt": "2025-10-31T16:41:25.684Z",
-    "updatedAt": "2025-10-31T16:41:25.684Z",
+    "updatedAt": "2025-11-20T11:13:32.991Z",
     "__v": 0
   },
   {
@@ -176,7 +171,7 @@
     "priceHistory": [],
     "featureHistory": [],
     "createdAt": "2025-10-31T16:41:25.881Z",
-    "updatedAt": "2025-10-31T16:41:25.881Z",
+    "updatedAt": "2025-11-20T11:10:36.105Z",
     "__v": 0
   },
   {
@@ -326,7 +321,7 @@
     "priceHistory": [],
     "featureHistory": [],
     "createdAt": "2025-10-31T16:41:26.038Z",
-    "updatedAt": "2025-11-20T10:01:27.251Z",
+    "updatedAt": "2025-11-20T11:09:06.034Z",
     "__v": 0
   },
   {

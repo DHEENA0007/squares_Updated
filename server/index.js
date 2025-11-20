@@ -70,7 +70,7 @@ const allowedOrigins = [
 const additionalOriginsEnv = process.env.ADDITIONAL_ALLOWED_ORIGINS;
 let additionalOrigins = [
   "https://squares-v2.onrender.com",
-  "http://localhost:3001",
+  "https://api.buildhomemartsquares.com",
 ];
 
 if (additionalOriginsEnv) {

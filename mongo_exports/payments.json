@@ -194,5 +194,30 @@
     "razorpayPaymentId": "pay_RhxCxAjsx7Dl6G",
     "razorpaySignature": "02593092fc233eb5fec0a3be4772b67e2f2c374c9e48eb445e4cd328cf6a4172",
     "subscription": "691ee6f70bd0341bdc215ff2"
+  },
+  {
+    "_id": "691ef7137b99d9eda834d5ab",
+    "user": "68f8b1214f4741e752f0e18b",
+    "razorpayOrderId": "order_RhyNgC6bqV5lO8",
+    "amount": 499,
+    "currency": "INR",
+    "status": "paid",
+    "paymentMethod": "razorpay",
+    "paymentGateway": "razorpay",
+    "type": "subscription_purchase",
+    "description": "Payment for Subscription - STANDARD PLAN - ₹499",
+    "metadata": {
+      "planId": "standard",
+      "planName": "STANDARD PLAN - ₹499",
+      "billingCycle": "monthly",
+      "addons": []
+    },
+    "expiresAt": "2025-11-20T11:25:11.203Z",
+    "createdAt": "2025-11-20T11:10:11.208Z",
+    "updatedAt": "2025-11-20T11:10:36.062Z",
+    "__v": 0,
+    "razorpayPaymentId": "pay_RhyNqaOh1O3KJd",
+    "razorpaySignature": "3d187ec3ddd21435f6223bbfd5d6c3ef4549770d0b6856f25b3e27d80358da21",
+    "subscription": "691ef72c7b99d9eda834d5b8"
   }
 ]

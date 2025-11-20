@@ -1382,5 +1382,39 @@
     "createdAt": "2025-11-20T08:28:13.484Z",
     "updatedAt": "2025-11-20T08:28:13.484Z",
     "__v": 0
+  },
+  {
+    "_id": "691ef88c7b99d9eda834d743",
+    "title": "llijl",
+    "description": "dsdfh",
+    "type": "villa",
+    "status": "pending",
+    "listingType": "sale",
+    "price": 2000000,
+    "area": {
+      "builtUp": 5556,
+      "unit": "sqft"
+    },
+    "bedrooms": 2,
+    "bathrooms": 2,
+    "priceNegotiable": false,
+    "address": {
+      "street": "CHHATTISGARH",
+      "district": "DHAMTARI",
+      "city": "Achhota BO",
+      "state": "CHHATTISGARH",
+      "pincode": "493773"
+    },
+    "amenities": [],
+    "images": [],
+    "videos": [],
+    "owner": "691ef83c7b99d9eda834d726",
+    "views": 0,
+    "featured": false,
+    "verified": false,
+    "ownerType": "admin",
+    "createdAt": "2025-11-20T11:16:27.992Z",
+    "updatedAt": "2025-11-20T11:16:27.992Z",
+    "__v": 0
   }
 ]
