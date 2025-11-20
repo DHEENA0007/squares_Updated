@@ -118,9 +118,13 @@ export const useRealTimeNotifications = () => {
       });
     }
 
-    // Play notification sound (optional)
+    // Play notification sound (if enabled and user has sound preference on)
     if (notificationConfig.playSound) {
-      playNotificationSound();
+      // Check user's sound preference
+      const soundEnabled = user?.profile?.preferences?.notifications?.sound !== false;
+      if (soundEnabled) {
+        playNotificationSound();
+      }
     }
 
     // Handle browser notifications (if permission granted)
@@ -228,14 +232,14 @@ export const useRealTimeNotifications = () => {
   // Play notification sound
   const playNotificationSound = () => {
     try {
-      // Use a more reliable notification sound approach
-      const audio = new Audio('/notification-sound.mp3');
-      audio.volume = 0.5;
+      const audio = new Audio('/mixkit-software-interface-start-2574.wav');
+      audio.volume = 0.6;
       
-      // Alternative: Use Web Audio API for better browser support
-      const playSound = () => {
-        audio.play().catch((error) => {
-          // Fallback to beep sound if audio file not available
+      audio.play().catch((error) => {
+        console.warn('Failed to play notification sound:', error);
+        
+        // Fallback to beep sound using Web Audio API
+        try {
           const context = new (window.AudioContext || (window as any).webkitAudioContext)();
           const oscillator = context.createOscillator();
           const gainNode = context.createGain();
@@ -251,12 +255,12 @@ export const useRealTimeNotifications = () => {
           
           oscillator.start(context.currentTime);
           oscillator.stop(context.currentTime + 0.5);
-        });
-      };
-      
-      playSound();
+        } catch (fallbackError) {
+          console.warn('Failed to play fallback sound:', fallbackError);
+        }
+      });
     } catch (error) {
-      // Silent error handling
+      console.error('Error initializing notification sound:', error);
     }
   };
 

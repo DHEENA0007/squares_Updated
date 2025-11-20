@@ -6,6 +6,7 @@ const Vendor = require('../models/Vendor');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const vendorNotificationService = require('../services/vendorNotificationService');
+const notificationService = require('../services/notificationService');
 const router = express.Router();
 
 // Apply auth middleware to all routes
@@ -199,6 +200,20 @@ router.post('/', asyncHandler(async (req, res) => {
     } catch (emailError) {
       console.error('Error checking vendor for email notification:', emailError);
     }
+  }
+
+  // Send real-time notification to recipient
+  try {
+    const senderName = `${newMessage.sender.profile?.firstName || ''} ${newMessage.sender.profile?.lastName || ''}`.trim() || 'Someone';
+    
+    notificationService.sendMessageNotification(recipientId, {
+      conversationId: conversationId,
+      senderId: req.user.id,
+      senderName: senderName,
+      message: content.trim()
+    });
+  } catch (notificationError) {
+    console.error('Error sending real-time notification:', notificationError);
   }
 
   // Check if recipient has auto-response enabled (for vendors)
@@ -434,6 +449,37 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
   } catch (error) {
     console.error('Error checking auto-response settings:', error);
     // Don't fail the original message if auto-response fails
+  }
+
+  // Send real-time notification to recipient
+  try {
+    const senderName = `${newMessage.sender.profile?.firstName || ''} ${newMessage.sender.profile?.lastName || ''}`.trim() || 'Someone';
+    
+    notificationService.sendMessageNotification(recipientId.toString(), {
+      conversationId: conversationId,
+      senderId: req.user.id,
+      senderName: senderName,
+      message: content.trim()
+    });
+
+    // Send vendor-specific inquiry notification if recipient is a vendor
+    const recipientUser = await User.findById(recipientId);
+    if (recipientUser && (recipientUser.role === 'agent' || recipientUser.role === 'vendor')) {
+      const vendor = await Vendor.findOne({ user: recipientId });
+      if (vendor) {
+        notificationService.sendVendorNotification(recipientId.toString(), {
+          inquiryId: newMessage._id,
+          propertyId: propertyId,
+          propertyTitle: property.title,
+          customerName: senderName,
+          customerEmail: newMessage.sender.email,
+          customerPhone: newMessage.sender.profile?.phone,
+          message: content.trim()
+        }, 'inquiry_received');
+      }
+    }
+  } catch (notificationError) {
+    console.error('Error sending real-time notification:', notificationError);
   }
 
   res.status(201).json({
