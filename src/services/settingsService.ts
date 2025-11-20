@@ -428,6 +428,7 @@ class SettingsService {
       location: {
         defaultCountry: 'India',
         defaultState: 'Karnataka',
+        defaultDistrict: 'Bangalore Urban',
         defaultCity: 'Bangalore',
         enableLocationAutodetection: true,
         locationDataSource: 'loca',
