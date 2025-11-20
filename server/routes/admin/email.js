@@ -6,11 +6,11 @@ const {
   getEmailStats,
   emailTemplates 
 } = require('../../utils/emailService');
-const auth = require('../../middleware/auth');
-const { isAdmin } = require('../../middleware/roles');
+const { authenticateToken } = require('../../middleware/authMiddleware');
+const { isSuperAdmin } = require('../../middleware/roleMiddleware');
 
 // Test email connection
-router.get('/test-connection', auth, isAdmin, async (req, res) => {
+router.get('/test-connection', authenticateToken, isSuperAdmin, async (req, res) => {
   try {
     const result = await testEmailConnection();
     res.json(result);
@@ -24,7 +24,7 @@ router.get('/test-connection', auth, isAdmin, async (req, res) => {
 });
 
 // Get email statistics
-router.get('/stats', auth, isAdmin, async (req, res) => {
+router.get('/stats', authenticateToken, isSuperAdmin, async (req, res) => {
   try {
     const stats = getEmailStats();
     res.json({ success: true, stats });
@@ -38,7 +38,7 @@ router.get('/stats', auth, isAdmin, async (req, res) => {
 });
 
 // Send test email
-router.post('/send-test', auth, isAdmin, async (req, res) => {
+router.post('/send-test', authenticateToken, isSuperAdmin, async (req, res) => {
   try {
     const { to, templateName, testData } = req.body;
 
@@ -119,7 +119,7 @@ router.post('/send-test', auth, isAdmin, async (req, res) => {
 });
 
 // Get available email templates
-router.get('/templates', auth, isAdmin, async (req, res) => {
+router.get('/templates', authenticateToken, isSuperAdmin, async (req, res) => {
   try {
     const templates = Object.keys(emailTemplates).map(key => ({
       name: key,
@@ -139,7 +139,7 @@ router.get('/templates', auth, isAdmin, async (req, res) => {
 });
 
 // Send bulk notification emails
-router.post('/send-bulk', auth, isAdmin, async (req, res) => {
+router.post('/send-bulk', authenticateToken, isSuperAdmin, async (req, res) => {
   try {
     const { recipients, templateName, data } = req.body;
 
