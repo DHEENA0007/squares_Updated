@@ -76,6 +76,7 @@ export interface IntegrationSettings {
 export interface LocationSettings {
   defaultCountry: string;
   defaultState: string;
+  defaultDistrict: string;
   defaultCity: string;
   enableLocationAutodetection: boolean;
   locationDataSource: 'loca' | 'google' | 'mapbox';

@@ -53,6 +53,7 @@ const AdminSettings = () => {
 
   // Location data states
   const [states, setStates] = useState<string[]>([]);
+  const [districts, setDistricts] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
 
@@ -137,6 +138,7 @@ const AdminSettings = () => {
   const [locationSettings, setLocationSettings] = useState({
     defaultCountry: 'India',
     defaultState: 'Karnataka',
+    defaultDistrict: 'Bangalore',
     defaultCity: 'Bangalore',
     enableLocationAutodetection: true,
     locationDataSource: 'loca' as 'loca' | 'google' | 'mapbox',
@@ -157,18 +159,28 @@ const AdminSettings = () => {
       await locaService.initialize();
       const statesList = locaService.getStates();
       setStates(statesList);
-      
-      // Load cities for default state
-      if (locationSettings.defaultState) {
-        const citiesList = locaService.getCities(locationSettings.defaultState, '');
-        setCities(citiesList);
-      }
     } catch (error) {
       console.error("Error initializing location service:", error);
     } finally {
       setLocationLoading(false);
     }
   };
+
+  // Load cities when state changes
+  useEffect(() => {
+    if (locationSettings.defaultState && states.length > 0) {
+      const districtsList = locaService.getDistricts(locationSettings.defaultState);
+      setDistricts(districtsList);
+    }
+  }, [locationSettings.defaultState, states]);
+
+  // Load cities when district changes
+  useEffect(() => {
+    if (locationSettings.defaultState && locationSettings.defaultDistrict && districts.length > 0) {
+      const citiesList = locaService.getCities(locationSettings.defaultState, locationSettings.defaultDistrict);
+      setCities(citiesList);
+    }
+  }, [locationSettings.defaultState, locationSettings.defaultDistrict, districts]);
 
   const loadSettings = async () => {
     try {
@@ -190,7 +202,12 @@ const AdminSettings = () => {
             ...response.data.settings.integrations
           });
         }
-        if (response.data.settings.location) setLocationSettings(response.data.settings.location);
+        if (response.data.settings.location) {
+          setLocationSettings(prev => ({
+            ...prev,
+            ...response.data.settings.location
+          }));
+        }
         
         // Reset change flags
         setHasChanges({
@@ -565,7 +582,8 @@ const AdminSettings = () => {
         </Alert>
       )}
       
-      {/* Settings Management Actions */}
+      {/* Settings Management Actions - Commented out for Super Admin */}
+      {/* 
       <Card className="mb-6">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
@@ -604,9 +622,10 @@ const AdminSettings = () => {
           </div>
         </CardContent>
       </Card>
+      */}
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="general" className="flex items-center gap-2">
             <Globe className="h-4 w-4" />
             General
@@ -619,6 +638,7 @@ const AdminSettings = () => {
             <Shield className="h-4 w-4" />
             Security
           </TabsTrigger>
+          {/* Commented out Payment, System, and Integration Settings for SuperAdmin
           <TabsTrigger value="payment" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
             Payment
@@ -631,6 +651,7 @@ const AdminSettings = () => {
             <RefreshCw className="h-4 w-4" />
             Integrations
           </TabsTrigger>
+          */}
           <TabsTrigger value="location" className="flex items-center gap-2">
             <MapPin className="h-4 w-4" />
             Location
@@ -704,66 +725,31 @@ const AdminSettings = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="defaultCurrency">Default Currency</Label>
-                  <Select 
-                    value={generalSettings.defaultCurrency}
-                    onValueChange={(value) => {
-                      setGeneralSettings(prev => ({ ...prev, defaultCurrency: value }));
-                      markChanges('general');
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="INR">INR (₹)</SelectItem>
-                      <SelectItem value="USD">USD ($)</SelectItem>
-                      <SelectItem value="EUR">EUR (€)</SelectItem>
-                      <SelectItem value="GBP">GBP (£)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    id="defaultCurrency"
+                    value="INR (₹)"
+                    disabled
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="defaultLanguage">Default Language</Label>
-                  <Select 
-                    value={generalSettings.defaultLanguage}
-                    onValueChange={(value) => {
-                      setGeneralSettings(prev => ({ ...prev, defaultLanguage: value }));
-                      markChanges('general');
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="hi">Hindi</SelectItem>
-                      <SelectItem value="ta">Tamil</SelectItem>
-                      <SelectItem value="te">Telugu</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    id="defaultLanguage"
+                    value="English"
+                    disabled
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="timezone">Timezone</Label>
-                  <Select 
-                    value={generalSettings.timezone}
-                    onValueChange={(value) => {
-                      setGeneralSettings(prev => ({ ...prev, timezone: value }));
-                      markChanges('general');
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Asia/Kolkata">India (IST)</SelectItem>
-                      <SelectItem value="UTC">UTC</SelectItem>
-                      <SelectItem value="America/New_York">New York (EST)</SelectItem>
-                      <SelectItem value="Europe/London">London (GMT)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    id="timezone"
+                    value="India (IST)"
+                    disabled
+                  />
                 </div>
               </div>
 
+              {/* Commented out Site Status Section for SuperAdmin
               <Separator />
 
               <div className="space-y-4">
@@ -801,6 +787,7 @@ const AdminSettings = () => {
                   />
                 </div>
               </div>
+              */}
 
               <div className="flex justify-end">
                 <Button onClick={handleSaveGeneral} disabled={loading}>
@@ -826,16 +813,48 @@ const AdminSettings = () => {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <h4 className="text-sm font-medium">User Notifications</h4>
+                <h4 className="text-sm font-medium">Notification Preferences</h4>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="emailNotifications">Email Notifications</Label>
                     <Switch
                       id="emailNotifications"
                       checked={notificationSettings.emailNotifications}
-                      onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, emailNotifications: checked }))}
+                      onCheckedChange={(checked) => {
+                        setNotificationSettings(prev => ({ ...prev, emailNotifications: checked }));
+                        markChanges('notifications');
+                      }}
                     />
                   </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="adminAlerts">Admin Alerts</Label>
+                    <Switch
+                      id="adminAlerts"
+                      checked={notificationSettings.adminAlerts}
+                      onCheckedChange={(checked) => {
+                        setNotificationSettings(prev => ({ ...prev, adminAlerts: checked }));
+                        markChanges('notifications');
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="systemAlerts">System Alerts</Label>
+                    <Switch
+                      id="systemAlerts"
+                      checked={notificationSettings.systemAlerts}
+                      onCheckedChange={(checked) => {
+                        setNotificationSettings(prev => ({ ...prev, systemAlerts: checked }));
+                        markChanges('notifications');
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Commented out additional notification settings for Super Admin
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium">User Notifications</h4>
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="smsNotifications">SMS Notifications</Label>
                     <Switch
@@ -852,30 +871,6 @@ const AdminSettings = () => {
                       onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, pushNotifications: checked }))}
                     />
                   </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <h4 className="text-sm font-medium">Admin Alerts</h4>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="adminAlerts">Admin Alerts</Label>
-                    <Switch
-                      id="adminAlerts"
-                      checked={notificationSettings.adminAlerts}
-                      onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, adminAlerts: checked }))}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="systemAlerts">System Alerts</Label>
-                    <Switch
-                      id="systemAlerts"
-                      checked={notificationSettings.systemAlerts}
-                      onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, systemAlerts: checked }))}
-                    />
-                  </div>
                   <div className="flex items-center justify-between">
                     <Label htmlFor="userActivityAlerts">User Activity Alerts</Label>
                     <Switch
@@ -884,8 +879,25 @@ const AdminSettings = () => {
                       onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, userActivityAlerts: checked }))}
                     />
                   </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="marketingEmails">Marketing Emails</Label>
+                    <Switch
+                      id="marketingEmails"
+                      checked={notificationSettings.marketingEmails}
+                      onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, marketingEmails: checked }))}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="weeklyReports">Weekly Reports</Label>
+                    <Switch
+                      id="weeklyReports"
+                      checked={notificationSettings.weeklyReports}
+                      onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, weeklyReports: checked }))}
+                    />
+                  </div>
                 </div>
               </div>
+              */}
 
               <div className="flex justify-end">
                 <Button onClick={handleSaveNotifications} disabled={loading}>
@@ -917,9 +929,13 @@ const AdminSettings = () => {
                     id="sessionTimeout"
                     type="number"
                     value={securitySettings.sessionTimeout}
-                    onChange={(e) => setSecuritySettings(prev => ({ ...prev, sessionTimeout: parseInt(e.target.value) }))}
+                    onChange={(e) => {
+                      setSecuritySettings(prev => ({ ...prev, sessionTimeout: parseInt(e.target.value) }));
+                      markChanges('security');
+                    }}
                   />
                 </div>
+                {/* Commented out for Super Admin
                 <div className="space-y-2">
                   <Label htmlFor="passwordMinLength">Minimum Password Length</Label>
                   <Input
@@ -929,6 +945,7 @@ const AdminSettings = () => {
                     onChange={(e) => setSecuritySettings(prev => ({ ...prev, passwordMinLength: parseInt(e.target.value) }))}
                   />
                 </div>
+                */}
               </div>
 
               <div className="space-y-2">
@@ -936,10 +953,52 @@ const AdminSettings = () => {
                 <Input
                   id="maxLoginAttempts"
                   type="number"
+                  min="3"
+                  max="10"
                   value={securitySettings.maxLoginAttempts}
-                  onChange={(e) => setSecuritySettings(prev => ({ ...prev, maxLoginAttempts: parseInt(e.target.value) }))}
+                  onChange={(e) => {
+                    setSecuritySettings(prev => ({ ...prev, maxLoginAttempts: parseInt(e.target.value) }));
+                    markChanges('security');
+                    syncSettingRealtime('security', 'maxLoginAttempts', parseInt(e.target.value));
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  After {securitySettings.maxLoginAttempts} failed login attempts, users will be locked out for 30 minutes or must reset their password. This setting applies dynamically to all user types.
+                </p>
+              </div>
+
+              {/* Commented out Minimum Password Length and Require Email/Phone Verification for Super Admin
+              <div className="space-y-2">
+                <Label htmlFor="maxLoginAttempts">Max Login Attempts</Label>
+                <Input
+                  id="maxLoginAttempts"
+                  type="number"
+                  min="3"
+                  max="10"
+                  value={securitySettings.maxLoginAttempts}
+                  onChange={(e) => {
+                    setSecuritySettings(prev => ({ ...prev, maxLoginAttempts: parseInt(e.target.value) }));
+                    markChanges('security');
+                    syncSettingRealtime('security', 'maxLoginAttempts', parseInt(e.target.value));
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  After {securitySettings.maxLoginAttempts} failed login attempts, users will be locked out for 30 minutes or must reset their password. This setting applies dynamically to all user types.
+                </p>
+              </div>
+
+              {/* Commented out Minimum Password Length for Super Admin
+              <div className="space-y-2">
+                <Label htmlFor="passwordMinLength">Minimum Password Length</Label>
+                <Input
+                  id="passwordMinLength"
+                  type="number"
+                  value={securitySettings.passwordMinLength}
+                  onChange={(e) => setSecuritySettings(prev => ({ ...prev, passwordMinLength: parseInt(e.target.value) }))}
                 />
               </div>
+              */}
+              
 
               <Separator />
 
@@ -947,13 +1006,22 @@ const AdminSettings = () => {
                 <h4 className="text-sm font-medium">Authentication</h4>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="twoFactorAuth">Two-Factor Authentication</Label>
+                    <div className="flex-1">
+                      <Label htmlFor="twoFactorAuth">Two-Factor Authentication (2FA)</Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Enable 2FA for enhanced account security
+                      </p>
+                    </div>
                     <Switch
                       id="twoFactorAuth"
                       checked={securitySettings.twoFactorAuth}
-                      onCheckedChange={(checked) => setSecuritySettings(prev => ({ ...prev, twoFactorAuth: checked }))}
+                      onCheckedChange={(checked) => {
+                        setSecuritySettings(prev => ({ ...prev, twoFactorAuth: checked }));
+                        markChanges('security');
+                      }}
                     />
                   </div>
+                  {/* Commented out for Super Admin
                   <div className="flex items-center justify-between">
                     <Label htmlFor="requireEmailVerification">Require Email Verification</Label>
                     <Switch
@@ -970,6 +1038,7 @@ const AdminSettings = () => {
                       onCheckedChange={(checked) => setSecuritySettings(prev => ({ ...prev, requirePhoneVerification: checked }))}
                     />
                   </div>
+                  */}
                 </div>
               </div>
 
@@ -1569,30 +1638,34 @@ const AdminSettings = () => {
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <h4 className="text-sm font-medium">Default Location</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <p className="text-xs text-muted-foreground">
+                  Set default location for the platform using the integrated location service (loca.json).
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="defaultCountry">Default Country</Label>
                     <Input
                       id="defaultCountry"
-                      value={locationSettings.defaultCountry}
-                      onChange={(e) => {
-                        setLocationSettings(prev => ({ ...prev, defaultCountry: e.target.value }));
-                        markChanges('location');
-                      }}
+                      value="India"
+                      disabled
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Powered by loca.json service
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="defaultState">Default State</Label>
                     <Select 
                       value={locationSettings.defaultState}
                       onValueChange={(value) => {
-                        setLocationSettings(prev => ({ ...prev, defaultState: value }));
+                        setLocationSettings(prev => ({ ...prev, defaultState: value, defaultDistrict: '', defaultCity: '' }));
                         markChanges('location');
                         syncSettingRealtime('location', 'defaultState', value);
                       }}
+                      disabled={locationLoading || states.length === 0}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={locationLoading ? "Loading..." : "Select state"} />
+                        <SelectValue placeholder={locationLoading ? "Loading states..." : "Select state"} />
                       </SelectTrigger>
                       <SelectContent>
                         {states.map((state) => (
@@ -1602,6 +1675,35 @@ const AdminSettings = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Powered by loca.json service
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="defaultDistrict">Default District</Label>
+                    <Select 
+                      value={locationSettings.defaultDistrict}
+                      onValueChange={(value) => {
+                        setLocationSettings(prev => ({ ...prev, defaultDistrict: value, defaultCity: '' }));
+                        markChanges('location');
+                        syncSettingRealtime('location', 'defaultDistrict', value);
+                      }}
+                      disabled={!locationSettings.defaultState || districts.length === 0}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={!locationSettings.defaultState ? "Select state first" : "Select district"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {districts.map((district) => (
+                          <SelectItem key={district} value={district}>
+                            {district}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Powered by loca.json service
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="defaultCity">Default City</Label>
@@ -1612,9 +1714,10 @@ const AdminSettings = () => {
                         markChanges('location');
                         syncSettingRealtime('location', 'defaultCity', value);
                       }}
+                      disabled={!locationSettings.defaultDistrict || cities.length === 0}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select city" />
+                        <SelectValue placeholder={!locationSettings.defaultDistrict ? "Select district first" : "Select city"} />
                       </SelectTrigger>
                       <SelectContent>
                         {cities.map((city) => (
@@ -1624,10 +1727,14 @@ const AdminSettings = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Powered by loca.json service
+                    </p>
                   </div>
                 </div>
               </div>
 
+              {/* Commented out Location Services Section for SuperAdmin
               <Separator />
 
               <div className="space-y-4">
@@ -1708,6 +1815,7 @@ const AdminSettings = () => {
                   </div>
                 </div>
               </div>
+              */}
 
               <div className="flex justify-end">
                 <Button onClick={handleSaveLocation} disabled={saving.location}>

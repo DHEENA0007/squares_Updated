@@ -161,8 +161,8 @@ const UnifiedProfileDropdown = () => {
           </DropdownMenuItem>
         )}
 
-        {/* Support - Show for all admin types and vendors */}
-        {(isVendor || isSuperAdmin || isAdmin || isSubAdmin) && (
+        {/* Support - Show for vendors and subadmin only (removed for superadmin) */}
+        {(isVendor || isSubAdmin) && (
           <DropdownMenuItem 
             onClick={handleSupport}
             className="cursor-pointer"

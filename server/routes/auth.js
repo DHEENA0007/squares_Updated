@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
+const LoginAttempt = require('../models/LoginAttempt');
+const TwoFactorAuth = require('../models/TwoFactorAuth');
 const { asyncHandler, validateRequest } = require('../middleware/errorMiddleware');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const { sendEmail } = require('../utils/emailService');
@@ -562,24 +564,91 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
 // @route   POST /api/auth/login
 // @access  Public
 router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, twoFactorCode } = req.body;
+  const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+  const userAgent = req.headers['user-agent'] || 'unknown';
+
+  // Get security settings for max login attempts
+  const Settings = require('../models/Settings');
+  const settings = await Settings.getSettings();
+  const maxAttempts = settings.security.maxLoginAttempts || 5;
+
+  // Check login attempts
+  let loginAttempt = await LoginAttempt.findOne({ email, ipAddress });
+  
+  if (!loginAttempt) {
+    loginAttempt = new LoginAttempt({ email, ipAddress, userAgent, attempts: 0 });
+  }
+
+  // Check if account is locked
+  if (loginAttempt.isCurrentlyLocked()) {
+    const remainingMinutes = loginAttempt.getRemainingLockTime();
+    return res.status(429).json({
+      success: false,
+      message: `Too many failed login attempts. Account is locked for ${remainingMinutes} more minutes. You can reset your password to unlock immediately.`,
+      isLocked: true,
+      remainingMinutes,
+      canResetPassword: true
+    });
+  }
 
   // Get user
   const user = await User.findOne({ email });
   
   if (!user) {
+    // Increment failed attempts
+    loginAttempt.attempts += 1;
+    loginAttempt.lastAttempt = new Date();
+    
+    // Lock account if max attempts reached
+    if (loginAttempt.attempts >= maxAttempts) {
+      loginAttempt.isLocked = true;
+      loginAttempt.lockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+    }
+    
+    await loginAttempt.save();
+    
     return res.status(401).json({
       success: false,
-      message: 'Invalid email or password'
+      message: 'Invalid email or password',
+      attemptsLeft: Math.max(0, maxAttempts - loginAttempt.attempts)
     });
   }
 
   // Check password
   const isPasswordValid = await user.comparePassword(password);
   if (!isPasswordValid) {
+    // Increment failed attempts
+    loginAttempt.attempts += 1;
+    loginAttempt.lastAttempt = new Date();
+    
+    if (loginAttempt.attempts >= maxAttempts) {
+      loginAttempt.isLocked = true;
+      loginAttempt.lockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+      
+      // Send account locked email
+      try {
+        await sendEmail({
+          to: user.email,
+          template: 'account-locked',
+          data: {
+            firstName: user.profile.firstName || 'User',
+            lockDuration: '30 minutes',
+            resetPasswordLink: `${process.env.CLIENT_URL}/v2/forgot-password`,
+            ipAddress: ipAddress
+          }
+        });
+      } catch (emailError) {
+        console.error('Failed to send account locked email:', emailError);
+      }
+    }
+    
+    await loginAttempt.save();
+    
     return res.status(401).json({
       success: false,
-      message: 'Invalid email or password'
+      message: 'Invalid email or password',
+      attemptsLeft: Math.max(0, maxAttempts - loginAttempt.attempts)
     });
   }
 
@@ -592,7 +661,6 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
   }
 
   if (user.status === 'pending') {
-    // For vendors (agents), check if they're awaiting admin approval
     if (user.role === 'agent') {
       return res.status(403).json({
         success: false,
@@ -601,27 +669,86 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
       });
     }
     
-    // For other users, it's email verification
     return res.status(401).json({
       success: false,
       message: 'Please verify your email before signing in.'
     });
   }
 
+  // Check if 2FA is enabled for user
+  const twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id, isEnabled: true });
+  
+  if (twoFactorAuth) {
+    // 2FA is enabled, verify code
+    if (!twoFactorCode) {
+      return res.status(200).json({
+        success: false,
+        requires2FA: true,
+        message: 'Two-factor authentication code required',
+        method: twoFactorAuth.method
+      });
+    }
+
+    // Verify 2FA token or backup code
+    const isValidToken = twoFactorAuth.verifyToken(twoFactorCode);
+    const isValidBackupCode = !isValidToken && twoFactorAuth.verifyBackupCode(twoFactorCode);
+    
+    if (!isValidToken && !isValidBackupCode) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid two-factor authentication code',
+        requires2FA: true
+      });
+    }
+
+    // If backup code was used, save it
+    if (isValidBackupCode) {
+      twoFactorAuth.lastUsed = new Date();
+      await twoFactorAuth.save();
+      
+      const remainingCodes = twoFactorAuth.getRemainingBackupCodes();
+      if (remainingCodes < 3) {
+        // Warn user about low backup codes
+        try {
+          await sendEmail({
+            to: user.email,
+            template: 'low-backup-codes',
+            data: {
+              firstName: user.profile.firstName || 'User',
+              remainingCodes,
+              regenerateLink: `${process.env.CLIENT_URL}/settings/security`
+            }
+          });
+        } catch (emailError) {
+          console.error('Failed to send low backup codes warning:', emailError);
+        }
+      }
+    } else {
+      twoFactorAuth.lastUsed = new Date();
+      await twoFactorAuth.save();
+    }
+  }
+
+  // Reset login attempts on successful login
+  if (loginAttempt.attempts > 0) {
+    loginAttempt.attempts = 0;
+    loginAttempt.isLocked = false;
+    loginAttempt.lockedUntil = null;
+    await loginAttempt.save();
+  }
+
   // Update last login
   user.profile.lastLogin = new Date();
   await user.save();
 
-  // Get role pages from Role collection if user has rolePages
+  // Get role pages
   let rolePages = user.rolePages || [];
   
-  // Check if user's role is active and exists
   let userRoleDoc = null;
   try {
     const Role = require('../models/Role');
     userRoleDoc = await Role.findOne({ name: user.role });
     
-    // Check if role exists
     if (!userRoleDoc) {
       return res.status(403).json({
         success: false,
@@ -630,7 +757,6 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
       });
     }
     
-    // Check if role is active
     if (!userRoleDoc.isActive) {
       return res.status(403).json({
         success: false,
@@ -639,7 +765,6 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
       });
     }
     
-    // Get pages from role if user doesn't have rolePages
     if (!rolePages || rolePages.length === 0) {
       if (userRoleDoc.pages) {
         rolePages = userRoleDoc.pages;
@@ -649,8 +774,6 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
     console.error('Error checking role status:', error);
   }
   
-  // If user doesn't have rolePages set, try to get from their role
-  // This is kept for backward compatibility but role check above is more important
   if (!rolePages || rolePages.length === 0) {
     try {
       const Role = require('../models/Role');
@@ -676,7 +799,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
 
   // Set secure cookie
   const cookieOptions = {
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax'
@@ -684,12 +807,8 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
 
   res.cookie('token', token, cookieOptions);
 
-  // Send login alert email (security notification)
+  // Send login alert email
   try {
-    const userAgent = req.headers['user-agent'] || 'Unknown Device';
-    const ipAddress = req.ip || req.connection.remoteAddress || 'Unknown IP';
-    
-    // Extract device info from user agent (simple extraction)
     const deviceInfo = userAgent.includes('Mobile') ? 'Mobile Device' : 
                       userAgent.includes('Chrome') ? 'Chrome Browser' : 
                       'Unknown Device';
@@ -708,13 +827,12 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
           minute: '2-digit'
         }),
         device: deviceInfo,
-        location: 'India', // You can integrate with IP geolocation service
+        location: 'India',
         ipAddress: ipAddress,
         secureAccountLink: `${process.env.CLIENT_URL}/dashboard/security`
       }
     });
   } catch (emailError) {
-    // Log error but don't fail the login
     console.error('Failed to send login alert:', emailError);
   }
 
@@ -728,7 +846,8 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
         email: user.email,
         role: user.role,
         rolePages: rolePages,
-        profile: user.profile
+        profile: user.profile,
+        has2FA: !!twoFactorAuth
       }
     }
   });
@@ -1437,6 +1556,310 @@ router.post('/confirm-deletion', asyncHandler(async (req, res) => {
       message: 'Invalid deletion token'
     });
   }
+}));
+
+// ============= TWO-FACTOR AUTHENTICATION ROUTES =============
+
+// @desc    Setup 2FA - Generate secret and QR code
+// @route   POST /api/auth/2fa/setup
+// @access  Private
+router.post('/2fa/setup', authenticateToken, asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  // Check if 2FA already exists
+  let twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id });
+  
+  if (twoFactorAuth && twoFactorAuth.isEnabled) {
+    return res.status(400).json({
+      success: false,
+      message: 'Two-factor authentication is already enabled'
+    });
+  }
+
+  // Create or update 2FA record
+  if (!twoFactorAuth) {
+    twoFactorAuth = new TwoFactorAuth({ user: user._id });
+  }
+
+  // Generate secret
+  const secret = twoFactorAuth.generateSecret();
+  
+  // Generate QR code
+  const qrCode = await twoFactorAuth.generateQRCode(user.email);
+  
+  // Generate backup codes
+  const backupCodes = twoFactorAuth.generateBackupCodes();
+  
+  await twoFactorAuth.save();
+
+  res.json({
+    success: true,
+    message: '2FA setup initiated. Scan QR code with your authenticator app.',
+    data: {
+      secret: secret.base32,
+      qrCode: qrCode,
+      backupCodes: backupCodes
+    }
+  });
+}));
+
+// @desc    Enable 2FA - Verify setup with token
+// @route   POST /api/auth/2fa/enable
+// @access  Private
+router.post('/2fa/enable', authenticateToken, asyncHandler(async (req, res) => {
+  const { token } = req.body;
+
+  if (!token) {
+    return res.status(400).json({
+      success: false,
+      message: 'Verification token is required'
+    });
+  }
+
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  const twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id });
+  
+  if (!twoFactorAuth) {
+    return res.status(400).json({
+      success: false,
+      message: '2FA not set up. Please initiate setup first.'
+    });
+  }
+
+  if (twoFactorAuth.isEnabled) {
+    return res.status(400).json({
+      success: false,
+      message: '2FA is already enabled'
+    });
+  }
+
+  // Verify token
+  const isValid = twoFactorAuth.verifyToken(token);
+  
+  if (!isValid) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid verification token'
+    });
+  }
+
+  // Enable 2FA
+  twoFactorAuth.isEnabled = true;
+  twoFactorAuth.enabledAt = new Date();
+  await twoFactorAuth.save();
+
+  // Send confirmation email
+  try {
+    await sendEmail({
+      to: user.email,
+      template: '2fa-enabled',
+      data: {
+        firstName: user.profile.firstName || 'User',
+        enabledDate: new Date().toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        settingsLink: `${process.env.CLIENT_URL}/settings/security`
+      }
+    });
+  } catch (emailError) {
+    console.error('Failed to send 2FA enabled email:', emailError);
+  }
+
+  res.json({
+    success: true,
+    message: 'Two-factor authentication has been enabled successfully'
+  });
+}));
+
+// @desc    Disable 2FA
+// @route   POST /api/auth/2fa/disable
+// @access  Private
+router.post('/2fa/disable', authenticateToken, asyncHandler(async (req, res) => {
+  const { token, password } = req.body;
+
+  if (!password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password is required to disable 2FA'
+    });
+  }
+
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  // Verify password
+  const isPasswordValid = await user.comparePassword(password);
+  if (!isPasswordValid) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid password'
+    });
+  }
+
+  const twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id });
+  
+  if (!twoFactorAuth || !twoFactorAuth.isEnabled) {
+    return res.status(400).json({
+      success: false,
+      message: '2FA is not enabled'
+    });
+  }
+
+  // Verify 2FA token if provided
+  if (token) {
+    const isValid = twoFactorAuth.verifyToken(token) || twoFactorAuth.verifyBackupCode(token);
+    if (!isValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid 2FA token'
+      });
+    }
+  }
+
+  // Disable 2FA
+  twoFactorAuth.isEnabled = false;
+  await twoFactorAuth.save();
+
+  // Send confirmation email
+  try {
+    await sendEmail({
+      to: user.email,
+      template: '2fa-disabled',
+      data: {
+        firstName: user.profile.firstName || 'User',
+        disabledDate: new Date().toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        securityLink: `${process.env.CLIENT_URL}/settings/security`
+      }
+    });
+  } catch (emailError) {
+    console.error('Failed to send 2FA disabled email:', emailError);
+  }
+
+  res.json({
+    success: true,
+    message: 'Two-factor authentication has been disabled'
+  });
+}));
+
+// @desc    Get 2FA status
+// @route   GET /api/auth/2fa/status
+// @access  Private
+router.get('/2fa/status', authenticateToken, asyncHandler(async (req, res) => {
+  const twoFactorAuth = await TwoFactorAuth.findOne({ user: req.user.id });
+  
+  res.json({
+    success: true,
+    data: {
+      isEnabled: twoFactorAuth?.isEnabled || false,
+      method: twoFactorAuth?.method || 'totp',
+      enabledAt: twoFactorAuth?.enabledAt || null,
+      lastUsed: twoFactorAuth?.lastUsed || null,
+      backupCodesRemaining: twoFactorAuth?.getRemainingBackupCodes() || 0
+    }
+  });
+}));
+
+// @desc    Regenerate backup codes
+// @route   POST /api/auth/2fa/regenerate-backup-codes
+// @access  Private
+router.post('/2fa/regenerate-backup-codes', authenticateToken, asyncHandler(async (req, res) => {
+  const { password } = req.body;
+
+  if (!password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password is required'
+    });
+  }
+
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  // Verify password
+  const isPasswordValid = await user.comparePassword(password);
+  if (!isPasswordValid) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid password'
+    });
+  }
+
+  const twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id });
+  
+  if (!twoFactorAuth || !twoFactorAuth.isEnabled) {
+    return res.status(400).json({
+      success: false,
+      message: '2FA must be enabled to regenerate backup codes'
+    });
+  }
+
+  // Generate new backup codes
+  const backupCodes = twoFactorAuth.generateBackupCodes();
+  await twoFactorAuth.save();
+
+  // Send email with new backup codes
+  try {
+    await sendEmail({
+      to: user.email,
+      template: 'backup-codes-regenerated',
+      data: {
+        firstName: user.profile.firstName || 'User',
+        regeneratedDate: new Date().toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      }
+    });
+  } catch (emailError) {
+    console.error('Failed to send backup codes regenerated email:', emailError);
+  }
+
+  res.json({
+    success: true,
+    message: 'Backup codes regenerated successfully',
+    data: {
+      backupCodes: backupCodes
+    }
+  });
 }));
 
 module.exports = router;

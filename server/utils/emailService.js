@@ -34,6 +34,84 @@ const transporter = nodemailer.createTransport({
 
 // Email templates
 const emailTemplates = {
+  // Admin notification templates
+  'admin-alert': (data) => ({
+    subject: '🚨 Admin Alert - BuildHomeMart Squares',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #dc2626; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">🚨 Admin Alert</h1>
+        </div>
+        <div style="padding: 30px; background: #fff;">
+          <h2 style="color: #1f2937; margin-bottom: 20px;">${data.title || 'Alert Notification'}</h2>
+          <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 16px; color: #7f1d1d;">${data.message}</p>
+          </div>
+          ${data.details ? `
+          <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin: 0 0 10px 0; color: #374151;">Alert Details:</h3>
+            <p style="margin: 0; white-space: pre-wrap; font-family: monospace; font-size: 13px;">${data.details}</p>
+          </div>
+          ` : ''}
+          <p style="margin-top: 20px;"><strong>Alert Level:</strong> <span style="color: #dc2626; font-weight: bold;">${data.level || 'High'}</span></p>
+          <p><strong>Triggered At:</strong> ${new Date().toLocaleString('en-IN')}</p>
+          ${data.actionUrl ? `
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${data.actionUrl}" style="background: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Take Action</a>
+          </div>
+          ` : ''}
+        </div>
+        <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+          <p style="margin: 0; color: #6c757d; font-size: 14px;">
+            Admin alert from BuildHomeMart Squares<br>
+            <a href="mailto:${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}" style="color: #007bff;">${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}</a>
+          </p>
+        </div>
+      </div>
+    `
+  }),
+  
+  'system-alert': (data) => ({
+    subject: '⚠️ System Alert - BuildHomeMart Squares',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #f59e0b; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">⚠️ System Alert</h1>
+        </div>
+        <div style="padding: 30px; background: #fff;">
+          <h2 style="color: #1f2937; margin-bottom: 20px;">${data.title || 'System Notification'}</h2>
+          <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 16px; color: #78350f;">${data.message}</p>
+          </div>
+          ${data.systemInfo ? `
+          <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin: 0 0 10px 0; color: #374151;">System Information:</h3>
+            <ul style="margin: 0; padding-left: 20px;">
+              ${Object.entries(data.systemInfo).map(([key, value]) => `
+                <li style="margin: 5px 0;"><strong>${key}:</strong> ${value}</li>
+              `).join('')}
+            </ul>
+          </div>
+          ` : ''}
+          <p style="margin-top: 20px;"><strong>Alert Type:</strong> ${data.alertType || 'System'}</p>
+          <p><strong>Severity:</strong> <span style="color: #f59e0b; font-weight: bold;">${data.severity || 'Medium'}</span></p>
+          <p><strong>Timestamp:</strong> ${new Date().toLocaleString('en-IN')}</p>
+          ${data.dashboardUrl ? `
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${data.dashboardUrl}" style="background: #f59e0b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Dashboard</a>
+          </div>
+          ` : ''}
+        </div>
+        <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+          <p style="margin: 0; color: #6c757d; font-size: 14px;">
+            System alert from BuildHomeMart Squares<br>
+            <a href="mailto:${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}" style="color: #007bff;">${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}</a>
+          </p>
+        </div>
+      </div>
+    `
+  }),
+
   'email-verification': (data) => ({
     subject: 'Verify Your Email - BuildHomeMart Squares',
     html: `
@@ -1353,6 +1431,116 @@ const emailTemplates = {
         <div style="text-align: center; color: #94a3b8; font-size: 12px;">
           <p>&copy; 2024 BuildHomeMart Squares. All rights reserved.</p>
           <p><a href="${data.unsubscribeLink}" style="color: #94a3b8; text-decoration: underline;">Unsubscribe from marketing emails</a></p>
+        </div>
+      </div>
+    `
+  }),
+
+  // Two-Factor Authentication Enabled
+  '2fa-enabled': (data) => ({
+    subject: 'Two-Factor Authentication Enabled - BuildHomeMart Squares',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin: 0;">BuildHomeMart Squares</h1>
+          <p style="color: #666; margin: 5px 0 0 0;">Security Alert</p>
+        </div>
+        
+        <div style="background: #f0fdf4; border: 2px solid #22c55e; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
+          <h2 style="color: #166534; margin: 0 0 20px 0; text-align: center;">🔐 Two-Factor Authentication Enabled</h2>
+          <p style="color: #166534; line-height: 1.6; margin: 0 0 20px 0;">
+            Hello ${data.firstName}, two-factor authentication (2FA) has been successfully enabled for your account on ${data.enabledDate}.
+          </p>
+          
+          <div style="background: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+            <h3 style="color: #1e293b; margin: 0 0 15px 0;">🛡️ What This Means:</h3>
+            <ul style="color: #475569; line-height: 1.8;">
+              <li>You'll need your authentication app code when logging in</li>
+              <li>Your account is now more secure against unauthorized access</li>
+              <li>Keep your backup codes in a safe place</li>
+              <li>You can disable 2FA anytime from your security settings</li>
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${data.settingsLink}" style="background: #22c55e; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
+              Manage Security Settings
+            </a>
+          </div>
+        </div>
+        
+        <div style="text-align: center; color: #94a3b8; font-size: 12px;">
+          <p>&copy; 2024 BuildHomeMart Squares. All rights reserved.</p>
+        </div>
+      </div>
+    `
+  }),
+
+  // Two-Factor Authentication Disabled
+  '2fa-disabled': (data) => ({
+    subject: 'Two-Factor Authentication Disabled - BuildHomeMart Squares',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin: 0;">BuildHomeMart Squares</h1>
+          <p style="color: #666; margin: 5px 0 0 0;">Security Alert</p>
+        </div>
+        
+        <div style="background: #fff7ed; border: 2px solid #f97316; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
+          <h2 style="color: #c2410c; margin: 0 0 20px 0; text-align: center;">⚠️ Two-Factor Authentication Disabled</h2>
+          <p style="color: #c2410c; line-height: 1.6; margin: 0 0 20px 0;">
+            Hello ${data.firstName}, two-factor authentication (2FA) has been disabled for your account on ${data.disabledDate}.
+          </p>
+          
+          <div style="background: #fef2f2; padding: 15px; border-radius: 6px; margin: 20px 0;">
+            <p style="color: #991b1b; margin: 0; font-size: 14px;">
+              <strong>Important:</strong> If you did not disable 2FA, your account may be compromised. Change your password immediately and contact support.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${data.securityLink}" style="background: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
+              Re-enable 2FA Now
+            </a>
+          </div>
+        </div>
+        
+        <div style="text-align: center; color: #94a3b8; font-size: 12px;">
+          <p>&copy; 2024 BuildHomeMart Squares. All rights reserved.</p>
+        </div>
+      </div>
+    `
+  }),
+
+  // Backup Codes Regenerated
+  'backup-codes-regenerated': (data) => ({
+    subject: 'New 2FA Backup Codes Generated - BuildHomeMart Squares',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin: 0;">BuildHomeMart Squares</h1>
+          <p style="color: #666; margin: 5px 0 0 0;">Security Update</p>
+        </div>
+        
+        <div style="background: #f0f9ff; border: 2px solid #0ea5e9; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
+          <h2 style="color: #075985; margin: 0 0 20px 0; text-align: center;">🔑 Backup Codes Regenerated</h2>
+          <p style="color: #075985; line-height: 1.6; margin: 0 0 20px 0;">
+            Hello ${data.firstName}, new backup codes for your two-factor authentication have been generated on ${data.regeneratedDate}.
+          </p>
+          
+          <div style="background: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+            <p style="color: #475569; margin: 0;">Your previous backup codes are now invalid. Please save your new codes in a secure location.</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${data.settingsLink || process.env.CLIENT_URL + '/settings/security'}" style="background: #0ea5e9; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
+              View Backup Codes
+            </a>
+          </div>
+        </div>
+        
+        <div style="text-align: center; color: #94a3b8; font-size: 12px;">
+          <p>&copy; 2024 BuildHomeMart Squares. All rights reserved.</p>
         </div>
       </div>
     `

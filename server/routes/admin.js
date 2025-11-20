@@ -18,6 +18,10 @@ const { asyncHandler } = require('../middleware/errorMiddleware');
 const adminRealtimeService = require('../services/adminRealtimeService');
 const { sendTemplateEmail, sendEmail } = require('../utils/emailService');
 
+// Mount email routes
+const emailRoutes = require('./admin/email');
+router.use('/email', emailRoutes);
+
 // @desc    Receive vendor application from registration (public endpoint)
 // @route   POST /api/admin/vendor-applications
 // @access  Public (no auth required for registration)
