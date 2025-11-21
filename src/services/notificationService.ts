@@ -1,6 +1,5 @@
 import { emailService } from './emailService';
 import { userService } from './userService';
-import { authService } from './authService';
 import { socketService } from './socketService';
 
 export interface NotificationData {
@@ -30,9 +29,6 @@ class NotificationService {
   private static instance: NotificationService;
   private pushSupported = 'Notification' in window && 'serviceWorker' in navigator;
   private pushPermission: NotificationPermission = 'default';
-  private eventSource: EventSource | null = null;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
-  private listeners: Map<string, ((notification: RealtimeNotification) => void)[]> = new Map();
 
   constructor() {
     if (this.pushSupported) {
@@ -45,107 +41,6 @@ class NotificationService {
       NotificationService.instance = new NotificationService();
     }
     return NotificationService.instance;
-  }
-
-  // Connect to SSE notification stream
-  connectToStream(): void {
-    const token = authService.getToken();
-    if (!token || this.eventSource) {
-      return;
-    }
-
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const streamUrl = `${apiUrl}/notifications/stream?token=${encodeURIComponent(token)}`;
-      
-      this.eventSource = new EventSource(streamUrl);
-
-      this.eventSource.onopen = () => {
-        // Connection successful - silent
-      };
-
-      this.eventSource.onmessage = (event) => {
-        try {
-          const notification: RealtimeNotification = JSON.parse(event.data);
-          this.handleNotification(notification);
-        } catch (error) {
-          // Silent error handling
-        }
-      };
-
-      this.eventSource.onerror = () => {
-        this.eventSource?.close();
-        this.eventSource = null;
-
-        // Reconnect after 5 seconds
-        if (this.reconnectTimeout) {
-          clearTimeout(this.reconnectTimeout);
-        }
-        this.reconnectTimeout = setTimeout(() => {
-          this.connectToStream();
-        }, 5000);
-      };
-    } catch (error) {
-      // Silent error handling
-    }
-  }
-
-  // Disconnect from SSE stream
-  disconnectFromStream(): void {
-    if (this.eventSource) {
-      this.eventSource.close();
-      this.eventSource = null;
-    }
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-  }
-
-  // Handle incoming notification
-  private handleNotification(notification: RealtimeNotification): void {
-    // Notify all listeners
-    const typeListeners = this.listeners.get(notification.type) || [];
-    const allListeners = this.listeners.get('all') || [];
-    
-    [...typeListeners, ...allListeners].forEach(callback => {
-      try {
-        callback(notification);
-      } catch (error) {
-        // Silent error handling
-      }
-    });
-
-    // Show browser push notification if enabled
-    if (this.pushPermission === 'granted' && notification.title && notification.message) {
-      this.showPushNotification({
-        title: notification.title,
-        body: notification.message,
-        data: notification.data
-      });
-    }
-  }
-
-  // Subscribe to notifications
-  subscribe(type: string, callback: (notification: RealtimeNotification) => void): () => void {
-    if (!this.listeners.has(type)) {
-      this.listeners.set(type, []);
-    }
-    this.listeners.get(type)!.push(callback);
-
-    // Return unsubscribe function
-    return () => {
-      const typeListeners = this.listeners.get(type);
-      if (typeListeners) {
-        const index = typeListeners.indexOf(callback);
-        if (index > -1) {
-          typeListeners.splice(index, 1);
-        }
-        if (typeListeners.length === 0) {
-          this.listeners.delete(type);
-        }
-      }
-    };
   }
 
   async requestPushPermission(): Promise<boolean> {

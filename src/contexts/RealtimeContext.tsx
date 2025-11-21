@@ -60,25 +60,11 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
   useEffect(() => {
     if (!isAuthenticated || !user) {
       setIsConnected(false);
-      notificationService.disconnectFromStream();
       socketService.disconnect();
       return;
     }
 
-    // Connect to notification stream (for SSE-based notifications)
-    notificationService.connectToStream();
-    
-    // Subscribe to all notifications and bridge them to realtime events
-    const unsubscribeNotifications = notificationService.subscribe('all', (notification) => {
-      const realtimeEvent: RealtimeEvent = {
-        type: notification.type as RealtimeEvent['type'],
-        data: notification.data || notification,
-        timestamp: notification.timestamp
-      };
-      handleEvent(realtimeEvent);
-    });
-
-    // Connect to Socket.IO for real-time messaging
+    // Connect to Socket.IO for real-time messaging and notifications
     let socketConnected = false;
     socketService.connect()
       .then(() => {
@@ -154,7 +140,6 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
     }, 30000); // Every 30 seconds
 
     return () => {
-      unsubscribeNotifications();
       unsubscribeNewMessage();
       unsubscribeMessageNotification();
       unsubscribeTyping();
@@ -163,7 +148,6 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
       unsubscribeUserStatus();
       clearInterval(checkConnection);
       clearInterval(activityPing);
-      notificationService.disconnectFromStream();
       socketService.disconnect();
     };
   }, [isAuthenticated, user]);
