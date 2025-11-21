@@ -1,7 +1,23 @@
 import { io, Socket } from 'socket.io-client';
 import { authService } from './authService';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://api.buildhomemartsquares.com';
+// Properly construct Socket.IO URL from API URL
+const getSocketUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'https://api.buildhomemartsquares.com/api';
+  
+  // Remove /api suffix if present
+  let baseUrl = apiUrl.replace(/\/api\/?$/, '');
+  
+  // Ensure it's a valid URL
+  if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+    baseUrl = 'https://' + baseUrl;
+  }
+  
+  console.log('🔌 Socket.IO URL:', baseUrl);
+  return baseUrl;
+};
+
+const SOCKET_URL = getSocketUrl();
 
 export interface SocketMessage {
   _id: string;
