@@ -277,7 +277,7 @@ router.post('/create-subscription-order', authenticateToken, asyncHandler(async 
   const orderOptions = {
     amount: Math.round(amount * 100), // Amount in paise
     currency: plan.currency || 'INR',
-    receipt: `sub_${planId}_${Date.now()}`,
+    receipt: `sub_${planId.slice(0,8)}_${Date.now().toString().slice(-8)}`,
     notes: {
       planId: planId,
       userId: req.user.id,
