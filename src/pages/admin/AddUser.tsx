@@ -31,29 +31,47 @@ const baseFields = {
   first_name: z.string().min(2, "First name must be at least 2 characters"),
   last_name: z.string().optional(),
   email: z.string().email("Invalid email address"),
-  phone: z.string().regex(/^[0-9]{10}$/, "Must be 10 digits"),
+  phone: z.string()
+    .regex(/^[0-9]{10}$/, "Must be exactly 10 digits")
+    .min(10, "Must be exactly 10 digits")
+    .max(10, "Must be exactly 10 digits"),
   password: z.string()
     .min(8, "Password must be at least 8 characters")
     .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])/, 
       "Password must contain uppercase, lowercase, number, and special character (!@#$%^&*)"),
-  confirm_password: z.string(),
+  confirm_password: z.string().min(1, "Please confirm your password"),
   status: z.enum(["active", "inactive", "suspended", "pending"]),
 };
 
 const vendorFields = {
-  businessName: z.string().min(2, "Business name required"),
-  businessType: z.string().min(1, "Business type required"),
+  businessName: z.string().min(2, "Business name is required for vendors"),
+  businessType: z.string().min(1, "Business type is required for vendors"),
   businessDescription: z.string().optional(),
   experience: z.string().optional(),
   licenseNumber: z.string().optional(),
-  gstNumber: z.string().optional(),
-  panNumber: z.string().optional(),
+  gstNumber: z.string()
+    .optional()
+    .refine(
+      (val) => !val || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(val),
+      "Invalid GST number format"
+    ),
+  panNumber: z.string()
+    .optional()
+    .refine(
+      (val) => !val || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(val),
+      "Invalid PAN format (e.g., ABCDE1234F)"
+    ),
   website: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
   district: z.string().optional(),
   state: z.string().optional(),
-  pincode: z.string().optional(),
+  pincode: z.string()
+    .optional()
+    .refine(
+      (val) => !val || /^[0-9]{6}$/.test(val),
+      "Pincode must be exactly 6 digits"
+    ),
 };
 
 const optionalVendorFields = {
@@ -91,6 +109,10 @@ const AddUser = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>("customer");
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
+  const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
+  const [phoneAvailable, setPhoneAvailable] = useState<boolean | null>(null);
   const [locationData, setLocationData] = useState({
     country: "India",
     countryCode: "IN",
@@ -130,8 +152,91 @@ const AddUser = () => {
     },
   });
 
+  // Email availability check with debounce
+  const checkEmailAvailability = async (email: string) => {
+    if (!email || !email.includes('@')) {
+      setEmailAvailable(null);
+      return;
+    }
+
+    setIsCheckingEmail(true);
+    try {
+      const response = await userService.checkAvailability({ email });
+      setEmailAvailable(response.data.email.available);
+      
+      if (!response.data.email.available) {
+        form.setError('email', {
+          type: 'manual',
+          message: response.data.email.message
+        });
+      }
+    } catch (error) {
+      console.error('Email check failed:', error);
+      setEmailAvailable(null);
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  };
+
+  // Phone availability check with debounce
+  const checkPhoneAvailability = async (phone: string) => {
+    if (!phone || phone.length !== 10) {
+      setPhoneAvailable(null);
+      return;
+    }
+
+    setIsCheckingPhone(true);
+    try {
+      const response = await userService.checkAvailability({ phone });
+      setPhoneAvailable(response.data.phone.available);
+      
+      if (!response.data.phone.available) {
+        form.setError('phone', {
+          type: 'manual',
+          message: response.data.phone.message
+        });
+      }
+    } catch (error) {
+      console.error('Phone check failed:', error);
+      setPhoneAvailable(null);
+    } finally {
+      setIsCheckingPhone(false);
+    }
+  };
+
   const onSubmit = async (data: UserFormValues) => {
     try {
+      // Final validation before submission
+      if (!emailAvailable) {
+        toast({
+          title: "Error",
+          description: "Email is already registered. Please use a different email.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!phoneAvailable) {
+        toast({
+          title: "Error",
+          description: "Phone number is already registered. Please use a different number.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate required fields for vendor role
+      if (data.role === "agent") {
+        if (!data.businessName || !data.businessType) {
+          toast({
+            title: "Error",
+            description: "Business name and type are required for vendor accounts.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       const userData: any = {
         email: data.email,
         password: data.password,
@@ -262,7 +367,30 @@ const AddUser = () => {
                       <FormItem>
                         <FormLabel>Email *</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="Enter email" {...field} />
+                          <div className="relative">
+                            <Input 
+                              type="email" 
+                              placeholder="Enter email" 
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                const value = e.target.value;
+                                if (value && value.includes('@')) {
+                                  const timeoutId = setTimeout(() => {
+                                    checkEmailAvailability(value);
+                                  }, 500);
+                                  return () => clearTimeout(timeoutId);
+                                }
+                              }}
+                              className={emailAvailable === false ? 'border-red-500' : emailAvailable === true ? 'border-green-500' : ''}
+                            />
+                            {isCheckingEmail && (
+                              <span className="absolute right-3 top-2.5 text-xs text-muted-foreground">Checking...</span>
+                            )}
+                            {!isCheckingEmail && emailAvailable === true && (
+                              <span className="absolute right-3 top-2.5 text-xs text-green-600">Available ✓</span>
+                            )}
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -276,7 +404,29 @@ const AddUser = () => {
                       <FormItem>
                         <FormLabel>Phone Number *</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter 10-digit phone" {...field} />
+                          <div className="relative">
+                            <Input 
+                              placeholder="Enter 10-digit phone" 
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                const value = e.target.value;
+                                if (value && value.length === 10) {
+                                  const timeoutId = setTimeout(() => {
+                                    checkPhoneAvailability(value);
+                                  }, 500);
+                                  return () => clearTimeout(timeoutId);
+                                }
+                              }}
+                              className={phoneAvailable === false ? 'border-red-500' : phoneAvailable === true ? 'border-green-500' : ''}
+                            />
+                            {isCheckingPhone && (
+                              <span className="absolute right-3 top-2.5 text-xs text-muted-foreground">Checking...</span>
+                            )}
+                            {!isCheckingPhone && phoneAvailable === true && (
+                              <span className="absolute right-3 top-2.5 text-xs text-green-600">Available ✓</span>
+                            )}
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

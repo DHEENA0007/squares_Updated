@@ -170,6 +170,20 @@ class UserService {
     }
   }
 
+  async checkAvailability(data: { email?: string; phone?: string; userId?: string }): Promise<any> {
+    try {
+      const response = await this.makeRequest<any>("/users/check-availability", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to check availability";
+      console.error("Availability check error:", errorMessage);
+      throw error;
+    }
+  }
+
   async updateUser(id: string, userData: Partial<User>): Promise<SingleUserResponse> {
     try {
       const response = await this.makeRequest<SingleUserResponse>(`/users/${id}`, {

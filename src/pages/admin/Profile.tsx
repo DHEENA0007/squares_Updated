@@ -58,7 +58,10 @@ const profileSchema = z.object({
   first_name: z.string().min(2, "First name must be at least 2 characters"),
   last_name: z.string().optional(),
   email: z.string().email("Invalid email address"),
-  phone: z.string().regex(/^[0-9]{10}$/, "Must be 10 digits"),
+  phone: z.string()
+    .regex(/^[0-9]{10}$/, "Must be exactly 10 digits")
+    .min(10, "Must be exactly 10 digits")
+    .max(10, "Must be exactly 10 digits"),
   birthday: z.date().optional(),
   anniversary: z.date().optional(),
   bio: z.string().optional(),
@@ -68,7 +71,12 @@ const profileSchema = z.object({
   state: z.string().optional(),
   district: z.string().optional(),
   city: z.string().optional(),
-  zipCode: z.string().optional(),
+  zipCode: z.string()
+    .optional()
+    .refine(
+      (val) => !val || /^[0-9]{6}$/.test(val),
+      "Pincode must be exactly 6 digits"
+    ),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;

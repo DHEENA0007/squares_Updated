@@ -102,6 +102,47 @@ router.get('/all', authorizeRoles('admin', 'superadmin'), asyncHandler(async (re
   });
 }));
 
+// @desc    Check if email/phone is available
+// @route   POST /api/users/check-availability
+// @access  Private/Admin
+router.post('/check-availability', authorizeRoles('admin', 'subadmin', 'superadmin'), asyncHandler(async (req, res) => {
+  const { email, phone, userId } = req.body;
+
+  const result = {
+    email: { available: true, message: '' },
+    phone: { available: true, message: '' }
+  };
+
+  if (email) {
+    const query = { email: email.toLowerCase() };
+    if (userId) {
+      query._id = { $ne: userId };
+    }
+    const existingEmail = await User.findOne(query);
+    if (existingEmail) {
+      result.email.available = false;
+      result.email.message = 'Email is already registered';
+    }
+  }
+
+  if (phone) {
+    const query = { 'profile.phone': phone };
+    if (userId) {
+      query._id = { $ne: userId };
+    }
+    const existingPhone = await User.findOne(query);
+    if (existingPhone) {
+      result.phone.available = false;
+      result.phone.message = 'Phone number is already registered';
+    }
+  }
+
+  res.json({
+    success: true,
+    data: result
+  });
+}));
+
 // @desc    Get user profile
 // @route   GET /api/users/profile
 // @access  Private
@@ -169,13 +210,103 @@ router.post('/', asyncHandler(async (req, res) => {
     businessInfo
   } = req.body;
 
-  // Check if user already exists
-  const existingUser = await User.findOne({ email });
-  if (existingUser) {
+  // Validate required fields
+  if (!email || !password || !profile) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email, password, and profile are required'
+    });
+  }
+
+  if (!profile.firstName || !profile.phone) {
+    return res.status(400).json({
+      success: false,
+      message: 'First name and phone number are required'
+    });
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid email format'
+    });
+  }
+
+  // Validate phone format (10 digits)
+  const phoneRegex = /^[0-9]{10}$/;
+  if (!phoneRegex.test(profile.phone)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phone number must be exactly 10 digits'
+    });
+  }
+
+  // Validate password strength
+  if (password.length < 8) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password must be at least 8 characters long'
+    });
+  }
+
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])/;
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password must contain uppercase, lowercase, number, and special character (!@#$%^&*)'
+    });
+  }
+
+  // Check if user with email already exists
+  const existingUserEmail = await User.findOne({ email: email.toLowerCase() });
+  if (existingUserEmail) {
     return res.status(400).json({
       success: false,
       message: 'User with this email already exists'
     });
+  }
+
+  // Check if user with phone already exists
+  const existingUserPhone = await User.findOne({ 'profile.phone': profile.phone });
+  if (existingUserPhone) {
+    return res.status(400).json({
+      success: false,
+      message: 'User with this phone number already exists'
+    });
+  }
+
+  // Validate role if agent, require business info
+  if (role === 'agent') {
+    if (!businessInfo || !businessInfo.businessName || !businessInfo.businessType) {
+      return res.status(400).json({
+        success: false,
+        message: 'Business name and business type are required for agent/vendor accounts'
+      });
+    }
+
+    // Validate GST number format if provided
+    if (businessInfo.gstNumber) {
+      const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+      if (!gstRegex.test(businessInfo.gstNumber)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid GST number format'
+        });
+      }
+    }
+
+    // Validate PAN number format if provided
+    if (businessInfo.panNumber) {
+      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+      if (!panRegex.test(businessInfo.panNumber)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid PAN number format (should be like: ABCDE1234F)'
+        });
+      }
+    }
   }
 
   // Create user - password will be hashed by pre-save middleware

@@ -27,7 +27,10 @@ const userSchema = z.object({
   first_name: z.string().min(2, "First name must be at least 2 characters"),
   last_name: z.string().optional(),
   email: z.string().email("Invalid email address"),
-  phone: z.string().regex(/^[0-9]{10}$/, "Must be 10 digits"),
+  phone: z.string()
+    .regex(/^[0-9]{10}$/, "Must be exactly 10 digits")
+    .min(10, "Must be exactly 10 digits")
+    .max(10, "Must be exactly 10 digits"),
   role: z.enum(["customer", "agent", "admin", "subadmin", "superadmin"]),
   status: z.enum(["active", "inactive", "suspended", "pending"]),
 });

@@ -20,7 +20,10 @@ const propertyFormSchema = z.object({
   userType: z.enum(["owner", "agent", "builder"]),
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  phone: z.string().regex(/^[0-9]{10}$/, "Phone number must be 10 digits"),
+  phone: z.string()
+    .regex(/^[0-9]{10}$/, "Phone number must be exactly 10 digits")
+    .min(10, "Phone number must be exactly 10 digits")
+    .max(10, "Phone number must be exactly 10 digits"),
   lookingTo: z.enum(["sell", "rent"]),
   propertyType: z.string().min(1, "Property type is required"),
   bedrooms: z.string().optional(),
@@ -29,7 +32,10 @@ const propertyFormSchema = z.object({
   locality: z.string().min(1, "Locality is required"),
   street: z.string().optional(),
   state: z.string().min(1, "State is required"),
-  pincode: z.string().regex(/^\d{6}$/, "Pincode must be exactly 6 digits"),
+  pincode: z.string()
+    .regex(/^\d{6}$/, "Pincode must be exactly 6 digits")
+    .min(6, "Pincode must be exactly 6 digits")
+    .max(6, "Pincode must be exactly 6 digits"),
   bathrooms: z.string().optional(),
   balconies: z.string().optional(),
   floorNo: z.string().optional(),
