@@ -1969,7 +1969,7 @@ router.get('/leads', requireVendorRole, asyncHandler(async (req, res) => {
 // @desc    Check vendor subscription
 // @route   GET /api/vendors/subscription/check/:subscriptionName
 // @access  Private/Agent
-router.get('/subscription/check/:subscriptionName', requireVendorRole, asyncHandler(async (req, res) => {
+router.get('/subscription/check/:subscriptionName', authenticateToken, authorizeRoles('agent', 'admin', 'superadmin'), asyncHandler(async (req, res) => {
   const { subscriptionName } = req.params;
   const vendorId = req.user.id;
   
@@ -2846,7 +2846,7 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
 // @desc    Get vendor subscription limits
 // @route   GET /api/vendors/subscription-limits
 // @access  Private/Agent
-router.get('/subscription-limits', requireVendorRole, asyncHandler(async (req, res) => {
+router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'admin', 'superadmin'), asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
 
   try {
