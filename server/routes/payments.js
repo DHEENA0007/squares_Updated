@@ -26,15 +26,17 @@ try {
   if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
     console.error('❌ Razorpay credentials not found in environment variables');
     console.error('Available env keys:', Object.keys(process.env).filter(key => key.includes('RAZOR')));
+    console.error('⚠️  Payment gateway will not be available!');
   } else {
     razorpay = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID,
       key_secret: process.env.RAZORPAY_KEY_SECRET,
     });
-    console.log('✅ Razorpay initialized successfully');
+    console.log('✅ Razorpay initialized successfully with key:', process.env.RAZORPAY_KEY_ID.substring(0, 10) + '...');
   }
 } catch (error) {
   console.error('❌ Failed to initialize Razorpay:', error.message);
+  console.error('⚠️  Payment gateway will not be available!');
 }
 
 // Apply auth middleware to specific routes that need it
@@ -128,21 +130,18 @@ router.post('/create-order', authenticateToken, asyncHandler(async (req, res) =>
   });
 
   try {
-    // For development, return a mock order if Razorpay fails
-    let order;
-    try {
-      order = await razorpay.orders.create(orderOptions);
-      console.log('Razorpay order created successfully:', order.id);
-    } catch (razorpayError) {
-      console.log('Razorpay failed, using mock order:', razorpayError.message);
-      // Create a mock order for development
-      order = {
-        id: `order_mock_${Date.now()}`,
-        amount: orderOptions.amount,
-        currency: orderOptions.currency,
-        status: 'created'
-      };
+    // Check if Razorpay is initialized
+    if (!razorpay) {
+      console.error('❌ Razorpay not initialized - check credentials');
+      return res.status(500).json({
+        success: false,
+        message: 'Payment gateway not configured. Please contact support.'
+      });
     }
+
+    // Create actual Razorpay order (no mock fallback)
+    const order = await razorpay.orders.create(orderOptions);
+    console.log('Razorpay order created successfully:', order.id);
 
     // Create payment record
     const payment = await Payment.create({
@@ -179,10 +178,11 @@ router.post('/create-order', authenticateToken, asyncHandler(async (req, res) =>
       }
     });
   } catch (error) {
-    console.error('Razorpay order creation failed:', error);
+    console.error('❌ Razorpay order creation failed:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to create payment order'
+      message: error.message || 'Failed to create payment order',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 }));
@@ -291,21 +291,18 @@ router.post('/create-subscription-order', authenticateToken, asyncHandler(async 
   console.log('Creating Razorpay subscription order with options:', orderOptions);
 
   try {
-    // For development, return a mock order if Razorpay fails
-    let order;
-    try {
-      order = await razorpay.orders.create(orderOptions);
-      console.log('Razorpay subscription order created successfully:', order.id);
-    } catch (razorpayError) {
-      console.log('Razorpay failed, using mock order:', razorpayError.message);
-      // Create a mock order for development
-      order = {
-        id: `order_sub_mock_${Date.now()}`,
-        amount: orderOptions.amount,
-        currency: orderOptions.currency,
-        status: 'created'
-      };
+    // Check if Razorpay is initialized
+    if (!razorpay) {
+      console.error('❌ Razorpay not initialized - check credentials');
+      return res.status(500).json({
+        success: false,
+        message: 'Payment gateway not configured. Please contact support.'
+      });
     }
+
+    // Create actual Razorpay order (no mock fallback)
+    const order = await razorpay.orders.create(orderOptions);
+    console.log('Razorpay subscription order created successfully:', order.id);
 
     // Create payment record
     const payment = await Payment.create({
@@ -335,7 +332,7 @@ router.post('/create-subscription-order', authenticateToken, asyncHandler(async 
         orderId: order.id,
         amount: order.amount,
         currency: order.currency,
-        keyId: process.env.RAZORPAY_KEY_ID || 'mock_key',
+        keyId: process.env.RAZORPAY_KEY_ID,
         planName: plan.name,
         userEmail: req.user.email || 'test@example.com',
         addons: addonServices,
@@ -343,10 +340,11 @@ router.post('/create-subscription-order', authenticateToken, asyncHandler(async 
       }
     });
   } catch (error) {
-    console.error('Subscription Razorpay order creation failed:', error);
+    console.error('❌ Subscription Razorpay order creation failed:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to create subscription payment order'
+      message: error.message || 'Failed to create subscription payment order',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 }));

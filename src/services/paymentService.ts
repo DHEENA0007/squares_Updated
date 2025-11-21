@@ -233,8 +233,10 @@ class PaymentService {
     totalAmount: number;
   }): Promise<{ success: boolean; message?: string; data?: any }> {
     try {
-      // Load Razorpay script
-      await this.loadRazorpayScript();
+      console.log('Payment API request:', {
+        url: `${API_BASE_URL}/payments/create-subscription-order`,
+        method: 'POST'
+      });
 
       // Create payment order for subscription with addons
       const response = await this.makeRequest<{
@@ -245,11 +247,17 @@ class PaymentService {
         body: JSON.stringify(paymentData)
       });
 
+      console.log('Payment API response status:', response.success ? 200 : 'error');
+
       if (!response.success) {
         throw new Error('Failed to create payment order');
       }
 
       const order = response.data;
+      console.log('Order created:', { orderId: order.orderId, amount: order.amount });
+
+      // Load Razorpay script
+      await this.loadRazorpayScript();
 
       return new Promise((resolve, reject) => {
         // Configure Razorpay options
@@ -301,9 +309,39 @@ class PaymentService {
           },
         };
 
-        // Open Razorpay checkout
-        const razorpay = new window.Razorpay(razorpayOptions);
-        razorpay.open();
+        // Open Razorpay checkout with error handling
+        try {
+          const razorpay = new window.Razorpay(razorpayOptions);
+          
+          // Add error listener for checkout failures
+          razorpay.on('payment.failed', function (response: any) {
+            console.error('Razorpay payment failed:', response.error);
+            reject({
+              success: false,
+              message: response.error.description || 'Payment failed',
+              error: response.error
+            });
+          });
+          
+          razorpay.open();
+        } catch (checkoutError) {
+          console.error('Razorpay checkout initialization failed:', checkoutError);
+          
+          // Provide helpful error message
+          const errorMsg = checkoutError instanceof Error ? checkoutError.message : 'Unknown error';
+          
+          toast({
+            title: "Payment Gateway Error",
+            description: "Unable to load payment gateway. Please check:\n1. Razorpay account is in Test Mode\n2. Checkout is enabled in Settings\n3. Try refreshing the page",
+            variant: "destructive",
+          });
+          
+          reject({
+            success: false,
+            message: `Checkout failed: ${errorMsg}`,
+            error: checkoutError
+          });
+        }
       });
 
     } catch (error) {

@@ -155,7 +155,7 @@ const VendorSubscriptionPlans: React.FC = () => {
   };
 
   const calculatePlanPrice = (plan: Plan) => {
-    if (plan.price === 0) return plan.id === 'free' ? 'FREE' : 'Contact Us';
+    if (plan.price === 0) return plan.id === 'free' ? 'FREE' : 'FREE';
     return `₹${plan.price.toLocaleString()}`;
   };
 
@@ -190,16 +190,6 @@ const VendorSubscriptionPlans: React.FC = () => {
         description: "You must select a subscription plan to continue",
         variant: "destructive",
       });
-      return;
-    }
-    
-    if (currentStep === 1 && selectedPlan?.price === 0) {
-      // Enterprise plan - redirect to contact
-      toast({
-        title: "Enterprise Plan Selected",
-        description: "Our team will contact you within 24 hours to discuss your requirements",
-      });
-      navigate("/contact");
       return;
     }
     
