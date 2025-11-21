@@ -2073,9 +2073,8 @@ router.get('/subscription/check/:subscriptionName', authenticateToken, authorize
         },
         'leadManagementSubscription': {
           hasAccess: plan.limits?.leadManagement && plan.limits.leadManagement !== 'none',
-          limit: plan.limits?.leadManagement === 'enterprise' ? 0 : 
-                 plan.limits?.leadManagement === 'advanced' ? 1000 : 
-                 plan.limits?.leadManagement === 'premium' ? 500 : 50
+          // Lead limits should come from plan.limits.leads, not hardcoded values
+          limit: plan.limits?.leads !== undefined ? plan.limits.leads : 0
         },
         'topRatedSubscription': {
           hasAccess: plan.limits?.topRated === true,
@@ -2097,9 +2096,10 @@ router.get('/subscription/check/:subscriptionName', authenticateToken, authorize
         hasSubscription,
         subscriptionName,
         planDetails: activeSubscription ? {
-          name: (activeSubscription.planSnapshot || activeSubscription.plan)?.name,
-          identifier: (activeSubscription.planSnapshot || activeSubscription.plan)?.identifier,
-          limits: (activeSubscription.planSnapshot || activeSubscription.plan)?.limits
+          // ALWAYS use live plan data (not snapshot) so superadmin changes are reflected
+          name: activeSubscription.plan?.name,
+          identifier: activeSubscription.plan?.identifier,
+          limits: activeSubscription.plan?.limits
         } : null
       }
     });
@@ -2854,12 +2854,12 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
           hasActiveSubscription: true,
           subscription: {
             id: activeSubscription._id,
-            planName: (activeSubscription.planSnapshot || activeSubscription.plan)?.name,
+            planName: activeSubscription.plan?.name,
             planId: activeSubscription.plan?._id,
             status: activeSubscription.status,
             startDate: activeSubscription.startDate,
             endDate: activeSubscription.endDate,
-            features: ((activeSubscription.planSnapshot || activeSubscription.plan)?.features || []).map(f => {
+            features: (activeSubscription.plan?.features || []).map(f => {
               if (typeof f === 'string') {
                 return f;
               } else if (f && typeof f === 'object' && f.name) {
@@ -2867,7 +2867,7 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
               }
               return null;
             }).filter(Boolean),
-            limits: (activeSubscription.planSnapshot || activeSubscription.plan)?.limits || {},
+            limits: activeSubscription.plan?.limits || {},
             billingCycle: activeSubscription.billingCycle || 'monthly',
             addons: activeSubscription.addons || [],
             amount: activeSubscription.amount,
@@ -2913,32 +2913,36 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
     // Count current properties
     const currentProperties = await Property.countDocuments({ owner: vendorId });
 
-    let maxProperties = 5; // Free tier default
+    let maxProperties = 5;
     let planName = 'Free';
     let features = ['5 Property Listings'];
+    let planData = null;
 
-    if (activeSubscription) {
-      // Use snapshot if available (preserves plan at time of subscription)
-      // Otherwise fallback to current plan data
-      const planData = activeSubscription.planSnapshot || activeSubscription.plan;
+    if (activeSubscription && activeSubscription.plan) {
+      // ALWAYS use live plan data (not snapshot) so superadmin changes are reflected immediately
+      planData = activeSubscription.plan;
+    } else {
+      // If no subscription, fetch the FREE plan from database to get current admin settings
+      const Plan = require('../models/Plan');
+      planData = await Plan.findOne({ identifier: 'free', isActive: true });
+    }
+    
+    if (planData) {
+      planName = planData.name || 'Free';
       
-      if (planData) {
-        planName = planData.name || 'Free';
-        
-        // Get property limit from plan
-        const propertyLimit = planData.limits?.properties !== undefined ? planData.limits.properties : 5;
-        maxProperties = propertyLimit === 0 ? 999999 : propertyLimit; // 0 means unlimited
-        
-        // Extract features
-        features = (planData.features || []).map(f => {
-          if (typeof f === 'string') return f;
-          if (f && typeof f === 'object' && f.name && f.enabled !== false) return f.name;
-          return null;
-        }).filter(Boolean);
-        
-        if (features.length === 0) {
-          features = [`${maxProperties === 999999 ? 'Unlimited' : maxProperties} Property Listings`];
-        }
+      // Get property limit from plan (0 = unlimited)
+      const propertyLimit = planData.limits?.properties !== undefined ? planData.limits.properties : 5;
+      maxProperties = propertyLimit === 0 ? 999999 : propertyLimit;
+      
+      // Extract features from plan
+      features = (planData.features || []).map(f => {
+        if (typeof f === 'string') return f;
+        if (f && typeof f === 'object' && f.name && f.enabled !== false) return f.name;
+        return null;
+      }).filter(Boolean);
+      
+      if (features.length === 0) {
+        features = [`${maxProperties === 999999 ? 'Unlimited' : maxProperties} Property Listings`];
       }
     }
 
@@ -2956,17 +2960,39 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
     });
   } catch (error) {
     console.error('Subscription limits error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch subscription limits',
-      data: {
-        maxProperties: 5,
-        currentProperties: 0,
-        canAddMore: true,
-        planName: 'Free',
-        features: ['5 Property Listings']
-      }
-    });
+    
+    // Even in error, fetch the FREE plan from database
+    try {
+      const Plan = require('../models/Plan');
+      const freePlan = await Plan.findOne({ identifier: 'free', isActive: true });
+      const propertyLimit = freePlan?.limits?.properties !== undefined ? freePlan.limits.properties : 5;
+      const maxProps = propertyLimit === 0 ? 999999 : propertyLimit;
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch subscription limits',
+        data: {
+          maxProperties: maxProps,
+          currentProperties: 0,
+          canAddMore: true,
+          planName: freePlan?.name || 'Free',
+          features: freePlan?.features?.map(f => typeof f === 'string' ? f : f.name).filter(Boolean) || [`${maxProps} Property Listings`]
+        }
+      });
+    } catch (fallbackError) {
+      // Ultimate fallback if database is completely unavailable
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch subscription limits',
+        data: {
+          maxProperties: 5,
+          currentProperties: 0,
+          canAddMore: true,
+          planName: 'Free',
+          features: ['5 Property Listings']
+        }
+      });
+    }
   }
 }));
 
@@ -3209,12 +3235,23 @@ router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) =>
     });
     const messageCount = await Message.countDocuments({ recipient: vendorId });
     
-    // Get limits from active subscription
-    const limits = activeSubscription?.plan?.limits || {
+    // Get limits from active subscription OR fetch free plan from database
+    let limits = {
       properties: 5,
       leads: 50,
       messages: 100
     };
+    
+    if (activeSubscription?.plan?.limits) {
+      limits = activeSubscription.plan.limits;
+    } else {
+      // No subscription - fetch FREE plan limits from database
+      const Plan = require('../models/Plan');
+      const freePlan = await Plan.findOne({ identifier: 'free', isActive: true });
+      if (freePlan?.limits) {
+        limits = freePlan.limits;
+      }
+    }
     
     const stats = {
       totalRevenue: totalRevenue,
@@ -3938,33 +3975,40 @@ router.post('/subscription/refresh', requireVendorRole, asyncHandler(async (req,
       }
     };
     
-    if (activeSubscription) {
-      // Use planSnapshot if available (preserves plan at subscription time)
-      // This ensures existing subscribers are not affected by superadmin plan updates
-      const plan = activeSubscription.planSnapshot || activeSubscription.plan;
+    // Determine which plan to use
+    let plan = null;
+    if (activeSubscription && activeSubscription.plan) {
+      // ALWAYS use live plan data (not snapshot) so superadmin changes are reflected immediately
+      plan = activeSubscription.plan;
+    } else {
+      // No subscription - fetch FREE plan from database
+      const Plan = require('../models/Plan');
+      plan = await Plan.findOne({ identifier: 'free', isActive: true });
+    }
+    
+    if (plan) {
+      const maxProperties = plan.limits?.properties !== undefined ? plan.limits.properties : 0;
       
-      if (plan) {
-        const maxProperties = plan.limits?.properties !== undefined ? plan.limits.properties : 0;
-        
-        // Handle features format
-        let planFeatures = [];
-        if (plan.features && Array.isArray(plan.features)) {
-          planFeatures = plan.features.map(feature => {
-            if (typeof feature === 'string') {
-              return feature;
-            } else if (feature && typeof feature === 'object' && feature.name) {
-              return feature.enabled !== false ? feature.name : null;
-            }
-            return null;
-          }).filter(Boolean);
-        }
-      
+      // Handle features format
+      let planFeatures = [];
+      if (plan.features && Array.isArray(plan.features)) {
+        planFeatures = plan.features.map(feature => {
+          if (typeof feature === 'string') {
+            return feature;
+          } else if (feature && typeof feature === 'object' && feature.name) {
+            return feature.enabled !== false ? feature.name : null;
+          }
+          return null;
+        }).filter(Boolean);
+      }
+    
+      if (activeSubscription) {
         refreshedData = {
           hasActiveSubscription: true,
           subscription: {
             id: activeSubscription._id,
             planName: plan.name,
-            planId: plan._id || activeSubscription.plan?._id,
+            planId: plan._id,
             identifier: plan.identifier,
             status: activeSubscription.status,
             startDate: activeSubscription.startDate,
@@ -3979,7 +4023,22 @@ router.post('/subscription/refresh', requireVendorRole, asyncHandler(async (req,
             canAddMore: maxProperties === 0 || currentProperties < maxProperties,
             planName: plan.name,
             features: planFeatures,
-            planId: plan._id || activeSubscription.plan?._id,
+            planId: plan._id,
+            limits: plan.limits || {}
+          }
+        };
+      } else {
+        // No subscription, but we have the free plan data
+        refreshedData = {
+          hasActiveSubscription: false,
+          subscription: null,
+          limits: {
+            maxProperties: maxProperties === 0 ? 999999 : maxProperties,
+            currentProperties,
+            canAddMore: maxProperties === 0 || currentProperties < maxProperties,
+            planName: plan.name,
+            features: planFeatures,
+            planId: plan._id,
             limits: plan.limits || {}
           }
         };
