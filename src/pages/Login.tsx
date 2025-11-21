@@ -13,7 +13,7 @@ import { Eye, EyeOff } from "lucide-react";
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, logout } = useAuth();
+  const { login, logout, clearAuthDataAndUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -54,24 +54,16 @@ const Login = () => {
       const success = await login(email, password);
       
       if (success) {
-        // Get user from auth service to determine role
         const user = JSON.parse(localStorage.getItem("user") || "{}");
-        console.log('Login: User role detected:', user.role);
-        
-        // Block vendors from logging in through default login
+        // Vendor trying to login through default portal
         if (user.role === 'agent') {
-          console.log('Login: Vendor attempted to login through default portal');
-          
-          // Use logout to properly clear all state including AuthContext (skip redirect)
-          logout(true);
-          
           toast({
             title: "Incorrect Portal",
             description: "Please login through the Vendor Portal to access your vendor account.",
-            variant: "default",
+            variant: "destructive",
           });
-          
-          // Redirect to vendor login with delay
+          // Clear auth state and localStorage, then redirect after delay
+          clearAuthDataAndUser();
           setTimeout(() => {
             navigate("/vendor/login");
           }, 2000);

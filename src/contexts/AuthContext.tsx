@@ -20,6 +20,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   logout: (skipRedirect?: boolean) => void;
   checkAuth: () => Promise<void>;
+  clearAuthDataAndUser: () => void; // add clearAuthDataAndUser to context type
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -89,6 +90,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const clearAuthDataAndUser = () => {
+    authService.clearAuthData();
+    setUser(null);
+  };
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -111,7 +117,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         loading, 
         login, 
         logout, 
-        checkAuth 
+        checkAuth,
+        clearAuthDataAndUser // add to context
       }}
     >
       {children}

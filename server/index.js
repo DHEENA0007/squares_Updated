@@ -282,36 +282,17 @@ app.use('/api/webhooks', webhookRoutes);
 app.use('/api/refund_policy', refund_policyRoutes);
 
 
-// Import admin real-time service
+// Import services
 const adminRealtimeService = require('./services/adminRealtimeService');
+const socketService = require('./services/socketService');
 
-// Socket.IO authentication middleware
-io.use((socket, next) => {
-  const token = socket.handshake.auth.token;
-  if (!token) {
-    return next(new Error('Authentication error'));
-  }
-  
-  const jwt = require('jsonwebtoken');
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    socket.userId = decoded.userId;
-    socket.userRole = decoded.role;
-    next();
-  } catch (err) {
-    next(new Error('Authentication error'));
-  }
-});
+// Initialize Socket.IO service
+socketService.initialize(io);
 
-// Socket.IO connection handling
+// Setup admin-specific socket handlers
 io.on('connection', (socket) => {
-  console.log(`User ${socket.userId} connected with role: ${socket.userRole}`);
-  
-  // Join user to their personal room
-  socket.join(`user_${socket.userId}`);
-  
   // Handle admin connections for real-time admin dashboard
-  if (socket.userRole === 'admin') {
+  if (socket.userRole === 'admin' || socket.userRole === 'superadmin') {
     const clientId = `admin_${socket.userId}_${Date.now()}`;
     adminRealtimeService.addClient(clientId, socket, socket.userId);
     
@@ -327,91 +308,11 @@ io.on('connection', (socket) => {
       adminRealtimeService.broadcastNotification(notification);
     });
     
-    console.log(`Admin ${socket.userId} connected to real-time dashboard`);
+    console.log(`✅ Admin ${socket.userId} connected to real-time dashboard`);
   }
-  
-  // Handle joining conversation rooms
-  socket.on('join_conversation', (conversationId) => {
-    socket.join(`conversation_${conversationId}`);
-    console.log(`User ${socket.userId} joined conversation ${conversationId}`);
-  });
-  
-  // Handle sending messages
-  socket.on('send_message', async (data) => {
-    try {
-      const { conversationId, message, recipientId } = data;
-      
-      // Save message to database using MongoDB
-      const Message = require('./models/Message');
-      const newMessage = new Message({
-        conversationId,
-        sender: socket.userId,
-        recipient: recipientId,
-        message,
-      });
-      
-      await newMessage.save();
-      
-      // Emit message to conversation room
-      io.to(`conversation_${conversationId}`).emit('new_message', newMessage);
-      
-      // Send notification to recipient
-      io.to(`user_${recipientId}`).emit('message_notification', {
-        from: socket.userId,
-        conversationId,
-        message: message.substring(0, 100)
-      });
-      
-      // Notify admins of new message activity
-      adminRealtimeService.broadcastNotification({
-        type: 'new_message',
-        title: 'New Message',
-        message: `New message from user ${socket.userId}`,
-        priority: 'low',
-        data: { conversationId, sender: socket.userId, recipient: recipientId }
-      });
-      
-    } catch (error) {
-      socket.emit('message_error', { error: error.message });
-    }
-  });
-  
-  // Handle typing indicators
-  socket.on('typing', (data) => {
-    socket.to(`conversation_${data.conversationId}`).emit('user_typing', {
-      userId: socket.userId,
-      isTyping: data.isTyping
-    });
-  });
-  
-  // Handle user activity tracking
-  socket.on('user_activity', async (activity) => {
-    try {
-      // Update user's last activity
-      const User = require('./models/User');
-      await User.findByIdAndUpdate(socket.userId, {
-        'profile.lastActivity': new Date(),
-        'profile.lastActivityType': activity.type
-      });
-      
-      // Notify admins of significant user activities
-      if (['property_view', 'subscription_purchase', 'profile_update'].includes(activity.type)) {
-        adminRealtimeService.broadcastNotification({
-          type: 'user_activity',
-          title: 'User Activity',
-          message: `User ${socket.userId} performed: ${activity.type}`,
-          priority: 'low',
-          data: { userId: socket.userId, activity }
-        });
-      }
-    } catch (error) {
-      console.error('Error tracking user activity:', error);
-    }
-  });
-  
+
+  // Cleanup on disconnect
   socket.on('disconnect', () => {
-    console.log(`User ${socket.userId} disconnected`);
-    
     // Clean up admin real-time connection
     if (socket.adminClientId) {
       adminRealtimeService.removeClient(socket.adminClientId);

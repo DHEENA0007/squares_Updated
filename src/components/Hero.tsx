@@ -624,6 +624,7 @@ const Hero = () => {
               
               <div className="flex flex-col gap-3">
                 {/* Location Dropdowns Row */}
+                {/*
                 <div className="grid grid-cols-3 gap-2">
                   <Select value={selectedState} onValueChange={(value) => setSelectedState(value)}>
                     <SelectTrigger className="h-10 sm:h-12 text-xs sm:text-sm">
@@ -672,6 +673,7 @@ const Hero = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                */}
 
                 {/* Search Input and Buttons Row */}
                 <div className="flex gap-2 sm:gap-3">

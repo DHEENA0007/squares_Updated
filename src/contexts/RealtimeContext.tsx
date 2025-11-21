@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { notificationService } from '@/services/notificationService';
+import { socketService, SocketMessage, TypingIndicator, UserStatus, MessageReadReceipt } from '@/services/socketService';
 
 interface RealtimeEvent {
   type: 'favorite_added' | 'favorite_removed' | 'message_received' | 'property_updated' | 
@@ -13,7 +14,8 @@ interface RealtimeEvent {
         'lead_alert' | 'inquiry_received' | 'weekly_report' | 'business_update' |
         'connection' | 'broadcast' | 'announcement' | 'test' |
         'property_approved' | 'property_rejected' | 'property_reactivated' |
-        'support_ticket_created' | 'support_ticket_updated' | 'property_created';
+        'support_ticket_created' | 'support_ticket_updated' | 'property_created' |
+        'user_typing' | 'user_status_changed' | 'message_notification' | 'conversation_read';
   data: any;
   timestamp: string;
 }
@@ -23,6 +25,15 @@ interface RealtimeContextType {
   lastEvent: RealtimeEvent | null;
   emit: (event: RealtimeEvent) => void;
   subscribe: (eventType: string, callback: (data: any) => void) => () => void;
+  // Socket-specific methods
+  joinConversation: (conversationId: string) => void;
+  leaveConversation: (conversationId: string) => void;
+  sendMessage: (data: { conversationId: string; recipientId: string; content: string; attachments?: any[]; tempId?: string }) => void;
+  startTyping: (conversationId: string) => void;
+  stopTyping: (conversationId: string) => void;
+  markMessageAsRead: (messageId: string, conversationId: string) => void;
+  markConversationAsRead: (conversationId: string) => void;
+  updateOnlineStatus: (status: 'online' | 'offline' | 'away') => void;
 }
 
 const RealtimeContext = createContext<RealtimeContextType | undefined>(undefined);
@@ -45,19 +56,20 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
   const [lastEvent, setLastEvent] = useState<RealtimeEvent | null>(null);
   const [eventListeners, setEventListeners] = useState<Map<string, ((data: any) => void)[]>>(new Map());
 
-  // Connect to notification service
+  // Connect to services
   useEffect(() => {
     if (!isAuthenticated || !user) {
       setIsConnected(false);
       notificationService.disconnectFromStream();
+      socketService.disconnect();
       return;
     }
 
-    // Connect to notification stream
+    // Connect to notification stream (for SSE-based notifications)
     notificationService.connectToStream();
     
     // Subscribe to all notifications and bridge them to realtime events
-    const unsubscribe = notificationService.subscribe('all', (notification) => {
+    const unsubscribeNotifications = notificationService.subscribe('all', (notification) => {
       const realtimeEvent: RealtimeEvent = {
         type: notification.type as RealtimeEvent['type'],
         data: notification.data || notification,
@@ -66,19 +78,97 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
       handleEvent(realtimeEvent);
     });
 
-    // Check connection status
+    // Connect to Socket.IO for real-time messaging
+    let socketConnected = false;
+    socketService.connect()
+      .then(() => {
+        console.log('✅ Socket.IO connected successfully');
+        socketConnected = true;
+        setIsConnected(true);
+      })
+      .catch((error) => {
+        console.error('❌ Failed to connect to Socket.IO:', error);
+      });
+
+    // Subscribe to socket events
+    const unsubscribeNewMessage = socketService.on('new_message', (data: { message: SocketMessage; conversationId: string }) => {
+      handleEvent({
+        type: 'new_message',
+        data: data,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    const unsubscribeMessageNotification = socketService.on('message_notification', (data: any) => {
+      handleEvent({
+        type: 'message_notification',
+        data: data,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    const unsubscribeTyping = socketService.on('user_typing', (data: TypingIndicator) => {
+      handleEvent({
+        type: 'user_typing',
+        data: data,
+        timestamp: data.timestamp
+      });
+    });
+
+    const unsubscribeReadReceipt = socketService.on('message_read_receipt', (data: MessageReadReceipt) => {
+      handleEvent({
+        type: 'message_read',
+        data: data,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    const unsubscribeConversationRead = socketService.on('conversation_read', (data: any) => {
+      handleEvent({
+        type: 'conversation_read',
+        data: data,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    const unsubscribeUserStatus = socketService.on('user_status_changed', (data: UserStatus) => {
+      handleEvent({
+        type: data.isOnline ? 'user_online' : 'user_offline',
+        data: data,
+        timestamp: data.lastSeen
+      });
+    });
+
+    // Check connection status periodically
     const checkConnection = setInterval(() => {
-      setIsConnected(notificationService.isConnected());
+      const notificationConnected = notificationService.isConnected();
+      const socketConnectedNow = socketService.isConnected();
+      setIsConnected(notificationConnected || socketConnectedNow);
     }, 3000);
 
+    // Send periodic activity ping
+    const activityPing = setInterval(() => {
+      if (socketService.isConnected()) {
+        socketService.sendUserActivity();
+      }
+    }, 30000); // Every 30 seconds
+
     return () => {
-      unsubscribe();
+      unsubscribeNotifications();
+      unsubscribeNewMessage();
+      unsubscribeMessageNotification();
+      unsubscribeTyping();
+      unsubscribeReadReceipt();
+      unsubscribeConversationRead();
+      unsubscribeUserStatus();
       clearInterval(checkConnection);
+      clearInterval(activityPing);
       notificationService.disconnectFromStream();
+      socketService.disconnect();
     };
   }, [isAuthenticated, user]);
 
-  const handleEvent = (event: RealtimeEvent) => {
+  const handleEvent = useCallback((event: RealtimeEvent) => {
     setLastEvent(event);
     
     // Notify all listeners for this event type
@@ -100,13 +190,13 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
         console.error('Error in event listener:', error);
       }
     });
-  };
+  }, [eventListeners]);
 
-  const emit = (event: RealtimeEvent) => {
+  const emit = useCallback((event: RealtimeEvent) => {
     handleEvent(event);
-  };
+  }, [handleEvent]);
 
-  const subscribe = (eventType: string, callback: (data: any) => void) => {
+  const subscribe = useCallback((eventType: string, callback: (data: any) => void) => {
     setEventListeners(prev => {
       const newMap = new Map(prev);
       const existingListeners = newMap.get(eventType) || [];
@@ -130,7 +220,40 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
         return newMap;
       });
     };
-  };
+  }, []);
+
+  // Socket.IO methods
+  const joinConversation = useCallback((conversationId: string) => {
+    socketService.joinConversation(conversationId);
+  }, []);
+
+  const leaveConversation = useCallback((conversationId: string) => {
+    socketService.leaveConversation(conversationId);
+  }, []);
+
+  const sendMessage = useCallback((data: { conversationId: string; recipientId: string; content: string; attachments?: any[]; tempId?: string }) => {
+    socketService.sendMessage(data);
+  }, []);
+
+  const startTyping = useCallback((conversationId: string) => {
+    socketService.startTyping(conversationId);
+  }, []);
+
+  const stopTyping = useCallback((conversationId: string) => {
+    socketService.stopTyping(conversationId);
+  }, []);
+
+  const markMessageAsRead = useCallback((messageId: string, conversationId: string) => {
+    socketService.markMessageAsRead(messageId, conversationId);
+  }, []);
+
+  const markConversationAsRead = useCallback((conversationId: string) => {
+    socketService.markConversationAsRead(conversationId);
+  }, []);
+
+  const updateOnlineStatus = useCallback((status: 'online' | 'offline' | 'away') => {
+    socketService.updateOnlineStatus(status);
+  }, []);
 
   return (
     <RealtimeContext.Provider 
@@ -138,7 +261,15 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
         isConnected, 
         lastEvent, 
         emit, 
-        subscribe 
+        subscribe,
+        joinConversation,
+        leaveConversation,
+        sendMessage,
+        startTyping,
+        stopTyping,
+        markMessageAsRead,
+        markConversationAsRead,
+        updateOnlineStatus
       }}
     >
       {children}
@@ -210,58 +341,86 @@ export const useMessagingRealtime = (refreshCallbacks: {
   onTypingIndicator?: (data: any) => void;
   onMessageRead?: (data: any) => void;
   onUserStatusChange?: (data: any) => void;
+  onConversationRead?: (data: any) => void;
 }) => {
   const { subscribe } = useRealtime();
 
   useEffect(() => {
     const unsubscribeNewMessage = subscribe('new_message', (data) => {
+      console.log('📨 New message event:', data);
       refreshCallbacks.refreshConversations?.();
       refreshCallbacks.onNewMessage?.(data);
     });
 
     const unsubscribeMessageReceived = subscribe('message_received', (data) => {
+      console.log('📬 Message received event:', data);
       refreshCallbacks.refreshConversations?.();
       refreshCallbacks.refreshMessages?.();
     });
 
+    const unsubscribeMessageNotification = subscribe('message_notification', (data) => {
+      console.log('🔔 Message notification:', data);
+      refreshCallbacks.refreshConversations?.();
+    });
+
     const unsubscribeMessageRead = subscribe('message_read', (data) => {
+      console.log('✅ Message read event:', data);
       refreshCallbacks.onMessageRead?.(data);
     });
 
+    const unsubscribeConversationRead = subscribe('conversation_read', (data) => {
+      console.log('✅ Conversation read event:', data);
+      refreshCallbacks.onConversationRead?.(data);
+    });
+
     const unsubscribeMessageUpdated = subscribe('message_updated', (data) => {
+      console.log('✏️ Message updated:', data);
       refreshCallbacks.refreshMessages?.();
     });
 
     const unsubscribeMessageDeleted = subscribe('message_deleted', (data) => {
+      console.log('🗑️ Message deleted:', data);
       refreshCallbacks.refreshMessages?.();
     });
 
-    const unsubscribeTyping = subscribe('typing_indicator', (data) => {
+    const unsubscribeTyping = subscribe('user_typing', (data) => {
+      console.log('✍️ Typing indicator:', data);
       refreshCallbacks.onTypingIndicator?.(data);
     });
 
     const unsubscribeConversationUpdated = subscribe('conversation_updated', (data) => {
+      console.log('🔄 Conversation updated:', data);
       refreshCallbacks.refreshConversations?.();
     });
 
     const unsubscribeUserOnline = subscribe('user_online', (data) => {
+      console.log('👤 User online:', data);
       refreshCallbacks.onUserStatusChange?.(data);
     });
 
     const unsubscribeUserOffline = subscribe('user_offline', (data) => {
+      console.log('👤 User offline:', data);
+      refreshCallbacks.onUserStatusChange?.(data);
+    });
+
+    const unsubscribeUserStatus = subscribe('user_status_changed', (data) => {
+      console.log('👤 User status changed:', data);
       refreshCallbacks.onUserStatusChange?.(data);
     });
 
     return () => {
       unsubscribeNewMessage();
       unsubscribeMessageReceived();
+      unsubscribeMessageNotification();
       unsubscribeMessageRead();
+      unsubscribeConversationRead();
       unsubscribeMessageUpdated();
       unsubscribeMessageDeleted();
       unsubscribeTyping();
       unsubscribeConversationUpdated();
       unsubscribeUserOnline();
       unsubscribeUserOffline();
+      unsubscribeUserStatus();
     };
-  }, [refreshCallbacks]);
+  }, [subscribe, refreshCallbacks]);
 };

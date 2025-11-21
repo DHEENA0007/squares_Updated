@@ -2,784 +2,861 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   MessageSquare,
   Send,
-  Search,
-  Filter,
-  MoreVertical,
-  Clock,
-  CheckCheck,
-  Eye,
-  Trash2,
-  Reply,
-  Forward,
-  Ban,
-  AlertTriangle,
-  Users,
-  TrendingUp,
-  Calendar,
-  Mail,
-  UserCheck,
-  UserX,
-  Archive,
-  Star,
-  StarOff,
+  Phone,
+  MapPin,
   Loader2,
-  RefreshCw,
-  Circle,
-  Check,
-  ArrowLeft
+  Image as ImageIcon,
+  X,
+  Trash2,
+  Star,
+  Archive,
+  ArrowLeft,
+  Search,
+  MoreVertical,
+  Paperclip,
+  CheckCheck
 } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
-import { 
-  adminMessageService, 
-  type AdminMessage, 
-  type MessageStats, 
-  type MessageFilters 
-} from "@/services/adminMessageService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useRealtime, useMessagingRealtime } from "@/contexts/RealtimeContext";
-import { messageService, type UserStatus } from "@/services/messageService";
+import { messageService, type Conversation, type Message, type UserStatus } from "@/services/messageService";
+import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const AdminMessages = () => {
   const { isConnected } = useRealtime();
-  const [messages, setMessages] = useState<AdminMessage[]>([]);
-  const [filteredMessages, setFilteredMessages] = useState<AdminMessage[]>([]);
-  const [selectedMessage, setSelectedMessage] = useState<AdminMessage | null>(null);
+  const { user } = useAuth();
+  const isMobile = useIsMobile();
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+  const [newMessage, setNewMessage] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<MessageStats | null>(null);
-  const [activeTab, setActiveTab] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [sending, setSending] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [priorityFilter, setPriorityFilter] = useState("all");
-  const [replyText, setReplyText] = useState("");
-  const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
-  const [userStatuses, setUserStatuses] = useState<Record<string, UserStatus>>({});
-  const [isTyping, setIsTyping] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [userStatuses, setUserStatuses] = useState<Record<string, UserStatus>>({});
+  const [showConversationList, setShowConversationList] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalMessages: 0,
-    hasNext: false,
-    hasPrev: false,
-    limit: 20
-  });
 
-  // Realtime messaging events
   useMessagingRealtime({
     refreshConversations: () => {
-      loadMessages();
+      loadConversations();
     },
     onNewMessage: (newMsg) => {
-      loadMessages();
-      loadStats();
+      if (newMsg.conversationId === selectedConversation) {
+        loadMessages(selectedConversation);
+      }
+      loadConversations();
     },
-    onMessageRead: () => {
-      loadMessages();
-      loadStats();
+    onMessageRead: (data) => {
+      if (data.conversationId === selectedConversation) {
+        loadMessages(selectedConversation);
+      }
     }
   });
 
-  // Load messages and stats
-  useEffect(() => {
-    loadMessages();
-    loadStats();
-  }, []);
-
-  // Load user statuses
-  useEffect(() => {
-    if (messages.length > 0) {
-      loadUserStatuses();
-      const interval = setInterval(loadUserStatuses, 10000);
-      return () => clearInterval(interval);
+  const loadConversations = async () => {
+    try {
+      setLoading(true);
+      const response = await messageService.getConversations({
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        limit: 50
+      });
+      
+      setConversations(response.conversations);
+    } catch (error) {
+      console.error("Failed to load conversations:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load conversations. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  }, [messages]);
+  };
 
-  // Load user statuses for all message senders
+  const loadMessages = async (conversationId: string) => {
+    try {
+      setMessages([]);
+      const response = await messageService.getConversationMessages(conversationId, 1, 50, true);
+      
+      if (response) {
+        setMessages(response.messages);
+        await messageService.updateActiveStatus(conversationId, 'online');
+        loadConversations();
+      }
+    } catch (error) {
+      console.error("Failed to load messages:", error);
+    }
+  };
+
   const loadUserStatuses = async () => {
     const statuses: Record<string, UserStatus> = {};
-    const uniqueUserIds = new Set(messages.map(msg => msg.sender._id));
     
-    for (const userId of uniqueUserIds) {
+    for (const conv of conversations) {
       try {
-        const status = await messageService.getUserStatus(userId);
-        statuses[userId] = status;
+        const status = await messageService.getUserStatus(conv.otherUser._id);
+        statuses[conv.otherUser._id] = status;
       } catch (error) {
-        console.error(`Failed to load status for user ${userId}:`, error);
+        console.error(`Failed to load status for user ${conv.otherUser._id}:`, error);
       }
     }
     
     setUserStatuses(statuses);
   };
 
-  // Scroll to bottom
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  useEffect(() => {
+    loadConversations();
+  }, [statusFilter]);
 
-  // Handle typing with debounce
-  const handleTypingChange = (value: string) => {
-    setReplyText(value);
-    
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    
-    if (value.trim() && selectedMessage) {
-      if (!isTyping) {
-        setIsTyping(true);
+  useEffect(() => {
+    if (selectedConversation) {
+      loadMessages(selectedConversation);
+      if (isMobile) {
+        setShowConversationList(false);
       }
-      
-      typingTimeoutRef.current = setTimeout(() => {
-        setIsTyping(false);
-      }, 3000);
     } else {
-      setIsTyping(false);
+      setMessages([]);
+    }
+  }, [selectedConversation]);
+
+  useEffect(() => {
+    if (conversations.length > 0) {
+      loadUserStatuses();
+      
+      const statusInterval = setInterval(() => {
+        loadUserStatuses();
+      }, 30000);
+      
+      return () => clearInterval(statusInterval);
+    }
+  }, [conversations]);
+
+  const activeConversation = conversations.find(c => (c.id || c._id) === selectedConversation);
+
+  const sendMessage = async () => {
+    if (!newMessage.trim() && selectedFiles.length === 0) {
+      return;
+    }
+
+    if (!selectedConversation) {
+      console.error("No conversation selected");
+      return;
+    }
+
+    try {
+      setSending(true);
+
+      const attachments: Array<{type: 'image' | 'document'; url: string; name: string; size?: number}> = [];
+
+      if (selectedFiles.length > 0) {
+        setIsUploading(true);
+        for (const file of selectedFiles) {
+          try {
+            const attachment = await messageService.uploadAttachment(file);
+            attachments.push(attachment);
+          } catch (error) {
+            console.error(`Failed to upload ${file.name}:`, error);
+          }
+        }
+        setIsUploading(false);
+      }
+
+      if (!selectedConversation || !activeConversation) {
+        throw new Error("No conversation selected");
+      }
+
+      const conversationId = selectedConversation;
+      const recipientId = activeConversation.otherUser._id;
+
+      await messageService.updateActiveStatus(conversationId, 'online');
+
+      const messageContent = newMessage.trim() || (attachments.length > 0 ? '[Attachment]' : '');
+
+      const sentMessage = await messageService.sendMessage(
+        conversationId,
+        messageContent,
+        recipientId,
+        attachments
+      );
+
+      setMessages(prev => [...prev, sentMessage]);
+      setNewMessage("");
+      setSelectedFiles([]);
+
+      loadConversations();
+
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    } finally {
+      setSending(false);
     }
   };
 
-  // Cleanup
+  const handleTypingStart = async () => {
+    if (selectedConversation) {
+      await messageService.updateActiveStatus(selectedConversation, 'typing');
+    }
+  };
+
+  const handleTypingStop = async () => {
+    if (selectedConversation) {
+      await messageService.updateActiveStatus(selectedConversation, 'online');
+    }
+  };
+
+  useEffect(() => {
+    let typingTimer: NodeJS.Timeout;
+
+    if (newMessage.trim()) {
+      handleTypingStart();
+      
+      if (typingTimer) clearTimeout(typingTimer);
+      
+      typingTimer = setTimeout(() => {
+        handleTypingStop();
+      }, 2000);
+    } else {
+      handleTypingStop();
+    }
+
+    return () => {
+      if (typingTimer) clearTimeout(typingTimer);
+    };
+  }, [newMessage]);
+
   useEffect(() => {
     return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
+      if (selectedConversation) {
+        messageService.updateActiveStatus(selectedConversation, 'offline');
       }
     };
-  }, []);
+  }, [selectedConversation]);
 
-  // Load messages with current filters
-  const loadMessages = async (filters: MessageFilters = {}) => {
-    try {
-      setLoading(true);
-      
-      const mergedFilters = {
-        page: pagination.currentPage,
-        limit: pagination.limit,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        type: typeFilter !== 'all' ? typeFilter : undefined,
-        priority: priorityFilter !== 'all' ? priorityFilter : undefined,
-        search: searchTerm || undefined,
-        ...filters
-      };
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, type: 'document' | 'image') => {
+    const files = event.target.files;
+    if (!files) return;
 
-      const response = await adminMessageService.getMessages(mergedFilters);
-      
-      if (response.success) {
-        setMessages(response.data.messages);
-        setPagination(response.data.pagination);
+    const fileArray = Array.from(files);
+    const validFiles: File[] = [];
+
+    for (const file of fileArray) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: `${file.name} exceeds 10MB limit`,
+          variant: "destructive"
+        });
+        continue;
       }
-    } catch (error) {
-      console.error("Failed to load messages:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const loadStats = async () => {
-    try {
-      const statsData = await adminMessageService.getMessageStats();
-      setStats(statsData);
-    } catch (error) {
-      console.error("Failed to load message stats:", error);
-    }
-  };
-
-  // Reload messages when filters change
-  useEffect(() => {
-    loadMessages();
-  }, [activeTab, statusFilter, typeFilter, priorityFilter, searchTerm, pagination.currentPage]);
-
-  // Filter messages based on active tab
-  useEffect(() => {
-    let filtered = messages;
-
-    // Filter by tab
-    switch (activeTab) {
-      case "unread":
-        filtered = filtered.filter(msg => msg.status === 'unread');
-        break;
-      case "flagged":
-        filtered = filtered.filter(msg => msg.status === 'flagged');
-        break;
-      case "inquiries":
-        filtered = filtered.filter(msg => ['inquiry', 'lead', 'property_inquiry'].includes(msg.type));
-        break;
-      case "support":
-        filtered = filtered.filter(msg => ['support', 'complaint'].includes(msg.type));
-        break;
-    }
-
-    setFilteredMessages(filtered);
-  }, [messages, activeTab]);
-
-  const getSenderName = (message: AdminMessage) => {
-    return adminMessageService.getSenderName(message);
-  };
-
-  const getRecipientName = (message: AdminMessage) => {
-    return adminMessageService.getRecipientName(message);
-  };
-
-  const formatDate = (dateString: string) => {
-    return adminMessageService.formatDate(dateString);
-  };
-
-  const getStatusColor = (status: string) => {
-    return adminMessageService.getStatusColor(status);
-  };
-
-  const getPriorityColor = (priority: string) => {
-    return adminMessageService.getPriorityColor(priority);
-  };
-
-  const markAsRead = async (messageId: string) => {
-    try {
-      await adminMessageService.updateMessageStatus(messageId, 'read');
-      loadMessages(); // Refresh messages
-      loadStats(); // Refresh stats
-    } catch (error) {
-      console.error("Failed to mark message as read:", error);
-    }
-  };
-
-  const flagMessage = async (messageId: string) => {
-    try {
-      await adminMessageService.updateMessageStatus(messageId, 'flagged');
-      loadMessages();
-      loadStats();
-    } catch (error) {
-      console.error("Failed to flag message:", error);
-    }
-  };
-
-  const deleteMessage = async (messageId: string) => {
-    try {
-      await adminMessageService.deleteMessage(messageId);
-      if (selectedMessage?._id === messageId) {
-        setSelectedMessage(null);
+      if (type === 'image') {
+        if (!file.type.startsWith('image/')) {
+          toast({
+            title: "Invalid file type",
+            description: `${file.name} is not an image`,
+            variant: "destructive"
+          });
+          continue;
+        }
+      } else {
+        const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        if (!validTypes.includes(file.type)) {
+          toast({
+            title: "Invalid file type",
+            description: `${file.name} is not a supported document type`,
+            variant: "destructive"
+          });
+          continue;
+        }
       }
-      loadMessages();
-      loadStats();
-      setMessageToDelete(null);
-    } catch (error) {
-      console.error("Failed to delete message:", error);
+
+      validFiles.push(file);
+    }
+
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+    
+    if (event.target) {
+      event.target.value = '';
     }
   };
 
-  const sendReply = async () => {
-    if (!selectedMessage || !replyText.trim()) return;
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
-    try {
-      // Stop typing indicator
-      if (isTyping) {
-        setIsTyping(false);
+  const handleDeleteConversation = async (conversationId: string) => {
+    if (window.confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+      try {
+        await messageService.deleteConversation(conversationId);
+        
+        setConversations(prev => prev.filter(conv => (conv.id || conv._id) !== conversationId));
+        
+        if (selectedConversation === conversationId) {
+          setSelectedConversation(null);
+          setMessages([]);
+        }
+
+        toast({
+          title: "Success",
+          description: "Conversation deleted successfully!",
+        });
+      } catch (error) {
+        console.error('Failed to delete conversation:', error);
       }
-      
-      await adminMessageService.sendReply(selectedMessage._id, replyText.trim());
-      setReplyText("");
-      loadMessages();
-      loadStats();
-      setTimeout(() => scrollToBottom(), 100);
-    } catch (error) {
-      console.error("Failed to send reply:", error);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading messages...</span>
-        </div>
-      </div>
-    );
-  }
+  const handleDeleteMessage = async (messageId: string) => {
+    if (window.confirm('Are you sure you want to delete this message? This action cannot be undone.')) {
+      try {
+        await messageService.deleteMessage(messageId);
+        
+        setMessages(prev => prev.filter(msg => msg._id !== messageId));
+
+        toast({
+          title: "Success",
+          description: "Message deleted successfully!",
+        });
+      } catch (error) {
+        console.error('Failed to delete message:', error);
+      }
+    }
+  };
+
+  const getOtherParticipant = (conversation: Conversation) => {
+    return conversation.otherUser || {
+      _id: '',
+      name: 'Unknown User',
+      email: ''
+    };
+  };
+
+  const filteredConversations = conversations.filter(conv => {
+    const otherParticipant = getOtherParticipant(conv);
+    const participantName = otherParticipant.name || '';
+    const propertyTitle = conv.property?.title || '';
+    
+    return participantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      propertyTitle.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   return (
-    <div className="space-y-6">
-      {/* Realtime Status */}
-      <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span className="text-sm text-muted-foreground">
-            {isConnected ? 'Real-time messaging active' : 'Offline mode'}
-          </span>
-        </div>
-        {loading && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading messages...
-          </div>
-        )}
-      </div>
-
-      {/* Header */}
-      <div className="flex flex-col space-y-3 md:flex-row md:justify-between md:items-center md:space-y-0">
+    <div className="space-y-6 pt-16">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Messages</h1>
-          <p className="text-sm md:text-base text-muted-foreground">
-            Manage and respond to user messages and inquiries
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <MessageSquare className="w-8 h-8 text-primary" />
+            Admin Messages
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Manage and respond to user inquiries
           </p>
         </div>
+        
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => loadMessages()}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Messages</SelectItem>
+              <SelectItem value="unread">Unread</SelectItem>
+              <SelectItem value="read">Read</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 md:gap-4">
-          <Card>
-            <CardContent className="p-3 md:p-4 text-center">
-              <div className="text-lg md:text-2xl font-bold text-blue-600">
-                {stats.totalMessages}
-              </div>
-              <div className="text-xs md:text-sm text-muted-foreground">Total Messages</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 md:p-4 text-center">
-              <div className="text-lg md:text-2xl font-bold text-orange-600">
-                {stats.unreadMessages}
-              </div>
-              <div className="text-xs md:text-sm text-muted-foreground">Unread</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 md:p-4 text-center">
-              <div className="text-lg md:text-2xl font-bold text-green-600">
-                {stats.repliedMessages}
-              </div>
-              <div className="text-xs md:text-sm text-muted-foreground">Replied</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 md:p-4 text-center">
-              <div className="text-lg md:text-2xl font-bold text-red-600">
-                {stats.flaggedMessages}
-              </div>
-              <div className="text-xs md:text-sm text-muted-foreground">Flagged</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 md:p-4 text-center">
-              <div className="text-lg md:text-2xl font-bold text-purple-600">
-                {stats.todayMessages}
-              </div>
-              <div className="text-xs md:text-sm text-muted-foreground">Today</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 md:p-4 text-center">
-              <div className="text-lg md:text-2xl font-bold text-teal-600">
-                {stats.responseRate}%
-              </div>
-              <div className="text-xs md:text-sm text-muted-foreground">Response Rate</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 md:p-4 text-center">
-              <div className="text-lg md:text-2xl font-bold text-indigo-600">
-                {stats.avgResponseTime}
-              </div>
-              <div className="text-xs md:text-sm text-muted-foreground">Avg Response</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Chat Interface */}
-      <div className="h-[calc(100vh-16rem)] md:h-[calc(100vh-18rem)] flex gap-4 md:gap-6">
-        {/* Conversations List - Hidden on mobile when message is selected */}
-        <div className={`w-full md:w-1/3 border-r-0 md:border-r border-border ${selectedMessage ? 'hidden md:block' : 'block'}`}>
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="w-full grid grid-cols-3">
-              <TabsTrigger value="all" className="text-xs">
-                All {stats && stats.totalMessages > 0 && (
-                  <Badge className="ml-1 text-xs" variant="secondary">{stats.totalMessages}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="unread" className="text-xs">
-                Unread {stats && stats.unreadMessages > 0 && (
-                  <Badge className="ml-1 text-xs bg-red-500 text-white">{stats.unreadMessages}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="flagged" className="text-xs">
-                Flagged {stats && stats.flaggedMessages > 0 && (
-                  <Badge className="ml-1 text-xs bg-orange-500 text-white">{stats.flaggedMessages}</Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          {/* Search and Filters */}
-          <div className="p-3 md:p-4 border-b border-border space-y-3">
+      <div className={`grid gap-6 h-[calc(100vh-12rem)] ${isMobile ? 'grid-cols-1' : 'lg:grid-cols-3'}`}>
+        <Card className={`${isMobile ? (showConversationList ? 'block' : 'hidden') : 'lg:col-span-1'}`}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Conversations</CardTitle>
+              <Badge variant="secondary">{conversations.length}</Badge>
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                type="text"
                 placeholder="Search conversations..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 text-sm"
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="inquiry">Inquiry</SelectItem>
-                  <SelectItem value="property_inquiry">Property</SelectItem>
-                  <SelectItem value="support">Support</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Messages List */}
-          <ScrollArea className="h-[calc(100%-10rem)] md:h-[calc(100%-12rem)]">
-            <div className="p-2 space-y-1">
-              {filteredMessages.map((message) => (
-                <div
-                  key={message._id}
-                  className={`p-3 rounded-lg cursor-pointer transition-colors hover:bg-accent/50 ${
-                    selectedMessage?._id === message._id ? 'bg-accent' : ''
-                  }`}
-                  onClick={() => {
-                    setSelectedMessage(message);
-                    if (message.status === 'unread') {
-                      markAsRead(message._id);
-                    }
-                  }}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className="relative flex-shrink-0">
-                      <Avatar className="w-8 h-8 md:w-10 md:h-10">
-                        <AvatarImage src={message.sender.profile?.avatar} />
-                        <AvatarFallback>
-                          {getSenderName(message).charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      {userStatuses[message.sender._id]?.isOnline ? (
-                        <div title="Online">
-                          <Circle className="absolute -bottom-1 -right-1 w-2 h-2 md:w-3 md:h-3 fill-green-500 text-green-500 border-2 border-background rounded-full" />
+          </CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="h-[calc(100vh-20rem)]">
+              <div className="space-y-1 p-3">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : filteredConversations.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>No conversations yet</p>
+                  </div>
+                ) : (
+                  filteredConversations.map((conversation) => {
+                    const otherParticipant = getOtherParticipant(conversation);
+                    const participantName = otherParticipant.name || 'Unknown User';
+                    const conversationId = conversation.id || conversation._id || '';
+                    
+                    return (
+                      <div
+                        key={conversationId}
+                        className={`group p-3 rounded-lg cursor-pointer transition-colors ${
+                          selectedConversation === conversationId
+                            ? 'bg-primary/10 border border-primary/20'
+                            : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => setSelectedConversation(conversationId)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="relative">
+                            <Avatar className="w-12 h-12">
+                              <AvatarImage src={undefined} />
+                              <AvatarFallback>
+                                {participantName.split(' ').map(n => n[0]).join('')}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-sm truncate">{participantName}</p>
+                                {userStatuses[otherParticipant._id]?.isOnline && (
+                                  <span className="text-[10px] text-green-600 font-medium">● Online</span>
+                                )}
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {messageService.formatTime(conversation.lastMessage.createdAt)}
+                              </span>
+                            </div>
+                            
+                            {conversation.property && (
+                              <p className="text-xs text-primary font-medium mb-1 truncate">
+                                {conversation.property.title}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground truncate">
+                              {conversation.lastMessage.message}
+                            </p>
+                            
+                            <div className="flex items-center justify-between mt-2">
+                              {conversation.unreadCount > 0 && (
+                                <Badge className="bg-primary text-white text-xs px-2 py-1">
+                                  {conversation.unreadCount}
+                                </Badge>
+                              )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <MoreVertical className="w-3 h-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem>
+                                    <Star className="w-4 h-4 mr-2" />
+                                    Mark as Important
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem>
+                                    <Archive className="w-4 h-4 mr-2" />
+                                    Archive
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    className="text-red-600 focus:text-red-600"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteConversation(conversationId);
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete Conversation
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
                         </div>
-                      ) : (
-                        <div title={`Last seen ${userStatuses[message.sender._id]?.lastSeen ? messageService.formatTime(userStatuses[message.sender._id].lastSeen) : 'recently'}`}>
-                          <Circle className="absolute -bottom-1 -right-1 w-2 h-2 md:w-3 md:h-3 fill-gray-400 text-gray-400 border-2 border-background rounded-full" />
-                        </div>
-                      )}
-                      {message.status === 'unread' && (
-                        <div className="absolute -top-1 -left-1 w-2 h-2 md:w-3 md:h-3 rounded-full bg-red-500" />
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-1">
-                        <span className="font-medium text-sm truncate">
-                          {getSenderName(message)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(message.createdAt)}
-                        </span>
                       </div>
-
-                      {message.subject && (
-                        <p className="text-xs font-medium text-primary mb-1 truncate">
-                          {message.subject}
-                        </p>
-                      )}
-
-                      <p className="text-xs text-muted-foreground truncate">
-                        {message.content}
-                      </p>
-
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex gap-1 flex-wrap">
-                          <Badge className={`text-xs ${getPriorityColor(message.priority)}`}>
-                            {message.priority}
-                          </Badge>
-                          <Badge className={`text-xs ${getStatusColor(message.status)}`}>
-                            {message.status}
-                          </Badge>
-                        </div>
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                              <MoreVertical className="w-3 h-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => flagMessage(message._id)}>
-                              <AlertTriangle className="w-4 h-4 mr-2" />
-                              Flag
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                setMessageToDelete(message._id);
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
-
-        {/* Chat Area - Full width on mobile when message is selected */}
-        <div className={`flex-1 flex flex-col min-h-0 ${selectedMessage ? 'block md:flex-1' : 'hidden md:flex'}`}>
-          {selectedMessage ? (
-            <>
-              {/* Chat Header */}
-              <div className="p-3 md:p-4 border-b border-border">
-                {/* Back button for mobile */}
-                <div className="md:hidden mb-3">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedMessage(null)}
-                    className="flex items-center gap-2"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back to Messages
-                  </Button>
-                </div>
-
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="relative flex-shrink-0">
-                      <Avatar className="w-8 h-8 md:w-10 md:h-10">
-                        <AvatarImage src={selectedMessage.sender.profile?.avatar} />
-                        <AvatarFallback>
-                          {getSenderName(selectedMessage).charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      {userStatuses[selectedMessage.sender._id]?.isOnline ? (
-                        <div title="Online">
-                          <Circle className="absolute -bottom-1 -right-1 w-2 h-2 md:w-3 md:h-3 fill-green-500 text-green-500 border-2 border-background rounded-full" />
-                        </div>
-                      ) : (
-                        <div title={`Last seen ${userStatuses[selectedMessage.sender._id]?.lastSeen ? messageService.formatTime(userStatuses[selectedMessage.sender._id].lastSeen) : 'recently'}`}>
-                          <Circle className="absolute -bottom-1 -right-1 w-2 h-2 md:w-3 md:h-3 fill-gray-400 text-gray-400 border-2 border-background rounded-full" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-sm md:text-base truncate">
-                        {getSenderName(selectedMessage)}
-                      </h3>
-                      <p className="text-xs md:text-sm text-muted-foreground">
-                        {userStatuses[selectedMessage.sender._id]?.isOnline
-                          ? 'Online'
-                          : `Last seen ${userStatuses[selectedMessage.sender._id]?.lastSeen ? messageService.formatTime(userStatuses[selectedMessage.sender._id].lastSeen) : 'recently'}`
-                        }
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge className={`text-xs ${getPriorityColor(selectedMessage.priority)}`}>
-                      {selectedMessage.priority}
-                    </Badge>
-                    <Badge className={`text-xs ${getStatusColor(selectedMessage.status)}`}>
-                      {selectedMessage.status}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Property Info */}
-                {selectedMessage.property && (
-                  <div className="mt-3 p-3 bg-muted rounded-lg">
-                    <p className="text-sm font-medium">Related Property:</p>
-                    <p className="text-xs text-muted-foreground truncate">{selectedMessage.property.title}</p>
-                  </div>
+                    );
+                  })
                 )}
               </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
 
-              {/* Chat Messages */}
-              <ScrollArea className="flex-1 p-3 md:p-4">
-                <div className="space-y-4">
-                  {/* Original Message */}
-                  <div className="flex justify-start">
-                    <div className="max-w-[85%] md:max-w-[70%] bg-muted p-3 rounded-lg">
-                      {selectedMessage.subject && (
-                        <p className="font-medium text-sm mb-2">{selectedMessage.subject}</p>
-                      )}
-                      <p className="text-sm whitespace-pre-wrap break-words">{selectedMessage.content}</p>
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mt-2">
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(selectedMessage.createdAt)}
-                        </span>
-                        <Badge variant="outline" className="text-xs w-fit">
-                          {selectedMessage.type?.replace('_', ' ') || 'general'}
-                        </Badge>
+        <Card className={`${isMobile ? (!showConversationList ? 'block' : 'hidden') : 'lg:col-span-2'}`}>
+          {activeConversation ? (
+            <>
+              <CardHeader className="pb-3 border-b">
+                {isMobile && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowConversationList(true)}
+                      className="p-2"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm font-medium">Back to Conversations</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={undefined} />
+                        <AvatarFallback>
+                          {getOtherParticipant(activeConversation).name.split(' ').map(n => n[0]).join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                    
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">
+                          {getOtherParticipant(activeConversation).name}
+                        </h3>
+                        {userStatuses[getOtherParticipant(activeConversation)._id]?.isOnline && (
+                          <span className="text-xs text-green-600 font-medium">● Active now</span>
+                        )}
                       </div>
+                      {activeConversation.property && (
+                        <p className="text-sm text-muted-foreground">{activeConversation.property.title}</p>
+                      )}
                     </div>
                   </div>
+                  
+                  <div className="flex gap-2">
+                    {getOtherParticipant(activeConversation).phone ? (
+                      isMobile ? (
+                        <Button size="sm" variant="outline" asChild>
+                          <a href={`tel:${getOtherParticipant(activeConversation).phone}`}>
+                            <Phone className="w-4 h-4" />
+                          </a>
+                        </Button>
+                      ) : (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button size="sm" variant="outline" title="View phone number">
+                              <Phone className="w-4 h-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-3">
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">Phone Number</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-lg font-semibold">{getOtherParticipant(activeConversation).phone}</p>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(getOtherParticipant(activeConversation).phone || '');
+                                    toast({
+                                      title: "Copied!",
+                                      description: "Phone number copied to clipboard",
+                                    });
+                                  }}
+                                >
+                                  Copy
+                                </Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )
+                    ) : null}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="outline">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <Star className="w-4 h-4 mr-2" />
+                          Mark as Important
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Archive className="w-4 h-4 mr-2" />
+                          Archive Conversation
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-red-600 focus:text-red-600"
+                          onClick={() => handleDeleteConversation(selectedConversation)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Conversation
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              </CardHeader>
 
-                  {/* Admin replies would go here */}
-                  {/* TODO: Load and display conversation replies */}
+              {activeConversation.property && (
+                <div className="px-6 py-3 bg-muted/30 border-b">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm">{activeConversation.property.title}</span>
+                    </div>
+                    <span className="text-sm font-semibold text-primary">
+                      ₹{activeConversation.property.price.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              )}
 
-                  {/* Typing Indicator */}
-                  {otherUserTyping && (
-                    <div className="flex justify-start animate-fadeIn">
-                      <div className="bg-muted/80 px-4 py-2 rounded-lg border border-border/50">
-                        <div className="flex items-center gap-2">
-                          <div className="flex gap-1">
-                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              <CardContent className="p-0">
+                <ScrollArea className="h-[calc(100vh-28rem)] p-4">
+                  <div className="space-y-4">
+                    {messages.map((message) => {
+                      const senderId = typeof message.sender === 'string' ? message.sender : message.sender._id;
+                      const isOwnMessage = user?.id === senderId;
+                      
+                      return (
+                        <div
+                          key={message._id}
+                          className={`group flex ${isOwnMessage ? 'justify-end' : 'justify-start'} hover:bg-muted/30 rounded-lg p-1 transition-colors`}
+                        >
+                          <div
+                            className={`max-w-[70%] p-3 rounded-lg ${
+                              isOwnMessage
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted'
+                            }`}
+                          >
+                            <p className="text-sm whitespace-pre-wrap">{message.message}</p>
+                            
+                            {message.attachments && message.attachments.length > 0 && (
+                              <div className="mt-2 space-y-2">
+                                {message.attachments.map((attachment: {type: 'image' | 'document'; url: string; name: string; size?: number}, idx: number) => (
+                                  <div key={idx}>
+                                    {attachment.type === 'image' ? (
+                                      <a href={attachment.url} target="_blank" rel="noopener noreferrer">
+                                        <img 
+                                          src={attachment.url} 
+                                          alt={attachment.name}
+                                          className="max-w-full rounded border border-border cursor-pointer hover:opacity-90"
+                                          style={{ maxHeight: '200px' }}
+                                        />
+                                      </a>
+                                    ) : (
+                                      <a 
+                                        href={attachment.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className={`flex items-center gap-2 p-2 rounded border ${
+                                          isOwnMessage
+                                            ? 'border-primary-foreground/20 hover:bg-primary-foreground/10'
+                                            : 'border-border bg-background hover:bg-muted'
+                                        }`}
+                                      >
+                                        <Paperclip className="w-4 h-4" />
+                                        <span className="text-sm truncate">{attachment.name}</span>
+                                      </a>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            <div className="flex items-center justify-between mt-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs opacity-70">
+                                  {messageService.formatTime(message.createdAt)}
+                                </span>
+                                {isOwnMessage && (
+                                  <Badge variant="outline" className="text-xs px-1 py-0">You</Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {isOwnMessage && (
+                                  <>
+                                    {message.read ? (
+                                      <CheckCheck className="w-3 h-3 text-blue-500" />
+                                    ) : (
+                                      <CheckCheck className="w-3 h-3 text-gray-400" />
+                                    )}
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm" 
+                                          className="h-6 w-6 p-0 opacity-50 group-hover:opacity-100 transition-opacity hover:bg-destructive/10"
+                                          title="Message options"
+                                        >
+                                          <MoreVertical className="w-3 h-3" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem 
+                                          className="text-red-600 focus:text-red-600"
+                                          onClick={() => handleDeleteMessage(message._id)}
+                                        >
+                                          <Trash2 className="w-4 h-4 mr-2" />
+                                          Delete Message
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <span className="text-xs text-muted-foreground italic">
-                            {getSenderName(selectedMessage)} is typing...
-                          </span>
+                        </div>
+                      );
+                    })}
+                    
+                    {otherUserTyping && (
+                      <div className="flex justify-start">
+                        <div className="bg-muted p-3 rounded-lg">
+                          <div className="flex items-center gap-1">
+                            <div className="flex gap-1">
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            </div>
+                            <span className="text-xs text-muted-foreground ml-2">
+                              {getOtherParticipant(activeConversation).name} is typing...
+                            </span>
+                          </div>
                         </div>
                       </div>
+                    )}
+                  </div>
+                </ScrollArea>
+
+                <div className="p-4 border-t">
+                  {selectedFiles.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {selectedFiles.map((file, index) => (
+                        <div key={index} className="flex items-center gap-2 bg-muted px-3 py-2 rounded-lg">
+                          <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-5 w-5 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={() => removeFile(index)}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   )}
-
-                  <div ref={messagesEndRef} />
-                </div>
-              </ScrollArea>
-
-              {/* Reply Input */}
-              <div className="p-3 md:p-4 border-t border-border">
-                <div className="space-y-3">
-                  <Textarea
-                    placeholder="Type your reply..."
-                    value={replyText}
-                    onChange={(e) => handleTypingChange(e.target.value)}
-                    rows={3}
-                    className="resize-none text-sm"
-                  />
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button
-                      onClick={sendReply}
-                      disabled={!replyText.trim()}
-                      className="flex-1"
-                      size="sm"
+                  
+                  <div className="flex items-end gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx"
+                      onChange={(e) => handleFileSelect(e, 'document')}
+                      multiple
+                    />
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => handleFileSelect(e, 'image')}
+                      multiple
+                    />
+                    
+                    <div className="flex gap-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading || sending}
+                        title="Attach document"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => imageInputRef.current?.click()}
+                        disabled={isUploading || sending}
+                        title="Attach image"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="flex-1">
+                      <Textarea
+                        placeholder="Type your message..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage();
+                          }
+                        }}
+                        className="min-h-[40px] resize-none"
+                        disabled={sending || isUploading}
+                      />
+                    </div>
+                    
+                    <Button 
+                      onClick={sendMessage} 
+                      disabled={(!newMessage.trim() && selectedFiles.length === 0) || sending || isUploading}
                     >
-                      <Send className="w-4 h-4 mr-2" />
-                      Send Reply
-                    </Button>
-                    <Button variant="outline" onClick={() => setReplyText("")} size="sm">
-                      Clear
+                      {sending || isUploading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
                     </Button>
                   </div>
                 </div>
-              </div>
+              </CardContent>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center p-4">
+            <CardContent className="flex items-center justify-center h-full">
               <div className="text-center">
-                <MessageSquare className="w-12 h-12 md:w-16 md:h-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg md:text-xl font-semibold mb-2">Select a Conversation</h3>
-                <p className="text-sm md:text-base text-muted-foreground">
-                  Choose a message from the list to start chatting
+                <MessageSquare className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-semibold mb-2">Select a conversation</h3>
+                <p className="text-muted-foreground">
+                  Choose a conversation from the left to start messaging
                 </p>
               </div>
-            </div>
+            </CardContent>
           )}
-        </div>
+        </Card>
       </div>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={!!messageToDelete}
-        onOpenChange={(open) => {
-          if (!open) {
-            setMessageToDelete(null);
-          }
-        }}
-      >
-        <AlertDialogContent className="sm:max-w-[425px] mx-4">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base md:text-lg">Delete Message</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm md:text-base">
-              Are you sure you want to delete this message? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-0">
-            <AlertDialogCancel
-              onClick={() => setMessageToDelete(null)}
-              className="w-full sm:w-auto"
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (messageToDelete) {
-                  deleteMessage(messageToDelete);
-                }
-              }}
-              className="bg-red-600 hover:bg-red-700 focus:ring-red-600 w-full sm:w-auto"
-            >
-              Delete Message
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };
