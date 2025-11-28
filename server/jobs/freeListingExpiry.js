@@ -12,7 +12,7 @@
 
 const Property = require('../models/Property');
 const Notification = require('../models/Notification');
-const { sendEmail } = require('../config/email');
+const { sendEmail } = require('../utils/emailService');
 
 class FreeListingExpiryJob {
   constructor() {
