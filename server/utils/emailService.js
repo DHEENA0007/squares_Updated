@@ -530,6 +530,55 @@ const emailTemplates = {
     `
   }),
 
+  'profile-update-otp': (data) => ({
+    subject: 'Profile Update Verification - OTP Required',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin: 0;">BuildHomeMart Squares</h1>
+          <p style="color: #666; margin: 5px 0 0 0;">Secure Profile Update</p>
+        </div>
+
+        <div style="background: #f0f9ff; border: 1px solid #bae6fd; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
+          <h2 style="color: #0c4a6e; margin: 0 0 20px 0;">🔒 Profile Update Verification</h2>
+          <p style="color: #0c4a6e; line-height: 1.6; margin: 0 0 25px 0;">
+            Hello ${data.firstName}, you've requested to update your ${data.changeType}. For your security, please verify this request with the OTP below:
+          </p>
+
+          ${data.newValue ? `
+          <div style="background: white; padding: 15px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #0284c7;">
+            <p style="margin: 0; color: #374151;">
+              <strong>New ${data.changeType === 'email' ? 'Email' : 'Phone'}:</strong> ${data.newValue}
+            </p>
+          </div>
+          ` : ''}
+
+          <div style="text-align: center; margin: 30px 0;">
+            <div style="background: #0284c7; color: white; padding: 20px; border-radius: 8px; display: inline-block; font-family: 'Courier New', monospace;">
+              <div style="font-size: 14px; opacity: 0.9; margin-bottom: 5px;">Your verification code:</div>
+              <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px;">${data.otpCode}</div>
+            </div>
+          </div>
+
+          <p style="color: #0c4a6e; font-size: 14px; margin: 20px 0 0 0; text-align: center;">
+            <strong>Security Notice:</strong> This OTP expires in ${data.expiryMinutes} minutes. If you didn't request this change, please secure your account immediately.
+          </p>
+        </div>
+
+        <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 20px; border-radius: 6px; margin: 20px 0;">
+          <p style="color: #991b1b; margin: 0; font-size: 14px; text-align: center;">
+            <strong>Didn't request this?</strong> Please contact our security team immediately at security@buildhomemartsquares.com
+          </p>
+        </div>
+
+        <div style="text-align: center; color: #94a3b8; font-size: 12px;">
+          <p>&copy; 2024 BuildHomeMart Squares. All rights reserved.</p>
+          <p>Security Team: security@buildhomemartsquares.com</p>
+        </div>
+      </div>
+    `
+  }),
+
   'weekly-report': (data) => ({
     subject: `Weekly Report - BuildHomeMart Squares (${data.weekRange})`,
     html: `
@@ -1609,6 +1658,7 @@ const sendEmail = async (options) => {
         'password-reset': { name: 'BuildHomeMart Security', email: process.env.SMTP_FROM || process.env.SMTP_USER },
         'password-changed': { name: 'BuildHomeMart Security', email: process.env.SMTP_FROM || process.env.SMTP_USER },
         'password-change-otp': { name: 'BuildHomeMart Security', email: process.env.SMTP_FROM || process.env.SMTP_USER },
+        'profile-update-otp': { name: 'BuildHomeMart Security', email: process.env.SMTP_FROM || process.env.SMTP_USER },
         'login-alert': { name: 'BuildHomeMart Security', email: process.env.SMTP_FROM || process.env.SMTP_USER },
         'account-deleted': { name: 'BuildHomeMart Account Services', email: process.env.SMTP_FROM || process.env.SMTP_USER },
         'property-inquiry': { name: 'BuildHomeMart Notifications', email: process.env.SMTP_FROM || process.env.SMTP_USER },
