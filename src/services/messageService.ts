@@ -22,7 +22,7 @@ export interface Message {
     };
   };
   content: string;
-  message?: string;
+  message?: string; // Backend compatibility - maps to content
   type?: 'auto_response' | 'inquiry' | 'lead' | 'property_inquiry' | 'general';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   status?: 'unread' | 'read' | 'responded' | 'archived';
@@ -823,14 +823,28 @@ class MessageService {
     }
   }
 
+  // Normalize message to ensure content field is populated
+  normalizeMessage(message: Message): Message {
+    if (!message.content && message.message) {
+      message.content = message.message;
+    }
+    return message;
+  }
+
+  // Get message content (handles both field names)
+  getMessageContent(message: Message): string {
+    return message.content || message.message || '';
+  }
+
   // Check if a message is an auto-response
   isAutoResponse(message: Message): boolean {
-    return message.type === 'auto_response' || 
-           ((message.message || message.content) && 
-            ((message.message || message.content).startsWith('🤖') ||
-             (message.message || message.content).toLowerCase().includes('auto-response') ||
-             (message.message || message.content).toLowerCase().includes('automatic response') ||
-             (message.message || message.content).toLowerCase().includes('i\'ll get back to you')));
+    const content = this.getMessageContent(message);
+    return message.type === 'auto_response' ||
+           (content &&
+            (content.startsWith('🤖') ||
+             content.toLowerCase().includes('auto-response') ||
+             content.toLowerCase().includes('automatic response') ||
+             content.toLowerCase().includes('i\'ll get back to you')));
   }
 
   // Get auto-response indicator

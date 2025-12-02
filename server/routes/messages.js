@@ -17,7 +17,10 @@ router.use(authenticateToken);
 // @access  Private
 router.get('/conversations', asyncHandler(async (req, res) => {
   const mongoose = require('mongoose');
-  
+
+  // Get query parameters
+  const { status, search, limit = 50, page = 1 } = req.query;
+
   // Get all unique conversation IDs for this user
   const conversations = await Message.aggregate([
     {
@@ -92,10 +95,39 @@ router.get('/conversations', asyncHandler(async (req, res) => {
     }
   ]);
 
+  // Apply filters after aggregation
+  let filteredConversations = conversations;
+
+  // Filter by status (read/unread)
+  if (status === 'unread') {
+    filteredConversations = filteredConversations.filter(conv => conv.unreadCount > 0);
+  } else if (status === 'read') {
+    filteredConversations = filteredConversations.filter(conv => conv.unreadCount === 0);
+  }
+
+  // Filter by search query
+  if (search) {
+    const searchLower = search.toLowerCase();
+    filteredConversations = filteredConversations.filter(conv => {
+      const otherUserName = `${conv.otherUser?.profile?.firstName || ''} ${conv.otherUser?.profile?.lastName || ''}`.trim().toLowerCase();
+      const propertyTitle = conv.property?.title?.toLowerCase() || '';
+      const lastMessage = conv.lastMessage?.message?.toLowerCase() || '';
+
+      return otherUserName.includes(searchLower) ||
+             propertyTitle.includes(searchLower) ||
+             lastMessage.includes(searchLower);
+    });
+  }
+
+  // Apply pagination
+  const total = filteredConversations.length;
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  const paginatedConversations = filteredConversations.slice(skip, skip + parseInt(limit));
+
   res.json({
     success: true,
     data: {
-      conversations: conversations.map(conv => ({
+      conversations: paginatedConversations.map(conv => ({
         id: conv._id, // This is the conversationId
         property: conv.property ? {
           _id: conv.property._id,
@@ -119,7 +151,14 @@ router.get('/conversations', asyncHandler(async (req, res) => {
           isFromMe: conv.lastMessage.sender.toString() === req.user.id.toString()
         },
         unreadCount: conv.unreadCount
-      }))
+      })),
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalConversations: total,
+        hasNextPage: skip + parseInt(limit) < total,
+        hasPrevPage: parseInt(page) > 1
+      }
     }
   });
 }));
