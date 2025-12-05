@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => ({
     port: 3001,
     proxy: {
       "/api": {
-        target: "https://api.buildhomemartsquares.com",
+        target: "http://localhost:3001",
         changeOrigin: true,
         secure: false,
       },

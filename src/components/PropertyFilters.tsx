@@ -1,12 +1,22 @@
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Filter } from "lucide-react";
+import { Filter, Loader2 } from "lucide-react";
 import { PropertyFilters as PropertyFilterType } from "@/services/propertyService";
+import { configurationService } from "@/services/configurationService";
+import type { PropertyType } from "@/types/configuration";
 
 interface PropertyFiltersProps {
   onFilterChange: (filters: PropertyFilterType) => void;
   initialFilters?: PropertyFilterType;
+}
+
+interface BudgetRange {
+  id: string;
+  name: string;
+  displayLabel: string;
+  minValue: number | null;
+  maxValue: number | null;
 }
 
 const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProps) => {
@@ -17,6 +27,41 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
     maxPrice: undefined,
     listingType: undefined,
   });
+  const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
+  const [budgetRanges, setBudgetRanges] = useState<BudgetRange[]>([]);
+  const [listingTypes, setListingTypes] = useState<Array<{ id: string; name: string; value: string; displayLabel?: string }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch configuration data on component mount
+  useEffect(() => {
+    const fetchFilterData = async () => {
+      try {
+        setIsLoading(true);
+        // Fetch property types and listing types from configuration
+        const [typesData, listingTypesData] = await Promise.all([
+          configurationService.getAllPropertyTypes(false),
+          configurationService.getFilterConfigurationsByType('listing_type', false),
+        ]);
+        setPropertyTypes(typesData);
+        setListingTypes(listingTypesData);
+
+        // For now, use default budget ranges - can be configured later
+        setBudgetRanges([
+          { id: '20-40', name: '20-40L', displayLabel: '₹20L - ₹40L', minValue: 2000000, maxValue: 4000000 },
+          { id: '40-60', name: '40-60L', displayLabel: '₹40L - ₹60L', minValue: 4000000, maxValue: 6000000 },
+          { id: '60-80', name: '60-80L', displayLabel: '₹60L - ₹80L', minValue: 6000000, maxValue: 8000000 },
+          { id: '80-1cr', name: '80L-1Cr', displayLabel: '₹80L - ₹1Cr', minValue: 8000000, maxValue: 10000000 },
+          { id: '1cr+', name: '1Cr+', displayLabel: '₹1Cr+', minValue: 10000000, maxValue: null },
+        ]);
+      } catch (error) {
+        console.error('Error fetching filter data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFilterData();
+  }, []);
 
   // Update filters when initialFilters change
   useEffect(() => {
@@ -78,6 +123,17 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
     onFilterChange(emptyFilters);
   };
 
+  if (isLoading) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-4 shadow-[var(--shadow-soft)]">
+        <div className="flex items-center justify-center gap-2 py-2">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-muted-foreground">Loading filters...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-[var(--shadow-soft)]">
       <div className="flex items-center gap-4 flex-wrap">
@@ -85,24 +141,27 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
           <Filter className="h-5 w-5" />
           <span>Filters:</span>
         </div>
-        
-        <Select 
-          value={filters.listingType || 'all'} 
+
+        <Select
+          value={filters.listingType || 'all'}
           onValueChange={(value) => handleFilterChange('listingType', value)}
+          disabled={isLoading}
         >
           <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Listing Type" />
+            <SelectValue placeholder={isLoading ? "Loading..." : "Listing Type"} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="sale">For Sale</SelectItem>
-            <SelectItem value="rent">For Rent</SelectItem>
-            <SelectItem value="lease">For Lease</SelectItem>
+            {listingTypes.map((type) => (
+              <SelectItem key={type.id} value={type.value}>
+                {type.displayLabel || type.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
-        
-        <Select 
-          value={filters.propertyType || 'all'} 
+
+        <Select
+          value={filters.propertyType || 'all'}
           onValueChange={(value) => handleFilterChange('propertyType', value)}
         >
           <SelectTrigger className="w-[180px]">
@@ -110,14 +169,11 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Properties</SelectItem>
-            <SelectItem value="apartment">Apartment</SelectItem>
-            <SelectItem value="villa">Villa</SelectItem>
-            <SelectItem value="house">House</SelectItem>
-            <SelectItem value="plot">Plot</SelectItem>
-            <SelectItem value="land">Land</SelectItem>
-            <SelectItem value="commercial">Commercial</SelectItem>
-            <SelectItem value="office">Office</SelectItem>
-            <SelectItem value="pg">PG (Paying Guest)</SelectItem>
+            {propertyTypes.map((type) => (
+              <SelectItem key={type.id} value={type.value}>
+                {type.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         

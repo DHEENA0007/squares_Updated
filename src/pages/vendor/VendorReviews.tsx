@@ -95,7 +95,7 @@ const VendorReviews = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
 
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://api.buildhomemartsquares.com/api';
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
   const loadReviews = useCallback(async () => {
     try {

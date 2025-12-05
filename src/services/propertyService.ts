@@ -2,7 +2,7 @@ import { authService } from './authService';
 import { toast } from "@/hooks/use-toast";
 import { DEFAULT_PROPERTY_IMAGE } from '@/utils/imageUtils';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://api.buildhomemartsquares.com/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
 export interface Property {
   _id: string;

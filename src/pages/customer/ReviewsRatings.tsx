@@ -73,7 +73,7 @@ const ReviewsRatings = () => {
   const [selectedReview, setSelectedReview] = useState<PropertyReview | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://api.buildhomemartsquares.com/api';
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
   const loadReviews = useCallback(async () => {
     try {

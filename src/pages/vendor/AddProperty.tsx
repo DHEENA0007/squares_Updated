@@ -35,6 +35,7 @@ import AutocompleteInput from "@/components/form/AutocompleteInput";
 import EnhancedLocationSelector from "@/components/vendor/EnhancedLocationSelector";
 import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
 import { useToast } from "@/hooks/use-toast";
+import { configurationService } from "@/services/configurationService";
 
 // Upload function using server-side endpoint
 const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
@@ -43,7 +44,7 @@ const uploadToCloudinary = async (file: File, folder: string): Promise<string> =
   formData.append('folder', folder);
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://api.buildhomemartsquares.com/api'}/upload/single`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/upload/single`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -142,6 +143,8 @@ const AddProperty = () => {
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadingVideos, setUploadingVideos] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [listingTypes, setListingTypes] = useState<Array<{ id: string; name: string; value: string; displayLabel?: string }>>([]);
+  const [isLoadingListingTypes, setIsLoadingListingTypes] = useState(true);
   
   // Refs for file inputs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -190,6 +193,28 @@ const AddProperty = () => {
     };
 
     initLocaService();
+  }, []);
+
+  // Fetch listing types from configuration
+  useEffect(() => {
+    const fetchListingTypes = async () => {
+      try {
+        setIsLoadingListingTypes(true);
+        const listingTypesData = await configurationService.getFilterConfigurationsByType('listing_type', false);
+        setListingTypes(listingTypesData);
+      } catch (error) {
+        console.error('Error fetching listing types:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load listing types. Please refresh the page.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingListingTypes(false);
+      }
+    };
+
+    fetchListingTypes();
   }, []);
 
   // Load districts when state changes
@@ -826,21 +851,30 @@ const AddProperty = () => {
 
             <div className="space-y-2">
               <Label className="text-sm md:text-base">Listing Type *</Label>
-              <RadioGroup value={formData.listingType} onValueChange={(value) => setFormData(prev => ({ ...prev, listingType: value }))}>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="sale" id="sale" />
-                    <Label htmlFor="sale" className="text-sm md:text-base">For Sale</Label>
+              <RadioGroup
+                value={formData.listingType}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, listingType: value }))}
+                disabled={isLoadingListingTypes || listingTypes.length === 0}
+              >
+                {isLoadingListingTypes ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="ml-2 text-sm text-muted-foreground">Loading listing types...</span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="rent" id="rent" />
-                    <Label htmlFor="rent" className="text-sm md:text-base">For Rent</Label>
+                ) : listingTypes.length === 0 ? (
+                  <div className="p-3 rounded-lg border bg-muted/30">
+                    <p className="text-sm text-muted-foreground">No listing types configured. Please contact administrator.</p>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="lease" id="lease" />
-                    <Label htmlFor="lease" className="text-sm md:text-base">For Lease</Label>
+                ) : (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                    {listingTypes.map((type) => (
+                      <div key={type.id} className="flex items-center space-x-2">
+                        <RadioGroupItem value={type.value} id={type.value} />
+                        <Label htmlFor={type.value} className="text-sm md:text-base">{type.displayLabel || type.name}</Label>
+                      </div>
+                    ))}
                   </div>
-                </div>
+                )}
               </RadioGroup>
             </div>
 

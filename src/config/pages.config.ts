@@ -85,6 +85,15 @@ export const PORTAL_PAGES: PageConfig[] = [
     description: 'Addon services management'
   },
   {
+    id: 'filter',
+    label: 'Filter',
+    path: '/admin/filter',
+    icon: Settings,
+    category: 'admin',
+    description: 'Dynamic property and filter configuration',
+    subLabel: 'System'
+  },
+  {
     id: 'privacy_policy',
     label: 'Privacy Policy',
     path: '/admin/policy-editor/privacy-policy',

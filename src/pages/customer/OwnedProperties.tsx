@@ -128,7 +128,7 @@ const OwnedProperties = () => {
     isPublic: true,
   });
 
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://api.buildhomemartsquares.com/api';
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
   // Fetch owned properties
   const loadOwnedProperties = useCallback(async () => {

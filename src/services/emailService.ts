@@ -54,7 +54,7 @@ export interface EmailTemplate {
 }
 
 class EmailService {
-  private baseUrl = import.meta.env.VITE_API_URL || 'https://api.buildhomemartsquares.com/api';
+  private baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
   private supportEmail = 'support@buildhomemartsquares.com';
   
   private emailTemplates: EmailTemplate = {

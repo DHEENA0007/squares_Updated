@@ -8,6 +8,11 @@ export const useUserPages = (): PageConfig[] => {
   return useMemo(() => {
     if (!user) return [];
 
+    // Superadmins always get all admin pages
+    if (user.role === 'superadmin') {
+      return PORTAL_PAGES.filter(page => page.category === 'admin');
+    }
+
     // For development/testing - if user has no role pages defined, use default based on role type
     if (!user.rolePages || user.rolePages.length === 0) {
       // Fallback to category-based filtering for backward compatibility

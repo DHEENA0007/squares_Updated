@@ -5,10 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  Search, 
-  MapPin, 
-  Home, 
+import {
+  Search,
+  MapPin,
+  Home,
   Bed,
   Bath,
   Square,
@@ -23,19 +23,11 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { favoriteService } from "@/services/favoriteService";
 import { PROPERTY_TYPE_CONFIGS } from "@/utils/propertyTypeConfig";
+import { configurationService } from "@/services/configurationService";
+import type { PropertyType as PropertyTypeConfig } from "@/types/configuration";
 
 const PropertySearch = () => {
-  // Property types used in Add Property form
-  const propertyTypes = [
-    { value: "apartment", label: "Apartment" },
-    { value: "villa", label: "Villa" },
-    { value: "house", label: "House" },
-    { value: "commercial", label: "Commercial" },
-    { value: "plot", label: "Plot" },
-    { value: "land", label: "Land" },
-    { value: "office", label: "Office Space" },
-    { value: "pg", label: "PG (Paying Guest)" }
-  ];
+  const [propertyTypes, setPropertyTypes] = useState<PropertyTypeConfig[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
@@ -97,24 +89,38 @@ const PropertySearch = () => {
     ];
   }, [currentPropertyConfig]);
 
+  // Fetch property types configuration on mount
+  useEffect(() => {
+    const fetchPropertyTypes = async () => {
+      try {
+        const typesData = await configurationService.getAllPropertyTypes(false);
+        setPropertyTypes(typesData);
+      } catch (error) {
+        console.error('Error fetching property types:', error);
+      }
+    };
+
+    fetchPropertyTypes();
+  }, []);
+
   // Initialize search query and filters from URL params
   useEffect(() => {
     const queryParam = searchParams.get('q');
     const listingTypeParam = searchParams.get('listingType');
     const propertyTypeParam = searchParams.get('propertyType');
-    
+
     if (queryParam) {
       setSearchQuery(queryParam);
     }
-    
+
     if (listingTypeParam && listingTypeParam !== 'all') {
       setListingType(listingTypeParam);
     }
-    
+
     if (propertyTypeParam && propertyTypeParam !== 'all') {
       setPropertyType(propertyTypeParam);
     }
-    
+
     setCurrentPage(1);
   }, [searchParams]);
 
@@ -333,7 +339,7 @@ const PropertySearch = () => {
                       <SelectItem value="all">All Properties</SelectItem>
                       {propertyTypes.map((type) => (
                         <SelectItem key={type.value} value={type.value}>
-                          {type.label}
+                          {type.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

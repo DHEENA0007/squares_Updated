@@ -10,6 +10,7 @@
     "test": "jest",
     "migrate": "node scripts/migrate.js",
     "create-admin": "node scripts/create-admin-user.js",
+    "import-config": "node scripts/import-configuration-data.js",
     "postinstall": "echo 'Dependencies installed successfully'",
     "heroku-postbuild": "npm run build"
   },

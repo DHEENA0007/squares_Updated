@@ -87,7 +87,7 @@ class SupportService {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://api.buildhomemartsquares.com';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
     const response = await fetch(`${baseUrl}/api${endpoint}`, {
       ...options,
       headers,

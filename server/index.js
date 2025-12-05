@@ -35,6 +35,7 @@ const supportRoutes = require('./routes/support');
 const policyRoutes = require('./routes/policies');
 const webhookRoutes = require('./routes/webhooks');
 const refund_policyRoutes = require('./routes/refund_policy');
+const configurationRoutes = require('./routes/configuration');
 
 // Import middleware
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
@@ -71,7 +72,7 @@ const allowedOrigins = [
 const additionalOriginsEnv = process.env.ADDITIONAL_ALLOWED_ORIGINS;
 let additionalOrigins = [
   "https://squares-v2.onrender.com",
-  "https://api.buildhomemartsquares.com",
+  "http://localhost:3001",
 ];
 
 if (additionalOriginsEnv) {
@@ -281,6 +282,7 @@ app.use('/api/support', supportRoutes);
 app.use('/api/policies', policyRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/refund_policy', refund_policyRoutes);
+app.use('/api/configuration', configurationRoutes);
 
 
 // Import services

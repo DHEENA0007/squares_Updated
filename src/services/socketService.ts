@@ -3,7 +3,7 @@ import { authService } from './authService';
 
 // Properly construct Socket.IO URL from API URL
 const getSocketUrl = () => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'https://api.buildhomemartsquares.com/api';
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
   
   // Remove /api suffix if present
   let baseUrl = apiUrl.replace(/\/api\/?$/, '');

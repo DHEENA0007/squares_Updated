@@ -67,7 +67,7 @@ export interface SingleUserResponse {
 }
 
 class UserService {
-  private baseUrl = import.meta.env.VITE_API_URL || 'https://api.buildhomemartsquares.com/api';
+  private baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;

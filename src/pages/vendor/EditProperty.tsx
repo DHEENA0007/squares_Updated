@@ -28,7 +28,7 @@ const uploadToCloudinary = async (file: File, folder: string): Promise<string> =
   formData.append('folder', folder);
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://api.buildhomemartsquares.com/api'}/upload/single`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/upload/single`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`

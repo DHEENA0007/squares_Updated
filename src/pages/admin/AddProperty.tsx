@@ -6,9 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  Home, 
-  MapPin, 
+import {
+  Home,
+  MapPin,
   Upload,
   Camera,
   Plus,
@@ -31,6 +31,8 @@ import { locaService, type PincodeSuggestion } from "@/services/locaService";
 import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
 import { DynamicPropertyDetails } from "@/components/property/DynamicPropertyDetails";
 import { usePropertyTypeConfig } from "@/hooks/usePropertyTypeConfig";
+import { configurationService } from "@/services/configurationService";
+import type { PropertyType, Amenity } from "@/types/configuration";
 import { toast } from "@/hooks/use-toast";
 
 // Upload function using server-side endpoint
@@ -40,7 +42,7 @@ const uploadToCloudinary = async (file: File, folder: string): Promise<string> =
   formData.append('folder', folder);
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://api.buildhomemartsquares.com/api'}/upload/single`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/upload/single`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -68,6 +70,10 @@ const AddProperty = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
+  const [amenitiesList, setAmenitiesList] = useState<Amenity[]>([]);
+  const [listingTypes, setListingTypes] = useState<Array<{ id: string; name: string; value: string; displayLabel?: string }>>([]);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [formData, setFormData] = useState({
     // Basic Details
     title: "",
@@ -163,28 +169,41 @@ const AddProperty = () => {
     pincode: false
   });
 
-  // Initialize locaService on component mount
+  // Initialize locaService and fetch configurations on component mount
   useEffect(() => {
-    const initLocaService = async () => {
+    const initData = async () => {
       setLocationLoading(prev => ({ ...prev, states: true }));
       try {
+        // Initialize location service
         await locaService.initialize();
         const statesData = locaService.getStates();
         setStates(statesData);
         console.log(`Loaded ${statesData.length} states from loca.json`);
+
+        // Fetch property types, amenities, and listing types from configuration
+        const [typesData, amenitiesData, listingTypesData] = await Promise.all([
+          configurationService.getAllPropertyTypes(false), // Only active
+          configurationService.getAllAmenities(false), // Only active
+          configurationService.getFilterConfigurationsByType('listing_type', false), // Only active
+        ]);
+        setPropertyTypes(typesData);
+        setAmenitiesList(amenitiesData);
+        setListingTypes(listingTypesData);
+        console.log(`Loaded ${typesData.length} property types, ${amenitiesData.length} amenities, and ${listingTypesData.length} listing types from configuration`);
       } catch (error) {
-        console.error('Error initializing loca service:', error);
+        console.error('Error initializing data:', error);
         toast({
           title: "Error",
-          description: "Failed to load location data. Please refresh the page.",
+          description: "Failed to load data. Please refresh the page.",
           variant: "destructive",
         });
       } finally {
         setLocationLoading(prev => ({ ...prev, states: false }));
+        setIsLoadingConfig(false);
       }
     };
 
-    initLocaService();
+    initData();
   }, []);
 
   // Load districts when state changes
@@ -279,6 +298,32 @@ const AddProperty = () => {
     }
   }, [formData.city]);
 
+  // Fetch property-type specific amenities when property type changes
+  useEffect(() => {
+    const fetchPropertyTypeAmenities = async () => {
+      if (!formData.propertyType) {
+        return;
+      }
+
+      try {
+        const selectedPropertyType = propertyTypes.find(
+          (pt) => pt.value === formData.propertyType
+        );
+        if (selectedPropertyType) {
+          const typeAmenities = await configurationService.getPropertyTypeAmenities(
+            selectedPropertyType.id
+          );
+          setAmenitiesList(typeAmenities);
+          console.log(`Loaded ${typeAmenities.length} amenities for property type ${formData.propertyType}`);
+        }
+      } catch (error) {
+        console.error('Error fetching property type amenities:', error);
+      }
+    };
+
+    fetchPropertyTypeAmenities();
+  }, [formData.propertyType, propertyTypes]);
+
   // Auto-populate address field when location details are selected
   useEffect(() => {
     const addressParts = [];
@@ -286,11 +331,11 @@ const AddProperty = () => {
     if (selectedLocationNames.district) addressParts.push(selectedLocationNames.district);
     if (selectedLocationNames.state) addressParts.push(selectedLocationNames.state);
     if (formData.pincode) addressParts.push(formData.pincode);
-    
+
     if (addressParts.length > 0 && !formData.address.trim()) {
-      setFormData(prev => ({ 
-        ...prev, 
-        address: addressParts.join(', ') 
+      setFormData(prev => ({
+        ...prev,
+        address: addressParts.join(', ')
       }));
     }
   }, [selectedLocationNames, formData.pincode]);
@@ -305,30 +350,6 @@ const AddProperty = () => {
     { id: 7, title: "Owner Information", description: "Property owner details" },
     { id: 8, title: "Admin Settings", description: "Verification and status settings" },
     { id: 9, title: "Review", description: "Review and submit listing" }
-  ];
-
-  const propertyTypes = [
-    { value: "apartment", label: "Apartment" },
-    { value: "villa", label: "Villa" },
-    { value: "house", label: "House" },
-    { value: "commercial", label: "Commercial" },
-    { value: "plot", label: "Plot" },
-    { value: "land", label: "Land" },
-    { value: "office", label: "Office Space" },
-    { value: "pg", label: "PG (Paying Guest)" }
-  ];
-
-  const amenitiesList = [
-    "Swimming Pool", "Gym/Fitness Center", "Parking", "Security",
-    "Garden/Park", "Playground", "Clubhouse", "Power Backup",
-    "Elevator", "WiFi", "CCTV Surveillance", "Intercom",
-    "Water Supply", "Waste Management", "Fire Safety", "Visitor Parking",
-    "Shopping Complex", "Restaurant", "Spa", "Jogging Track",
-    // PG-specific amenities
-    "Meals Included", "Laundry Service", "Room Cleaning", "24/7 Security",
-    "Common Kitchen", "Common Area", "Study Room", "Single Occupancy",
-    "Double Occupancy", "Triple Occupancy", "AC Rooms", "Non-AC Rooms",
-    "Attached Bathroom", "Common Bathroom", "Wi-Fi in Rooms", "TV in Rooms"
   ];
 
   const nextStep = () => {
@@ -618,14 +639,18 @@ const AddProperty = () => {
               
               <div className="space-y-3">
                 <Label htmlFor="propertyType" className="text-base font-medium">Property Type *</Label>
-                <Select value={formData.propertyType} onValueChange={(value) => setFormData(prev => ({ ...prev, propertyType: value }))}>
+                <Select
+                  value={formData.propertyType}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, propertyType: value }))}
+                  disabled={isLoadingConfig}
+                >
                   <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Select property type" />
+                    <SelectValue placeholder={isLoadingConfig ? "Loading property types..." : "Select property type"} />
                   </SelectTrigger>
                   <SelectContent>
                     {propertyTypes.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
+                      <SelectItem key={type.id} value={type.value}>
+                        {type.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -635,19 +660,28 @@ const AddProperty = () => {
 
             <div className="space-y-3">
               <Label className="text-base font-medium">Listing Type *</Label>
-              <RadioGroup value={formData.listingType} onValueChange={(value) => setFormData(prev => ({ ...prev, listingType: value }))}>
-                <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/30">
-                  <RadioGroupItem value="sale" id="sale" />
-                  <Label htmlFor="sale" className="text-base">For Sale</Label>
-                </div>
-                <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/30">
-                  <RadioGroupItem value="rent" id="rent" />
-                  <Label htmlFor="rent" className="text-base">For Rent</Label>
-                </div>
-                <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/30">
-                  <RadioGroupItem value="lease" id="lease" />
-                  <Label htmlFor="lease" className="text-base">For Lease</Label>
-                </div>
+              <RadioGroup
+                value={formData.listingType}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, listingType: value }))}
+                disabled={isLoadingConfig || listingTypes.length === 0}
+              >
+                {isLoadingConfig ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="ml-2 text-sm text-muted-foreground">Loading listing types...</span>
+                  </div>
+                ) : listingTypes.length === 0 ? (
+                  <div className="p-3 rounded-lg border bg-muted/30">
+                    <p className="text-sm text-muted-foreground">No listing types configured. Please add listing types in Filter Management.</p>
+                  </div>
+                ) : (
+                  listingTypes.map((type) => (
+                    <div key={type.id} className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/30">
+                      <RadioGroupItem value={type.value} id={type.value} />
+                      <Label htmlFor={type.value} className="text-base">{type.displayLabel || type.name}</Label>
+                    </div>
+                  ))
+                )}
               </RadioGroup>
             </div>
 
@@ -942,18 +976,29 @@ const AddProperty = () => {
               </p>
               
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {(formData.propertyType ? getAmenities() : amenitiesList).map((amenity) => (
-                  <div key={amenity} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={amenity}
-                      checked={formData.amenities.includes(amenity)}
-                      onCheckedChange={() => handleAmenityToggle(amenity)}
-                    />
-                    <Label htmlFor={amenity} className="text-sm">
-                      {amenity}
-                    </Label>
+                {isLoadingConfig ? (
+                  <div className="col-span-full text-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                    <p className="text-sm text-muted-foreground mt-2">Loading amenities...</p>
                   </div>
-                ))}
+                ) : amenitiesList.length === 0 && formData.propertyType ? (
+                  <div className="col-span-full text-center py-8">
+                    <p className="text-sm text-muted-foreground">No amenities configured for this property type</p>
+                  </div>
+                ) : (
+                  amenitiesList.map((amenity) => (
+                    <div key={amenity.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={amenity.name}
+                        checked={formData.amenities.includes(amenity.name)}
+                        onCheckedChange={() => handleAmenityToggle(amenity.name)}
+                      />
+                      <Label htmlFor={amenity.name} className="text-sm">
+                        {amenity.name}
+                      </Label>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 

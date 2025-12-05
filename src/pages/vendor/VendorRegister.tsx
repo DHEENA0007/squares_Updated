@@ -515,7 +515,7 @@ const VendorRegister = () => {
       formData.append('file', file);
       formData.append('folder', 'vendor-documents');
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://api.buildhomemartsquares.com/api'}/upload/single`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/upload/single`, {
         method: 'POST',
         body: formData,
       });
