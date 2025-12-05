@@ -73,14 +73,12 @@ const SubscriptionPlans = () => {
                 </span>
                 <span className="text-muted-foreground ml-1">
                   /
-                  {plan.billingPeriod === 'custom' && plan.billingCycleMonths 
-                    ? `${plan.billingCycleMonths} month${plan.billingCycleMonths > 1 ? 's' : ''}`
-                    : plan.billingPeriod === 'monthly' 
-                    ? 'month'
-                    : plan.billingPeriod === 'yearly'
-                    ? 'year'
-                    : plan.billingPeriod
-                  }
+                  {(() => {
+                    const months = plan.billingCycleMonths || 1;
+                    if (months === 1) return 'month';
+                    if (months === 12) return 'year';
+                    return `${months} months`;
+                  })()}
                 </span>
               </div>
               {plan.description && (

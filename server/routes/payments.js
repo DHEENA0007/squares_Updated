@@ -676,21 +676,16 @@ router.post('/verify-subscription-payment', authenticateToken, asyncHandler(asyn
       addonServices = await AddonService.find({ _id: { $in: addons }, isActive: true });
     }
 
-    // Calculate subscription dates
+    // Calculate subscription dates based on plan's billingCycleMonths
     const startDate = new Date();
     const endDate = new Date(startDate);
-    
-    if (billingCycle === 'yearly') {
-      endDate.setFullYear(endDate.getFullYear() + 1);
-    } else {
-      endDate.setMonth(endDate.getMonth() + 1);
-    }
+
+    // Use plan's billingCycleMonths as the source of truth (default to 1 if not specified)
+    const months = plan.billingCycleMonths || 1;
+    endDate.setMonth(endDate.getMonth() + months);
 
     // Calculate amount
     let amount = plan.price;
-    if (billingCycle === 'yearly' && plan.billingPeriod === 'monthly') {
-      amount = Math.round(plan.price * 10); // 10 months price (2 months free)
-    }
 
     // Add addon costs
     const addonCost = addonServices.reduce((total, addon) => total + addon.price, 0);
@@ -824,18 +819,13 @@ router.post('/verify-payment', asyncHandler(async (req, res) => {
     // Calculate subscription dates
     const startDate = new Date();
     const endDate = new Date(startDate);
-    
-    if (billingCycle === 'yearly') {
-      endDate.setFullYear(endDate.getFullYear() + 1);
-    } else {
-      endDate.setMonth(endDate.getMonth() + 1);
-    }
+
+    // Use plan's billingCycleMonths as the source of truth (default to 1 if not specified)
+    const months = plan.billingCycleMonths || 1;
+    endDate.setMonth(endDate.getMonth() + months);
 
     // Calculate amount
     let amount = plan.price;
-    if (billingCycle === 'yearly' && plan.billingPeriod === 'monthly') {
-      amount = plan.price * 12 * 0.83; // 17% discount for yearly
-    }
 
     // Deactivate existing active subscriptions for this user
     await Subscription.updateMany(

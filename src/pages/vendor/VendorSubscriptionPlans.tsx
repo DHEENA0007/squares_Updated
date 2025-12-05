@@ -16,6 +16,8 @@ interface Plan {
   recommended?: boolean;
   icon: React.ReactNode;
   description: string;
+  billingPeriod: 'monthly' | 'yearly' | 'lifetime' | 'one-time' | 'custom';
+  billingCycleMonths: number;
 }
 
 interface AddonService {
@@ -67,7 +69,9 @@ const VendorSubscriptionPlans: React.FC = () => {
           description: dbPlan.description,
           icon: getIconForPlan(dbPlan.name),
           recommended: dbPlan.isPopular,
-          features: Array.isArray(dbPlan.features) 
+          billingPeriod: dbPlan.billingPeriod,
+          billingCycleMonths: dbPlan.billingCycleMonths || 1,
+          features: Array.isArray(dbPlan.features)
             ? dbPlan.features.map(f => typeof f === 'string' ? f : f.name)
             : []
         }));
@@ -94,6 +98,32 @@ const VendorSubscriptionPlans: React.FC = () => {
     if (lowerName.includes('premium')) return <Shield className="w-8 h-8 text-purple-600" />;
     if (lowerName.includes('enterprise')) return <Shield className="w-8 h-8 text-gold-600" />;
     return <Star className="w-8 h-8 text-gray-600" />;
+  };
+
+  const getBillingPeriodText = (plan: Plan): string => {
+    // The source of truth is billingCycleMonths, not billingPeriod
+    const months = plan.billingCycleMonths || 1;
+
+    if (months === 1) {
+      return 'month';
+    } else if (months === 12) {
+      return 'year';
+    } else {
+      return `${months} months`;
+    }
+  };
+
+  const getBillingDescription = (plan: Plan): string => {
+    // The source of truth is billingCycleMonths, not billingPeriod
+    const months = plan.billingCycleMonths || 1;
+
+    if (months === 1) {
+      return 'Billed monthly';
+    } else if (months === 12) {
+      return 'Billed annually';
+    } else {
+      return `Billed every ${months} months`;
+    }
   };
 
   const loadCurrentSubscription = async () => {
@@ -372,7 +402,7 @@ const VendorSubscriptionPlans: React.FC = () => {
                 {calculatePlanPrice(plan)}
                 {plan.price > 0 && (
                   <span className="text-lg text-muted-foreground font-normal">
-                    /month
+                    /{getBillingPeriodText(plan)}
                   </span>
                 )}
               </div>
@@ -550,7 +580,7 @@ const VendorSubscriptionPlans: React.FC = () => {
                 <div>
                   <h4 className="font-semibold text-lg">{selectedPlan?.name} Plan</h4>
                   <p className="text-sm text-muted-foreground">
-                    Billed monthly
+                    {selectedPlan && getBillingDescription(selectedPlan)}
                   </p>
                 </div>
               </div>

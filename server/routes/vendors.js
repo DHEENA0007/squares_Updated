@@ -2868,7 +2868,12 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
               return null;
             }).filter(Boolean),
             limits: activeSubscription.plan?.limits || {},
-            billingCycle: activeSubscription.billingCycle || 'monthly',
+            billingCycle: (() => {
+              const months = activeSubscription.plan?.billingCycleMonths || 1;
+              if (months === 1) return 'Monthly';
+              if (months === 12) return 'Annually';
+              return `Every ${months} months`;
+            })(),
             addons: activeSubscription.addons || [],
             amount: activeSubscription.amount,
             currency: activeSubscription.currency

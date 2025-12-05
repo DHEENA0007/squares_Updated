@@ -455,18 +455,13 @@ router.post('/', authenticateToken, async (req, res) => {
       });
     }
 
-    // Calculate end date based on plan billing period
+    // Calculate end date based on plan billing cycle months
     const startDate = new Date();
     const endDate = new Date(startDate);
-    
-    if (plan.billingPeriod === 'monthly') {
-      endDate.setMonth(endDate.getMonth() + 1);
-    } else if (plan.billingPeriod === 'yearly') {
-      endDate.setFullYear(endDate.getFullYear() + 1);
-    } else {
-      // Default to monthly if not specified
-      endDate.setMonth(endDate.getMonth() + 1);
-    }
+
+    // Use billingCycleMonths as the source of truth (default to 1 month if not specified)
+    const months = plan.billingCycleMonths || 1;
+    endDate.setMonth(endDate.getMonth() + months);
 
     const subscription = new Subscription({
       user: req.user.userId,
@@ -663,13 +658,9 @@ router.patch('/:id/renew', authenticateToken, async (req, res) => {
       });
     }
 
-    if (subscription.plan.billingPeriod === 'monthly') {
-      endDate.setMonth(endDate.getMonth() + 1);
-    } else if (subscription.plan.billingPeriod === 'yearly') {
-      endDate.setFullYear(endDate.getFullYear() + 1);
-    } else {
-      endDate.setMonth(endDate.getMonth() + 1);
-    }
+    // Use plan's billingCycleMonths as the source of truth (default to 1 if not specified)
+    const months = subscription.plan.billingCycleMonths || 1;
+    endDate.setMonth(endDate.getMonth() + months);
 
     subscription.status = 'active';
     subscription.startDate = startDate;
