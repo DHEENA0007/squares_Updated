@@ -190,6 +190,7 @@ const AddProperty = () => {
         setAmenitiesList(amenitiesData);
         setListingTypes(listingTypesData);
         console.log(`Loaded ${typesData.length} property types, ${amenitiesData.length} amenities, and ${listingTypesData.length} listing types from configuration`);
+        console.log('AddProperty - Listing types data:', listingTypesData);
       } catch (error) {
         console.error('Error initializing data:', error);
         toast({
@@ -678,7 +679,7 @@ const AddProperty = () => {
                   listingTypes.map((type) => (
                     <div key={type.id} className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/30">
                       <RadioGroupItem value={type.value} id={type.value} />
-                      <Label htmlFor={type.value} className="text-base">{type.displayLabel || type.name}</Label>
+                      <Label htmlFor={type.value} className="text-base">{type.displayLabel?.trim() || type.name}</Label>
                     </div>
                   ))
                 )}

@@ -55,9 +55,9 @@ const EditPlan = () => {
             properties: fetchedPlan.limits?.properties || 0,
             featuredListings: fetchedPlan.limits?.featuredListings || 0,
             photos: fetchedPlan.limits?.photos || 10,
+            propertyImages: fetchedPlan.limits?.propertyImages || 10,
             videoTours: fetchedPlan.limits?.videoTours || 0,
             leads: fetchedPlan.limits?.leads || 0,
-            posters: fetchedPlan.limits?.posters || 0,
             videos: fetchedPlan.limits?.videos || 0,
             messages: fetchedPlan.limits?.messages || 0,
             leadManagement: fetchedPlan.limits?.leadManagement || 'basic'
@@ -68,7 +68,6 @@ const EditPlan = () => {
             marketingManager: fetchedPlan.benefits?.marketingManager || false,
             commissionBased: fetchedPlan.benefits?.commissionBased || false,
           },
-          support: fetchedPlan.support || 'email',
         });
 
         // Set impact info
@@ -377,27 +376,28 @@ const EditPlan = () => {
                   type="number"
                   min="0"
                   value={plan.limits.leads}
-                  onChange={(e) => setPlan({ 
-                    ...plan, 
-                    limits: { ...plan.limits, leads: parseInt(e.target.value) || 0 } 
+                  onChange={(e) => setPlan({
+                    ...plan,
+                    limits: { ...plan.limits, leads: parseInt(e.target.value) || 0 }
                   })}
                 />
                 <p className="text-xs text-muted-foreground">0 = unlimited</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="posters">Promotional Posters</Label>
+                <Label htmlFor="propertyImages">Property Images</Label>
                 <Input
-                  id="posters"
+                  id="propertyImages"
                   type="number"
-                  min="0"
-                  value={plan.limits.posters}
-                  onChange={(e) => setPlan({ 
-                    ...plan, 
-                    limits: { ...plan.limits, posters: parseInt(e.target.value) || 0 } 
+                  min="1"
+                  max="100"
+                  value={plan.limits.propertyImages}
+                  onChange={(e) => setPlan({
+                    ...plan,
+                    limits: { ...plan.limits, propertyImages: parseInt(e.target.value) || 10 }
                   })}
                 />
-                <p className="text-xs text-muted-foreground">Marketing materials</p>
+                <p className="text-xs text-muted-foreground">Max images per property</p>
               </div>
 
               {/* <div className="space-y-2">
@@ -472,33 +472,6 @@ const EditPlan = () => {
                 />
                 <Label htmlFor="commission" className="cursor-pointer text-sm">Commission Based Revenue</Label>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Support Level</CardTitle>
-            <CardDescription>Choose the support level for this plan</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Label htmlFor="support">Support Level</Label>
-              <Select 
-                value={plan.support || 'email'} 
-                onValueChange={(value: any) => setPlan({ ...plan, support: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="email">Email Support</SelectItem>
-                  <SelectItem value="priority">Priority Support</SelectItem>
-                  <SelectItem value="phone">Phone Support</SelectItem>
-                  <SelectItem value="dedicated">Dedicated Support</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </CardContent>
         </Card>

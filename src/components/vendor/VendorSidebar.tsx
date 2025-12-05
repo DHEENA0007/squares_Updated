@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, Home, Building2, Plus, MessageSquare, BarChart3, Crown, CreditCard, Star, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
-import DynamicSidebar from "@/components/common/DynamicSidebar";
+import { Link, useLocation } from "react-router-dom";
 
 interface VendorSidebarProps {
   sidebarOpen: boolean;
@@ -11,21 +10,128 @@ interface VendorSidebarProps {
 
 const VendorSidebar = ({ sidebarOpen, setSidebarOpen }: VendorSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const location = useLocation();
+
+  const menuItems = [
+    {
+      label: 'Dashboard',
+      path: '/vendor/dashboard',
+      icon: Home
+    },
+    {
+      label: 'My Properties',
+      path: '/vendor/properties',
+      icon: Building2
+    },
+    {
+      label: 'Add Property',
+      path: '/vendor/properties/add',
+      icon: Plus
+    },
+    {
+      label: 'Messages',
+      path: '/vendor/messages',
+      icon: MessageSquare
+    },
+    {
+      label: 'Analytics',
+      path: '/vendor/analytics',
+      icon: BarChart3
+    },
+    {
+      label: 'Subscription',
+      path: '/vendor/subscription-manager',
+      icon: Crown
+    },
+    {
+      label: 'Billing',
+      path: '/vendor/billing',
+      icon: CreditCard
+    },
+    {
+      label: 'Reviews',
+      path: '/vendor/reviews',
+      icon: Star
+    },
+    {
+      label: 'Profile',
+      path: '/vendor/profile',
+      icon: Settings
+    }
+  ];
 
   return (
     <>
-
-      <div className={cn(
-        "lg:block",
-        sidebarOpen ? "block" : "hidden"
-      )}>
-        <DynamicSidebar
-          isCollapsed={isCollapsed}
-          onToggle={() => setIsCollapsed(!isCollapsed)}
-          isMobileOpen={sidebarOpen}
-          onMobileClose={() => setSidebarOpen(false)}
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[70] lg:hidden"
+          onClick={() => setSidebarOpen(false)}
         />
-      </div>
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "fixed left-0 top-0 bottom-0 bg-background border-r border-border z-[70] transition-all duration-300 overflow-y-auto",
+          "lg:relative lg:top-0",
+          isCollapsed ? "w-16" : "w-64",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
+      >
+        {/* Toggle button - desktop only */}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="hidden lg:flex absolute right-1 top-2 w-6 h-6 bg-card border border-border rounded-full items-center justify-center hover:bg-secondary transition-colors z-50"
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="w-3 h-3" />
+          ) : (
+            <ChevronLeft className="w-3 h-3" />
+          )}
+        </button>
+
+        {/* Portal Badge */}
+        {!isCollapsed && (
+          <div className="p-3 mt-2">
+            <div className="px-3 py-2 rounded-lg bg-gradient-to-r from-green-600 to-teal-600">
+              <p className="text-sm font-semibold text-center text-white">
+                Vendor Portal
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation */}
+        <nav className="p-2 space-y-2 mt-2">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setSidebarOpen(false)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
+                  "hover:bg-accent",
+                  isActive && "bg-accent text-accent-foreground",
+                  !isActive && "text-foreground",
+                  isCollapsed && "justify-center"
+                )}
+                title={isCollapsed ? item.label : undefined}
+              >
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                {!isCollapsed && (
+                  <span className="font-medium text-sm">{item.label}</span>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
     </>
   );
 };

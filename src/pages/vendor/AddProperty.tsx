@@ -78,7 +78,8 @@ const AddProperty = () => {
     currentProperties: 0,
     canAddMore: false,
     planName: '',
-    features: []
+    features: [],
+    maxPropertyImages: 10
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -628,7 +629,7 @@ const AddProperty = () => {
     }
 
     const fileArray = Array.from(files);
-    const maxImages = 10;
+    const maxImages = subscriptionLimits.maxPropertyImages;
     const currentImageCount = uploadedImages.length;
     const remainingSlots = maxImages - currentImageCount;
 
@@ -636,7 +637,7 @@ const AddProperty = () => {
     if (currentImageCount >= maxImages) {
       toast({
         title: "Maximum Images Reached",
-        description: `You can only upload a maximum of ${maxImages} images`,
+        description: `You can only upload a maximum of ${maxImages} images per property (${subscriptionLimits.planName} plan)`,
         variant: "destructive",
       });
       return;
@@ -646,7 +647,7 @@ const AddProperty = () => {
     if (fileArray.length > remainingSlots) {
       toast({
         title: "Too Many Images",
-        description: `You can only upload ${remainingSlots} more image(s). Maximum limit is ${maxImages} images`,
+        description: `You can only upload ${remainingSlots} more image(s). Maximum limit is ${maxImages} images for ${subscriptionLimits.planName} plan`,
         variant: "destructive",
       });
       return;
@@ -1615,7 +1616,7 @@ const AddProperty = () => {
             <div>
               <Label className="text-base font-medium">Property Images</Label>
               <p className="text-sm text-muted-foreground mb-4">
-                Upload high-quality images of your property (up to 10 images, max 10MB each)
+                Upload high-quality images of your property (up to {subscriptionLimits.maxPropertyImages} images, max 10MB each)
               </p>
               <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${

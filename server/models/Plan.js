@@ -62,6 +62,10 @@ const planSchema = new mongoose.Schema({
       type: Number,
       default: 10
     },
+    propertyImages: {
+      type: Number,
+      default: 10
+    },
     videoTours: {
       type: Number,
       default: 0
@@ -71,10 +75,6 @@ const planSchema = new mongoose.Schema({
       default: 0
     },
     leads: {
-      type: Number,
-      default: 0
-    },
-    posters: {
       type: Number,
       default: 0
     },

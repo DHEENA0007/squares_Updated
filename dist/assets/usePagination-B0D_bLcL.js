@@ -1,0 +1,1 @@
+import{r as e}from"./router-Bi51YGN-.js";function t(t,a=10){const[r,s]=e.useState(1),o=Math.ceil(t.length/a),n=e.useMemo(()=>{const e=(r-1)*a,s=e+a;return t.slice(e,s)},[t,r,a]);return{currentPage:r,totalPages:o,paginatedItems:n,goToPage:e=>{s(Math.max(1,Math.min(e,o)))},nextPage:()=>{r<o&&s(r+1)},previousPage:()=>{r>1&&s(r-1)},hasNextPage:r<o,hasPreviousPage:r>1}}export{t as u};

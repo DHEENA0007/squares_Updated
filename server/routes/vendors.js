@@ -2953,6 +2953,9 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
 
     const canAddMore = currentProperties < maxProperties;
 
+    // Get property images limit from plan (default to 10 if not set)
+    const maxPropertyImages = planData.limits.propertyImages || 10;
+
     res.json({
       success: true,
       data: {
@@ -2960,7 +2963,8 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
         currentProperties,
         canAddMore,
         planName,
-        features
+        features,
+        maxPropertyImages
       }
     });
   } catch (error) {

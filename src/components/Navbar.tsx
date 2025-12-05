@@ -39,7 +39,7 @@ const Navbar = () => {
   useEffect(() => {
     const fetchNavigationData = async () => {
       try {
-        // Fetch listing types
+        // Fetch all active listing types from Filter Management
         const types = await configurationService.getFilterConfigurationsByType('listing_type', false);
         setListingTypes(types);
 

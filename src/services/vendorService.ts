@@ -487,6 +487,7 @@ class VendorService {
     canAddMore: boolean;
     planName: string;
     features: string[];
+    maxPropertyImages: number;
   }> {
     try {
       const response = await this.makeRequest<{
@@ -497,6 +498,7 @@ class VendorService {
           canAddMore: boolean;
           planName: string;
           features: string[];
+          maxPropertyImages: number;
         };
       }>("/vendors/subscription-limits");
 

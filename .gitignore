@@ -24,6 +24,7 @@ dist-ssr
 
 # Documentation files
 *.md
+!UNWANTED_FILES.md
 
 # Test scripts and files
 test-*.js
@@ -43,3 +44,41 @@ fix-*.js
 fix-*.cjs
 sync-*.js
 sync-*.cjs
+
+# Frontend-specific unwanted files
+# Backup files
+*_backup.*
+*_old.*
+*_clean.*
+*-old.*
+*.backup
+*.bak
+
+# Test files in src
+src/**/*test*
+src/**/*Test*
+
+# Large data files
+*.json.large
+location.sample.json
+loca.json
+5c2f62fe-5afa-4119-a499-fec9d604d5bd.json
+
+# Unoptimized images
+*.unoptimized.*
+
+# Excel and Office files
+*.xlsx
+*.xls
+*.xlsm
+*.doc
+*.docx
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Unknown/temporary files
+l.tom

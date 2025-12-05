@@ -75,7 +75,7 @@ const amenitySchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['basic', 'luxury', 'security', 'recreational'],
+    // Remove enum to allow custom amenity categories
   },
   icon: String,
   isActive: {

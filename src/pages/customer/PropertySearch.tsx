@@ -22,37 +22,30 @@ import { propertyService, Property } from "@/services/propertyService";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { favoriteService } from "@/services/favoriteService";
-import { PROPERTY_TYPE_CONFIGS } from "@/utils/propertyTypeConfig";
 import { configurationService } from "@/services/configurationService";
-import type { PropertyType as PropertyTypeConfig } from "@/types/configuration";
+import type { PropertyType as PropertyTypeConfig, FilterConfiguration, Amenity } from "@/types/configuration";
 
 const PropertySearch = () => {
   const [propertyTypes, setPropertyTypes] = useState<PropertyTypeConfig[]>([]);
+  const [filterConfigurations, setFilterConfigurations] = useState<FilterConfiguration[]>([]);
+  const [amenities, setAmenities] = useState<Amenity[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
-  
+
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // Filters
+
+  // Filters - using dynamic state for all filter types
   const [listingType, setListingType] = useState<string>("all");
   const [propertyType, setPropertyType] = useState<string>("all");
-  const [bedrooms, setBedrooms] = useState<string>("any");
-  const [bathrooms, setBathrooms] = useState<string>("any");
-  const [furnishing, setFurnishing] = useState<string>("any");
   const [priceRange, setPriceRange] = useState<number[]>([0, 20000000]); // 0 to 2Cr
   const [areaRange, setAreaRange] = useState<number[]>([0, 10000]); // 0 to 10000 sqft
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-  
-  // Dynamic filters based on property type
-  const [floor, setFloor] = useState<string>("");
-  const [totalFloors, setTotalFloors] = useState<string>("");
-  const [ageOfProperty, setAgeOfProperty] = useState<string>("any");
-  const [facing, setFacing] = useState<string>("any");
-  const [parkingSpaces, setParkingSpaces] = useState<string>("any");
-  const [cornerPlot, setCornerPlot] = useState<string>("any");
+
+  // Dynamic filter state - will hold all filter values
+  const [dynamicFilters, setDynamicFilters] = useState<Record<string, string>>({});
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,47 +54,64 @@ const PropertySearch = () => {
   // Favorites
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
-  // Get current property type config
-  const currentPropertyConfig = useMemo(() => {
-    return PROPERTY_TYPE_CONFIGS.find(config => config.type === propertyType);
-  }, [propertyType]);
+  // Get filters by filter type
+  const getFiltersByType = (filterType: string) => {
+    return filterConfigurations
+      .filter(f => f.filterType === filterType && f.isActive)
+      .sort((a, b) => a.displayOrder - b.displayOrder);
+  };
 
-  // Get dynamic amenities list based on property type
-  const amenitiesList = useMemo(() => {
-    if (currentPropertyConfig?.amenitiesFilter) {
-      return currentPropertyConfig.amenitiesFilter;
-    }
-    // Default amenities if no specific filter
-    return [
-      "Swimming Pool",
-      "Gym/Fitness Center",
-      "Parking",
-      "Security",
-      "Garden/Park",
-      "Playground",
-      "Clubhouse",
-      "Power Backup",
-      "Elevator",
-      "WiFi",
-      "CCTV Surveillance",
-      "Water Supply",
-      "Fire Safety"
-    ];
-  }, [currentPropertyConfig]);
+  // Get unique filter types
+  const filterTypes = useMemo(() => {
+    return Array.from(new Set(filterConfigurations.map(f => f.filterType)));
+  }, [filterConfigurations]);
 
-  // Fetch property types configuration on mount
+  // Fetch property types and filter configurations on mount
   useEffect(() => {
-    const fetchPropertyTypes = async () => {
+    const fetchConfigurations = async () => {
       try {
-        const typesData = await configurationService.getAllPropertyTypes(false);
+        const [typesData, filtersData] = await Promise.all([
+          configurationService.getAllPropertyTypes(false),
+          configurationService.getAllFilterConfigurations(false)
+        ]);
         setPropertyTypes(typesData);
+        setFilterConfigurations(filtersData);
       } catch (error) {
-        console.error('Error fetching property types:', error);
+        console.error('Error fetching configurations:', error);
       }
     };
 
-    fetchPropertyTypes();
+    fetchConfigurations();
   }, []);
+
+  // Fetch amenities based on selected property type
+  useEffect(() => {
+    const fetchAmenities = async () => {
+      try {
+        if (propertyType === 'all') {
+          // If "All Properties" is selected, fetch all amenities
+          const amenitiesData = await configurationService.getAllAmenities(false);
+          setAmenities(amenitiesData);
+        } else {
+          // Fetch amenities for the specific property type
+          const selectedPropertyType = propertyTypes.find(pt => pt.value === propertyType);
+          if (selectedPropertyType) {
+            const amenitiesData = await configurationService.getPropertyTypeAmenities(selectedPropertyType._id);
+            setAmenities(amenitiesData);
+          } else {
+            setAmenities([]);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching amenities:', error);
+        setAmenities([]);
+      }
+    };
+
+    if (propertyTypes.length > 0) {
+      fetchAmenities();
+    }
+  }, [propertyType, propertyTypes]);
 
   // Initialize search query and filters from URL params
   useEffect(() => {
@@ -127,7 +137,7 @@ const PropertySearch = () => {
   // Load properties
   useEffect(() => {
     loadProperties();
-  }, [searchQuery, listingType, propertyType, bedrooms, bathrooms, furnishing, priceRange, areaRange, selectedAmenities, floor, ageOfProperty, facing, parkingSpaces, cornerPlot, currentPage]);
+  }, [searchQuery, listingType, propertyType, priceRange, areaRange, selectedAmenities, dynamicFilters, currentPage]);
 
   const loadProperties = async () => {
     setLoading(true);
@@ -140,21 +150,19 @@ const PropertySearch = () => {
       if (searchQuery.trim()) filters.search = searchQuery;
       if (listingType !== "all") filters.listingType = listingType;
       if (propertyType !== "all") filters.propertyType = propertyType;
-      if (bedrooms !== "any") filters.bedrooms = bedrooms;
-      if (bathrooms !== "any") filters.bathrooms = bathrooms;
-      if (furnishing !== "any") filters.furnishing = furnishing;
-      if (floor) filters.floor = floor;
-      if (totalFloors) filters.totalFloors = totalFloors;
-      if (ageOfProperty !== "any") filters.ageOfProperty = ageOfProperty;
-      if (facing !== "any") filters.facing = facing;
-      if (parkingSpaces !== "any") filters.parkingSpaces = parkingSpaces;
-      if (cornerPlot !== "any") filters.cornerPlot = cornerPlot;
-      
+
+      // Add dynamic filters
+      Object.entries(dynamicFilters).forEach(([key, value]) => {
+        if (value && value !== "any") {
+          filters[key] = value;
+        }
+      });
+
       // Price filters
       if (priceRange[0] > 0) {
         filters.minPrice = priceRange[0];
       }
-      
+
       if (priceRange[1] < 20000000) {
         filters.maxPrice = priceRange[1];
       }
@@ -163,7 +171,7 @@ const PropertySearch = () => {
       if (areaRange[0] > 0) {
         filters.minArea = areaRange[0];
       }
-      
+
       if (areaRange[1] < 10000) {
         filters.maxArea = areaRange[1];
       }
@@ -243,18 +251,10 @@ const PropertySearch = () => {
     setSearchQuery("");
     setListingType("all");
     setPropertyType("all");
-    setBedrooms("any");
-    setBathrooms("any");
-    setFurnishing("any");
     setPriceRange([0, 20000000]);
     setAreaRange([0, 10000]);
     setSelectedAmenities([]);
-    setFloor("");
-    setTotalFloors("");
-    setAgeOfProperty("any");
-    setFacing("any");
-    setParkingSpaces("any");
-    setCornerPlot("any");
+    setDynamicFilters({});
     setCurrentPage(1);
   };
 
@@ -299,43 +299,39 @@ const PropertySearch = () => {
                   </div>
                 </div>
 
-                {/* Listing Type */}
-                <div className="mb-4">
-                  <label className="text-sm font-medium mb-2 block">Listing Type</label>
-                  <Select value={listingType} onValueChange={setListingType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="sale">For Sale</SelectItem>
-                      <SelectItem value="rent">For Rent</SelectItem>
-                      <SelectItem value="lease">For Lease</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Listing Type - Dynamic from Admin Configuration */}
+                {getFiltersByType('listing_type').length > 0 && (
+                  <div className="mb-4">
+                    <label className="text-sm font-medium mb-2 block">Listing Type</label>
+                    <Select value={listingType} onValueChange={setListingType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px] overflow-y-auto">
+                        <SelectItem value="all">All Types</SelectItem>
+                        {getFiltersByType('listing_type').map((filter) => (
+                          <SelectItem key={filter._id} value={filter.value}>
+                            {filter.displayLabel?.trim() || filter.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Property Type */}
                 <div className="mb-4">
                   <label className="text-sm font-medium mb-2 block">Property Type</label>
                   <Select value={propertyType} onValueChange={(value) => {
                     setPropertyType(value);
-                    // Reset type-specific filters when property type changes
-                    setBedrooms("any");
-                    setBathrooms("any");
-                    setFurnishing("any");
-                    setFloor("");
-                    setTotalFloors("");
-                    setAgeOfProperty("any");
-                    setFacing("any");
-                    setParkingSpaces("any");
-                    setCornerPlot("any");
+                    // Reset dynamic filters when property type changes
+                    setDynamicFilters({});
                     setSelectedAmenities([]);
                   }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Property" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[300px] overflow-y-auto">
                       <SelectItem value="all">All Properties</SelectItem>
                       {propertyTypes.map((type) => (
                         <SelectItem key={type.value} value={type.value}>
@@ -346,147 +342,42 @@ const PropertySearch = () => {
                   </Select>
                 </div>
 
-                {/* Dynamic Filters based on Property Type */}
-                {currentPropertyConfig && (
-                  <>
-                    {/* Bedrooms - Show only for residential properties */}
-                    {currentPropertyConfig.fieldConfigurations.bedrooms && (
-                      <div className="mb-4">
-                        <label className="text-sm font-medium mb-2 block">Bedrooms</label>
-                        <Select value={bedrooms} onValueChange={setBedrooms}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="BHK" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="any">Any BHK</SelectItem>
-                            {currentPropertyConfig.fieldConfigurations.bedrooms.options.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
+                {/* Dynamic Filters from Admin Configuration */}
+                {filterTypes
+                  .filter(type => type !== 'listing_type') // Exclude listing_type as it's handled separately
+                  .map((filterType) => {
+                    const filtersForType = getFiltersByType(filterType);
+                    if (filtersForType.length === 0) return null;
 
-                    {/* Bathrooms */}
-                    {currentPropertyConfig.fieldConfigurations.bathrooms && (
-                      <div className="mb-4">
-                        <label className="text-sm font-medium mb-2 block">Bathrooms</label>
-                        <Select value={bathrooms} onValueChange={setBathrooms}>
+                    return (
+                      <div key={filterType} className="mb-4">
+                        <label className="text-sm font-medium mb-2 block capitalize">
+                          {filterType.replace(/_/g, ' ')}
+                        </label>
+                        <Select
+                          value={dynamicFilters[filterType] || "any"}
+                          onValueChange={(value) => {
+                            setDynamicFilters(prev => ({
+                              ...prev,
+                              [filterType]: value
+                            }));
+                          }}
+                        >
                           <SelectTrigger>
-                            <SelectValue placeholder="Bathrooms" />
+                            <SelectValue placeholder={`Select ${filterType.replace(/_/g, ' ')}`} />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-[300px] overflow-y-auto">
                             <SelectItem value="any">Any</SelectItem>
-                            {currentPropertyConfig.fieldConfigurations.bathrooms.options.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
+                            {filtersForType.map((filter) => (
+                              <SelectItem key={filter._id} value={filter.value}>
+                                {filter.displayLabel?.trim() || filter.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                    )}
-
-                    {/* Furnishing */}
-                    {currentPropertyConfig.fieldConfigurations.furnishing && (
-                      <div className="mb-4">
-                        <label className="text-sm font-medium mb-2 block">Furnishing</label>
-                        <Select value={furnishing} onValueChange={setFurnishing}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Furnishing" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="any">Any</SelectItem>
-                            {currentPropertyConfig.fieldConfigurations.furnishing.options.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    {/* Special Fields - Dynamically render based on config */}
-                    {currentPropertyConfig.fieldConfigurations.specialFields && (
-                      <>
-                        {Object.entries(currentPropertyConfig.fieldConfigurations.specialFields).map(([fieldKey, fieldConfig]) => {
-                          // Handle input fields (floor, totalFloors, etc.)
-                          if (fieldConfig.type === 'input' || fieldConfig.type === 'number') {
-                            let stateValue = "";
-                            let setStateValue = (val: string) => {};
-                            
-                            switch(fieldKey) {
-                              case 'floor':
-                                stateValue = floor;
-                                setStateValue = setFloor;
-                                break;
-                              case 'totalFloors':
-                                stateValue = totalFloors;
-                                setStateValue = setTotalFloors;
-                                break;
-                            }
-
-                            return (
-                              <div key={fieldKey} className="mb-4">
-                                <label className="text-sm font-medium mb-2 block">{fieldConfig.label}</label>
-                                <Input
-                                  type={fieldConfig.type === 'number' ? 'number' : 'text'}
-                                  placeholder={fieldConfig.placeholder || fieldConfig.label}
-                                  value={stateValue}
-                                  onChange={(e) => setStateValue(e.target.value)}
-                                />
-                              </div>
-                            );
-                          }
-                          
-                          // Handle select fields
-                          if (fieldConfig.type === 'select' && fieldConfig.options) {
-                            let stateValue = "any";
-                            let setStateValue = (val: string) => {};
-                            
-                            switch(fieldKey) {
-                              case 'facing':
-                                stateValue = facing;
-                                setStateValue = setFacing;
-                                break;
-                              case 'cornerPlot':
-                                stateValue = cornerPlot;
-                                setStateValue = setCornerPlot;
-                                break;
-                              case 'parkingSpaces':
-                                stateValue = parkingSpaces;
-                                setStateValue = setParkingSpaces;
-                                break;
-                            }
-
-                            return (
-                              <div key={fieldKey} className="mb-4">
-                                <label className="text-sm font-medium mb-2 block">{fieldConfig.label}</label>
-                                <Select value={stateValue} onValueChange={setStateValue}>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder={fieldConfig.label} />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="any">Any</SelectItem>
-                                    {fieldConfig.options.map((option) => (
-                                      <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })}
-                      </>
-                    )}
-                  </>
-                )}
+                    );
+                  })}
 
                 {/* Price Range */}
                 <div className="mb-4">
@@ -517,91 +408,69 @@ const PropertySearch = () => {
                   </div>
                 </div>
 
-                {/* Area Range - Show based on property type */}
-                {currentPropertyConfig && (
-                  <div className="mb-4">
-                    <label className="text-sm font-medium mb-2 block">
-                      {currentPropertyConfig.category === 'land' ? 'Plot Area' : 'Built-up Area'} (sq ft)
-                    </label>
-                    <div className="space-y-4">
-                      <Slider
-                        value={areaRange}
-                        onValueChange={setAreaRange}
-                        min={0}
-                        max={10000}
-                        step={100}
-                        className="w-full"
-                      />
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex flex-col">
-                          <span className="text-muted-foreground text-xs">Min</span>
-                          <span className="font-semibold text-primary">
-                            {areaRange[0]} sqft
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <span className="text-muted-foreground text-xs">Max</span>
-                          <span className="font-semibold text-primary">
-                            {areaRange[1]} sqft
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Age of Property */}
-                {currentPropertyConfig && currentPropertyConfig.category !== 'land' && (
-                  <div className="mb-4">
-                    <label className="text-sm font-medium mb-2 block">Age of Property</label>
-                    <Select value={ageOfProperty} onValueChange={setAgeOfProperty}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Property Age" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="any">Any</SelectItem>
-                        <SelectItem value="0-1">Under Construction</SelectItem>
-                        <SelectItem value="1-3">1-3 Years</SelectItem>
-                        <SelectItem value="3-5">3-5 Years</SelectItem>
-                        <SelectItem value="5-10">5-10 Years</SelectItem>
-                        <SelectItem value="10+">10+ Years</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Amenities */}
+                {/* Area Range */}
                 <div className="mb-4">
-                  <label className="text-sm font-medium mb-2 block">Amenities</label>
-                  <div className="max-h-48 overflow-y-auto space-y-2 border rounded-md p-3">
-                    {amenitiesList.map((amenity) => (
-                      <div key={amenity} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={amenity}
-                          checked={selectedAmenities.includes(amenity)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedAmenities([...selectedAmenities, amenity]);
-                            } else {
-                              setSelectedAmenities(selectedAmenities.filter(a => a !== amenity));
-                            }
-                          }}
-                        />
-                        <label
-                          htmlFor={amenity}
-                          className="text-sm font-normal cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {amenity}
-                        </label>
+                  <label className="text-sm font-medium mb-2 block">Area (sq ft)</label>
+                  <div className="space-y-4">
+                    <Slider
+                      value={areaRange}
+                      onValueChange={setAreaRange}
+                      min={0}
+                      max={10000}
+                      step={100}
+                      className="w-full"
+                    />
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex flex-col">
+                        <span className="text-muted-foreground text-xs">Min</span>
+                        <span className="font-semibold text-primary">
+                          {areaRange[0]} sqft
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                  {selectedAmenities.length > 0 && (
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      {selectedAmenities.length} selected
+                      <div className="flex flex-col items-end">
+                        <span className="text-muted-foreground text-xs">Max</span>
+                        <span className="font-semibold text-primary">
+                          {areaRange[1]} sqft
+                        </span>
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
+
+                {/* Amenities - Dynamic from Admin Configuration */}
+                {amenities.length > 0 && (
+                  <div className="mb-4">
+                    <label className="text-sm font-medium mb-2 block">Amenities</label>
+                    <div className="max-h-48 overflow-y-auto space-y-2 border rounded-md p-3">
+                      {amenities.map((amenity) => (
+                        <div key={amenity._id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={amenity._id}
+                            checked={selectedAmenities.includes(amenity.name)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedAmenities([...selectedAmenities, amenity.name]);
+                              } else {
+                                setSelectedAmenities(selectedAmenities.filter(a => a !== amenity.name));
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={amenity._id}
+                            className="text-sm font-normal cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {amenity.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                    {selectedAmenities.length > 0 && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        {selectedAmenities.length} selected
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Reset Button */}
                 <Button variant="outline" onClick={resetFilters} className="w-full">

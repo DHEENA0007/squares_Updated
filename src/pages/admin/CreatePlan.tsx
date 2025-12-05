@@ -31,9 +31,9 @@ const CreatePlan = () => {
       properties: 5,
       featuredListings: 0,
       photos: 10,
+      propertyImages: 10,
       videoTours: 0,
       leads: 0,
-      posters: 0,
       videos: 0,
       messages: 0,
       leadManagement: "basic" as "none" | "basic" | "advanced" | "premium" | "enterprise"
@@ -44,7 +44,6 @@ const CreatePlan = () => {
       marketingManager: false,
       commissionBased: false,
     },
-    support: "email" as "none" | "email" | "priority" | "phone" | "dedicated",
     isActive: true,
     isPopular: false,
     sortOrder: 0,
@@ -285,27 +284,28 @@ const CreatePlan = () => {
                   type="number"
                   min="0"
                   value={plan.limits.leads}
-                  onChange={(e) => setPlan({ 
-                    ...plan, 
-                    limits: { ...plan.limits, leads: parseInt(e.target.value) || 0 } 
+                  onChange={(e) => setPlan({
+                    ...plan,
+                    limits: { ...plan.limits, leads: parseInt(e.target.value) || 0 }
                   })}
                 />
                 <p className="text-xs text-muted-foreground">0 = unlimited</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="posters">Promotional Posters</Label>
+                <Label htmlFor="propertyImages">Property Images</Label>
                 <Input
-                  id="posters"
+                  id="propertyImages"
                   type="number"
-                  min="0"
-                  value={plan.limits.posters}
-                  onChange={(e) => setPlan({ 
-                    ...plan, 
-                    limits: { ...plan.limits, posters: parseInt(e.target.value) || 0 } 
+                  min="1"
+                  max="100"
+                  value={plan.limits.propertyImages}
+                  onChange={(e) => setPlan({
+                    ...plan,
+                    limits: { ...plan.limits, propertyImages: parseInt(e.target.value) || 10 }
                   })}
                 />
-                <p className="text-xs text-muted-foreground">Marketing materials</p>
+                <p className="text-xs text-muted-foreground">Max images per property</p>
               </div>
 
               {/* <div className="space-y-2">
@@ -380,33 +380,6 @@ const CreatePlan = () => {
                 />
                 <Label htmlFor="commission" className="cursor-pointer text-sm">Commission Based Revenue</Label>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Support Level</CardTitle>
-            <CardDescription>Choose the support level for this plan</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Label htmlFor="support">Support Level</Label>
-              <Select 
-                value={plan.support} 
-                onValueChange={(value: any) => setPlan({ ...plan, support: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="email">Email Support</SelectItem>
-                  <SelectItem value="priority">Priority Support</SelectItem>
-                  <SelectItem value="phone">Phone Support</SelectItem>
-                  <SelectItem value="dedicated">Dedicated Support</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </CardContent>
         </Card>
