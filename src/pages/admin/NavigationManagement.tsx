@@ -29,15 +29,22 @@ const NavigationManagement: React.FC = () => {
             Navigation Management
           </h1>
           <p className="text-muted-foreground mt-2">
-            Manage navigation bar items for the home page
+            Configure hierarchical navigation structure for the home page navbar
           </p>
         </div>
       </div>
 
       <Alert>
         <AlertDescription>
-          <strong>Note:</strong> Configure the main navigation menu items that appear on the home page navigation bar.
-          Create dynamic categories and subcategories for property listings.
+          <div className="space-y-2">
+            <p><strong>How it works:</strong></p>
+            <ol className="list-decimal list-inside space-y-1 ml-2">
+              <li>Navbar dropdowns are created from <strong>listing types</strong> in Filter Management (For Sale, For Rent, etc.)</li>
+              <li>Create property types below and assign them to a listing type</li>
+              <li>Property types appear as options in their assigned listing type's dropdown</li>
+              <li>Use tabs to view property types grouped by listing type</li>
+            </ol>
+          </div>
         </AlertDescription>
       </Alert>
 

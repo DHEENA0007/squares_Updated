@@ -182,8 +182,7 @@ const navigationItemSchema = new mongoose.Schema({
     required: true,
   },
   parentId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'NavigationItem',
+    type: String,
     default: null,
   },
   queryParams: {

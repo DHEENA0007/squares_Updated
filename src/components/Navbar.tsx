@@ -23,58 +23,53 @@ import {
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [buyExpanded, setBuyExpanded] = useState(false);
-  const [rentExpanded, setRentExpanded] = useState(false);
-  const [commercialExpanded, setCommercialExpanded] = useState(false);
-  const [listingTypes, setListingTypes] = useState<Array<{ id: string; name: string; value: string; displayLabel?: string }>>([]);
-  const [residentialProperties, setResidentialProperties] = useState<Array<{ label: string; value: string; queryParams?: Record<string, string> }>>([]);
-  const [commercialProperties, setCommercialProperties] = useState<Array<{ label: string; value: string; queryParams?: Record<string, string> }>>([]);
-  const [agriculturalProperties, setAgriculturalProperties] = useState<Array<{ label: string; value: string; queryParams?: Record<string, string> }>>([]);
+  const [listingTypes, setListingTypes] = useState<Array<{ id: string; name: string; value: string; displayLabel?: string; children?: any[] }>>([]);
   const [expandedStates, setExpandedStates] = useState<Record<string, boolean>>({});
   const { theme } = useTheme();
   const { user, isAuthenticated, checkAuth } = useAuth();
   const navigate = useNavigate();
 
-  // Fetch listing types and navigation items from configuration
+  // Fetch listing types from Filter Management and their children from Navigation Management
   useEffect(() => {
     const fetchNavigationData = async () => {
       try {
-        // Fetch all active listing types from Filter Management
-        const types = await configurationService.getFilterConfigurationsByType('listing_type', false);
-        setListingTypes(types);
+        // Fetch listing types from Filter Management (e.g., For Sale, For Rent)
+        const filterListingTypes = await configurationService.getFilterConfigurationsByType('listing_type', false);
 
-        // Initialize expanded states for each listing type
+        // Fetch navigation items from all categories
+        const allNavItems = await configurationService.getAllNavigationItems(false);
+
+        // Map listing types to parent structure with navigation children
+        const typesWithChildren = filterListingTypes.map(listingType => {
+          // Find navigation items whose parentId matches this listing type's value
+          // This allows admins to assign property types to specific listing types
+          const matchingPropertyTypes = allNavItems.filter(item =>
+            item.parentId === listingType.value
+          );
+
+          return {
+            id: listingType._id,
+            name: listingType.name,
+            displayLabel: listingType.displayLabel || listingType.name,
+            value: listingType.value,
+            queryParams: listingType.queryParams,
+            children: matchingPropertyTypes.map(propType => ({
+              id: propType._id,
+              label: propType.displayLabel || propType.name,
+              value: propType.value,
+              queryParams: propType.queryParams,
+            })),
+          };
+        });
+
+        setListingTypes(typesWithChildren as any);
+
+        // Initialize expanded states for each parent
         const initialStates: Record<string, boolean> = {};
-        types.forEach(type => {
+        typesWithChildren.forEach(type => {
           initialStates[type.value] = false;
         });
         setExpandedStates(initialStates);
-
-        // Fetch navigation items by category
-        const [residential, commercial, agricultural] = await Promise.all([
-          configurationService.getNavigationItemsByCategory('residential', false),
-          configurationService.getNavigationItemsByCategory('commercial', false),
-          configurationService.getNavigationItemsByCategory('agricultural', false),
-        ]);
-
-        // Map navigation items to dropdown format
-        setResidentialProperties(residential.map(item => ({
-          label: item.displayLabel || item.name,
-          value: item.value,
-          queryParams: item.queryParams,
-        })));
-
-        setCommercialProperties(commercial.map(item => ({
-          label: item.displayLabel || item.name,
-          value: item.value,
-          queryParams: item.queryParams,
-        })));
-
-        setAgriculturalProperties(agricultural.map(item => ({
-          label: item.displayLabel || item.name,
-          value: item.value,
-          queryParams: item.queryParams,
-        })));
       } catch (error) {
         console.error('Error fetching navigation data:', error);
       }
@@ -237,42 +232,24 @@ const Navbar = () => {
             {/* Desktop Navigation */}
             <div className="flex items-center gap-4 md:gap-8 flex-1">
               <div className="hidden md:flex items-center gap-4 lg:gap-6 ml-[180px] lg:ml-[220px]">
-                {/* Dynamic Listing Type Dropdowns */}
-                {listingTypes.map((listingType) => (
-                  <DropdownMenu key={listingType.id}>
+                {/* Dynamic Hierarchical Navigation */}
+                {listingTypes.map((parent: any) => (
+                  <DropdownMenu key={parent.id}>
                     <DropdownMenuTrigger className="text-sm font-medium hover:text-primary transition-colors whitespace-nowrap flex items-center gap-1 outline-none">
-                      {listingType.displayLabel || listingType.name} <ChevronDown className="h-3 w-3" />
+                      {parent.displayLabel || parent.name} <ChevronDown className="h-3 w-3" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56">
-                      <DropdownMenuItem onClick={() => handlePropertyTypeClick(listingType.value)}>
-                        All Properties for {listingType.displayLabel || listingType.name}
+                      <DropdownMenuItem onClick={() => handlePropertyTypeClick(parent.value, undefined, parent.queryParams)}>
+                        All {parent.displayLabel || parent.name}
                       </DropdownMenuItem>
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger>Residential</DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="w-56">
-                          {residentialProperties.map((prop) => (
-                            <DropdownMenuItem
-                              key={prop.value}
-                              onClick={() => handlePropertyTypeClick(listingType.value, prop.value, prop.queryParams)}
-                            >
-                              {prop.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger>Agricultural</DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="w-56">
-                          {agriculturalProperties.map((prop) => (
-                            <DropdownMenuItem
-                              key={prop.value}
-                              onClick={() => handlePropertyTypeClick(listingType.value, prop.value, prop.queryParams)}
-                            >
-                              {prop.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
+                      {parent.children && parent.children.length > 0 && parent.children.map((child: any) => (
+                        <DropdownMenuItem
+                          key={child.id}
+                          onClick={() => handlePropertyTypeClick(parent.value, child.value, child.queryParams)}
+                        >
+                          {child.label}
+                        </DropdownMenuItem>
+                      ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ))}
@@ -289,36 +266,6 @@ const Navbar = () => {
                     <DropdownMenuItem onClick={handleMyListedPropertiesClick}>
                       My Listed Properties
                     </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {/* Commercial Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="text-sm font-medium hover:text-primary transition-colors whitespace-nowrap flex items-center gap-1 outline-none">
-                    Commercial <ChevronDown className="h-3 w-3" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56">
-                    {listingTypes.filter(t => t.value !== 'lease').map((listingType) => (
-                      <DropdownMenuItem
-                        key={listingType.id}
-                        onClick={() => handlePropertyTypeClick(listingType.value, 'commercial,office')}
-                      >
-                        {listingType.displayLabel || listingType.name} Commercial Property
-                      </DropdownMenuItem>
-                    ))}
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>Commercial Types</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent className="w-56">
-                        {commercialProperties.map((prop) => (
-                          <DropdownMenuItem
-                            key={prop.value}
-                            onClick={() => handlePropertyTypeClick('sale', prop.value, prop.queryParams)}
-                          >
-                            {prop.label}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
                   </DropdownMenuContent>
                 </DropdownMenu>
 

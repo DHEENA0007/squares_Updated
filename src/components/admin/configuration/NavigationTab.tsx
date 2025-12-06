@@ -26,7 +26,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { configurationService } from '@/services/configurationService';
@@ -35,15 +34,16 @@ import { useToast } from '@/hooks/use-toast';
 
 const NavigationTab: React.FC = () => {
   const [navItems, setNavItems] = useState<NavigationItem[]>([]);
+  const [listingTypes, setListingTypes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<NavigationItem | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string>('main');
+  const [activeTab, setActiveTab] = useState<string>('all');
   const [formData, setFormData] = useState({
     name: '',
     value: '',
     displayLabel: '',
-    category: 'main',
+    category: 'residential',
     parentId: '',
     queryParams: '',
     displayOrder: 0,
@@ -52,7 +52,17 @@ const NavigationTab: React.FC = () => {
 
   useEffect(() => {
     fetchNavigationItems();
+    fetchListingTypes();
   }, []);
+
+  const fetchListingTypes = async () => {
+    try {
+      const types = await configurationService.getFilterConfigurationsByType('listing_type', false);
+      setListingTypes(types);
+    } catch (error) {
+      console.error('Failed to load listing types:', error);
+    }
+  };
 
   const fetchNavigationItems = async () => {
     try {
@@ -88,10 +98,10 @@ const NavigationTab: React.FC = () => {
         name: '',
         value: '',
         displayLabel: '',
-        category: activeCategory as any,
-        parentId: '',
+        category: 'residential',
+        parentId: activeTab === 'all' ? '' : activeTab,
         queryParams: '',
-        displayOrder: getItemsByCategory(activeCategory).length,
+        displayOrder: navItems.length,
       });
     }
     setIsDialogOpen(true);
@@ -104,7 +114,7 @@ const NavigationTab: React.FC = () => {
       name: '',
       value: '',
       displayLabel: '',
-      category: 'main',
+      category: 'residential',
       parentId: '',
       queryParams: '',
       displayOrder: 0,
@@ -132,7 +142,7 @@ const NavigationTab: React.FC = () => {
         name: formData.name,
         value: formData.value,
         displayLabel: formData.displayLabel || undefined,
-        category: formData.category,
+        category: formData.category as 'main' | 'commercial' | 'residential' | 'agricultural',
         parentId: formData.parentId || undefined,
         queryParams: parsedQueryParams,
         displayOrder: formData.displayOrder,
@@ -239,18 +249,30 @@ const NavigationTab: React.FC = () => {
     }
   };
 
-  const renderNavigationTable = (category: string) => {
-    const items = getItemsByCategory(category);
+  const getItemsByListingType = (listingTypeValue: string) => {
+    return navItems.filter((item) => item.parentId === listingTypeValue);
+  };
+
+  const getAllUnassignedItems = () => {
+    return navItems.filter((item) => !item.parentId);
+  };
+
+  const renderNavigationTable = (listingTypeValue: string | null) => {
+    const items = listingTypeValue === null ? getAllUnassignedItems() : getItemsByListingType(listingTypeValue);
+    const listingType = listingTypeValue ? listingTypes.find(lt => lt.value === listingTypeValue) : null;
+    const title = listingType ? (listingType.displayLabel || listingType.name) : 'Unassigned';
 
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <p className="text-sm text-muted-foreground">
-            Manage {category} navigation items
+            {listingType
+              ? `Property types shown under "${title}" in the navbar dropdown`
+              : 'Property types not yet assigned to any listing type'}
           </p>
           <Button onClick={() => handleOpenDialog()}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Navigation Item
+            Add Property Type
           </Button>
         </div>
 
@@ -258,20 +280,23 @@ const NavigationTab: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Order</TableHead>
+                <TableHead className="w-[100px]">Order</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Display Label</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead>Value</TableHead>
-                <TableHead>Query Params</TableHead>
+                <TableHead>Listing Type</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right w-[120px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No navigation items found. Create your first item to get started.
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    {listingType
+                      ? `No property types assigned to "${title}" yet. Create one to get started.`
+                      : 'No unassigned property types. All items are assigned to listing types.'}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -282,7 +307,7 @@ const NavigationTab: React.FC = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleReorder(item._id, 'up', category)}
+                          onClick={() => handleReorder(item._id, 'up', item.category)}
                           disabled={index === 0}
                         >
                           <ChevronUp className="h-4 w-4" />
@@ -290,7 +315,7 @@ const NavigationTab: React.FC = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleReorder(item._id, 'down', category)}
+                          onClick={() => handleReorder(item._id, 'down', item.category)}
                           disabled={index === items.length - 1}
                         >
                           <ChevronDown className="h-4 w-4" />
@@ -300,15 +325,23 @@ const NavigationTab: React.FC = () => {
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell>{item.displayLabel || item.name}</TableCell>
                     <TableCell>
+                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+                        {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
                       <code className="text-sm bg-muted px-2 py-1 rounded">{item.value}</code>
                     </TableCell>
                     <TableCell>
-                      {item.queryParams && Object.keys(item.queryParams).length > 0 ? (
-                        <code className="text-xs bg-muted px-2 py-1 rounded">
-                          {JSON.stringify(item.queryParams)}
+                      {item.parentId ? (
+                        <code className="text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+                          {(() => {
+                            const listingType = listingTypes.find(lt => lt.value === item.parentId);
+                            return listingType ? (listingType.displayLabel || listingType.name) : item.parentId;
+                          })()}
                         </code>
                       ) : (
-                        '-'
+                        <span className="text-xs text-muted-foreground">Not assigned</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -352,34 +385,50 @@ const NavigationTab: React.FC = () => {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-lg font-semibold">Navigation Management</h3>
+        <h3 className="text-lg font-semibold">Navigation Property Types</h3>
         <p className="text-sm text-muted-foreground">
-          Manage navigation structure, categories, and property types dynamically
+          Create property types and assign them to listing types. They will appear as dropdown options in the navbar.
         </p>
       </div>
 
-      <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="main">Main Nav</TabsTrigger>
-          <TabsTrigger value="residential">Residential</TabsTrigger>
-          <TabsTrigger value="commercial">Commercial</TabsTrigger>
-          <TabsTrigger value="agricultural">Agricultural</TabsTrigger>
-        </TabsList>
+      {listingTypes.length === 0 ? (
+        <div className="border rounded-lg p-8 text-center">
+          <p className="text-muted-foreground">
+            No listing types found. Please create listing types in <strong>Filter Management</strong> first (e.g., For Sale, For Rent).
+          </p>
+        </div>
+      ) : (
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto">
+            <TabsTrigger value="all" className="flex-shrink-0">
+              All / Unassigned
+            </TabsTrigger>
+            {listingTypes.map(type => (
+              <TabsTrigger key={type._id} value={type.value} className="flex-shrink-0">
+                {type.displayLabel || type.name}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-        <TabsContent value="main">{renderNavigationTable('main')}</TabsContent>
-        <TabsContent value="residential">{renderNavigationTable('residential')}</TabsContent>
-        <TabsContent value="commercial">{renderNavigationTable('commercial')}</TabsContent>
-        <TabsContent value="agricultural">{renderNavigationTable('agricultural')}</TabsContent>
-      </Tabs>
+          <TabsContent value="all">{renderNavigationTable(null)}</TabsContent>
+          {listingTypes.map(type => (
+            <TabsContent key={type._id} value={type.value}>
+              {renderNavigationTable(type.value)}
+            </TabsContent>
+          ))}
+        </Tabs>
+      )}
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        if (!open) handleCloseDialog();
+      }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {editingItem ? 'Edit Navigation Item' : 'Add Navigation Item'}
+              {editingItem ? 'Edit Property Type' : 'Add Property Type'}
             </DialogTitle>
             <DialogDescription>
-              Configure navigation item with display name, value, and query parameters
+              Configure property type with name, value, and assign it to a listing type
             </DialogDescription>
           </DialogHeader>
 
@@ -429,7 +478,6 @@ const NavigationTab: React.FC = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="main">Main Navigation</SelectItem>
                     <SelectItem value="residential">Residential</SelectItem>
                     <SelectItem value="commercial">Commercial</SelectItem>
                     <SelectItem value="agricultural">Agricultural</SelectItem>
@@ -438,16 +486,39 @@ const NavigationTab: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="displayOrder">Display Order</Label>
-                <Input
-                  id="displayOrder"
-                  type="number"
-                  value={formData.displayOrder}
-                  onChange={(e) =>
-                    setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 })
-                  }
-                />
+                <Label htmlFor="parentId">Listing Type (Parent)</Label>
+                <Select
+                  value={formData.parentId || 'none'}
+                  onValueChange={(value) => setFormData({ ...formData, parentId: value === 'none' ? '' : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select listing type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No parent (top level)</SelectItem>
+                    {listingTypes.map(type => (
+                      <SelectItem key={type._id} value={type.value}>
+                        {type.displayLabel || type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Select which listing type (For Sale, For Rent) this property appears under
+                </p>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="displayOrder">Display Order</Label>
+              <Input
+                id="displayOrder"
+                type="number"
+                value={formData.displayOrder}
+                onChange={(e) =>
+                  setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 })
+                }
+              />
             </div>
 
             <div className="space-y-2">
