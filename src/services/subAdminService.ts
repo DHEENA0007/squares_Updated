@@ -51,17 +51,65 @@ interface VendorPerformance {
 }
 
 interface DashboardStats {
-  totalProperties: number;
-  availableProperties: number;
+  totalPropertiesApproved: number;
+  availablePropertiesApproved: number;
   pendingProperties: number;
-  rejectedProperties: number;
-  totalUsers: number;
-  vendorUsers: number;
-  customerUsers: number;
-  totalViews: number;
+  rejectedPropertiesApproved: number;
   totalSupport: number;
   openSupport: number;
   resolvedSupport: number;
+  closedSupport: number;
+  analytics?: {
+    propertiesApprovedLast7Days: number;
+    propertiesApprovedLast30Days: number;
+    supportTicketsResolvedLast7Days: number;
+    supportTicketsResolvedLast30Days: number;
+    propertiesApprovedThisMonth: number;
+    propertiesApprovedLastMonth: number;
+    supportTicketsThisMonth: number;
+    supportTicketsLastMonth: number;
+    propertyApprovalTrend: number;
+    supportTicketTrend: number;
+    avgResponseTimeHours: number;
+  };
+  recentActivity?: {
+    approvals: Array<{
+      _id: string;
+      title: string;
+      type: string;
+      approvedAt: string;
+      owner: {
+        _id: string;
+        email: string;
+        profile: {
+          firstName: string;
+          lastName: string;
+        };
+      };
+    }>;
+    rejections: Array<{
+      _id: string;
+      title: string;
+      type: string;
+      rejectionReason: string;
+      updatedAt: string;
+    }>;
+    tickets: Array<{
+      _id: string;
+      subject: string;
+      status: string;
+      priority: string;
+      updatedAt: string;
+      user: {
+        _id: string;
+        email: string;
+        profile: {
+          firstName: string;
+          lastName: string;
+        };
+      };
+    }>;
+  };
 }
 
 class SubAdminService {

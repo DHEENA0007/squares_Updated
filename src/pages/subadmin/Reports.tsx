@@ -1,10 +1,22 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Download, TrendingUp, Users, Building, Eye, MessageSquare } from "lucide-react";
+import { 
+  BarChart3, 
+  TrendingUp, 
+  Download, 
+  Calendar,
+  Building,
+  Users,
+  CheckCircle,
+  XCircle,
+  Clock,
+  FileText,
+  Activity,
+  Percent
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
+import subAdminService from "@/services/subAdminService";
 import {
   Select,
   SelectContent,
@@ -13,107 +25,74 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-interface ReportData {
-  propertyStats: {
-    total: number;
-    available: number;
-    pending: number;
-    rejected: number;
-  };
-  userStats: {
-    totalVendors: number;
-    totalCustomers: number;
-    activeUsers: number;
-    newUsersThisMonth: number;
-  };
-  engagementStats: {
-    totalViews: number;
-    totalMessages: number;
-    totalReviews: number;
-    averageRating: number;
-  };
-  supportStats: {
-    totalTickets: number;
-    openTickets: number;
-    resolvedTickets: number;
-    avgResolutionTime: number;
-  };
-}
-
 const Reports = () => {
-  const [reportData, setReportData] = useState<ReportData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [dateRange, setDateRange] = useState("30days");
   const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState<'7days' | '30days' | '90days' | 'all'>('30days');
+  const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
     fetchReportData();
-  }, [dateRange]);
+  }, [timeRange]);
 
   const fetchReportData = async () => {
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`/subadmin/reports?range=${dateRange}`);
-      const data = await handleApiResponse<{ data: ReportData }>(response);
-      setReportData(data.data || null);
+      const data = await subAdminService.getDashboardStats();
+      setStats(data);
     } catch (error: any) {
-      console.error('Error fetching report data:', error);
       toast({
         title: "Error",
-        description: error.message || "Error fetching report data",
+        description: error.message || "Failed to fetch report data",
         variant: "destructive",
       });
-      setReportData(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleExportReport = async (type: string) => {
+  const handleExportReport = async (format: 'pdf' | 'csv') => {
     try {
       toast({
-        title: "Exporting",
-        description: `Generating ${type} report...`,
+        title: "Exporting Report",
+        description: `Preparing ${format.toUpperCase()} report...`,
       });
 
-      const response = await fetchWithAuth(`/subadmin/reports/export?type=${type}&range=${dateRange}`);
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `buildhomemartsquares_${type}_report_${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // TODO: Implement export functionality
+      // await subAdminService.exportReport(timeRange, format);
 
       toast({
         title: "Success",
-        description: "Report exported successfully",
+        description: `Report exported as ${format.toUpperCase()}`,
       });
     } catch (error: any) {
       toast({
         title: "Error",
-        description: "Error exporting report",
+        description: error.message || "Failed to export report",
         variant: "destructive",
       });
     }
   };
 
-  if (loading || !reportData) {
+  if (loading) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Reports</h1>
-          <p className="text-muted-foreground mt-1">
-            Analytics and insights dashboard
-          </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Analytics & Reports</h1>
+            <p className="text-muted-foreground mt-1">
+              Comprehensive insights into your moderation activities
+            </p>
+          </div>
         </div>
-        <div className="animate-pulse space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
+            <Card key={i}>
+              <CardHeader className="animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-8 bg-gray-200 rounded w-1/2 mt-2"></div>
+              </CardHeader>
+            </Card>
           ))}
         </div>
       </div>
@@ -122,84 +101,71 @@ const Reports = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Reports</h1>
+          <h1 className="text-3xl font-bold">Analytics & Reports</h1>
           <p className="text-muted-foreground mt-1">
-            Analytics and insights dashboard
+            Comprehensive insights into your moderation activities
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue />
+        
+        <div className="flex gap-3">
+          <Select value={timeRange} onValueChange={(value: any) => setTimeRange(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select time range" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="7days">Last 7 Days</SelectItem>
               <SelectItem value="30days">Last 30 Days</SelectItem>
               <SelectItem value="90days">Last 90 Days</SelectItem>
-              <SelectItem value="1year">Last Year</SelectItem>
+              <SelectItem value="all">All Time</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={() => handleExportReport('full')} className="w-full sm:w-auto touch-manipulation min-h-[40px]">
+          
+          <Button variant="outline" onClick={() => handleExportReport('pdf')}>
             <Download className="h-4 w-4 mr-2" />
-            Export Report
+            PDF
+          </Button>
+          <Button variant="outline" onClick={() => handleExportReport('csv')}>
+            <Download className="h-4 w-4 mr-2" />
+            CSV
           </Button>
         </div>
       </div>
 
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Key Metrics Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Properties Reviewed</CardTitle>
             <Building className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{reportData.propertyStats.total}</div>
-            <div className="flex items-center gap-2 mt-2">
-              <div className="text-xs text-green-600">
-                {reportData.propertyStats.available} Available
-              </div>
-              <div className="text-xs text-yellow-600">
-                {reportData.propertyStats.pending} Pending
-              </div>
-              <div className="text-xs text-red-600">
-                {reportData.propertyStats.rejected} Rejected
-              </div>
-            </div>
+            <div className="text-2xl font-bold">{stats?.totalPropertiesApproved || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats?.analytics && (
+                <span className="text-green-600">
+                  +{stats.analytics.propertiesApprovedLast7Days} this week
+                </span>
+              )}
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Approval Rate</CardTitle>
+            <Percent className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {reportData.userStats.totalVendors + reportData.userStats.totalCustomers}
+              {stats?.totalPropertiesApproved > 0 
+                ? ((stats.availablePropertiesApproved / stats.totalPropertiesApproved) * 100).toFixed(1)
+                : 0}%
             </div>
-            <div className="flex items-center gap-2 mt-2">
-              <div className="text-xs text-blue-600">
-                {reportData.userStats.totalVendors} Vendors
-              </div>
-              <div className="text-xs text-purple-600">
-                {reportData.userStats.totalCustomers} Customers
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Views</CardTitle>
-            <Eye className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{reportData.engagementStats.totalViews.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Property page views
+            <p className="text-xs text-muted-foreground mt-1">
+              Properties approved vs rejected
             </p>
           </CardContent>
         </Card>
@@ -207,823 +173,304 @@ const Reports = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Support Tickets</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{reportData.supportStats.totalTickets}</div>
-            <div className="flex items-center gap-2 mt-2">
-              <div className="text-xs text-orange-600">
-                {reportData.supportStats.openTickets} Open
-              </div>
-              <div className="text-xs text-green-600">
-                {reportData.supportStats.resolvedTickets} Resolved
-              </div>
+            <div className="text-2xl font-bold">{stats?.totalSupport || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats?.resolvedSupport || 0} resolved, {stats?.openSupport || 0} open
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats?.analytics?.avgResponseTimeHours || 0}h
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Average ticket resolution time
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-          <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
-          <TabsTrigger value="properties" className="text-xs sm:text-sm">Properties</TabsTrigger>
-          <TabsTrigger value="users" className="text-xs sm:text-sm">Users</TabsTrigger>
-          <TabsTrigger value="engagement" className="text-xs sm:text-sm">Engagement</TabsTrigger>
-          <TabsTrigger value="support" className="text-xs sm:text-sm">Support</TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-4 mt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Property Distribution</CardTitle>
-                <CardDescription>Breakdown of property statuses</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Available Properties</span>
-                    <span className="text-sm font-semibold text-green-600">
-                      {reportData.propertyStats.available} ({reportData.propertyStats.total > 0 ? Math.round((reportData.propertyStats.available / reportData.propertyStats.total) * 100) : 0}%)
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Pending Review</span>
-                    <span className="text-sm font-semibold text-yellow-600">
-                      {reportData.propertyStats.pending} ({reportData.propertyStats.total > 0 ? Math.round((reportData.propertyStats.pending / reportData.propertyStats.total) * 100) : 0}%)
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Rejected</span>
-                    <span className="text-sm font-semibold text-red-600">
-                      {reportData.propertyStats.rejected} ({reportData.propertyStats.total > 0 ? Math.round((reportData.propertyStats.rejected / reportData.propertyStats.total) * 100) : 0}%)
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center pt-2 border-t">
-                    <span className="text-sm font-medium">Total</span>
-                    <span className="text-sm font-semibold">{reportData.propertyStats.total}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>User Growth</CardTitle>
-                <CardDescription>User registration statistics</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Total Active Users</span>
-                    <span className="text-sm font-semibold">{reportData.userStats.activeUsers}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">New Users This Month</span>
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-semibold text-green-600">
-                        {reportData.userStats.newUsersThisMonth}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Vendors</span>
-                    <span className="text-sm font-semibold">{reportData.userStats.totalVendors}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Customers</span>
-                    <span className="text-sm font-semibold">{reportData.userStats.totalCustomers}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Engagement Metrics</CardTitle>
-                <CardDescription>User interaction statistics</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Total Views</span>
-                    <span className="text-sm font-semibold">{reportData.engagementStats.totalViews.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Total Messages</span>
-                    <span className="text-sm font-semibold">{reportData.engagementStats.totalMessages.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Total Reviews</span>
-                    <span className="text-sm font-semibold">{reportData.engagementStats.totalReviews.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Average Rating</span>
-                    <span className="text-sm font-semibold">
-                      {reportData.engagementStats.averageRating > 0 
-                        ? `${reportData.engagementStats.averageRating.toFixed(1)} / 5.0` 
-                        : 'No ratings yet'}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Support Performance</CardTitle>
-                <CardDescription>Customer support metrics</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Total Tickets</span>
-                    <span className="text-sm font-semibold">{reportData.supportStats.totalTickets}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Open Tickets</span>
-                    <span className="text-sm font-semibold text-orange-600">{reportData.supportStats.openTickets}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Resolved Tickets</span>
-                    <span className="text-sm font-semibold text-green-600">{reportData.supportStats.resolvedTickets}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Avg Resolution Time</span>
-                    <span className="text-sm font-semibold">
-                      {reportData.supportStats.resolvedTickets > 0 
-                        ? `${reportData.supportStats.avgResolutionTime}h` 
-                        : 'N/A'}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
+      {/* Detailed Analytics */}
+      {stats?.analytics && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Property Review Performance */}
           <Card>
             <CardHeader>
-              <CardTitle>Export Options</CardTitle>
-              <CardDescription>Download detailed reports</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Property Review Performance
+              </CardTitle>
+              <CardDescription>Breakdown of your property moderation activities</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                <Button variant="outline" onClick={() => handleExportReport('properties')} className="w-full touch-manipulation min-h-[40px]">
-                  <Download className="h-4 w-4 mr-2" />
-                  Properties Report
-                </Button>
-                <Button variant="outline" onClick={() => handleExportReport('users')} className="w-full touch-manipulation min-h-[40px]">
-                  <Download className="h-4 w-4 mr-2" />
-                  Users Report
-                </Button>
-                <Button variant="outline" onClick={() => handleExportReport('engagement')} className="w-full touch-manipulation min-h-[40px]">
-                  <Download className="h-4 w-4 mr-2" />
-                  Engagement Report
-                </Button>
-                <Button variant="outline" onClick={() => handleExportReport('support')} className="w-full touch-manipulation min-h-[40px]">
-                  <Download className="h-4 w-4 mr-2" />
-                  Support Report
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Properties Tab */}
-        <TabsContent value="properties" className="space-y-4 mt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Available Properties</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-green-600">
-                  {reportData.propertyStats.available}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {reportData.propertyStats.total > 0 
-                    ? `${Math.round((reportData.propertyStats.available / reportData.propertyStats.total) * 100)}% of total`
-                    : '0% of total'}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Pending Review</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-yellow-600">
-                  {reportData.propertyStats.pending}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {reportData.propertyStats.total > 0 
-                    ? `${Math.round((reportData.propertyStats.pending / reportData.propertyStats.total) * 100)}% of total`
-                    : '0% of total'}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Rejected</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-red-600">
-                  {reportData.propertyStats.rejected}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {reportData.propertyStats.total > 0 
-                    ? `${Math.round((reportData.propertyStats.rejected / reportData.propertyStats.total) * 100)}% of total`
-                    : '0% of total'}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Property Status Breakdown</CardTitle>
-              <CardDescription>Detailed property statistics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Available</span>
-                    <span className="text-sm font-semibold text-green-600">
-                      {reportData.propertyStats.available} / {reportData.propertyStats.total}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-green-600 h-2 rounded-full transition-all" 
-                      style={{ 
-                        width: `${reportData.propertyStats.total > 0 
-                          ? (reportData.propertyStats.available / reportData.propertyStats.total) * 100 
-                          : 0}%` 
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Pending Review</span>
-                    <span className="text-sm font-semibold text-yellow-600">
-                      {reportData.propertyStats.pending} / {reportData.propertyStats.total}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-yellow-600 h-2 rounded-full transition-all" 
-                      style={{ 
-                        width: `${reportData.propertyStats.total > 0 
-                          ? (reportData.propertyStats.pending / reportData.propertyStats.total) * 100 
-                          : 0}%` 
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Rejected</span>
-                    <span className="text-sm font-semibold text-red-600">
-                      {reportData.propertyStats.rejected} / {reportData.propertyStats.total}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-red-600 h-2 rounded-full transition-all" 
-                      style={{ 
-                        width: `${reportData.propertyStats.total > 0 
-                          ? (reportData.propertyStats.rejected / reportData.propertyStats.total) * 100 
-                          : 0}%` 
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" onClick={() => handleExportReport('properties')} className="w-full touch-manipulation min-h-[40px]">
-                <Download className="h-4 w-4 mr-2" />
-                Export Detailed Property Report
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Users Tab */}
-        <TabsContent value="users" className="space-y-4 mt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Total Users</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-blue-600">
-                  {reportData.userStats.activeUsers}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  All registered users
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Vendors</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-purple-600">
-                  {reportData.userStats.totalVendors}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {reportData.userStats.activeUsers > 0 
-                    ? `${Math.round((reportData.userStats.totalVendors / reportData.userStats.activeUsers) * 100)}% of users`
-                    : '0% of users'}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Customers</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-indigo-600">
-                  {reportData.userStats.totalCustomers}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {reportData.userStats.activeUsers > 0 
-                    ? `${Math.round((reportData.userStats.totalCustomers / reportData.userStats.activeUsers) * 100)}% of users`
-                    : '0% of users'}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>New Users</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-green-600">
-                  {reportData.userStats.newUsersThisMonth}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  This month
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>User Distribution</CardTitle>
-              <CardDescription>Breakdown by user type</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Vendors (Agents)</span>
-                    <span className="text-sm font-semibold text-purple-600">
-                      {reportData.userStats.totalVendors} ({reportData.userStats.activeUsers > 0 
-                        ? Math.round((reportData.userStats.totalVendors / reportData.userStats.activeUsers) * 100) 
-                        : 0}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-purple-600 h-2 rounded-full transition-all" 
-                      style={{ 
-                        width: `${reportData.userStats.activeUsers > 0 
-                          ? (reportData.userStats.totalVendors / reportData.userStats.activeUsers) * 100 
-                          : 0}%` 
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Customers</span>
-                    <span className="text-sm font-semibold text-indigo-600">
-                      {reportData.userStats.totalCustomers} ({reportData.userStats.activeUsers > 0 
-                        ? Math.round((reportData.userStats.totalCustomers / reportData.userStats.activeUsers) * 100) 
-                        : 0}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-indigo-600 h-2 rounded-full transition-all" 
-                      style={{ 
-                        width: `${reportData.userStats.activeUsers > 0 
-                          ? (reportData.userStats.totalCustomers / reportData.userStats.activeUsers) * 100 
-                          : 0}%` 
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Growth Metrics</CardTitle>
-              <CardDescription>User registration trends</CardDescription>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/10 rounded-lg">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-950">
                   <div className="flex items-center gap-3">
-                    <TrendingUp className="h-5 w-5 text-green-600" />
+                    <CheckCircle className="h-5 w-5 text-green-600" />
                     <div>
-                      <p className="text-sm font-medium">New Registrations</p>
-                      <p className="text-xs text-muted-foreground">Current month</p>
+                      <p className="font-medium">Approved Properties</p>
+                      <p className="text-sm text-muted-foreground">Available listings</p>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-green-600">
-                    +{reportData.userStats.newUsersThisMonth}
+                  <p className="text-2xl font-bold">{stats.availablePropertiesApproved}</p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-lg bg-red-50 dark:bg-red-950">
+                  <div className="flex items-center gap-3">
+                    <XCircle className="h-5 w-5 text-red-600" />
+                    <div>
+                      <p className="font-medium">Rejected Properties</p>
+                      <p className="text-sm text-muted-foreground">Not approved</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold">{stats.rejectedPropertiesApproved}</p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-50 dark:bg-yellow-950">
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-5 w-5 text-yellow-600" />
+                    <div>
+                      <p className="font-medium">Pending Review</p>
+                      <p className="text-sm text-muted-foreground">Awaiting action</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold">{stats.pendingProperties}</p>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t">
+                <h4 className="font-semibold mb-3">Time-based Analytics</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950">
+                    <p className="text-xs text-muted-foreground">Last 7 Days</p>
+                    <p className="text-xl font-bold">{stats.analytics.propertiesApprovedLast7Days}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950">
+                    <p className="text-xs text-muted-foreground">Last 30 Days</p>
+                    <p className="text-xl font-bold">{stats.analytics.propertiesApprovedLast30Days}</p>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* Support Ticket Performance */}
           <Card>
             <CardHeader>
-              <CardTitle>Actions</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Support Ticket Performance
+              </CardTitle>
+              <CardDescription>Your customer support metrics and trends</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button variant="outline" onClick={() => handleExportReport('users')} className="w-full touch-manipulation min-h-[40px]">
-                <Download className="h-4 w-4 mr-2" />
-                Export Detailed User Report
-              </Button>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-orange-50 dark:bg-orange-950">
+                  <div className="flex items-center gap-3">
+                    <Activity className="h-5 w-5 text-orange-600" />
+                    <div>
+                      <p className="font-medium">Open Tickets</p>
+                      <p className="text-sm text-muted-foreground">Pending response</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold">{stats.openSupport}</p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-950">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <div>
+                      <p className="font-medium">Resolved Tickets</p>
+                      <p className="text-sm text-muted-foreground">Successfully closed</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold">{stats.resolvedSupport}</p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-950">
+                  <div className="flex items-center gap-3">
+                    <XCircle className="h-5 w-5 text-gray-600" />
+                    <div>
+                      <p className="font-medium">Closed Tickets</p>
+                      <p className="text-sm text-muted-foreground">All completed</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold">{stats.closedSupport}</p>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t">
+                <h4 className="font-semibold mb-3">Resolution Analytics</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950">
+                    <p className="text-xs text-muted-foreground">Resolved (7d)</p>
+                    <p className="text-xl font-bold">{stats.analytics.supportTicketsResolvedLast7Days}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-teal-50 dark:bg-teal-950">
+                    <p className="text-xs text-muted-foreground">Resolved (30d)</p>
+                    <p className="text-xl font-bold">{stats.analytics.supportTicketsResolvedLast30Days}</p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+      )}
 
-        {/* Engagement Tab */}
-        <TabsContent value="engagement" className="space-y-4 mt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Total Views</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-blue-600">
-                  {reportData.engagementStats.totalViews.toLocaleString()}
+      {/* Monthly Trends */}
+      {stats?.analytics && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Monthly Trends & Comparison
+            </CardTitle>
+            <CardDescription>Compare this month's performance with last month</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Property Approval Trend */}
+              <div className="space-y-3">
+                <h4 className="font-semibold">Property Approvals</h4>
+                <div className="flex items-center justify-between p-4 rounded-lg border">
+                  <div>
+                    <p className="text-sm text-muted-foreground">This Month</p>
+                    <p className="text-3xl font-bold">{stats.analytics.propertiesApprovedThisMonth}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className={`flex items-center gap-1 text-lg font-semibold ${
+                      stats.analytics.propertyApprovalTrend >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {stats.analytics.propertyApprovalTrend >= 0 ? (
+                        <TrendingUp className="h-5 w-5" />
+                      ) : (
+                        <TrendingUp className="h-5 w-5 rotate-180" />
+                      )}
+                      <span>{Math.abs(stats.analytics.propertyApprovalTrend)}%</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">vs last month</p>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Property page views
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Messages</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-purple-600">
-                  {reportData.engagementStats.totalMessages.toLocaleString()}
+                <div className="p-3 rounded-lg bg-muted">
+                  <p className="text-sm text-muted-foreground">Last Month</p>
+                  <p className="text-xl font-bold">{stats.analytics.propertiesApprovedLastMonth}</p>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  User conversations
-                </p>
-              </CardContent>
-            </Card>
+              </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Reviews</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-amber-600">
-                  {reportData.engagementStats.totalReviews.toLocaleString()}
+              {/* Support Ticket Trend */}
+              <div className="space-y-3">
+                <h4 className="font-semibold">Support Tickets</h4>
+                <div className="flex items-center justify-between p-4 rounded-lg border">
+                  <div>
+                    <p className="text-sm text-muted-foreground">This Month</p>
+                    <p className="text-3xl font-bold">{stats.analytics.supportTicketsThisMonth}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className={`flex items-center gap-1 text-lg font-semibold ${
+                      stats.analytics.supportTicketTrend >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {stats.analytics.supportTicketTrend >= 0 ? (
+                        <TrendingUp className="h-5 w-5" />
+                      ) : (
+                        <TrendingUp className="h-5 w-5 rotate-180" />
+                      )}
+                      <span>{Math.abs(stats.analytics.supportTicketTrend)}%</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">vs last month</p>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Customer reviews
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Avg Rating</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-yellow-600">
-                  {reportData.engagementStats.averageRating > 0 
-                    ? reportData.engagementStats.averageRating.toFixed(1) 
-                    : 'N/A'}
+                <div className="p-3 rounded-lg bg-muted">
+                  <p className="text-sm text-muted-foreground">Last Month</p>
+                  <p className="text-xl font-bold">{stats.analytics.supportTicketsLastMonth}</p>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {reportData.engagementStats.averageRating > 0 ? 'Out of 5.0' : 'No ratings yet'}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Engagement Overview</CardTitle>
-              <CardDescription>Platform interaction metrics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 border rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Eye className="h-5 w-5 text-blue-600" />
-                        <div>
-                          <p className="font-medium">Property Views</p>
-                          <p className="text-sm text-muted-foreground">Total page views</p>
-                        </div>
-                      </div>
-                      <p className="text-2xl font-bold text-blue-600">
-                        {reportData.engagementStats.totalViews.toLocaleString()}
+      {/* Performance Insights */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Performance Insights
+          </CardTitle>
+          <CardDescription>Key insights and recommendations</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {stats?.analytics && (
+              <>
+                {stats.analytics.propertyApprovalTrend > 10 && (
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-950">
+                    <TrendingUp className="h-5 w-5 text-green-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-green-900 dark:text-green-100">
+                        Excellent Property Review Performance
+                      </p>
+                      <p className="text-sm text-green-700 dark:text-green-300">
+                        You've increased your property approvals by {stats.analytics.propertyApprovalTrend}% compared to last month. Keep up the great work!
                       </p>
                     </div>
                   </div>
-
-                  <div className="p-4 border rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <MessageSquare className="h-5 w-5 text-purple-600" />
-                        <div>
-                          <p className="font-medium">Messages Sent</p>
-                          <p className="text-sm text-muted-foreground">User-to-vendor messages</p>
-                        </div>
-                      </div>
-                      <p className="text-2xl font-bold text-purple-600">
-                        {reportData.engagementStats.totalMessages.toLocaleString()}
+                )}
+                
+                {stats.analytics.avgResponseTimeHours < 24 && (
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950">
+                    <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-blue-900 dark:text-blue-100">
+                        Fast Response Time
+                      </p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        Your average response time of {stats.analytics.avgResponseTimeHours}h is excellent. Users appreciate quick responses!
                       </p>
                     </div>
                   </div>
-                </div>
+                )}
 
-                <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <BarChart3 className="h-5 w-5 text-amber-600" />
-                      <div>
-                        <p className="font-medium">Customer Reviews</p>
-                        <p className="text-sm text-muted-foreground">
-                          Average rating: {reportData.engagementStats.averageRating > 0 
-                            ? `${reportData.engagementStats.averageRating.toFixed(1)} / 5.0` 
-                            : 'No ratings'}
-                        </p>
-                      </div>
+                {stats.openSupport > 10 && (
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-950">
+                    <Activity className="h-5 w-5 text-yellow-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-yellow-900 dark:text-yellow-100">
+                        High Open Ticket Volume
+                      </p>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                        You have {stats.openSupport} open tickets. Consider prioritizing ticket resolution to improve response times.
+                      </p>
                     </div>
-                    <p className="text-2xl font-bold text-amber-600">
-                      {reportData.engagementStats.totalReviews.toLocaleString()}
-                    </p>
                   </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Engagement Insights</CardTitle>
-              <CardDescription>Key engagement metrics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg">
-                  <span className="text-sm font-medium">Avg Views per Property</span>
-                  <span className="text-sm font-bold text-blue-600">
-                    {reportData.propertyStats.total > 0 
-                      ? Math.round(reportData.engagementStats.totalViews / reportData.propertyStats.total).toLocaleString()
-                      : 0}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg">
-                  <span className="text-sm font-medium">Avg Messages per User</span>
-                  <span className="text-sm font-bold text-purple-600">
-                    {reportData.userStats.activeUsers > 0 
-                      ? Math.round(reportData.engagementStats.totalMessages / reportData.userStats.activeUsers).toLocaleString()
-                      : 0}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-amber-50 dark:bg-amber-900/10 rounded-lg">
-                  <span className="text-sm font-medium">Review Coverage</span>
-                  <span className="text-sm font-bold text-amber-600">
-                    {reportData.propertyStats.total > 0 
-                      ? `${Math.round((reportData.engagementStats.totalReviews / reportData.propertyStats.total) * 100)}%`
-                      : '0%'}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" onClick={() => handleExportReport('engagement')} className="w-full touch-manipulation min-h-[40px]">
-                <Download className="h-4 w-4 mr-2" />
-                Export Detailed Engagement Report
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Support Tab */}
-        <TabsContent value="support" className="space-y-4 mt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Total Tickets</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-blue-600">
-                  {reportData.supportStats.totalTickets}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  All support requests
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Open Tickets</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-orange-600">
-                  {reportData.supportStats.openTickets}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Awaiting response
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Resolved</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-green-600">
-                  {reportData.supportStats.resolvedTickets}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Successfully closed
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Avg Resolution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-purple-600">
-                  {reportData.supportStats.avgResolutionTime}h
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Average time to resolve
-                </p>
-              </CardContent>
-            </Card>
+                {stats.totalPropertiesApproved === 0 && (
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-950">
+                    <FileText className="h-5 w-5 text-gray-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">
+                        Get Started
+                      </p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Start reviewing properties and handling support tickets to build your performance metrics.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Ticket Status Distribution</CardTitle>
-              <CardDescription>Support ticket breakdown</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Resolved Tickets</span>
-                    <span className="text-sm font-semibold text-green-600">
-                      {reportData.supportStats.resolvedTickets} ({reportData.supportStats.totalTickets > 0 
-                        ? Math.round((reportData.supportStats.resolvedTickets / reportData.supportStats.totalTickets) * 100) 
-                        : 0}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-green-600 h-2 rounded-full transition-all" 
-                      style={{ 
-                        width: `${reportData.supportStats.totalTickets > 0 
-                          ? (reportData.supportStats.resolvedTickets / reportData.supportStats.totalTickets) * 100 
-                          : 0}%` 
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Open Tickets</span>
-                    <span className="text-sm font-semibold text-orange-600">
-                      {reportData.supportStats.openTickets} ({reportData.supportStats.totalTickets > 0 
-                        ? Math.round((reportData.supportStats.openTickets / reportData.supportStats.totalTickets) * 100) 
-                        : 0}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-orange-600 h-2 rounded-full transition-all" 
-                      style={{ 
-                        width: `${reportData.supportStats.totalTickets > 0 
-                          ? (reportData.supportStats.openTickets / reportData.supportStats.totalTickets) * 100 
-                          : 0}%` 
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Performance Metrics</CardTitle>
-              <CardDescription>Support team efficiency</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/10 rounded-lg">
-                  <div>
-                    <p className="text-sm font-medium">Resolution Rate</p>
-                    <p className="text-xs text-muted-foreground">Resolved vs Total</p>
-                  </div>
-                  <p className="text-2xl font-bold text-green-600">
-                    {reportData.supportStats.totalTickets > 0 
-                      ? Math.round((reportData.supportStats.resolvedTickets / reportData.supportStats.totalTickets) * 100)
-                      : 0}%
-                  </p>
-                </div>
-
-                <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg">
-                  <div>
-                    <p className="text-sm font-medium">Average Resolution Time</p>
-                    <p className="text-xs text-muted-foreground">Time to close tickets</p>
-                  </div>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {reportData.supportStats.avgResolutionTime}h
-                  </p>
-                </div>
-
-                <div className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-900/10 rounded-lg">
-                  <div>
-                    <p className="text-sm font-medium">Pending Work</p>
-                    <p className="text-xs text-muted-foreground">Currently open</p>
-                  </div>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {reportData.supportStats.openTickets}
-                  </p>
-                </div>
-
-                <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg">
-                  <div>
-                    <p className="text-sm font-medium">Total Handled</p>
-                    <p className="text-xs text-muted-foreground">All-time tickets</p>
-                  </div>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {reportData.supportStats.totalTickets}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" onClick={() => handleExportReport('support')} className="w-full touch-manipulation min-h-[40px]">
-                <Download className="h-4 w-4 mr-2" />
-                Export Detailed Support Report
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 };

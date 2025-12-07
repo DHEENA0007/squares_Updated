@@ -21,6 +21,14 @@ router.use(isSubAdmin);
 router.get('/dashboard', asyncHandler(async (req, res) => {
   const subAdminId = req.user.id;
 
+  // Date ranges for analytics
+  const now = new Date();
+  const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
   const [
     totalPropertiesApproved,
     availablePropertiesApproved,
@@ -29,7 +37,21 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     totalSupport,
     openSupport,
     resolvedSupport,
-    closedSupport
+    closedSupport,
+    // Analytics data
+    propertiesApprovedLast7Days,
+    propertiesApprovedLast30Days,
+    supportTicketsResolvedLast7Days,
+    supportTicketsResolvedLast30Days,
+    // This month vs last month
+    propertiesApprovedThisMonth,
+    propertiesApprovedLastMonth,
+    supportTicketsThisMonth,
+    supportTicketsLastMonth,
+    // Recent activities
+    recentApprovals,
+    recentRejections,
+    recentTickets
   ] = await Promise.all([
     // Properties approved by this subadmin
     Property.countDocuments({ approvedBy: subAdminId }),
@@ -42,12 +64,100 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     SupportTicket.countDocuments({ assignedTo: subAdminId }),
     SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'open' }),
     SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'resolved' }),
-    SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'closed' })
+    SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'closed' }),
+    // Last 7 days analytics
+    Property.countDocuments({ 
+      approvedBy: subAdminId, 
+      approvedAt: { $gte: last7Days }
+    }),
+    Property.countDocuments({ 
+      approvedBy: subAdminId, 
+      approvedAt: { $gte: last30Days }
+    }),
+    SupportTicket.countDocuments({ 
+      assignedTo: subAdminId, 
+      status: 'resolved',
+      updatedAt: { $gte: last7Days }
+    }),
+    SupportTicket.countDocuments({ 
+      assignedTo: subAdminId, 
+      status: 'resolved',
+      updatedAt: { $gte: last30Days }
+    }),
+    // This month vs last month
+    Property.countDocuments({ 
+      approvedBy: subAdminId, 
+      approvedAt: { $gte: thisMonthStart }
+    }),
+    Property.countDocuments({ 
+      approvedBy: subAdminId, 
+      approvedAt: { $gte: lastMonthStart, $lte: lastMonthEnd }
+    }),
+    SupportTicket.countDocuments({ 
+      assignedTo: subAdminId, 
+      createdAt: { $gte: thisMonthStart }
+    }),
+    SupportTicket.countDocuments({ 
+      assignedTo: subAdminId, 
+      createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd }
+    }),
+    // Recent activities
+    Property.find({ approvedBy: subAdminId, status: 'available' })
+      .sort({ approvedAt: -1 })
+      .limit(5)
+      .select('title type approvedAt')
+      .populate('owner', 'profile.firstName profile.lastName email'),
+    Property.find({ approvedBy: subAdminId, status: 'rejected' })
+      .sort({ updatedAt: -1 })
+      .limit(5)
+      .select('title type rejectionReason updatedAt'),
+    SupportTicket.find({ assignedTo: subAdminId })
+      .sort({ updatedAt: -1 })
+      .limit(5)
+      .select('subject status priority updatedAt')
+      .populate('user', 'profile.firstName profile.lastName email')
   ]);
+
+  // Calculate trends
+  const propertyApprovalTrend = propertiesApprovedLastMonth > 0 
+    ? ((propertiesApprovedThisMonth - propertiesApprovedLastMonth) / propertiesApprovedLastMonth * 100).toFixed(1)
+    : propertiesApprovedThisMonth > 0 ? 100 : 0;
+
+  const supportTicketTrend = supportTicketsLastMonth > 0
+    ? ((supportTicketsThisMonth - supportTicketsLastMonth) / supportTicketsLastMonth * 100).toFixed(1)
+    : supportTicketsThisMonth > 0 ? 100 : 0;
+
+  // Calculate average response time
+  const avgResponseTime = await SupportTicket.aggregate([
+    { 
+      $match: { 
+        assignedTo: subAdminId,
+        status: { $in: ['resolved', 'closed'] }
+      }
+    },
+    {
+      $project: {
+        responseTime: {
+          $subtract: ['$updatedAt', '$createdAt']
+        }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        avgTime: { $avg: '$responseTime' }
+      }
+    }
+  ]);
+
+  const avgResponseTimeHours = avgResponseTime.length > 0 
+    ? (avgResponseTime[0].avgTime / (1000 * 60 * 60)).toFixed(1)
+    : 0;
 
   res.json({
     success: true,
     data: {
+      // Basic stats
       totalPropertiesApproved,
       availablePropertiesApproved,
       pendingProperties,
@@ -56,7 +166,26 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
       openSupport,
       resolvedSupport,
       closedSupport,
-      recentActivity: []
+      // Analytics
+      analytics: {
+        propertiesApprovedLast7Days,
+        propertiesApprovedLast30Days,
+        supportTicketsResolvedLast7Days,
+        supportTicketsResolvedLast30Days,
+        propertiesApprovedThisMonth,
+        propertiesApprovedLastMonth,
+        supportTicketsThisMonth,
+        supportTicketsLastMonth,
+        propertyApprovalTrend: parseFloat(propertyApprovalTrend),
+        supportTicketTrend: parseFloat(supportTicketTrend),
+        avgResponseTimeHours: parseFloat(avgResponseTimeHours)
+      },
+      // Recent activity
+      recentActivity: {
+        approvals: recentApprovals,
+        rejections: recentRejections,
+        tickets: recentTickets
+      }
     }
   });
 }));
@@ -1218,6 +1347,7 @@ router.get('/reports',
   hasPermission(SUB_ADMIN_PERMISSIONS.GENERATE_REPORTS),
   asyncHandler(async (req, res) => {
     const { range = '30days' } = req.query;
+    const subAdminId = req.user.id;
 
     // Calculate date range
     const now = new Date();
@@ -1240,18 +1370,27 @@ router.get('/reports',
     }
 
     const [
-      propertyStats,
-      userStats,
-      totalViews,
-      allMessages,
-      totalReviews,
-      reviewStats,
-      supportTickets,
-      openSupportTickets,
-      resolvedSupportTickets,
-      newUsers
+      // Properties handled by this subadmin
+      myPropertiesStats,
+      myPropertiesInRange,
+      // Vendors I approved
+      myApprovedVendors,
+      myApprovedVendorsInRange,
+      // Support tickets I handled
+      mySupportTickets,
+      myOpenTickets,
+      myResolvedTickets,
+      myClosedTickets,
+      myTicketsInRange,
+      // Content moderation by me
+      myContentModerations,
+      myContentModerationsInRange
     ] = await Promise.all([
+      // My property approvals by status
       Property.aggregate([
+        {
+          $match: { approvedBy: subAdminId }
+        },
         {
           $group: {
             _id: '$status',
@@ -1259,101 +1398,106 @@ router.get('/reports',
           }
         }
       ]),
-      User.aggregate([
-        {
-          $match: {
-            role: { $nin: ['superadmin', 'subadmin'] }
-          }
-        },
-        {
-          $group: {
-            _id: '$role',
-            count: { $sum: 1 }
-          }
-        }
-      ]),
-      Property.aggregate([
-        {
-          $group: {
-            _id: null,
-            totalViews: { $sum: { $ifNull: ['$views', 0] } }
-          }
-        }
-      ]),
-      Message.countDocuments(),
-      Review.countDocuments({ status: 'active' }),
-      Review.aggregate([
-        {
-          $match: { status: 'active' }
-        },
-        {
-          $group: {
-            _id: null,
-            avgRating: { $avg: '$rating' },
-            totalRatings: { $sum: 1 }
-          }
-        }
-      ]),
-      SupportTicket.countDocuments(),
-      SupportTicket.countDocuments({ status: 'open' }),
-      SupportTicket.countDocuments({ status: 'resolved' }),
+      // My properties in selected range
+      Property.countDocuments({ 
+        approvedBy: subAdminId,
+        updatedAt: { $gte: startDate }
+      }),
+      // Total vendors I approved
       User.countDocuments({ 
-        createdAt: { $gte: startDate },
-        role: { $nin: ['superadmin', 'subadmin'] }
+        role: 'agent',
+        'vendorProfile': { $exists: true }
+      }).then(async () => {
+        const VendorProfile = require('../models/VendorProfile');
+        return await VendorProfile.countDocuments({
+          $or: [
+            { 'approvals.subadmin.reviewedBy': subAdminId },
+            { 'approvals.subadmin.approvedBy': subAdminId }
+          ]
+        });
+      }),
+      // Vendors approved in range
+      (async () => {
+        const VendorProfile = require('../models/VendorProfile');
+        return await VendorProfile.countDocuments({
+          $or: [
+            { 
+              'approvals.subadmin.reviewedBy': subAdminId,
+              'approvals.subadmin.reviewedAt': { $gte: startDate }
+            },
+            { 
+              'approvals.subadmin.approvedBy': subAdminId,
+              'approvals.subadmin.approvedAt': { $gte: startDate }
+            }
+          ]
+        });
+      })(),
+      // Support tickets assigned to me
+      SupportTicket.countDocuments({ assignedTo: subAdminId }),
+      SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'open' }),
+      SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'resolved' }),
+      SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'closed' }),
+      SupportTicket.countDocuments({ 
+        assignedTo: subAdminId,
+        updatedAt: { $gte: startDate }
+      }),
+      // Content moderation count (assuming rejection is content moderation)
+      Property.countDocuments({ 
+        rejectedBy: subAdminId
+      }),
+      Property.countDocuments({ 
+        rejectedBy: subAdminId,
+        rejectedAt: { $gte: startDate }
       })
     ]);
 
-    const propertyStatsMap = propertyStats.reduce((acc, stat) => {
+    const myPropertyStatsMap = myPropertiesStats.reduce((acc, stat) => {
       acc[stat._id] = stat.count;
       return acc;
     }, {});
 
-    const userStatsMap = userStats.reduce((acc, stat) => {
-      acc[stat._id] = stat.count;
-      return acc;
-    }, {});
-
-    // Calculate average resolution time for support tickets
-    const resolvedTicketsWithTime = await SupportTicket.find({ 
+    // Calculate average resolution time for my tickets
+    const myResolvedTicketsWithTime = await SupportTicket.find({ 
+      assignedTo: subAdminId,
       status: 'resolved',
       resolvedAt: { $exists: true }
-    }).select('createdAt resolvedAt');
+    }).select('createdAt resolvedAt assignedAt');
 
-    let avgResolutionTime = 24;
-    if (resolvedTicketsWithTime.length > 0) {
-      const totalHours = resolvedTicketsWithTime.reduce((sum, ticket) => {
-        const diff = new Date(ticket.resolvedAt).getTime() - new Date(ticket.createdAt).getTime();
+    let myAvgResolutionTime = 0;
+    if (myResolvedTicketsWithTime.length > 0) {
+      const totalHours = myResolvedTicketsWithTime.reduce((sum, ticket) => {
+        const startTime = ticket.assignedAt || ticket.createdAt;
+        const diff = new Date(ticket.resolvedAt).getTime() - new Date(startTime).getTime();
         return sum + (diff / (1000 * 60 * 60));
       }, 0);
-      avgResolutionTime = Math.round(totalHours / resolvedTicketsWithTime.length);
+      myAvgResolutionTime = Math.round(totalHours / myResolvedTicketsWithTime.length);
     }
 
     res.json({
       success: true,
       data: {
-        propertyStats: {
-          total: Object.values(propertyStatsMap).reduce((sum, count) => sum + count, 0),
-          available: propertyStatsMap.available || 0,
-          pending: propertyStatsMap.pending || 0,
-          rejected: propertyStatsMap.rejected || 0
+        myActivity: {
+          propertiesReviewed: Object.values(myPropertyStatsMap).reduce((sum, count) => sum + count, 0),
+          propertiesApproved: myPropertyStatsMap.available || 0,
+          propertiesRejected: myPropertyStatsMap.rejected || 0,
+          propertiesPending: myPropertyStatsMap.pending || 0,
+          vendorsApproved: myApprovedVendors,
+          ticketsHandled: mySupportTickets,
+          ticketsResolved: myResolvedTickets,
+          contentModerated: myContentModerations,
+          recentPropertiesReviewed: myPropertiesInRange,
+          recentVendorsApproved: myApprovedVendorsInRange,
+          recentTicketsHandled: myTicketsInRange,
+          recentContentModerated: myContentModerationsInRange
         },
-        userStats: {
-          totalVendors: userStatsMap.agent || 0,
-          totalCustomers: userStatsMap.customer || 0,
-          activeUsers: Object.values(userStatsMap).reduce((sum, count) => sum + count, 0),
-          newUsersThisMonth: newUsers
-        },
-        engagementStats: {
-          totalViews: totalViews[0]?.totalViews || 0,
-          totalMessages: allMessages,
-          totalReviews: totalReviews,
-          averageRating: reviewStats[0]?.avgRating ? Number(reviewStats[0].avgRating.toFixed(1)) : 0
-        },
-        supportStats: {
-          totalTickets: supportTickets,
-          openTickets: openSupportTickets,
-          resolvedTickets: resolvedSupportTickets,
-          avgResolutionTime: avgResolutionTime
+        myPerformance: {
+          avgResolutionTime: myAvgResolutionTime,
+          openTickets: myOpenTickets,
+          closedTickets: myClosedTickets,
+          responseRate: mySupportTickets > 0 ? Math.round((myResolvedTickets / mySupportTickets) * 100) : 0,
+          approvalRate: Object.values(myPropertyStatsMap).reduce((sum, count) => sum + count, 0) > 0 
+            ? Math.round(((myPropertyStatsMap.available || 0) / Object.values(myPropertyStatsMap).reduce((sum, count) => sum + count, 0)) * 100) 
+            : 0
         }
       }
     });
@@ -1584,6 +1728,7 @@ router.get('/addon-services',
   hasPermission(SUB_ADMIN_PERMISSIONS.APPROVE_PROMOTIONS), // Reusing promotions permission for addon services
   asyncHandler(async (req, res) => {
     const { status = 'active', search = '' } = req.query;
+    const AddonServiceSchedule = require('../models/AddonServiceSchedule');
 
     try {
       // Build match query for subscriptions
@@ -1704,11 +1849,37 @@ router.get('/addon-services',
         { $sort: { totalAddons: -1 } }
       ]);
 
+      // Fetch schedules for all vendors
+      const vendorIds = vendorAddons.map(v => v._id);
+      const schedules = await AddonServiceSchedule.find({
+        vendor: { $in: vendorIds }
+      })
+        .populate('addon', 'name category')
+        .populate('scheduledBy', 'email profile.firstName profile.lastName')
+        .sort({ createdAt: -1 })
+        .lean();
+
+      // Map schedules to vendors
+      const vendorScheduleMap = {};
+      schedules.forEach(schedule => {
+        const vendorId = schedule.vendor.toString();
+        if (!vendorScheduleMap[vendorId]) {
+          vendorScheduleMap[vendorId] = [];
+        }
+        vendorScheduleMap[vendorId].push(schedule);
+      });
+
+      // Add schedules to vendor data
+      const vendorAddonsWithSchedules = vendorAddons.map(vendor => ({
+        ...vendor,
+        schedules: vendorScheduleMap[vendor._id.toString()] || []
+      }));
+
       res.json({
         success: true,
         data: {
-          vendorAddons,
-          total: vendorAddons.length
+          vendorAddons: vendorAddonsWithSchedules,
+          total: vendorAddonsWithSchedules.length
         }
       });
     } catch (error) {
@@ -1726,12 +1897,13 @@ router.get('/addon-services',
 router.post('/addon-services/schedule',
   hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
   asyncHandler(async (req, res) => {
-    const { vendorId, addonId, subject, message, vendorEmail } = req.body;
+    const { vendorId, addonId, subscriptionId, subject, message, vendorEmail, priority = 'medium', scheduledDate } = req.body;
+    const AddonServiceSchedule = require('../models/AddonServiceSchedule');
 
-    if (!vendorId || !addonId || !subject || !message || !vendorEmail) {
+    if (!vendorId || !addonId || !subject || !message || !vendorEmail || !scheduledDate) {
       return res.status(400).json({
         success: false,
-        message: 'All fields are required: vendorId, addonId, subject, message, vendorEmail'
+        message: 'All fields are required: vendorId, addonId, subject, message, vendorEmail, scheduledDate'
       });
     }
 
@@ -1756,6 +1928,47 @@ router.post('/addon-services/schedule',
         });
       }
 
+      // Check if already scheduled
+      const existingSchedule = await AddonServiceSchedule.findOne({
+        vendor: vendorId,
+        addon: addonId,
+        status: { $in: ['pending', 'scheduled', 'in_progress'] }
+      });
+
+      if (existingSchedule) {
+        return res.status(400).json({
+          success: false,
+          message: 'This addon service is already scheduled for this vendor',
+          data: {
+            schedule: existingSchedule
+          }
+        });
+      }
+
+      // Create schedule record with scheduled status and date
+      const schedule = await AddonServiceSchedule.create({
+        vendor: vendorId,
+        addon: addonId,
+        subscription: subscriptionId,
+        scheduledBy: req.user.id,
+        emailSubject: subject,
+        emailMessage: message,
+        status: 'scheduled', // Auto-set to scheduled when date is provided
+        priority,
+        scheduledDate: new Date(scheduledDate)
+      });
+
+      // Format the scheduled date for email (Indian Standard Time)
+      const formattedDate = new Date(scheduledDate).toLocaleString('en-IN', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Kolkata'
+      });
+
       // Send email to vendor
       await emailService.sendEmail({
         to: vendorEmail,
@@ -1763,7 +1976,7 @@ router.post('/addon-services/schedule',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
             <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #2563eb; margin: 0;">Service Scheduling Request</h1>
+              <h1 style="color: #2563eb; margin: 0;">Service Scheduled</h1>
               <p style="color: #6b7280; margin: 5px 0;">From: ${req.user.email}</p>
             </div>
             
@@ -1773,50 +1986,77 @@ router.post('/addon-services/schedule',
               <p style="margin: 5px 0;"><strong>Email:</strong> ${vendor.email}</p>
             </div>
 
+            <div style="background-color: #dcfce7; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #16a34a;">
+              <h3 style="margin: 0 0 10px 0; color: #1f2937;">📅 Scheduled Date & Time</h3>
+              <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #16a34a;">${formattedDate}</p>
+              <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 14px;">
+                Please mark your calendar and ensure availability for this service.
+              </p>
+            </div>
+
             <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
               <h3 style="margin: 0 0 10px 0; color: #1f2937;">Service Details</h3>
               <p style="margin: 5px 0;"><strong>Service:</strong> ${addon.name}</p>
               <p style="margin: 5px 0;"><strong>Category:</strong> ${addon.category.charAt(0).toUpperCase() + addon.category.slice(1)}</p>
               <p style="margin: 5px 0;"><strong>Description:</strong> ${addon.description}</p>
+              <p style="margin: 5px 0;"><strong>Priority:</strong> <span style="color: ${priority === 'urgent' ? '#dc2626' : priority === 'high' ? '#ea580c' : priority === 'medium' ? '#ca8a04' : '#16a34a'}; font-weight: bold;">${priority.toUpperCase()}</span></p>
             </div>
 
             <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 20px;">
-              <h3 style="margin: 0 0 15px 0; color: #1f2937;">Message</h3>
+              <h3 style="margin: 0 0 15px 0; color: #1f2937;">Additional Message</h3>
               <div style="white-space: pre-wrap; line-height: 1.6; color: #374151;">${message}</div>
+            </div>
+
+            <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
+              <p style="margin: 0; color: #92400e; font-size: 14px;">
+                ⚠️ <strong>Important:</strong> If you need to reschedule or have any questions, please reply to this email immediately.
+              </p>
             </div>
 
             <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
               <p style="color: #6b7280; font-size: 14px; margin: 0;">
-                This email was sent from the Admin Panel. Please reply directly to this email with your preferred scheduling details.
+                This service has been scheduled. Please reply to this email if you need to make any changes.
               </p>
               <p style="color: #6b7280; font-size: 12px; margin: 10px 0 0 0;">
-                Sent on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
+                Email sent on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
+              </p>
+              <p style="color: #6b7280; font-size: 12px; margin: 5px 0 0 0;">
+                Schedule ID: ${schedule._id}
               </p>
             </div>
           </div>
         `
       });
 
+      // Populate schedule for response
+      await schedule.populate([
+        { path: 'addon', select: 'name category description' },
+        { path: 'scheduledBy', select: 'email profile.firstName profile.lastName' }
+      ]);
+
       // Broadcast real-time notification
       adminRealtimeService.broadcastNotification({
         type: 'addon_service_scheduled',
         title: 'Addon Service Scheduled',
-        message: `Scheduling email sent to ${vendor.profile?.firstName || vendor.email} for ${addon.name}`,
+        message: `Service scheduled for ${vendor.profile?.firstName || vendor.email} - ${addon.name} on ${formattedDate}`,
         data: {
           vendorId,
           vendorEmail,
           addonId,
           addonName: addon.name,
+          scheduleId: schedule._id,
           scheduledBy: req.user.email,
-          scheduledAt: new Date()
+          scheduledAt: new Date(),
+          serviceDate: scheduledDate
         },
         timestamp: new Date()
       });
 
       res.json({
         success: true,
-        message: 'Scheduling email sent successfully',
+        message: 'Service scheduled successfully and confirmation email sent to vendor',
         data: {
+          schedule,
           vendor: {
             id: vendor._id,
             name: `${vendor.profile?.firstName || ''} ${vendor.profile?.lastName || ''}`.trim(),
@@ -1827,6 +2067,7 @@ router.post('/addon-services/schedule',
             name: addon.name,
             category: addon.category
           },
+          scheduledDate: scheduledDate,
           emailSent: true,
           sentAt: new Date()
         }
@@ -1835,7 +2076,382 @@ router.post('/addon-services/schedule',
       console.error('Email sending error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to send scheduling email',
+        message: 'Failed to schedule service',
+        error: error.message
+      });
+    }
+  })
+);
+
+// Update addon service schedule status
+router.patch('/addon-services/schedule/:scheduleId/status',
+  hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
+  asyncHandler(async (req, res) => {
+    const { scheduleId } = req.params;
+    const { status, scheduledDate, vendorResponse, cancellationReason } = req.body;
+    const AddonServiceSchedule = require('../models/AddonServiceSchedule');
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status is required'
+      });
+    }
+
+    try {
+      const currentSchedule = await AddonServiceSchedule.findById(scheduleId)
+        .populate('vendor', 'email profile.firstName profile.lastName')
+        .populate('addon', 'name category description')
+        .populate('scheduledBy', 'email profile.firstName profile.lastName');
+      
+      if (!currentSchedule) {
+        return res.status(404).json({
+          success: false,
+          message: 'Schedule not found'
+        });
+      }
+
+      // Real-world status flow validation
+      const currentStatus = currentSchedule.status;
+      const validTransitions = {
+        scheduled: ['in_progress', 'completed', 'cancelled'],
+        in_progress: ['completed', 'cancelled'],
+        completed: [], // Cannot change from completed
+        cancelled: [] // Cannot change from cancelled
+      };
+
+      // Only allow valid status transitions
+      if (currentStatus === 'completed' || currentStatus === 'cancelled') {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot change status from ${currentStatus}. This service is already finalized.`
+        });
+      }
+
+      if (validTransitions[currentStatus] && !validTransitions[currentStatus].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid status transition from ${currentStatus} to ${status}`
+        });
+      }
+
+      // Check if scheduled date has passed for in_progress and completed
+      const now = new Date();
+      const serviceDate = currentSchedule.scheduledDate || now;
+      
+      if (status === 'in_progress' && serviceDate > now) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot mark as "In Progress" before the scheduled date (${new Date(serviceDate).toLocaleString()})`
+        });
+      }
+
+      if (status === 'completed' && serviceDate > now) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot mark as "Completed" before the scheduled date (${new Date(serviceDate).toLocaleString()})`
+        });
+      }
+
+      const updateData = { status };
+      const vendor = currentSchedule.vendor;
+      const addon = currentSchedule.addon;
+      let sendEmailNotification = false;
+      let emailTemplate = null;
+      let emailData = {};
+      
+      // Local time formatting options (Indian Standard Time)
+      const localTimeOptions = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Kolkata'
+      };
+      
+      // Handle cancelled status - require cancellation reason
+      if (status === 'cancelled') {
+        if (!cancellationReason || !cancellationReason.trim()) {
+          return res.status(400).json({
+            success: false,
+            message: 'Cancellation reason is required when cancelling a service'
+          });
+        }
+        updateData.cancellationReason = cancellationReason;
+        updateData.cancelledAt = new Date();
+
+        sendEmailNotification = true;
+        emailTemplate = 'addon-service-cancelled';
+        emailData = {
+          addonName: addon.name,
+          category: addon.category.charAt(0).toUpperCase() + addon.category.slice(1),
+          cancellationReason: cancellationReason,
+          cancelledAt: new Date().toLocaleString('en-IN', localTimeOptions)
+        };
+      }
+      
+      // Handle in_progress status - record start time
+      if (status === 'in_progress') {
+        updateData.inProgressAt = new Date();
+
+        sendEmailNotification = true;
+        emailTemplate = 'addon-service-in-progress';
+        emailData = {
+          addonName: addon.name,
+          category: addon.category.charAt(0).toUpperCase() + addon.category.slice(1),
+          inProgressAt: new Date().toLocaleString('en-IN', localTimeOptions),
+          scheduledDate: serviceDate ? new Date(serviceDate).toLocaleString('en-IN', localTimeOptions) : null,
+          notes: vendorResponse || null
+        };
+      }
+
+      // Handle completed status - auto-set completion date
+      if (status === 'completed') {
+        updateData.completedDate = new Date();
+        updateData.completedAt = new Date();
+
+        sendEmailNotification = true;
+        emailTemplate = 'addon-service-completed';
+        emailData = {
+          addonName: addon.name,
+          category: addon.category.charAt(0).toUpperCase() + addon.category.slice(1),
+          completedAt: new Date().toLocaleString('en-IN', localTimeOptions),
+          scheduledDate: serviceDate ? new Date(serviceDate).toLocaleString('en-IN', localTimeOptions) : null,
+          inProgressAt: currentSchedule.inProgressAt ? new Date(currentSchedule.inProgressAt).toLocaleString('en-IN', localTimeOptions) : null,
+          notes: vendorResponse || null
+        };
+      }
+
+      // Handle re-scheduling (updating scheduled date) - Manual email with local time
+      if (scheduledDate && scheduledDate !== currentSchedule.scheduledDate?.toISOString()) {
+        const newScheduledDate = new Date(scheduledDate);
+        updateData.scheduledDate = newScheduledDate;
+
+        const formattedNewDate = newScheduledDate.toLocaleString('en-IN', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Kolkata'
+        });
+
+        const formattedOldDate = currentSchedule.scheduledDate 
+          ? new Date(currentSchedule.scheduledDate).toLocaleString('en-IN', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              timeZone: 'Asia/Kolkata'
+            })
+          : '';
+
+        // Send reschedule email (manual template)
+        try {
+          await emailService.sendEmail({
+            to: vendor.email,
+            subject: `Service Rescheduled - ${addon.name}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ea580c; border-radius: 10px;">
+                <div style="text-align: center; margin-bottom: 30px; background-color: #ffedd5; padding: 20px; border-radius: 8px;">
+                  <h1 style="color: #ea580c; margin: 0;">📅 Service Rescheduled</h1>
+                  <p style="color: #c2410c; margin: 5px 0;">New Date & Time Confirmed</p>
+                </div>
+                
+                <div style="background-color: #fff7ed; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ea580c;">
+                  <h3 style="margin: 0 0 10px 0; color: #1f2937;">Service Information</h3>
+                  <p style="margin: 5px 0;"><strong>Service:</strong> ${addon.name}</p>
+                  <p style="margin: 5px 0;"><strong>Category:</strong> ${addon.category.charAt(0).toUpperCase() + addon.category.slice(1)}</p>
+                  <p style="margin: 5px 0;"><strong>Description:</strong> ${addon.description}</p>
+                </div>
+
+                <div style="background-color: #dcfce7; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #16a34a;">
+                  <h3 style="margin: 0 0 10px 0; color: #1f2937;">📅 NEW Scheduled Date & Time</h3>
+                  <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #16a34a;">${formattedNewDate}</p>
+                </div>
+
+                ${formattedOldDate ? `
+                <div style="background-color: #fee2e2; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                  <p style="margin: 0; color: #991b1b;"><strong>Previous Date:</strong> ${formattedOldDate}</p>
+                </div>` : ''}
+
+                ${vendorResponse ? `
+                <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 20px;">
+                  <h3 style="margin: 0 0 10px 0; color: #1f2937;">Additional Notes</h3>
+                  <p style="margin: 0; white-space: pre-wrap;">${vendorResponse}</p>
+                </div>` : ''}
+
+                <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
+                  <p style="margin: 0; color: #92400e; font-size: 14px;">
+                    ⚠️ <strong>Important:</strong> Please mark your calendar with the new date and time.
+                  </p>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                  <p style="color: #6b7280; font-size: 14px; margin: 0;">
+                    If you need to make any changes, please reply to this email.
+                  </p>
+                </div>
+              </div>
+            `
+          });
+        } catch (emailError) {
+          console.error('Failed to send reschedule email:', emailError);
+        }
+      }
+      
+      if (vendorResponse) {
+        updateData.vendorResponse = vendorResponse;
+      }
+
+      const schedule = await AddonServiceSchedule.findByIdAndUpdate(
+        scheduleId,
+        updateData,
+        { new: true }
+      )
+        .populate('vendor', 'email profile.firstName profile.lastName')
+        .populate('addon', 'name category description')
+        .populate('scheduledBy', 'email profile.firstName profile.lastName');
+
+      // Send email notification to vendor using templates for status updates
+      if (sendEmailNotification && emailTemplate && vendor.email) {
+        try {
+          await emailService.sendEmail({
+            to: vendor.email,
+            template: emailTemplate,
+            data: emailData
+          });
+        } catch (emailError) {
+          console.error('Failed to send status update email:', emailError);
+        }
+      }
+
+      // Broadcast real-time notification
+      adminRealtimeService.broadcastNotification({
+        type: 'addon_schedule_updated',
+        title: 'Addon Schedule Updated',
+        message: `Schedule status updated to ${status}${status === 'cancelled' ? ': ' + cancellationReason : ''}`,
+        data: {
+          scheduleId: schedule._id,
+          status,
+          addonName: schedule.addon?.name,
+          vendorEmail: schedule.vendor?.email,
+          updatedBy: req.user.email,
+          ...(status === 'cancelled' && { cancellationReason }),
+          ...(status === 'completed' && { completedAt: schedule.completedAt }),
+          ...(status === 'in_progress' && { inProgressAt: schedule.inProgressAt }),
+          ...(scheduledDate && { rescheduledDate: scheduledDate })
+        },
+        timestamp: new Date()
+      });
+
+      res.json({
+        success: true,
+        message: `Schedule ${status === 'cancelled' ? 'cancelled' : status === 'completed' ? 'completed' : scheduledDate && scheduledDate !== currentSchedule.scheduledDate?.toISOString() ? 'rescheduled' : 'updated'} successfully. Email notification sent to vendor.`,
+        data: { schedule }
+      });
+    } catch (error) {
+      console.error('Update schedule status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update schedule status',
+        error: error.message
+      });
+    }
+  })
+);
+
+// Add note to addon service schedule
+router.post('/addon-services/schedule/:scheduleId/notes',
+  hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
+  asyncHandler(async (req, res) => {
+    const { scheduleId } = req.params;
+    const { message } = req.body;
+    const AddonServiceSchedule = require('../models/AddonServiceSchedule');
+
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Note message is required'
+      });
+    }
+
+    try {
+      const schedule = await AddonServiceSchedule.findById(scheduleId);
+
+      if (!schedule) {
+        return res.status(404).json({
+          success: false,
+          message: 'Schedule not found'
+        });
+      }
+
+      schedule.notes.push({
+        message,
+        author: req.user.id,
+        createdAt: new Date()
+      });
+
+      await schedule.save();
+      
+      await schedule.populate([
+        { path: 'vendor', select: 'email profile.firstName profile.lastName' },
+        { path: 'addon', select: 'name category description' },
+        { path: 'scheduledBy', select: 'email profile.firstName profile.lastName' },
+        { path: 'notes.author', select: 'email profile.firstName profile.lastName' }
+      ]);
+
+      res.json({
+        success: true,
+        message: 'Note added successfully',
+        data: { schedule }
+      });
+    } catch (error) {
+      console.error('Add note error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to add note',
+        error: error.message
+      });
+    }
+  })
+);
+
+// Get schedule details
+router.get('/addon-services/schedule/:scheduleId',
+  hasPermission(SUB_ADMIN_PERMISSIONS.APPROVE_PROMOTIONS),
+  asyncHandler(async (req, res) => {
+    const { scheduleId } = req.params;
+    const AddonServiceSchedule = require('../models/AddonServiceSchedule');
+
+    try {
+      const schedule = await AddonServiceSchedule.findById(scheduleId)
+        .populate('vendor', 'email profile.firstName profile.lastName')
+        .populate('addon', 'name category description price currency')
+        .populate('scheduledBy', 'email profile.firstName profile.lastName')
+        .populate('notes.author', 'email profile.firstName profile.lastName');
+
+      if (!schedule) {
+        return res.status(404).json({
+          success: false,
+          message: 'Schedule not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: { schedule }
+      });
+    } catch (error) {
+      console.error('Get schedule error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch schedule details',
         error: error.message
       });
     }

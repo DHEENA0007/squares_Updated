@@ -1639,6 +1639,154 @@ const emailTemplates = {
         </div>
       </div>
     `
+  }),
+
+  // Addon Service Scheduled
+  'addon-service-scheduled': (data) => ({
+    subject: `Service Scheduled - ${data.addonName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #16a34a; border-radius: 10px;">
+        <div style="text-align: center; margin-bottom: 30px; background-color: #dcfce7; padding: 20px; border-radius: 8px;">
+          <h1 style="color: #16a34a; margin: 0;">✅ Service Scheduled</h1>
+          <p style="color: #15803d; margin: 5px 0;">Appointment Confirmation</p>
+        </div>
+        <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #16a34a;">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">Service Information</h3>
+          <p style="margin: 5px 0;"><strong>Service:</strong> ${data.addonName}</p>
+          <p style="margin: 5px 0;"><strong>Category:</strong> ${data.category}</p>
+          <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #16a34a; font-weight: bold;">SCHEDULED</span></p>
+        </div>
+        <div style="background-color: #dcfce7; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">Appointment Details</h3>
+          <p style="margin: 5px 0;"><strong>Scheduled Date & Time:</strong> ${data.scheduledDate}</p>
+          <p style="margin: 5px 0;"><strong>Vendor:</strong> ${data.vendorName}</p>
+          <p style="margin: 5px 0;"><strong>Scheduled by:</strong> ${data.scheduledBy}</p>
+          ${data.notes ? `<p style="margin: 10px 0 0 0;"><strong>Notes:</strong></p><p style="margin: 5px 0; padding: 10px; background-color: #ffffff; border-radius: 4px;">${data.notes}</p>` : ''}
+        </div>
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+          <p style="color: #6b7280; font-size: 14px; margin: 0;">If you have any questions, please reply to this email.</p>
+        </div>
+      </div>
+    `
+  }),
+
+  // Addon Service Cancelled
+  'addon-service-cancelled': (data) => ({
+    subject: `Service Cancelled - ${data.addonName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #dc2626; border-radius: 10px;">
+        <div style="text-align: center; margin-bottom: 30px; background-color: #fee2e2; padding: 20px; border-radius: 8px;">
+          <h1 style="color: #dc2626; margin: 0;">❌ Service Cancelled</h1>
+          <p style="color: #991b1b; margin: 5px 0;">Status Update Notification</p>
+        </div>
+        <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc2626;">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">Service Information</h3>
+          <p style="margin: 5px 0;"><strong>Service:</strong> ${data.addonName}</p>
+          <p style="margin: 5px 0;"><strong>Category:</strong> ${data.category}</p>
+          <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #dc2626; font-weight: bold;">CANCELLED</span></p>
+        </div>
+        <div style="background-color: #fee2e2; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">Cancellation Details</h3>
+          <p style="margin: 5px 0;"><strong>Reason:</strong></p>
+          <p style="margin: 10px 0; padding: 10px; background-color: #ffffff; border-radius: 4px;">${data.cancellationReason}</p>
+          <p style="margin: 5px 0;"><strong>Cancelled on:</strong> ${data.cancelledAt}</p>
+        </div>
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+          <p style="color: #6b7280; font-size: 14px; margin: 0;">If you have any questions, please reply to this email.</p>
+        </div>
+      </div>
+    `
+  }),
+
+  // Addon Service In Progress
+  'addon-service-in-progress': (data) => ({
+    subject: `Service In Progress - ${data.addonName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #2563eb; border-radius: 10px;">
+        <div style="text-align: center; margin-bottom: 30px; background-color: #dbeafe; padding: 20px; border-radius: 8px;">
+          <h1 style="color: #2563eb; margin: 0;">🔄 Service In Progress</h1>
+          <p style="color: #1e40af; margin: 5px 0;">Status Update Notification</p>
+        </div>
+        <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #2563eb;">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">Service Information</h3>
+          <p style="margin: 5px 0;"><strong>Service:</strong> ${data.addonName}</p>
+          <p style="margin: 5px 0;"><strong>Category:</strong> ${data.category}</p>
+          <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #2563eb; font-weight: bold;">IN PROGRESS</span></p>
+        </div>
+        <div style="background-color: #dbeafe; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">Progress Details</h3>
+          <p style="margin: 5px 0;"><strong>Started on:</strong> ${data.inProgressAt}</p>
+          ${data.scheduledDate ? `<p style="margin: 5px 0;"><strong>Scheduled for:</strong> ${data.scheduledDate}</p>` : ''}
+          ${data.notes ? `<p style="margin: 10px 0 0 0;"><strong>Notes:</strong></p><p style="margin: 5px 0; padding: 10px; background-color: #ffffff; border-radius: 4px;">${data.notes}</p>` : ''}
+        </div>
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+          <p style="color: #6b7280; font-size: 14px; margin: 0;">We will notify you once the service is completed.</p>
+        </div>
+      </div>
+    `
+  }),
+
+  // Addon Service Completed
+  'addon-service-completed': (data) => ({
+    subject: `Service Completed - ${data.addonName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #16a34a; border-radius: 10px;">
+        <div style="text-align: center; margin-bottom: 30px; background-color: #dcfce7; padding: 20px; border-radius: 8px;">
+          <h1 style="color: #16a34a; margin: 0;">✅ Service Completed</h1>
+          <p style="color: #15803d; margin: 5px 0;">Status Update Notification</p>
+        </div>
+        <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #16a34a;">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">Service Information</h3>
+          <p style="margin: 5px 0;"><strong>Service:</strong> ${data.addonName}</p>
+          <p style="margin: 5px 0;"><strong>Category:</strong> ${data.category}</p>
+          <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #16a34a; font-weight: bold;">COMPLETED</span></p>
+        </div>
+        <div style="background-color: #dcfce7; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">Completion Details</h3>
+          <p style="margin: 5px 0;"><strong>Completed on:</strong> ${data.completedAt}</p>
+          ${data.scheduledDate ? `<p style="margin: 5px 0;"><strong>Was scheduled for:</strong> ${data.scheduledDate}</p>` : ''}
+          ${data.inProgressAt ? `<p style="margin: 5px 0;"><strong>Started on:</strong> ${data.inProgressAt}</p>` : ''}
+          ${data.notes ? `<p style="margin: 10px 0 0 0;"><strong>Final Notes:</strong></p><p style="margin: 5px 0; padding: 10px; background-color: #ffffff; border-radius: 4px;">${data.notes}</p>` : ''}
+        </div>
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+          <p style="color: #6b7280; font-size: 14px; margin: 0;">Thank you for using our services!</p>
+        </div>
+      </div>
+    `
+  }),
+
+  // Addon Service Rescheduled
+  'addon-service-rescheduled': (data) => ({
+    subject: `Service Rescheduled - ${data.addonName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ea580c; border-radius: 10px;">
+        <div style="text-align: center; margin-bottom: 30px; background-color: #ffedd5; padding: 20px; border-radius: 8px;">
+          <h1 style="color: #ea580c; margin: 0;">📅 Service Rescheduled</h1>
+          <p style="color: #c2410c; margin: 5px 0;">New Date & Time Confirmed</p>
+        </div>
+        <div style="background-color: #fff7ed; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ea580c;">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">Service Information</h3>
+          <p style="margin: 5px 0;"><strong>Service:</strong> ${data.addonName}</p>
+          <p style="margin: 5px 0;"><strong>Category:</strong> ${data.category}</p>
+          <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #ea580c; font-weight: bold;">RESCHEDULED</span></p>
+        </div>
+        <div style="background-color: #ffedd5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">Date Changes</h3>
+          ${data.oldScheduledDate ? `
+          <div style="margin-bottom: 15px; padding: 10px; background-color: #ffffff; border-radius: 4px; text-decoration: line-through; opacity: 0.7;">
+            <p style="margin: 0;"><strong>Previous Date:</strong> ${data.oldScheduledDate}</p>
+          </div>
+          ` : ''}
+          <div style="padding: 10px; background-color: #ffffff; border-radius: 4px; border: 2px solid #ea580c;">
+            <p style="margin: 0;"><strong>New Scheduled Date:</strong> ${data.newScheduledDate}</p>
+          </div>
+          ${data.notes ? `<p style="margin: 10px 0 0 0;"><strong>Notes:</strong></p><p style="margin: 5px 0; padding: 10px; background-color: #ffffff; border-radius: 4px;">${data.notes}</p>` : ''}
+        </div>
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+          <p style="color: #6b7280; font-size: 14px; margin: 0;">Please make note of the new date and time. If you have any questions, reply to this email.</p>
+        </div>
+      </div>
+    `
   })
 };
 
