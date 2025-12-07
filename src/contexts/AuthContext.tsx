@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '@/services/authService';
+import { toast } from '@/components/ui/use-toast';
 
 interface User {
   id: string;
@@ -7,6 +8,12 @@ interface User {
   role: string;
   rolePages?: string[];
   profile?: any;
+}
+
+interface LoginResult {
+  success: boolean;
+  error?: string;
+  isVendorPendingApproval?: boolean;
 }
 
 interface AuthContextType {
@@ -17,7 +24,7 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   isVendor: boolean;
   loading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<LoginResult>;
   logout: (skipRedirect?: boolean) => void;
   checkAuth: () => Promise<void>;
   clearAuthDataAndUser: () => void; // add clearAuthDataAndUser to context type
@@ -65,17 +72,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<LoginResult> => {
     try {
       const response = await authService.login({ email, password });
       if (response.success && response.data?.user) {
         const userData = response.data.user;
         setUser(userData);
-        return true;
+        return { success: true };
       }
-      return false;
-    } catch (error) {
-      return false;
+      return { success: false, error: response.message || 'Login failed' };
+    } catch (error: any) {
+      // Handle specific vendor pending approval case
+      if (error.message?.includes('pending approval') || error.message?.includes('pending_approval')) {
+        return { 
+          success: false, 
+          error: 'Your vendor profile is pending approval. You will be notified once approved by our admin team.', 
+          isVendorPendingApproval: true 
+        };
+      }
+      return { success: false, error: error.message || 'An error occurred. Please try again.' };
     }
   };
 

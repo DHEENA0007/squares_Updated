@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Home, CheckCircle, XCircle, Headphones, BarChart3, Package, Bell, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight, Home, CheckCircle, XCircle, Headphones, BarChart3, Package, FileText, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,11 @@ const SubAdminSidebar = ({
       icon: Home
     },
     {
+      label: 'Vendor Approvals',
+      path: '/subadmin/vendor-approvals',
+      icon: UserCheck
+    },
+    {
       label: 'Property Reviews',
       path: '/subadmin/property-reviews',
       icon: CheckCircle
@@ -48,11 +53,6 @@ const SubAdminSidebar = ({
       label: 'Addon Services',
       path: '/subadmin/addon-services',
       icon: Package
-    },
-    {
-      label: 'Notifications',
-      path: '/subadmin/notifications',
-      icon: Bell
     },
     {
       label: 'Reports',

@@ -412,7 +412,17 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
       },
       professionalInfo: {
         experience: businessInfo?.experience || 0,
+        description: businessInfo?.businessDescription || '',
         specializations: businessInfo?.specializations || [],
+        officeAddress: {
+          area: businessInfo?.address || '',
+          city: businessInfo?.city || '',
+          state: businessInfo?.state || '',
+          district: businessInfo?.district || '',
+          country: 'India',
+          countryCode: businessInfo?.countryCode || 'IN',
+          pincode: businessInfo?.pincode || ''
+        },
         serviceAreas: businessInfo?.serviceAreas ? businessInfo.serviceAreas.map(area => ({
           city: area,
           state: '',
@@ -425,7 +435,7 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
       contactInfo: {
         officeAddress: {
           street: businessInfo?.address || '',
-          area: '',
+          area: businessInfo?.address || '',
           city: businessInfo?.city || '',
           state: businessInfo?.state || '',
           district: businessInfo?.district || '',
@@ -615,6 +625,32 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
     });
   }
 
+  // Check account status FIRST - before password validation
+  // This provides better UX for vendors pending approval
+  if (user.status === 'suspended') {
+    return res.status(401).json({
+      success: false,
+      message: 'Your account has been suspended. Please contact support.'
+    });
+  }
+
+  // Check if vendor profile is pending approval - show this message regardless of password
+  if (user.status === 'pending' && user.role === 'agent') {
+    return res.status(403).json({
+      success: false,
+      message: 'Your vendor profile is pending approval. You will be notified once approved by our admin team.',
+      reason: 'pending_approval'
+    });
+  }
+
+  // For non-agent users with pending status (email not verified)
+  if (user.status === 'pending') {
+    return res.status(401).json({
+      success: false,
+      message: 'Please verify your email before signing in.'
+    });
+  }
+
   // Check password
   const isPasswordValid = await user.comparePassword(password);
   if (!isPasswordValid) {
@@ -649,29 +685,6 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
       success: false,
       message: 'Invalid email or password',
       attemptsLeft: Math.max(0, maxAttempts - loginAttempt.attempts)
-    });
-  }
-
-  // Check account status
-  if (user.status === 'suspended') {
-    return res.status(401).json({
-      success: false,
-      message: 'Account has been suspended. Please contact support.'
-    });
-  }
-
-  if (user.status === 'pending') {
-    if (user.role === 'agent') {
-      return res.status(403).json({
-        success: false,
-        message: 'Your vendor profile is under review. You will be notified once approved by our admin team.',
-        reason: 'pending_approval'
-      });
-    }
-    
-    return res.status(401).json({
-      success: false,
-      message: 'Please verify your email before signing in.'
     });
   }
 

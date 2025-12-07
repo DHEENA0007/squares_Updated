@@ -8,7 +8,9 @@ export interface AdminAddonService {
   description: string;
   price: number;
   currency: string;
-  billingType: 'per_property' | 'monthly' | 'yearly' | 'one_time';
+  billingType: string;
+  billingPeriod: string;
+  billingCycleMonths: number;
   category: 'photography' | 'marketing' | 'technology' | 'support' | 'crm';
   icon?: string;
   isActive: boolean;
@@ -22,7 +24,9 @@ export interface CreateAddonRequest {
   description: string;
   price: number;
   currency: string;
-  billingType: 'per_property' | 'monthly' | 'yearly' | 'one_time';
+  billingType?: string;
+  billingPeriod?: string;
+  billingCycleMonths?: number;
   category: 'photography' | 'marketing' | 'technology' | 'support' | 'crm';
   icon?: string;
   isActive: boolean;
@@ -37,6 +41,9 @@ export interface AddonFilters {
   search?: string;
   page?: number;
   limit?: number;
+  minPrice?: number;
+  maxPrice?: number;
+  billingCycleMonths?: number;
 }
 
 export interface AdminAddonResponse {
@@ -44,6 +51,7 @@ export interface AdminAddonResponse {
   total: number;
   totalPages: number;
   currentPage: number;
+  maxAvailablePrice?: number;
 }
 
 class AdminAddonServiceAPI {
@@ -97,6 +105,9 @@ class AdminAddonServiceAPI {
       if (filters.search) queryParams.append('search', filters.search);
       if (filters.page) queryParams.append('page', filters.page.toString());
       if (filters.limit) queryParams.append('limit', filters.limit.toString());
+      if (filters.minPrice !== undefined) queryParams.append('minPrice', filters.minPrice.toString());
+      if (filters.maxPrice !== undefined) queryParams.append('maxPrice', filters.maxPrice.toString());
+      if (filters.billingCycleMonths !== undefined) queryParams.append('billingCycleMonths', filters.billingCycleMonths.toString());
       
       const endpoint = `/admin/addons${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
       const response = await this.makeRequest<{
@@ -307,6 +318,7 @@ class AdminAddonServiceAPI {
       { value: 'monthly', label: 'Monthly' },
       { value: 'yearly', label: 'Yearly' },
       { value: 'one_time', label: 'One Time' },
+      { value: 'custom', label: 'Custom Period' },
     ];
   }
 

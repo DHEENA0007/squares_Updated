@@ -398,6 +398,42 @@ export const BaseMessages = ({
     }
   };
 
+  const handleArchiveConversation = async (conversationId: string, isArchived: boolean) => {
+    try {
+      // Update status on backend
+      await unifiedMessageService.updateConversationStatus(conversationId, isArchived ? 'unread' : 'archived');
+
+      // If this was the selected conversation, deselect it
+      if (selectedConversation === conversationId) {
+        setSelectedConversation(null);
+        setMessages([]);
+        if (isMobile) {
+          setShowConversationList(true);
+        }
+      }
+
+      // Remove from current view immediately (like WhatsApp)
+      setConversations(prev => prev.filter(conv => (conv.id || conv._id) !== conversationId));
+
+      toast({
+        title: "Success",
+        description: isArchived ? "Conversation unarchived successfully!" : "Conversation archived successfully!",
+      });
+
+      // Reload conversations in background to sync with server
+      setTimeout(() => loadConversations(), 100);
+    } catch (error) {
+      console.error('Failed to archive/unarchive conversation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update conversation status",
+        variant: "destructive",
+      });
+      // Reload conversations to ensure UI is in sync
+      loadConversations();
+    }
+  };
+
   const getOtherParticipant = (conversation: Conversation) => {
     return conversation.otherUser || {
       _id: '',
@@ -449,6 +485,7 @@ export const BaseMessages = ({
                 <SelectItem value="all">All Messages</SelectItem>
                 <SelectItem value="unread">Unread</SelectItem>
                 <SelectItem value="read">Read</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -516,13 +553,17 @@ export const BaseMessages = ({
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
                                 <p className="font-semibold text-sm truncate">{participantName}</p>
-                                {userStatuses[otherParticipant._id]?.isOnline && (
+                                {userStatuses[otherParticipant._id]?.isOnline ? (
                                   <span className="text-[10px] text-green-600 font-medium">● Online</span>
-                                )}
+                                ) : userStatuses[otherParticipant._id]?.lastSeen ? (
+                                  <span className="text-[9px] text-muted-foreground">
+                                    Last seen {unifiedMessageService.formatTime(userStatuses[otherParticipant._id].lastSeen)}
+                                  </span>
+                                ) : null}
                               </div>
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-xs text-muted-foreground flex-shrink-0">
                                 {unifiedMessageService.formatTime(conversation.lastMessage.createdAt)}
                               </span>
                             </div>
@@ -555,13 +596,14 @@ export const BaseMessages = ({
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem>
-                                      <Star className="w-4 h-4 mr-2" />
-                                      Mark as Important
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleArchiveConversation(conversationId, conversation.status === 'archived');
+                                      }}
+                                    >
                                       <Archive className="w-4 h-4 mr-2" />
-                                      Archive
+                                      {conversation.status === 'archived' ? 'Unarchive' : 'Archive'}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       className="text-red-600 focus:text-red-600"

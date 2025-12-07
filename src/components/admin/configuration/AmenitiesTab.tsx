@@ -29,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+
 import { configurationService } from '@/services/configurationService';
 import type { Amenity, CreateAmenityDTO, PropertyType } from '@/types/configuration';
 import { useToast } from '@/hooks/use-toast';
@@ -45,8 +46,9 @@ const AmenitiesTab: React.FC = () => {
     name: '',
     category: 'basic',
     icon: '',
-    display_order: 0,
+    displayOrder: 0,
   });
+  const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -68,12 +70,12 @@ const AmenitiesTab: React.FC = () => {
       for (const amenity of amenitiesData) {
         const linkedPTs: string[] = [];
         for (const pt of propertyTypesData) {
-          const ptAmenities = await configurationService.getPropertyTypeAmenities(pt.id);
-          if (ptAmenities.some(a => a.id === amenity.id)) {
-            linkedPTs.push(pt.id);
+          const ptAmenities = await configurationService.getPropertyTypeAmenities(pt._id);
+          if (ptAmenities.some(a => a._id === amenity._id)) {
+            linkedPTs.push(pt._id);
           }
         }
-        amenityPTMap[amenity.id] = linkedPTs;
+        amenityPTMap[amenity._id] = linkedPTs;
       }
       setAmenityPropertyTypesMap(amenityPTMap);
     } catch (error) {
@@ -94,16 +96,16 @@ const AmenitiesTab: React.FC = () => {
         name: amenity.name,
         category: amenity.category || 'basic',
         icon: amenity.icon || '',
-        display_order: amenity.display_order,
+        displayOrder: amenity.displayOrder,
       });
 
       // Fetch which property types have this amenity
       try {
         const linkedPropertyTypes: string[] = [];
         for (const pt of propertyTypes) {
-          const ptAmenities = await configurationService.getPropertyTypeAmenities(pt.id);
-          if (ptAmenities.some(a => a.id === amenity.id)) {
-            linkedPropertyTypes.push(pt.id);
+          const ptAmenities = await configurationService.getPropertyTypeAmenities(pt._id);
+          if (ptAmenities.some(a => a._id === amenity._id)) {
+            linkedPropertyTypes.push(pt._id);
           }
         }
         setSelectedPropertyTypes(linkedPropertyTypes);
@@ -117,7 +119,7 @@ const AmenitiesTab: React.FC = () => {
         name: '',
         category: 'basic',
         icon: '',
-        display_order: amenities.length,
+        displayOrder: amenities.length,
       });
       setSelectedPropertyTypes([]);
     }
@@ -131,7 +133,7 @@ const AmenitiesTab: React.FC = () => {
       name: '',
       category: 'basic',
       icon: '',
-      display_order: 0,
+      displayOrder: 0,
     });
     setSelectedPropertyTypes([]);
   };
@@ -141,27 +143,27 @@ const AmenitiesTab: React.FC = () => {
       let amenityId: string;
 
       if (editingAmenity) {
-        await configurationService.updateAmenity(editingAmenity.id, formData);
-        amenityId = editingAmenity.id;
+        await configurationService.updateAmenity(editingAmenity._id, formData);
+        amenityId = editingAmenity._id;
       } else {
         const newAmenity = await configurationService.createAmenity(formData);
-        amenityId = newAmenity.id;
+        amenityId = newAmenity._id;
       }
 
       // Update property type amenity mappings
       for (const propertyType of propertyTypes) {
-        const isSelected = selectedPropertyTypes.includes(propertyType.id);
-        const currentAmenities = await configurationService.getPropertyTypeAmenities(propertyType.id);
-        const hasAmenity = currentAmenities.some(a => a.id === amenityId);
+        const isSelected = selectedPropertyTypes.includes(propertyType._id);
+        const currentAmenities = await configurationService.getPropertyTypeAmenities(propertyType._id);
+        const hasAmenity = currentAmenities.some(a => a._id === amenityId);
 
         if (isSelected && !hasAmenity) {
           // Add amenity to property type
-          const updatedAmenityIds = [...currentAmenities.map(a => a.id), amenityId];
-          await configurationService.updatePropertyTypeAmenities(propertyType.id, updatedAmenityIds);
+          const updatedAmenityIds = [...currentAmenities.map(a => a._id), amenityId];
+          await configurationService.updatePropertyTypeAmenities(propertyType._id, updatedAmenityIds);
         } else if (!isSelected && hasAmenity) {
           // Remove amenity from property type
-          const updatedAmenityIds = currentAmenities.filter(a => a.id !== amenityId).map(a => a.id);
-          await configurationService.updatePropertyTypeAmenities(propertyType.id, updatedAmenityIds);
+          const updatedAmenityIds = currentAmenities.filter(a => a._id !== amenityId).map(a => a._id);
+          await configurationService.updatePropertyTypeAmenities(propertyType._id, updatedAmenityIds);
         }
       }
 
@@ -182,7 +184,7 @@ const AmenitiesTab: React.FC = () => {
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     try {
-      await configurationService.updateAmenity(id, { is_active: !currentStatus });
+      await configurationService.updateAmenity(id, { isActive: !currentStatus });
       toast({
         title: 'Success',
         description: `Amenity ${!currentStatus ? 'activated' : 'deactivated'} successfully`,
@@ -219,7 +221,7 @@ const AmenitiesTab: React.FC = () => {
   };
 
   const handleReorder = async (id: string, direction: 'up' | 'down') => {
-    const index = amenities.findIndex((a) => a.id === id);
+    const index = amenities.findIndex((a) => a._id === id);
     if (
       (direction === 'up' && index === 0) ||
       (direction === 'down' && index === amenities.length - 1)
@@ -234,7 +236,7 @@ const AmenitiesTab: React.FC = () => {
     try {
       await Promise.all(
         newOrder.map((amenity, idx) =>
-          configurationService.updateAmenity(amenity.id, { display_order: idx })
+          configurationService.updateAmenity(amenity._id, { displayOrder: idx })
         )
       );
       setAmenities(newOrder);
@@ -250,6 +252,10 @@ const AmenitiesTab: React.FC = () => {
       });
     }
   };
+
+  const filteredAmenities = amenities.filter(amenity =>
+    amenity.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (isLoading) {
     return <div className="text-center py-8">Loading amenities...</div>;
@@ -271,6 +277,16 @@ const AmenitiesTab: React.FC = () => {
       </div>
 
       <div className="border rounded-lg">
+        <div className="p-4 border-b">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Search amenities..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1"
+            />
+          </div>
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
@@ -283,27 +299,27 @@ const AmenitiesTab: React.FC = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {amenities.length === 0 ? (
+            {filteredAmenities.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   No amenities found. Create your first amenity to get started.
                 </TableCell>
               </TableRow>
             ) : (
-              amenities.map((amenity, index) => {
-                const linkedPropertyTypeIds = amenityPropertyTypesMap[amenity.id] || [];
+              filteredAmenities.map((amenity, index) => {
+                const linkedPropertyTypeIds = amenityPropertyTypesMap[amenity._id] || [];
                 const linkedPropertyTypeNames = linkedPropertyTypeIds
-                  .map(ptId => propertyTypes.find(pt => pt.id === ptId)?.name)
+                  .map(ptId => propertyTypes.find(pt => pt._id === ptId)?.name)
                   .filter(Boolean);
 
                 return (
-                  <TableRow key={amenity.id}>
+                  <TableRow key={amenity._id}>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleReorder(amenity.id, 'up')}
+                          onClick={() => handleReorder(amenity._id, 'up')}
                           disabled={index === 0}
                         >
                           <ChevronUp className="h-4 w-4" />
@@ -311,7 +327,7 @@ const AmenitiesTab: React.FC = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleReorder(amenity.id, 'down')}
+                          onClick={() => handleReorder(amenity._id, 'down')}
                           disabled={index === amenities.length - 1}
                         >
                           <ChevronDown className="h-4 w-4" />
@@ -341,8 +357,8 @@ const AmenitiesTab: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Switch
-                        checked={amenity.is_active}
-                        onCheckedChange={() => handleToggleActive(amenity.id, amenity.is_active)}
+                        checked={amenity.isActive}
+                        onCheckedChange={() => handleToggleActive(amenity._id, amenity.isActive)}
                       />
                     </TableCell>
                     <TableCell className="text-right">
@@ -357,7 +373,7 @@ const AmenitiesTab: React.FC = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(amenity.id)}
+                          onClick={() => handleDelete(amenity._id)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -424,13 +440,13 @@ const AmenitiesTab: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="display_order">Display Order</Label>
+              <Label htmlFor="displayOrder">Display Order</Label>
               <Input
-                id="display_order"
+                id="displayOrder"
                 type="number"
-                value={formData.display_order}
+                value={formData.displayOrder}
                 onChange={(e) =>
-                  setFormData({ ...formData, display_order: parseInt(e.target.value) || 0 })
+                  setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 })
                 }
               />
             </div>
@@ -442,21 +458,21 @@ const AmenitiesTab: React.FC = () => {
               </p>
               <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
                 {propertyTypes.map((propertyType) => (
-                  <div key={propertyType.id} className="flex items-center space-x-2">
+                  <div key={propertyType._id} className="flex items-center space-x-2">
                     <Checkbox
-                      id={`pt-${propertyType.id}`}
-                      checked={selectedPropertyTypes.includes(propertyType.id)}
+                      id={`pt-${propertyType._id}`}
+                      checked={selectedPropertyTypes.includes(propertyType._id)}
                       onCheckedChange={(checked) => {
                         if (checked) {
-                          setSelectedPropertyTypes([...selectedPropertyTypes, propertyType.id]);
+                          setSelectedPropertyTypes([...selectedPropertyTypes, propertyType._id]);
                         } else {
                           setSelectedPropertyTypes(
-                            selectedPropertyTypes.filter((id) => id !== propertyType.id)
+                            selectedPropertyTypes.filter((id) => id !== propertyType._id)
                           );
                         }
                       }}
                     />
-                    <Label htmlFor={`pt-${propertyType.id}`} className="font-normal cursor-pointer">
+                    <Label htmlFor={`pt-${propertyType._id}`} className="font-normal cursor-pointer">
                       {propertyType.name} <Badge variant="outline" className="ml-2">{propertyType.category}</Badge>
                     </Label>
                   </div>

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Home, Users, UserCheck, MessageSquare, Shield, Building2, CreditCard, Package, Filter, Menu, Wrench, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight, Home, Users, UserCheck, MessageSquare, Shield, Building2, CreditCard, Package, Filter, Menu, Wrench, FileText, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +63,11 @@ const Sidebar = ({
       label: 'Addons',
       path: '/admin/addons',
       icon: Package
+    },
+    {
+      label: 'Notifications',
+      path: '/admin/notifications',
+      icon: Bell
     },
     {
       label: 'Property Management',

@@ -17,55 +17,45 @@ const adminRealtimeService = require('../services/adminRealtimeService');
 router.use(authenticateToken);
 router.use(isSubAdmin);
 
-// Get sub admin dashboard statistics
+// Get sub admin dashboard statistics (user-specific)
 router.get('/dashboard', asyncHandler(async (req, res) => {
+  const subAdminId = req.user.id;
+
   const [
-    totalProperties,
-    availableProperties,
+    totalPropertiesApproved,
+    availablePropertiesApproved,
     pendingProperties,
-    rejectedProperties,
-    totalUsers,
-    vendorUsers,
-    customerUsers,
-    totalViews,
+    rejectedPropertiesApproved,
     totalSupport,
     openSupport,
-    resolvedSupport
+    resolvedSupport,
+    closedSupport
   ] = await Promise.all([
-    Property.countDocuments(),
-    Property.countDocuments({ status: 'available' }),
+    // Properties approved by this subadmin
+    Property.countDocuments({ approvedBy: subAdminId }),
+    Property.countDocuments({ approvedBy: subAdminId, status: 'available' }),
+    // All pending properties (not user-specific, as they haven't been assigned yet)
     Property.countDocuments({ status: 'pending' }),
-    Property.countDocuments({ status: 'rejected' }),
-    User.countDocuments({ role: { $in: ['customer', 'agent'] } }),
-    User.countDocuments({ role: 'agent' }),
-    User.countDocuments({ role: 'customer' }),
-    Property.aggregate([
-      {
-        $group: {
-          _id: null,
-          totalViews: { $sum: { $ifNull: ['$views', 0] } }
-        }
-      }
-    ]),
-    SupportTicket.countDocuments(),
-    SupportTicket.countDocuments({ status: 'open' }),
-    SupportTicket.countDocuments({ status: 'resolved' })
+    // Rejected properties by this subadmin
+    Property.countDocuments({ approvedBy: subAdminId, status: 'rejected' }),
+    // Support tickets handled by this subadmin
+    SupportTicket.countDocuments({ assignedTo: subAdminId }),
+    SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'open' }),
+    SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'resolved' }),
+    SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'closed' })
   ]);
 
   res.json({
     success: true,
     data: {
-      totalProperties,
-      availableProperties,
+      totalPropertiesApproved,
+      availablePropertiesApproved,
       pendingProperties,
-      rejectedProperties,
-      totalUsers,
-      vendorUsers,
-      customerUsers,
-      totalViews: totalViews[0]?.totalViews || 0,
+      rejectedPropertiesApproved,
       totalSupport,
       openSupport,
       resolvedSupport,
+      closedSupport,
       recentActivity: []
     }
   });

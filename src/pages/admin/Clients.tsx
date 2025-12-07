@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Loader2, Eye, XCircle, RefreshCw, Calendar, CreditCard, User, Package, Star, Camera, Megaphone, Laptop, HeadphonesIcon, Users, Circle } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Loader2, Eye, XCircle, RefreshCw, Calendar, CreditCard, User, Package, Star, Camera, Megaphone, Laptop, HeadphonesIcon, Users, Circle, Filter, X } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ExportUtils from "@/utils/exportUtils";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Custom currency formatter for exports to avoid encoding issues and handle null values
 const formatCurrencyForExport = (amount: number | null | undefined): string => {
@@ -36,6 +38,8 @@ const Clients = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [planFilter, setPlanFilter] = useState("all");
+  const [billingPeriodFilter, setBillingPeriodFilter] = useState("");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -48,10 +52,147 @@ const Clients = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
-    }, 500); // Wait 500ms after user stops typing
+      if (searchTerm !== debouncedSearchTerm) {
+        setCurrentPage(1);
+      }
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // Get unique plans and billing periods from subscriptions for filters
+  const uniquePlans = useMemo(() => {
+    const plans = new Set<string>();
+    subscriptions.forEach(sub => {
+      if (sub.plan?.name) {
+        plans.add(sub.plan.name);
+      }
+    });
+    return Array.from(plans).sort();
+  }, [subscriptions]);
+
+  const uniqueBillingPeriods = useMemo(() => {
+    const periodsMap = new Map<number, string>();
+    subscriptions.forEach(sub => {
+      let months = sub.plan?.billingCycleMonths;
+      
+      // Calculate months from startDate and endDate
+      if (!months && sub.startDate && sub.endDate) {
+        const start = new Date(sub.startDate);
+        const end = new Date(sub.endDate);
+        
+        // Calculate difference in months
+        const yearDiff = end.getFullYear() - start.getFullYear();
+        const monthDiff = end.getMonth() - start.getMonth();
+        const dayDiff = end.getDate() - start.getDate();
+        
+        // Calculate total months (round to nearest month)
+        months = yearDiff * 12 + monthDiff + (dayDiff >= 15 ? 1 : 0);
+        
+        // Ensure at least 1 month if there's a valid date range
+        if (months < 1 && end > start) {
+          months = 1;
+        }
+      }
+      
+      // If still no months, derive from billingPeriod
+      if (!months && sub.plan?.billingPeriod) {
+        const period = sub.plan.billingPeriod.toLowerCase();
+        if (period === 'monthly') months = 1;
+        else if (period === 'quarterly') months = 3;
+        else if (period === 'semi-annual' || period === 'semiannual') months = 6;
+        else if (period === 'yearly' || period === 'annual') months = 12;
+        else if (period === 'lifetime') months = 120;
+      }
+      
+      if (months) {
+        const period = sub.plan?.billingPeriod || 'custom';
+        periodsMap.set(months, period);
+      }
+    });
+    
+    // Sort by month value
+    const sortedPeriods = Array.from(periodsMap.entries())
+      .sort((a, b) => a[0] - b[0]);
+    
+    return sortedPeriods.map(([months, period]) => ({
+      value: months.toString(),
+      label: `${months}`,
+      original: period,
+      months: months
+    }));
+  }, [subscriptions]);
+
+  // Client-side filtering
+  const filteredSubscriptions = useMemo(() => {
+    return subscriptions.filter(sub => {
+      // Status filter
+      if (statusFilter !== "all" && sub.status !== statusFilter) {
+        return false;
+      }
+      
+      // Plan filter
+      if (planFilter !== "all" && sub.plan?.name !== planFilter) {
+        return false;
+      }
+      
+      // Billing period filter - calculate months from start and end dates
+      if (billingPeriodFilter && billingPeriodFilter.trim() !== "") {
+        const filterMonths = parseInt(billingPeriodFilter.trim());
+        
+        // Skip if not a valid number
+        if (isNaN(filterMonths)) {
+          return true; // Don't filter if invalid input
+        }
+        
+        let subMonths = sub.plan?.billingCycleMonths;
+        
+        // Calculate months from startDate and endDate
+        if (!subMonths && sub.startDate && sub.endDate) {
+          const start = new Date(sub.startDate);
+          const end = new Date(sub.endDate);
+          
+          // Calculate difference in months
+          const yearDiff = end.getFullYear() - start.getFullYear();
+          const monthDiff = end.getMonth() - start.getMonth();
+          const dayDiff = end.getDate() - start.getDate();
+          
+          // Calculate total months (round to nearest month)
+          subMonths = yearDiff * 12 + monthDiff + (dayDiff >= 15 ? 1 : 0);
+          
+          // Ensure at least 1 month if there's a valid date range
+          if (subMonths < 1 && end > start) {
+            subMonths = 1;
+          }
+        }
+        
+        // Fallback: derive from billingPeriod string
+        if (!subMonths && sub.plan?.billingPeriod) {
+          const period = sub.plan.billingPeriod.toLowerCase();
+          if (period === 'monthly') subMonths = 1;
+          else if (period === 'quarterly') subMonths = 3;
+          else if (period === 'semi-annual' || period === 'semiannual') subMonths = 6;
+          else if (period === 'yearly' || period === 'annual') subMonths = 12;
+          else if (period === 'lifetime') subMonths = 120;
+        }
+        
+        if (subMonths !== filterMonths) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [subscriptions, statusFilter, planFilter, billingPeriodFilter]);
+
+  const clearAllFilters = () => {
+    setStatusFilter("all");
+    setPlanFilter("all");
+    setBillingPeriodFilter("");
+    setSearchTerm("");
+  };
+
+  const hasActiveFilters = statusFilter !== "all" || planFilter !== "all" || billingPeriodFilter !== "" || searchTerm !== "";
 
   const getAddonIcon = (category: string) => {
     const iconProps = { className: "w-4 h-4" };
@@ -132,16 +273,6 @@ const Clients = () => {
   useEffect(() => {
     fetchSubscriptions();
   }, [fetchSubscriptions]);
-
-  const handleSearch = useCallback((value: string) => {
-    setSearchTerm(value);
-    setCurrentPage(1);
-  }, []);
-
-  const handleStatusFilter = useCallback((value: string) => {
-    setStatusFilter(value);
-    setCurrentPage(1);
-  }, []);
 
   const goToPage = (page: number) => {
     setCurrentPage(page);
@@ -1005,12 +1136,12 @@ const Clients = () => {
           ...(addonDetails.length > 0 ? [['Total Add-on Revenue', '', '', `₹${processedData.addonRevenue.toLocaleString()}`, '', '']] : []),
         ],
         columnStyles: {
-          0: { cellWidth: 35, halign: 'center' as const },
-          1: { cellWidth: 35 },
-          2: { cellWidth: 20 },
-          3: { cellWidth: 20 },
-          4: { cellWidth: 25, halign: 'right' as const },
-          5: { cellWidth: 25, halign: 'right' as const },
+          '0': { cellWidth: 35, halign: 'center' as const },
+          '1': { cellWidth: 35 },
+          '2': { cellWidth: 20 },
+          '3': { cellWidth: 20 },
+          '4': { cellWidth: 25, halign: 'right' as const },
+          '5': { cellWidth: 25, halign: 'right' as const },
         },
         theme: 'striped' as const,
         fontSize: 8,
@@ -1068,7 +1199,7 @@ const Clients = () => {
       const tables = [summaryTable, statusTable, clientTable];
 
       if (addonDetails.length > 0) {
-        tables.push(addonTable);
+        tables.push(addonTable as any);
       }
 
       tables.push(insightsTable);
@@ -1191,35 +1322,107 @@ const Clients = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <SearchFilter
-              searchTerm={searchTerm}
-              onSearchChange={handleSearch}
-              filterValue={statusFilter}
-              onFilterChange={handleStatusFilter}
-              filterOptions={[
-                { label: "Active", value: "active" },
-                { label: "Expired", value: "expired" },
-                { label: "Cancelled", value: "cancelled" },
-              ]}
-              filterPlaceholder="Filter by status"
-            />
+            {/* Search and Filters */}
+            <div className="space-y-4 mb-6">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search by client name or email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
+              {/* Column Filters */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="expired">Expired</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Select value={planFilter} onValueChange={setPlanFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Filter by plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Plans</SelectItem>
+                      {uniquePlans.map(plan => (
+                        <SelectItem key={plan} value={plan}>{plan}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Input
+                    type="number"
+                    placeholder="Filter by months (e.g., 1, 3, 12)"
+                    value={billingPeriodFilter}
+                    onChange={(e) => setBillingPeriodFilter(e.target.value)}
+                    min="1"
+                    className="w-full"
+                  />
+                </div>
+
+                {hasActiveFilters && (
+                  <div>
+                    <Button
+                      variant="outline"
+                      onClick={clearAllFilters}
+                      className="w-full"
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Clear Filters
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {hasActiveFilters && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Filter className="w-4 h-4" />
+                  <span>
+                    Showing {filteredSubscriptions.length} of {subscriptions.length} results
+                  </span>
+                </div>
+              )}
+            </div>
 
             {/* Mobile Card View */}
             <div className="block sm:hidden space-y-4">
-              {subscriptions.length === 0 ? (
+              {filteredSubscriptions.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   No subscriptions found
                 </div>
               ) : (
-                subscriptions.map((subscription) => (
+                filteredSubscriptions.map((subscription, index) => (
                   <Card key={subscription._id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="space-y-3">
-                        {/* Client Info */}
+                        {/* S.No and Client Info */}
                         <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-base truncate">{subscription.user.name}</div>
-                            <div className="text-sm text-muted-foreground truncate">{subscription.user.email}</div>
+                          <div className="flex gap-3 flex-1 min-w-0">
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                              <span className="text-sm font-semibold text-primary">
+                                {(currentPage - 1) * 10 + index + 1}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-base truncate">{subscription.user.name}</div>
+                              <div className="text-sm text-muted-foreground truncate">{subscription.user.email}</div>
+                            </div>
                           </div>
                           <Badge
                             variant={
@@ -1294,6 +1497,7 @@ const Clients = () => {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
+                    <TableHead className="font-semibold w-[70px]">S.No</TableHead>
                     <TableHead className="font-semibold w-[250px] min-w-[200px]">Client</TableHead>
                     <TableHead className="font-semibold w-[200px] min-w-[150px]">Plan</TableHead>
                     <TableHead className="font-semibold w-[120px] min-w-[100px]">Amount</TableHead>
@@ -1304,15 +1508,24 @@ const Clients = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {subscriptions.length === 0 ? (
+                  {filteredSubscriptions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         No subscriptions found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    subscriptions.map((subscription) => (
+                    filteredSubscriptions.map((subscription, index) => (
                       <TableRow key={subscription._id} className="hover:bg-muted/30 transition-colors">
+                        <TableCell className="w-[70px] text-center">
+                          <div className="flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                              <span className="text-sm font-semibold text-primary">
+                                {(currentPage - 1) * 10 + index + 1}
+                              </span>
+                            </div>
+                          </div>
+                        </TableCell>
                         <TableCell className="w-[250px] min-w-[200px]">
                           <div className="space-y-1">
                             <div className="font-medium truncate">{subscription.user.name}</div>

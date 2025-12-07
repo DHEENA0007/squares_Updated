@@ -26,7 +26,9 @@ interface AddonService {
   description: string;
   price: number;
   currency: string;
-  billingType: 'monthly' | 'yearly' | 'per_property' | 'one_time';
+  billingType: 'monthly' | 'yearly' | 'per_property' | 'one_time' | 'custom';
+  billingPeriod?: 'custom' | 'monthly' | 'yearly' | 'lifetime' | 'one-time' | 'per_property';
+  billingCycleMonths?: number;
   category: 'photography' | 'marketing' | 'technology' | 'support' | 'crm';
   icon?: string;
   isActive: boolean;

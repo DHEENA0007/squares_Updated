@@ -21,6 +21,7 @@ import { DEFAULT_PROPERTY_IMAGE } from "@/utils/imageUtils";
 import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 import { VirtualTourViewer } from "@/components/property/VirtualTourViewer";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/contexts/AuthContext";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
@@ -86,6 +87,7 @@ interface Property {
 }
 
 const PropertyReviews = () => {
+  const { user } = useAuth();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -99,8 +101,20 @@ const PropertyReviews = () => {
   const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
   const { toast } = useToast();
 
+  // Auto-populate approver name from logged-in user
+  const getApproverName = () => {
+    if (user?.profile?.firstName && user?.profile?.lastName) {
+      return `${user.profile.firstName} ${user.profile.lastName}`;
+    } else if (user?.profile?.firstName) {
+      return user.profile.firstName;
+    } else if (user?.email) {
+      return user.email;
+    }
+    return '';
+  };
+
   // Approval/Rejection form state
-  const [approverName, setApproverName] = useState("");
+  const [approverName, setApproverName] = useState(getApproverName());
   const [checklist, setChecklist] = useState({
     documentsVerified: false,
     locationVerified: false,
@@ -110,6 +124,14 @@ const PropertyReviews = () => {
     ownershipConfirmed: false,
   });
   const [handwrittenComments, setHandwrittenComments] = useState("");
+
+  // Update approver name when user data loads
+  useEffect(() => {
+    const name = getApproverName();
+    if (name) {
+      setApproverName(name);
+    }
+  }, [user]);
 
   useEffect(() => {
     fetchProperties();
@@ -159,7 +181,7 @@ const PropertyReviews = () => {
       ownershipConfirmed: false,
     });
     setHandwrittenComments("");
-    setApproverName("");
+    setApproverName(getApproverName()); // Keep user's name
     setRejectionReason("");
   };
 
@@ -448,14 +470,13 @@ const PropertyReviews = () => {
           <div className="space-y-6 py-4">
             {/* Approver Name */}
             <div className="space-y-2">
-              <Label htmlFor="approver-name-approve">Moderator Name *</Label>
-              <Input
-                id="approver-name-approve"
-                placeholder="Enter your full name"
-                value={approverName}
-                onChange={(e) => setApproverName(e.target.value)}
-                className="mt-1"
-              />
+              <Label>Approver Name</Label>
+              <div className="p-3 rounded-md bg-muted border border-border mt-1">
+                <p className="font-medium text-sm">{approverName || 'Loading...'}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Automatically set from your logged-in account
+              </p>
             </div>
 
             {/* Verification Checklist */}
@@ -580,14 +601,13 @@ const PropertyReviews = () => {
           <div className="space-y-6 py-4">
             {/* Approver Name */}
             <div className="space-y-2">
-              <Label htmlFor="approver-name-reject">Moderator Name *</Label>
-              <Input
-                id="approver-name-reject"
-                placeholder="Enter your full name"
-                value={approverName}
-                onChange={(e) => setApproverName(e.target.value)}
-                className="mt-1"
-              />
+              <Label>Approver Name</Label>
+              <div className="p-3 rounded-md bg-muted border border-border mt-1">
+                <p className="font-medium text-sm">{approverName || 'Loading...'}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Automatically set from your logged-in account
+              </p>
             </div>
 
             {/* Verification Checklist */}

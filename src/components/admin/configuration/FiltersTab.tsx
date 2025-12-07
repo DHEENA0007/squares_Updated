@@ -42,6 +42,7 @@ const FiltersTab: React.FC = () => {
   const [editingFilter, setEditingFilter] = useState<FilterConfiguration | null>(null);
   const [activeFilterType, setActiveFilterType] = useState<string>('');
   const [newFilterTypeName, setNewFilterTypeName] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState<CreateFilterConfigurationDTO>({
     filter_type: '',
     name: '',
@@ -125,13 +126,13 @@ const FiltersTab: React.FC = () => {
     if (filter) {
       setEditingFilter(filter);
       setFormData({
-        filter_type: filter.filter_type,
+        filter_type: filter.filterType,
         name: filter.name,
         value: filter.value,
-        min_value: filter.min_value,
-        max_value: filter.max_value,
-        display_label: filter.display_label,
-        display_order: filter.display_order,
+        min_value: filter.minValue,
+        max_value: filter.maxValue,
+        display_label: filter.displayLabel,
+        display_order: filter.displayOrder,
       });
     } else {
       setEditingFilter(null);
@@ -166,7 +167,7 @@ const FiltersTab: React.FC = () => {
   const handleSave = async () => {
     try {
       if (editingFilter) {
-        await configurationService.updateFilterConfiguration(editingFilter.id, formData);
+        await configurationService.updateFilterConfiguration(editingFilter._id, formData);
         toast({
           title: 'Success',
           description: 'Filter updated successfully',
@@ -191,7 +192,7 @@ const FiltersTab: React.FC = () => {
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     try {
-      await configurationService.updateFilterConfiguration(id, { is_active: !currentStatus });
+      await configurationService.updateFilterConfiguration(id, { isActive: !currentStatus });
       toast({
         title: 'Success',
         description: `Filter ${!currentStatus ? 'activated' : 'deactivated'} successfully`,
@@ -229,7 +230,7 @@ const FiltersTab: React.FC = () => {
 
   const handleReorder = async (id: string, direction: 'up' | 'down', filterType: string) => {
     const typeFilters = getFiltersByType(filterType);
-    const index = typeFilters.findIndex((f) => f.id === id);
+    const index = typeFilters.findIndex((f) => f._id === id);
 
     if (
       (direction === 'up' && index === 0) ||
@@ -245,7 +246,7 @@ const FiltersTab: React.FC = () => {
     try {
       await Promise.all(
         newOrder.map((filter, idx) =>
-          configurationService.updateFilterConfiguration(filter.id, { display_order: idx })
+          configurationService.updateFilterConfiguration(filter._id, { display_order: idx })
         )
       );
       fetchFilters();
@@ -264,6 +265,11 @@ const FiltersTab: React.FC = () => {
 
   const renderFilterTable = (filterType: string) => {
     const typeFilters = getFiltersByType(filterType);
+    const filteredTypeFilters = typeFilters.filter(filter =>
+      filter.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      filter.displayLabel?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      filter.value.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     // Get user-friendly label from filter type
     const getFilterTypeLabel = () => {
@@ -280,6 +286,15 @@ const FiltersTab: React.FC = () => {
             <Plus className="h-4 w-4 mr-2" />
             Add {getFilterTypeLabel()} Option
           </Button>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Input
+            placeholder="Search filter options..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-sm"
+          />
         </div>
 
         <div className="border rounded-lg">
@@ -301,54 +316,52 @@ const FiltersTab: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {typeFilters.length === 0 ? (
+              {filteredTypeFilters.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={filterType === 'budget' ? 8 : 6} className="text-center py-8 text-muted-foreground">
-                    No filters found. Create your first filter to get started.
+                    {searchTerm ? 'No filter options match your search.' : 'No filter options found. Create your first filter option to get started.'}
                   </TableCell>
                 </TableRow>
               ) : (
-                typeFilters.map((filter, index) => (
-                  <TableRow key={filter.id}>
+                filteredTypeFilters.map((filter, index) => {
+                  const originalIndex = typeFilters.findIndex(f => f._id === filter._id);
+                  return (
+                  <TableRow key={filter._id}>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleReorder(filter.id, 'up', filterType)}
-                          disabled={index === 0}
+                          onClick={() => handleReorder(filter._id, 'up', filterType)}
+                          disabled={originalIndex === 0}
                         >
                           <ChevronUp className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleReorder(filter.id, 'down', filterType)}
-                          disabled={index === typeFilters.length - 1}
+                          onClick={() => handleReorder(filter._id, 'down', filterType)}
+                          disabled={originalIndex === typeFilters.length - 1}
                         >
                           <ChevronDown className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">{filter.name}</TableCell>
-                    <TableCell>{filter.display_label || filter.name}</TableCell>
+                    <TableCell>{filter.displayLabel || '-'}</TableCell>
                     <TableCell>
                       <code className="text-sm bg-muted px-2 py-1 rounded">{filter.value}</code>
                     </TableCell>
                     {filterType === 'budget' && (
                       <>
-                        <TableCell>
-                          {filter.min_value ? `₹${(filter.min_value / 100000).toFixed(0)}L` : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {filter.max_value ? `₹${(filter.max_value / 100000).toFixed(0)}L` : '-'}
-                        </TableCell>
+                        <TableCell>{filter.minValue || '-'}</TableCell>
+                        <TableCell>{filter.maxValue || '-'}</TableCell>
                       </>
                     )}
                     <TableCell>
                       <Switch
-                        checked={filter.is_active}
-                        onCheckedChange={() => handleToggleActive(filter.id, filter.is_active)}
+                        checked={filter.isActive}
+                        onCheckedChange={() => handleToggleActive(filter._id, filter.isActive)}
                       />
                     </TableCell>
                     <TableCell className="text-right">
@@ -363,14 +376,15 @@ const FiltersTab: React.FC = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(filter.id)}
+                          onClick={() => handleDelete(filter._id)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
+                );
+                })
               )}
             </TableBody>
           </Table>

@@ -22,8 +22,17 @@ const addonServiceSchema = new mongoose.Schema({
   },
   billingType: {
     type: String,
-    required: true,
-    enum: ['per_property', 'monthly', 'yearly', 'one_time']
+    default: 'recurring'
+  },
+  billingPeriod: {
+    type: String,
+    default: 'monthly'
+  },
+  billingCycleMonths: {
+    type: Number,
+    min: 0,
+    max: 120,
+    default: 1
   },
   category: {
     type: String,

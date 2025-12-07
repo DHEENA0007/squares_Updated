@@ -47,7 +47,8 @@ const upload = multer({
 // @access  Private
 router.post('/register', authenticateToken, upload.array('documents', 10), asyncHandler(async (req, res) => {
   const {
-    // Business Information
+    // Business Information (can be nested object or flat fields)
+    businessInfo,
     companyName,
     businessType,
     licenseNumber,
@@ -55,19 +56,19 @@ router.post('/register', authenticateToken, upload.array('documents', 10), async
     panNumber,
     registrationNumber,
     website,
-    
+
     // Professional Information
     experience,
     specializations,
     serviceAreas,
     languages,
-    
+
     // Contact Information
     officeAddress,
     officePhone,
     whatsappNumber,
     socialMedia,
-    
+
     // Document Types
     documentTypes
   } = req.body;
@@ -148,31 +149,63 @@ router.post('/register', authenticateToken, upload.array('documents', 10), async
     const parsedSocialMedia = typeof socialMedia === 'string' ? JSON.parse(socialMedia) : socialMedia || {};
 
     // Create vendor profile with approval status
+    // Handle both nested businessInfo object (new form) and flat fields (old form)
+    const businessData = businessInfo || {
+      businessName: companyName,
+      businessType: businessType,
+      businessDescription: null,
+      experience: experience,
+      address: null,
+      city: null,
+      state: null,
+      pincode: null,
+      licenseNumber: licenseNumber,
+      gstNumber: gstNumber,
+      panNumber: panNumber
+    };
+
     const vendorData = {
       user: userId,
-      
+
       // Business Information
       businessInfo: {
-        companyName: companyName || `${user.profile.firstName} ${user.profile.lastName}`,
-        businessType: businessType || 'individual',
-        licenseNumber: licenseNumber || '',
-        gstNumber: gstNumber || '',
-        panNumber: panNumber || '',
+        companyName: businessData.businessName || companyName || `${user.profile.firstName} ${user.profile.lastName}`,
+        businessType: businessData.businessType || businessType || 'individual',
+        licenseNumber: businessData.licenseNumber || licenseNumber || '',
+        gstNumber: businessData.gstNumber || gstNumber || '',
+        panNumber: businessData.panNumber || panNumber || '',
         registrationNumber: registrationNumber || '',
         website: website || ''
       },
-      
+
       // Professional Information
       professionalInfo: {
-        experience: parseInt(experience) || 0,
+        experience: parseInt(businessData.experience || experience) || 0,
+        description: businessData.businessDescription || '',
         specializations: parsedSpecializations,
-        serviceAreas: parsedServiceAreas.map(area => ({
+        serviceAreas: businessData.city ? [{
+          city: businessData.city || '',
+          state: businessData.state || '',
+          district: businessData.district || '',
+          country: 'India',
+          countryCode: 'IN',
+          pincode: businessData.pincode || ''
+        }] : parsedServiceAreas.map(area => ({
           city: area.city || '',
           state: area.state || '',
           district: area.district || '',
           country: area.country || 'India',
           countryCode: 'IN'
         })),
+        officeAddress: businessData.address ? {
+          area: businessData.address || '',
+          city: businessData.city || '',
+          state: businessData.state || '',
+          district: businessData.district || '',
+          country: 'India',
+          countryCode: 'IN',
+          pincode: businessData.pincode || ''
+        } : parsedOfficeAddress,
         languages: parsedLanguages,
         certifications: []
       },

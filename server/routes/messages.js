@@ -38,6 +38,7 @@ router.get('/conversations', asyncHandler(async (req, res) => {
       $group: {
         _id: '$conversationId',
         lastMessage: { $first: '$$ROOT' },
+        status: { $first: '$status' },
         unreadCount: {
           $sum: {
             $cond: {
@@ -98,11 +99,16 @@ router.get('/conversations', asyncHandler(async (req, res) => {
   // Apply filters after aggregation
   let filteredConversations = conversations;
 
-  // Filter by status (read/unread)
+  // Filter by status (read/unread/archived)
   if (status === 'unread') {
-    filteredConversations = filteredConversations.filter(conv => conv.unreadCount > 0);
+    filteredConversations = filteredConversations.filter(conv => conv.unreadCount > 0 && conv.status !== 'archived');
   } else if (status === 'read') {
-    filteredConversations = filteredConversations.filter(conv => conv.unreadCount === 0);
+    filteredConversations = filteredConversations.filter(conv => conv.unreadCount === 0 && conv.status !== 'archived');
+  } else if (status === 'archived') {
+    filteredConversations = filteredConversations.filter(conv => conv.status === 'archived');
+  } else if (!status || status === 'all') {
+    // When showing "all", exclude archived conversations by default
+    filteredConversations = filteredConversations.filter(conv => conv.status !== 'archived');
   }
 
   // Filter by search query
@@ -129,6 +135,7 @@ router.get('/conversations', asyncHandler(async (req, res) => {
     data: {
       conversations: paginatedConversations.map(conv => ({
         id: conv._id, // This is the conversationId
+        status: conv.status || 'unread',
         property: conv.property ? {
           _id: conv.property._id,
           title: conv.property.title,
@@ -1067,6 +1074,52 @@ router.delete('/conversations/:conversationId', asyncHandler(async (req, res) =>
   res.json({
     success: true,
     message: 'Conversation deleted successfully'
+  });
+}));
+
+// @desc    Update conversation status (archive/unarchive)
+// @route   PATCH /api/messages/conversations/:conversationId/status
+// @access  Private
+router.patch('/conversations/:conversationId/status', asyncHandler(async (req, res) => {
+  const { conversationId } = req.params;
+  const { status } = req.body;
+
+  // Validate status
+  const validStatuses = ['unread', 'read', 'replied', 'archived', 'flagged'];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+    });
+  }
+
+  // Update all messages in this conversation where user is sender or recipient
+  const result = await Message.updateMany(
+    {
+      conversationId,
+      $or: [
+        { sender: req.user.id },
+        { recipient: req.user.id }
+      ]
+    },
+    { status }
+  );
+
+  if (result.matchedCount === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'Conversation not found or you are not part of this conversation'
+    });
+  }
+
+  res.json({
+    success: true,
+    message: `Conversation ${status === 'archived' ? 'archived' : 'unarchived'} successfully`,
+    data: {
+      conversationId,
+      status,
+      updatedCount: result.modifiedCount
+    }
   });
 }));
 

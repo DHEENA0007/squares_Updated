@@ -57,6 +57,7 @@ export interface TypingStatus {
 }export interface Conversation {
   id: string; // This is the conversationId
   _id?: string; // Alias for id
+  status?: string; // unread, read, replied, archived, flagged
   property?: {
     _id: string;
     title: string;
@@ -663,6 +664,28 @@ class MessageService {
         description: errorMessage,
         variant: "destructive",
       });
+      throw error;
+    }
+  }
+
+  /**
+   * Update conversation status (archive/unarchive)
+   */
+  async updateConversationStatus(conversationId: string, status: string): Promise<void> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        message: string;
+      }>(`/messages/conversations/${conversationId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.success) {
+        throw new Error("Failed to update conversation status");
+      }
+    } catch (error) {
+      console.error("Error updating conversation status:", error);
       throw error;
     }
   }

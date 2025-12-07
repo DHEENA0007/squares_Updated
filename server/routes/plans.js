@@ -17,6 +17,7 @@ router.get('/', asyncHandler(async (req, res) => {
     page = 1, 
     limit = 10, 
     billingPeriod, 
+    billingCycleMonths,
     isActive,
     search 
   } = req.query;

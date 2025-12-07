@@ -51,9 +51,9 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const success = await login(email, password);
+      const result = await login(email, password);
       
-      if (success) {
+      if (result.success) {
         const user = JSON.parse(localStorage.getItem("user") || "{}");
         // Vendor trying to login through default portal
         if (user.role === 'agent') {
@@ -97,9 +97,48 @@ const Login = () => {
             navigate("/customer/dashboard");
           }
         }
+      } else {
+        // Handle specific error cases
+        if (result.isVendorPendingApproval || result.error?.includes('pending approval') || result.error?.includes('pending_approval')) {
+          toast({
+            title: "Vendor Profile Pending Approval",
+            description: "Your vendor profile is under review. You will be notified once approved by our admin team. Please login through the Vendor Portal.",
+            variant: "default",
+            duration: 6000,
+          });
+          // Redirect to vendor login after showing message
+          setTimeout(() => {
+            navigate("/vendor/login");
+          }, 3000);
+        } else {
+          // Show other login errors
+          toast({
+            title: "Login Failed",
+            description: result.error || "Invalid email or password",
+            variant: "destructive",
+          });
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
+      // Handle API errors that might indicate vendor pending approval
+      if (error.message?.includes('pending approval') || error.message?.includes('pending_approval')) {
+        toast({
+          title: "Vendor Profile Pending Approval",
+          description: "Your vendor profile is under review. You will be notified once approved by our admin team. Please login through the Vendor Portal.",
+          variant: "default",
+          duration: 6000,
+        });
+        setTimeout(() => {
+          navigate("/vendor/login");
+        }, 3000);
+      } else {
+        toast({
+          title: "Login Error",
+          description: error.message || "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }

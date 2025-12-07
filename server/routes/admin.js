@@ -259,13 +259,56 @@ router.get('/vendor-approvals/:vendorId', isAnyAdmin, asyncHandler(async (req, r
   }
 }));
 
+// @desc    Verify phone for vendor application
+// @route   POST /api/admin/vendor-approvals/:vendorId/verify-phone
+// @access  Private/Admin & SubAdmin
+router.post('/vendor-approvals/:vendorId/verify-phone', isAnyAdmin, asyncHandler(async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const { approverName } = req.body;
+    const adminId = req.user.id;
+
+    // Find vendor
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    // Update vendor with phone verification
+    vendor.approval.status = 'under_review';
+    vendor.approval.verificationChecklist.phoneVerified = true;
+    vendor.approval.phoneVerifiedAt = new Date();
+    vendor.approval.reviewedBy = adminId;
+    vendor.approval.approverName = approverName;
+
+    await vendor.save();
+
+    res.json({
+      success: true,
+      message: 'Phone verified successfully. Status changed to under review.',
+      data: {
+        phoneVerifiedAt: vendor.approval.phoneVerifiedAt
+      }
+    });
+  } catch (error) {
+    console.error('Phone verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify phone'
+    });
+  }
+}));
+
 // @desc    Approve vendor application
 // @route   POST /api/admin/vendor-approvals/:vendorId/approve
 // @access  Private/Admin & SubAdmin
 router.post('/vendor-approvals/:vendorId/approve', isAnyAdmin, asyncHandler(async (req, res) => {
   try {
     const { vendorId } = req.params;
-    const { approvalNotes, verificationLevel = 'basic' } = req.body;
+    const { approvalNotes, verificationLevel = 'complete', approverName, verificationChecklist } = req.body;
     const adminId = req.user.id;
 
     // Find vendor
@@ -289,15 +332,17 @@ router.post('/vendor-approvals/:vendorId/approve', isAnyAdmin, asyncHandler(asyn
     vendor.approval.reviewedAt = new Date();
     vendor.approval.reviewedBy = adminId;
     vendor.approval.approvalNotes = approvalNotes || 'Application approved';
-    
+    vendor.approval.approverName = approverName;
+    vendor.approval.verificationChecklist = verificationChecklist;
+
     // Update verification status
     vendor.verification.isVerified = true;
     vendor.verification.verificationDate = new Date();
     vendor.verification.verificationLevel = verificationLevel;
-    
+
     // Update vendor status
     vendor.status = 'active';
-    
+
     // Mark all submitted documents as verified
     vendor.approval.submittedDocuments.forEach(doc => {
       doc.verified = true;
@@ -322,8 +367,6 @@ router.post('/vendor-approvals/:vendorId/approve', isAnyAdmin, asyncHandler(asyn
         companyName: vendor.businessInfo.companyName,
         vendorId: `VEN-${vendor._id.toString().slice(-8).toUpperCase()}`,
         approvedDate: new Date().toLocaleDateString(),
-        approvedBy: `${admin?.profile?.firstName || 'Admin'} ${admin?.profile?.lastName || 'Team'}`,
-        approvalNotes: approvalNotes,
         vendorDashboardLink: `${process.env.FRONTEND_URL || 'https://squares-v2.vercel.app'}/vendor/dashboard`,
         setupGuideLink: `${process.env.FRONTEND_URL || 'https://squares-v2.vercel.app'}/vendor/setup-guide`
       });
@@ -357,7 +400,7 @@ router.post('/vendor-approvals/:vendorId/approve', isAnyAdmin, asyncHandler(asyn
 router.post('/vendor-approvals/:vendorId/reject', isAnyAdmin, asyncHandler(async (req, res) => {
   try {
     const { vendorId } = req.params;
-    const { rejectionReason, allowResubmission = true } = req.body;
+    const { rejectionReason, allowResubmission = true, approverName, verificationChecklist } = req.body;
     const adminId = req.user.id;
 
     if (!rejectionReason) {
@@ -388,10 +431,12 @@ router.post('/vendor-approvals/:vendorId/reject', isAnyAdmin, asyncHandler(async
     vendor.approval.reviewedAt = new Date();
     vendor.approval.reviewedBy = adminId;
     vendor.approval.rejectionReason = rejectionReason;
-    
+    vendor.approval.approverName = approverName;
+    vendor.approval.verificationChecklist = verificationChecklist;
+
     // Update vendor status
     vendor.status = 'rejected';
-    
+
     await vendor.save();
 
     // Update user status
@@ -409,7 +454,6 @@ router.post('/vendor-approvals/:vendorId/reject', isAnyAdmin, asyncHandler(async
         companyName: vendor.businessInfo.companyName,
         applicationId: `VEN-${vendor._id.toString().slice(-8).toUpperCase()}`,
         reviewedDate: new Date().toLocaleDateString(),
-        reviewedBy: `${admin?.profile?.firstName || 'Admin'} ${admin?.profile?.lastName || 'Team'}`,
         rejectionReason: rejectionReason,
         reapplyLink: `${process.env.FRONTEND_URL || 'https://squares-v2.vercel.app'}/vendor/register`
       });
@@ -618,6 +662,31 @@ router.get('/vendor-approval-stats', isAnyAdmin, asyncHandler(async (req, res) =
     res.status(500).json({
       success: false,
       message: 'Failed to fetch vendor approval statistics'
+    });
+  }
+}));
+
+// @desc    Export vendor approval report
+// @route   GET /api/admin/vendor-approvals/export
+// @access  Private/Admin & SubAdmin
+router.get('/vendor-approvals/export', isAnyAdmin, asyncHandler(async (req, res) => {
+  try {
+    // Fetch all vendor applications with user details
+    const vendors = await Vendor.find()
+      .populate('user', 'email profile.firstName profile.lastName profile.phone')
+      .populate('approval.reviewedBy', 'profile.firstName profile.lastName email')
+      .sort({ 'approval.submittedAt': -1 });
+
+    res.json({
+      success: true,
+      data: vendors
+    });
+
+  } catch (error) {
+    console.error('Export vendor approvals error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export vendor approval report'
     });
   }
 }));
@@ -1669,6 +1738,9 @@ router.get('/addons', asyncHandler(async (req, res) => {
     category, 
     isActive, 
     search,
+    minPrice,
+    maxPrice,
+    billingCycleMonths,
     page = 1, 
     limit = 10 
   } = req.query;
@@ -1686,6 +1758,19 @@ router.get('/addons', asyncHandler(async (req, res) => {
       { description: { $regex: search, $options: 'i' } }
     ];
   }
+  
+  // Price filters
+  if (minPrice) {
+    filter.price = { $gte: parseFloat(minPrice) };
+  }
+  if (maxPrice) {
+    filter.price = { ...filter.price, $lte: parseFloat(maxPrice) };
+  }
+
+  // Billing cycle months filter
+  if (billingCycleMonths) {
+    filter.billingCycleMonths = parseInt(billingCycleMonths);
+  }
 
   const [addons, total] = await Promise.all([
     AddonService.find(filter)
@@ -1695,6 +1780,10 @@ router.get('/addons', asyncHandler(async (req, res) => {
     AddonService.countDocuments(filter)
   ]);
 
+  // Get max price from all addons (not just filtered ones)
+  const maxPriceAddon = await AddonService.findOne().sort({ price: -1 }).select('price');
+  const maxAvailablePrice = maxPriceAddon ? maxPriceAddon.price : 0;
+
   const totalPages = Math.ceil(total / limitNum);
 
   res.json({
@@ -1703,7 +1792,8 @@ router.get('/addons', asyncHandler(async (req, res) => {
       addons,
       total,
       totalPages,
-      currentPage: pageNum
+      currentPage: pageNum,
+      maxAvailablePrice
     }
   });
 }));
@@ -1737,18 +1827,43 @@ router.post('/addons', asyncHandler(async (req, res) => {
     price,
     currency,
     billingType,
+    billingPeriod,
+    billingCycleMonths,
     category,
     icon,
     isActive,
     sortOrder
   } = req.body;
 
+  // Auto-calculate billingPeriod and billingCycleMonths based on months input
+  let finalBillingPeriod = billingPeriod;
+  let finalBillingCycleMonths = billingCycleMonths;
+  
+  // If billingCycleMonths is provided, auto-determine billing period
+  if (finalBillingCycleMonths !== undefined) {
+    if (finalBillingCycleMonths === 1) {
+      finalBillingPeriod = 'monthly';
+    } else if (finalBillingCycleMonths === 12) {
+      finalBillingPeriod = 'yearly';
+    } else if (finalBillingCycleMonths === 0) {
+      finalBillingPeriod = 'one-time';
+    } else {
+      finalBillingPeriod = `${finalBillingCycleMonths} months`;
+    }
+  } else {
+    // Default to monthly if not provided
+    finalBillingPeriod = 'monthly';
+    finalBillingCycleMonths = 1;
+  }
+
   const addon = await AddonService.create({
     name,
     description,
     price,
     currency: currency || 'INR',
-    billingType,
+    billingType: billingType || 'recurring',
+    billingPeriod: finalBillingPeriod,
+    billingCycleMonths: finalBillingCycleMonths,
     category,
     icon,
     isActive: isActive !== undefined ? isActive : true,
@@ -1780,11 +1895,30 @@ router.put('/addons/:id', asyncHandler(async (req, res) => {
     price,
     currency,
     billingType,
+    billingPeriod,
+    billingCycleMonths,
     category,
     icon,
     isActive,
     sortOrder
   } = req.body;
+
+  // Auto-calculate billingPeriod based on billingCycleMonths if provided
+  if (billingCycleMonths !== undefined) {
+    if (billingCycleMonths === 1) {
+      addon.billingPeriod = 'monthly';
+    } else if (billingCycleMonths === 12) {
+      addon.billingPeriod = 'yearly';
+    } else if (billingCycleMonths === 0) {
+      addon.billingPeriod = 'one-time';
+    } else {
+      addon.billingPeriod = `${billingCycleMonths} months`;
+    }
+    addon.billingCycleMonths = billingCycleMonths;
+  }
+  
+  // Override with explicit billingPeriod if provided
+  if (billingPeriod !== undefined) addon.billingPeriod = billingPeriod;
 
   addon.name = name || addon.name;
   addon.description = description || addon.description;

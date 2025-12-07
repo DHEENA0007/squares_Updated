@@ -145,6 +145,13 @@ class UnifiedMessageService {
   }
 
   /**
+   * Update conversation status (archive/unarchive)
+   */
+  async updateConversationStatus(conversationId: string, status: string): Promise<void> {
+    await messageService.updateConversationStatus(conversationId, status);
+  }
+
+  /**
    * Get user status
    */
   async getUserStatus(userId: string): Promise<UserStatus> {

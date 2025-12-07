@@ -5,6 +5,7 @@ import SubAdminProtectedRoute from "@/components/auth/SubAdminProtectedRoute";
 import { PageLoader } from "@/components/ui/loader/PageLoader";
 import {
   SubAdminDashboard,
+  VendorApprovals,
   PropertyReviews,
   PropertyRejections,
   SupportTickets,
@@ -25,6 +26,7 @@ const SubAdminRoutes = () => {
           <Routes>
             <Route path="/" element={<Navigate to="/subadmin/dashboard" />} />
             <Route path="/dashboard" element={<SubAdminDashboard />} />
+            <Route path="/vendor-approvals" element={<VendorApprovals />} />
             <Route path="/property-reviews" element={<PropertyReviews />} />
             <Route path="/property-rejections" element={<PropertyRejections />} />
             <Route path="/support-tickets" element={<SupportTickets />} />

@@ -36,7 +36,9 @@ interface AddonService {
   description: string;
   price: number;
   category: string;
-  billingType: 'monthly' | 'yearly' | 'per_property' | 'one_time';
+  billingType: 'monthly' | 'yearly' | 'per_property' | 'one_time' | 'custom';
+  billingPeriod?: 'custom' | 'monthly' | 'yearly' | 'lifetime' | 'one-time' | 'per_property';
+  billingCycleMonths?: number;
   isActive: boolean;
 }
 
@@ -355,8 +357,8 @@ const VendorSubscriptionManager: React.FC = () => {
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-blue-600">₹{addon.price.toLocaleString()}</p>
-                        <p className="text-xs text-gray-500">
-                          {addon.billingType.replace('_', ' ').replace('per property', 'per listing')}
+                        <p className="text-xs text-gray-500 capitalize">
+                          {addon.billingPeriod || addon.billingType?.replace('_', ' ') || 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -457,8 +459,8 @@ const VendorSubscriptionManager: React.FC = () => {
                     </div>
                     <div className="text-xl font-bold text-blue-600">
                       ₹{addon.price.toLocaleString()}
-                      <span className="text-sm text-gray-500 font-normal">
-                        /{addon.billingType.replace('_', ' ').replace('per property', 'per listing')}
+                      <span className="text-sm text-gray-500 font-normal capitalize">
+                        /{addon.billingPeriod || addon.billingType?.replace('_', ' ') || 'month'}
                       </span>
                     </div>
                   </CardHeader>

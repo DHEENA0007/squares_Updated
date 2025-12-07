@@ -378,6 +378,27 @@ const vendorSchema = new mongoose.Schema({
     },
     approvalNotes: String,
     rejectionReason: String,
+    approverName: String,
+    phoneVerifiedAt: Date, // 5-character unique key generated after phone verification
+    verificationChecklist: {
+      phoneVerified: { type: Boolean, default: false },
+      // Personal Information
+      emailVerified: { type: Boolean, default: false },
+      identityProofVerified: { type: Boolean, default: false },
+      // Business Information
+      businessNameVerified: { type: Boolean, default: false },
+      businessTypeVerified: { type: Boolean, default: false },
+      businessDescriptionVerified: { type: Boolean, default: false },
+      experienceVerified: { type: Boolean, default: false },
+      // Address Information
+      addressVerified: { type: Boolean, default: false },
+      // Legal Documents
+      panNumberVerified: { type: Boolean, default: false },
+      gstNumberVerified: { type: Boolean, default: false },
+      licenseNumberVerified: { type: Boolean, default: false },
+      // Documents
+      businessRegistrationVerified: { type: Boolean, default: false }
+    },
     requiredDocuments: [{
       type: String,
       enum: ['identity_proof', 'address_proof', 'business_license', 'gst_certificate', 'pan_card', 'bank_statement', 'other']

@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { configurationService } from '@/services/configurationService';
 import type { NavigationItem } from '@/types/configuration';
@@ -39,6 +40,7 @@ const NavigationTab: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<NavigationItem | null>(null);
   const [activeTab, setActiveTab] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     value: '',
@@ -259,6 +261,11 @@ const NavigationTab: React.FC = () => {
 
   const renderNavigationTable = (listingTypeValue: string | null) => {
     const items = listingTypeValue === null ? getAllUnassignedItems() : getItemsByListingType(listingTypeValue);
+    const filteredItems = items.filter(item =>
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.displayLabel?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.value.toLowerCase().includes(searchTerm.toLowerCase())
+    );
     const listingType = listingTypeValue ? listingTypes.find(lt => lt.value === listingTypeValue) : null;
     const title = listingType ? (listingType.displayLabel || listingType.name) : 'Unassigned';
 
@@ -276,6 +283,15 @@ const NavigationTab: React.FC = () => {
           </Button>
         </div>
 
+        <div className="flex items-center space-x-2">
+          <Input
+            placeholder="Search navigation items..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
+
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
@@ -291,57 +307,56 @@ const NavigationTab: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.length === 0 ? (
+              {filteredItems.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    {listingType
-                      ? `No property types assigned to "${title}" yet. Create one to get started.`
-                      : 'No unassigned property types. All items are assigned to listing types.'}
+                    {searchTerm
+                      ? 'No navigation items match your search.'
+                      : (listingType
+                          ? `No property types assigned to "${title}" yet. Create one to get started.`
+                          : 'No unassigned property types. All items are assigned to listing types.')}
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((item, index) => (
+                filteredItems.map((item, index) => {
+                  const originalIndex = items.findIndex(i => i._id === item._id);
+                  return (
                   <TableRow key={item._id}>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleReorder(item._id, 'up', item.category)}
-                          disabled={index === 0}
+                          onClick={() => handleReorder(item._id, 'up', listingTypeValue)}
+                          disabled={originalIndex === 0}
                         >
                           <ChevronUp className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleReorder(item._id, 'down', item.category)}
-                          disabled={index === items.length - 1}
+                          onClick={() => handleReorder(item._id, 'down', listingTypeValue)}
+                          disabled={originalIndex === items.length - 1}
                         >
                           <ChevronDown className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>{item.displayLabel || item.name}</TableCell>
+                    <TableCell>{item.displayLabel || '-'}</TableCell>
                     <TableCell>
-                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
-                        {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
-                      </span>
+                      <Badge variant="outline">{item.category}</Badge>
                     </TableCell>
                     <TableCell>
                       <code className="text-sm bg-muted px-2 py-1 rounded">{item.value}</code>
                     </TableCell>
                     <TableCell>
                       {item.parentId ? (
-                        <code className="text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
-                          {(() => {
-                            const listingType = listingTypes.find(lt => lt.value === item.parentId);
-                            return listingType ? (listingType.displayLabel || listingType.name) : item.parentId;
-                          })()}
-                        </code>
+                        <Badge variant="secondary">
+                          {listingTypes.find(lt => lt.value === item.parentId)?.displayLabel || item.parentId}
+                        </Badge>
                       ) : (
-                        <span className="text-xs text-muted-foreground">Not assigned</span>
+                        <Badge variant="outline">Unassigned</Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -369,7 +384,8 @@ const NavigationTab: React.FC = () => {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
+                );
+                })
               )}
             </TableBody>
           </Table>

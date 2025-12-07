@@ -10,7 +10,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import roleService from "@/services/roleService";
-import { getPagesByCategory, type PageConfig } from "@/config/pages.config";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const AddRole = () => {

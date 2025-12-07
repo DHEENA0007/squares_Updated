@@ -2,6 +2,7 @@ import { lazy } from "react";
 
 // Sub Admin specific page imports
 export const SubAdminDashboard = lazy(() => import("@/pages/subadmin/SubAdminDashboard"));
+export const VendorApprovals = lazy(() => import("@/pages/subadmin/VendorApprovals"));
 export const PropertyReviews = lazy(() => import("@/pages/subadmin/PropertyReviews"));
 export const PropertyRejections = lazy(() => import("@/pages/subadmin/PropertyRejections"));
 export const SupportTickets = lazy(() => import("@/pages/subadmin/SupportTickets"));

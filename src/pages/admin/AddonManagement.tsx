@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { adminAddonService, AdminAddonService, CreateAddonRequest, UpdateAddonRequest, AddonFilters } from '@/services/adminAddonService';
+import { PriceRangeFilter } from "@/components/adminpanel/shared/PriceRangeFilter";
 
 const categoryIcons = {
   photography: Camera,
@@ -35,6 +36,10 @@ const AddonManagement: React.FC = () => {
     limit: 10,
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [minPrice, setMinPrice] = useState<string>('');
+  const [maxPrice, setMaxPrice] = useState<string>('');
+  const [billingCycleFilter, setBillingCycleFilter] = useState<string>('');
+  const [maxPossiblePrice, setMaxPossiblePrice] = useState<number>(100000);
   
   // Dialog states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -48,7 +53,9 @@ const AddonManagement: React.FC = () => {
     description: '',
     price: 0,
     currency: 'INR',
-    billingType: 'monthly',
+    billingType: 'recurring',
+    billingPeriod: 'monthly',
+    billingCycleMonths: 1,
     category: 'marketing',
     icon: '',
     isActive: true,
@@ -64,11 +71,18 @@ const AddonManagement: React.FC = () => {
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
-      setFilters(prev => ({ ...prev, search: searchTerm, page: 1 }));
+      setFilters(prev => ({ 
+        ...prev, 
+        search: searchTerm, 
+        minPrice: minPrice ? parseFloat(minPrice) : undefined,
+        maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
+        billingCycleMonths: billingCycleFilter ? parseInt(billingCycleFilter) : undefined,
+        page: 1 
+      }));
     }, 300);
 
     return () => clearTimeout(debounceTimer);
-  }, [searchTerm]);
+  }, [searchTerm, minPrice, maxPrice, billingCycleFilter]);
 
   const loadAddons = async () => {
     try {
@@ -78,6 +92,11 @@ const AddonManagement: React.FC = () => {
       setTotalPages(response.totalPages);
       setCurrentPage(response.currentPage);
       setTotal(response.total);
+      
+      // Use maxAvailablePrice from API response, or calculate from current addons as fallback
+      const maxPriceFromAPI = response.maxAvailablePrice;
+      const maxPriceFromAddons = Math.max(...response.addons.map(addon => addon.price), 0);
+      setMaxPossiblePrice(maxPriceFromAPI || maxPriceFromAddons || 100000);
     } catch (error) {
       console.error('Failed to load addons:', error);
     } finally {
@@ -158,7 +177,9 @@ const AddonManagement: React.FC = () => {
       description: '',
       price: 0,
       currency: 'INR',
-      billingType: 'monthly',
+      billingType: 'recurring',
+      billingPeriod: 'monthly',
+      billingCycleMonths: 1,
       category: 'marketing',
       icon: '',
       isActive: true,
@@ -174,6 +195,8 @@ const AddonManagement: React.FC = () => {
       price: addon.price,
       currency: addon.currency,
       billingType: addon.billingType,
+      billingPeriod: addon.billingPeriod || 'monthly',
+      billingCycleMonths: addon.billingCycleMonths || 1,
       category: addon.category,
       icon: addon.icon || '',
       isActive: addon.isActive,
@@ -273,6 +296,26 @@ const AddonManagement: React.FC = () => {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
+              <div className="w-48">
+                <PriceRangeFilter
+                  minPrice={minPrice}
+                  maxPrice={maxPrice}
+                  onMinPriceChange={setMinPrice}
+                  onMaxPriceChange={setMaxPrice}
+                  maxPossiblePrice={maxPossiblePrice}
+                  currency="INR"
+                />
+              </div>
+              <div className="w-36">
+                <Input
+                  placeholder="Billing months"
+                  type="number"
+                  min="0"
+                  value={billingCycleFilter}
+                  onChange={(e) => setBillingCycleFilter(e.target.value)}
+                  className="h-9"
+                />
+              </div>
               <Select
                 value={filters.category || 'all'}
                 onValueChange={(value) => setFilters(prev => ({
@@ -281,7 +324,7 @@ const AddonManagement: React.FC = () => {
                   page: 1
                 }))}
               >
-                <SelectTrigger className="w-full sm:w-36 h-9">
+                <SelectTrigger className="w-full sm:w-28 h-9">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -366,7 +409,7 @@ const AddonManagement: React.FC = () => {
                         </TableCell>
                         <TableCell className="py-2">
                           <Badge variant="secondary" className="capitalize whitespace-nowrap text-xs">
-                            {addon.billingType.replace('_', ' ')}
+                            {addon.billingPeriod || `${addon.billingCycleMonths || 1} months`}
                           </Badge>
                         </TableCell>
                         <TableCell className="py-2">
@@ -529,22 +572,31 @@ const AddonManagement: React.FC = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="billingType">Billing Type</Label>
-                <Select
-                  value={formData.billingType}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, billingType: value as any }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {adminAddonService.getBillingTypeOptions().map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="billingCycleMonths">Billing Period (Months) *</Label>
+                <Input
+                  id="billingCycleMonths"
+                  type="number"
+                  min="0"
+                  max="120"
+                  value={formData.billingCycleMonths}
+                  onChange={(e) => {
+                    const months = parseInt(e.target.value) || 0;
+                    let billingPeriod = "custom";
+                    if (months === 0) billingPeriod = "one-time";
+                    else if (months === 1) billingPeriod = "monthly";
+                    else if (months === 12) billingPeriod = "yearly";
+                    else billingPeriod = `${months} months`;
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      billingPeriod, 
+                      billingCycleMonths: months 
+                    }));
+                  }}
+                  placeholder="Enter months (0 for one-time)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  0 = One-time, 1 = Monthly, 12 = Yearly
+                </p>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -667,22 +719,31 @@ const AddonManagement: React.FC = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-billingType">Billing Type</Label>
-                <Select
-                  value={formData.billingType}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, billingType: value as any }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {adminAddonService.getBillingTypeOptions().map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="edit-billingCycleMonths">Billing Period (Months) *</Label>
+                <Input
+                  id="edit-billingCycleMonths"
+                  type="number"
+                  min="0"
+                  max="120"
+                  value={formData.billingCycleMonths}
+                  onChange={(e) => {
+                    const months = parseInt(e.target.value) || 0;
+                    let billingPeriod = "custom";
+                    if (months === 0) billingPeriod = "one-time";
+                    else if (months === 1) billingPeriod = "monthly";
+                    else if (months === 12) billingPeriod = "yearly";
+                    else billingPeriod = `${months} months`;
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      billingPeriod, 
+                      billingCycleMonths: months 
+                    }));
+                  }}
+                  placeholder="Enter months (0 for one-time)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  0 = One-time, 1 = Monthly, 12 = Yearly
+                </p>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

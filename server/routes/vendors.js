@@ -2832,7 +2832,7 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
       endDate: { $gt: new Date() }
     }).populate([
       { path: 'plan' },
-      { path: 'addons', select: 'name description price category billingType' }
+      { path: 'addons', select: 'name description price category billingType billingPeriod billingCycleMonths' }
     ]).sort({ createdAt: -1 }); // Changed from planId to plan and added addons population
 
     if (activeSubscription) {
@@ -3011,7 +3011,7 @@ router.get('/subscription/current', requireVendorRole, asyncHandler(async (req, 
       endDate: { $gt: new Date() }
     }).populate([
       { path: 'plan' },
-      { path: 'addons', select: 'name description price category billingType' }
+      { path: 'addons', select: 'name description price category billingType billingPeriod billingCycleMonths' }
     ]).sort({ createdAt: -1 });
 
     if (!activeSubscription || !activeSubscription.plan) {

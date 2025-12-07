@@ -1090,16 +1090,38 @@ router.post('/verify-addon-payment', authenticateToken, asyncHandler(async (req,
 
     const updatedAddons = [...(activeSubscription.addons || []), ...newAddonIds];
 
-    // Calculate addon cost
+    // Calculate addon cost and prepare addon details with expiry
     const addonCost = addonServices.reduce((total, addon) => total + addon.price, 0);
+    
+    // Create addon details with expiry dates
+    const addonDetailsToAdd = addonServices.map(addon => {
+      const purchaseDate = new Date();
+      let expiryDate = null;
+      let billingCycleMonths = addon.billingCycleMonths || 0;
+      
+      // Calculate expiry based on addon's billing cycle months
+      if (billingCycleMonths > 0) {
+        expiryDate = new Date(purchaseDate);
+        expiryDate.setMonth(expiryDate.getMonth() + billingCycleMonths);
+      }
+      // For 0 months (one-time), expiryDate remains null (lifetime)
+      
+      return {
+        addonId: addon._id,
+        purchaseDate,
+        expiryDate,
+        isActive: true,
+        billingCycleMonths
+      };
+    });
 
     // Update subscription with new addons
     const updatedSubscription = await Subscription.findByIdAndUpdate(
       activeSubscription._id,
       {
         addons: updatedAddons,
-        $inc: { amount: addonCost }, // Add addon cost to existing amount
         $push: {
+          addonDetails: { $each: addonDetailsToAdd },
           paymentHistory: {
             type: 'addon_purchase',
             amount: totalAmount || addonCost,

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { usePagination } from "@/hooks/usePagination";
 import {
   Pagination,
@@ -14,13 +15,16 @@ import {
 } from "@/components/ui/pagination";
 import { Plan, planService } from "@/services/planService";
 import { Column, DataTable } from "@/components/adminpanel/shared/DataTable";
-import { SearchFilter } from "@/components/adminpanel/shared/SearchFilter";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Search } from "lucide-react";
+import { PriceRangeFilter } from "@/components/adminpanel/shared/PriceRangeFilter";
 
 const Plans = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [billingFilter, setBillingFilter] = useState("all");
+  const [monthsFilter, setMonthsFilter] = useState<string>("");
+  const [minPrice, setMinPrice] = useState<string>("");
+  const [maxPrice, setMaxPrice] = useState<string>("");
+  const [maxPossiblePrice, setMaxPossiblePrice] = useState<number>(100000);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,6 +37,9 @@ const Plans = () => {
         
         if (response.success) {
           setPlans(response.data.plans);
+          // Calculate max possible price from all plans
+          const maxPriceFromPlans = Math.max(...response.data.plans.map(plan => plan.price), 0);
+          setMaxPossiblePrice(maxPriceFromPlans || 100000);
         }
       } catch (error) {
         console.error("Failed to fetch plans:", error);
@@ -47,10 +54,12 @@ const Plans = () => {
   const filteredPlans = useMemo(() => {
     return plans.filter((plan) => {
       const matchesSearch = plan.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesBilling = billingFilter === "all" || plan.billingPeriod === billingFilter;
-      return matchesSearch && matchesBilling;
+      const matchesMonths = monthsFilter === "" || (plan.billingCycleMonths !== undefined && plan.billingCycleMonths === parseInt(monthsFilter));
+      const matchesMinPrice = minPrice === "" || plan.price >= parseFloat(minPrice);
+      const matchesMaxPrice = maxPrice === "" || plan.price <= parseFloat(maxPrice);
+      return matchesSearch && matchesMonths && matchesMinPrice && matchesMaxPrice;
     });
-  }, [plans, searchTerm, billingFilter]);
+  }, [plans, searchTerm, monthsFilter, minPrice, maxPrice]);
 
   const { paginatedItems, currentPage, totalPages, goToPage, nextPage, previousPage } =
     usePagination(filteredPlans, 10);
@@ -158,18 +167,38 @@ const Plans = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <SearchFilter
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
-                filterValue={billingFilter}
-                onFilterChange={setBillingFilter}
-                filterOptions={[
-                  { label: "Monthly", value: "monthly" },
-                  { label: "Yearly", value: "yearly" },
-                  { label: "Custom", value: "custom" },
-                ]}
-                filterPlaceholder="Filter by billing"
-              />
+              <div className="flex flex-col lg:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search plans..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Filter by months (e.g., 1, 12)"
+                        value={monthsFilter}
+                        onChange={(e) => setMonthsFilter(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 lg:w-80">
+                  <PriceRangeFilter
+                    minPrice={minPrice}
+                    maxPrice={maxPrice}
+                    onMinPriceChange={setMinPrice}
+                    onMaxPriceChange={setMaxPrice}
+                    maxPossiblePrice={maxPossiblePrice}
+                    currency="INR"
+                  />
+                </div>
+              </div>
 
               <div className="table-responsive-wrapper">
                 <DataTable

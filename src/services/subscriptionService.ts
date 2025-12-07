@@ -41,6 +41,13 @@ export interface Subscription {
     category: string;
     billingType: string;
   }>;
+  addonDetails?: Array<{
+    addonId: string;
+    purchaseDate: string;
+    expiryDate?: string;
+    isActive: boolean;
+    billingCycleMonths: number;
+  }>;
   status: 'active' | 'cancelled' | 'expired' | 'pending';
   startDate: string;
   endDate: string;

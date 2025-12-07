@@ -42,6 +42,7 @@ const PropertyTypesTab: React.FC = () => {
   const [editingType, setEditingType] = useState<PropertyType | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState<CreatePropertyTypeDTO>({
     name: '',
     value: '',
@@ -266,6 +267,10 @@ const PropertyTypesTab: React.FC = () => {
 
   const renderPropertyTypeTable = (category: string) => {
     const types = getTypesByCategory(category);
+    const filteredTypes = types.filter(type =>
+      type.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      type.value.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     return (
       <div className="space-y-4">
@@ -277,6 +282,15 @@ const PropertyTypesTab: React.FC = () => {
             <Plus className="h-4 w-4 mr-2" />
             Add Property Type
           </Button>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Input
+            placeholder="Search property types..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-sm"
+          />
         </div>
 
         <div className="border rounded-lg">
@@ -291,14 +305,16 @@ const PropertyTypesTab: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {types.length === 0 ? (
+              {filteredTypes.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No property types found. Create your first property type to get started.
+                    {searchTerm ? 'No property types match your search.' : 'No property types found. Create your first property type to get started.'}
                   </TableCell>
                 </TableRow>
               ) : (
-                types.map((type, index) => (
+                filteredTypes.map((type, index) => {
+                  const originalIndex = types.findIndex(t => t._id === type._id);
+                  return (
                   <TableRow key={type._id}>
                     <TableCell>
                       <div className="flex gap-1">
@@ -306,7 +322,7 @@ const PropertyTypesTab: React.FC = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleReorder(type._id, 'up', category)}
-                          disabled={index === 0}
+                          disabled={originalIndex === 0}
                         >
                           <ChevronUp className="h-4 w-4" />
                         </Button>
@@ -314,7 +330,7 @@ const PropertyTypesTab: React.FC = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleReorder(type._id, 'down', category)}
-                          disabled={index === types.length - 1}
+                          disabled={originalIndex === types.length - 1}
                         >
                           <ChevronDown className="h-4 w-4" />
                         </Button>
@@ -349,7 +365,8 @@ const PropertyTypesTab: React.FC = () => {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>

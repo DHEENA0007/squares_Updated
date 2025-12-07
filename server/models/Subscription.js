@@ -46,6 +46,28 @@ const subscriptionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'AddonService'
   }],
+  addonDetails: [{
+    addonId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'AddonService',
+      required: true
+    },
+    purchaseDate: {
+      type: Date,
+      default: Date.now
+    },
+    expiryDate: {
+      type: Date
+    },
+    isActive: {
+      type: Boolean,
+      default: true
+    },
+    billingCycleMonths: {
+      type: Number,
+      default: 1
+    }
+  }],
   // Snapshot of addon details at subscription time
   addonsSnapshot: [{
     addonId: {
@@ -58,6 +80,8 @@ const subscriptionSchema = new mongoose.Schema({
     currency: String,
     category: String,
     billingType: String,
+    billingPeriod: String,
+    billingCycleMonths: Number,
     limits: mongoose.Schema.Types.Mixed
   }],
   status: {
@@ -218,6 +242,8 @@ subscriptionSchema.methods.createAddonsSnapshot = async function() {
           currency: addon.currency,
           category: addon.category,
           billingType: addon.billingType,
+          billingPeriod: addon.billingPeriod,
+          billingCycleMonths: addon.billingCycleMonths,
           limits: addon.limits ? JSON.parse(JSON.stringify(addon.limits)) : {}
         };
       }

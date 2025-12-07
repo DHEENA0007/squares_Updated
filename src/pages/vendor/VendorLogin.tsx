@@ -60,9 +60,9 @@ const VendorLogin = () => {
     setIsLoading(true);
 
     try {
-      const success = await login(email, password);
+      const result = await login(email, password);
 
-      if (success) {
+      if (result.success) {
         // Check if user is a vendor and navigate accordingly
         // Get user from localStorage directly since getCurrentUser is async
         const userStr = localStorage.getItem('user');
@@ -101,9 +101,25 @@ const VendorLogin = () => {
           return;
         }
       } else {
+        // Handle login failure with specific error message
+        let errorMessage = result.error || "Invalid email or password. Please try again.";
+        
+        // Check if it's a pending approval error
+        if (errorMessage.includes("pending approval") || 
+            errorMessage.includes("profile is under review") ||
+            errorMessage.includes("awaiting admin approval")) {
+          toast({
+            title: "Account Pending Approval",
+            description: "Your vendor profile is currently under review by our admin team. You will receive an email notification once your account is approved.",
+            variant: "default",
+            duration: 8000,
+          });
+          return;
+        }
+        
         toast({
           title: "Login Failed",
-          description: "Invalid email or password. Please try again.",
+          description: errorMessage,
           variant: "destructive",
         });
       }
@@ -111,28 +127,9 @@ const VendorLogin = () => {
     } catch (error) {
       console.error("Vendor login error:", error);
       
-      let errorMessage = "An error occurred during login. Please try again.";
-      
-      if (error instanceof Error) {
-        errorMessage = error.message;
-        
-        // Check if it's a pending approval error
-        if (errorMessage.includes("profile is under review") || 
-            errorMessage.includes("pending approval") ||
-            errorMessage.includes("awaiting admin approval")) {
-          toast({
-            title: "Account Pending Approval",
-            description: errorMessage,
-            variant: "default",
-            duration: 5000,
-          });
-          return;
-        }
-      }
-      
       toast({
         title: "Login Failed",
-        description: errorMessage,
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {

@@ -57,7 +57,7 @@ interface VendorApplication {
     panNumber?: string;
     website?: string;
   };
-  user: {
+  user?: {
     _id: string;
     email: string;
     profile: {
@@ -66,7 +66,7 @@ interface VendorApplication {
       phone?: string;
     };
     createdAt: string;
-  };
+  } | null;
   approval: {
     status: 'pending' | 'approved' | 'rejected' | 'under_review';
     submittedAt: string;
@@ -316,7 +316,7 @@ const VendorApprovals: React.FC = () => {
     });
     setApprovalComments("");
     setRejectionComments("");
-    setApproverName(getApproverName());
+    setApproverName(getApproverName()); // Auto-populate from logged-in user
   };
 
   const openApprovalDialog = (application: VendorApplication, type: 'approve' | 'reject') => {
@@ -455,7 +455,7 @@ const VendorApprovals: React.FC = () => {
         })
       });
 
-      const data = await handleApiResponse<{ data: any }>(response);
+      const data = await handleApiResponse<{ data: { phoneVerifiedAt: string } }>(response);
 
       setVerificationChecklist(prev => ({ ...prev, phoneVerified: true }));
 
@@ -854,15 +854,15 @@ const VendorApprovals: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <User className="w-3 h-3" />
-                        {app.user.profile.firstName} {app.user.profile.lastName}
+                        {app.user?.profile?.firstName || 'N/A'} {app.user?.profile?.lastName || ''}
                       </div>
                       <div className="flex items-center gap-1">
                         <Mail className="w-3 h-3" />
-                        {app.user.email}
+                        {app.user?.email || 'N/A'}
                       </div>
                       <div className="flex items-center gap-1">
                         <Phone className="w-3 h-3" />
-                        {app.user.profile.phone || 'N/A'}
+                        {app.user?.profile?.phone || 'N/A'}
                       </div>
                       <div className="flex items-center gap-1">
                         <Building className="w-3 h-3" />
@@ -946,19 +946,19 @@ const VendorApprovals: React.FC = () => {
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 text-sm">
                   <div className="flex flex-col space-y-1">
                     <span className="font-medium text-muted-foreground">Name:</span>
-                    <span>{selectedApplication.user.profile.firstName} {selectedApplication.user.profile.lastName}</span>
+                    <span>{selectedApplication.user?.profile?.firstName || 'N/A'} {selectedApplication.user?.profile?.lastName || ''}</span>
                   </div>
                   <div className="flex flex-col space-y-1">
                     <span className="font-medium text-muted-foreground">Email:</span>
-                    <span className="break-all">{selectedApplication.user.email}</span>
+                    <span className="break-all">{selectedApplication.user?.email || 'N/A'}</span>
                   </div>
                   <div className="flex flex-col space-y-1">
                     <span className="font-medium text-muted-foreground">Phone:</span>
-                    <span>{selectedApplication.user.profile.phone || 'N/A'}</span>
+                    <span>{selectedApplication.user?.profile?.phone || 'N/A'}</span>
                   </div>
                   <div className="flex flex-col space-y-1">
                     <span className="font-medium text-muted-foreground">Registered On:</span>
-                    <span>{formatTimestamp(selectedApplication.user.createdAt)}</span>
+                    <span>{selectedApplication.user?.createdAt ? formatTimestamp(selectedApplication.user.createdAt) : 'N/A'}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -1101,22 +1101,19 @@ const VendorApprovals: React.FC = () => {
               <div className="p-4 bg-muted rounded-lg">
                 <h3 className="font-semibold mb-2">{selectedApplication.businessInfo.companyName}</h3>
                 <p className="text-sm text-muted-foreground">
-                  {selectedApplication.user.profile.firstName} {selectedApplication.user.profile.lastName} • {selectedApplication.user.email}
+                  {selectedApplication.user?.profile?.firstName || 'N/A'} {selectedApplication.user?.profile?.lastName || ''} • {selectedApplication.user?.email || 'N/A'}
                 </p>
               </div>
 
               {/* Approver Name */}
               <div className="space-y-2">
-                <Label htmlFor="approverName">
-                  Approver Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="approverName"
-                  value={approverName}
-                  onChange={(e) => setApproverName(e.target.value)}
-                  placeholder="Enter your full name"
-                  disabled={verificationChecklist.phoneVerified}
-                />
+                <Label>Approver Name</Label>
+                <div className="p-3 rounded-md bg-muted border border-border">
+                  <p className="font-medium text-sm">{approverName || 'Loading...'}</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Automatically set from your logged-in account
+                </p>
               </div>
 
               {actionType === 'approve' && (
@@ -1134,7 +1131,7 @@ const VendorApprovals: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <Phone className="w-4 h-4 text-muted-foreground" />
                           <span className="text-sm">
-                            Phone: {selectedApplication.user.profile.phone || 'N/A'}
+                            Phone: {selectedApplication.user?.profile?.phone || 'N/A'}
                           </span>
                         </div>
 
