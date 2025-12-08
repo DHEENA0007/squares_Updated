@@ -6,6 +6,7 @@ export interface Role {
   name: string;
   description: string;
   pages: string[];
+  permissions?: string[];
   isSystemRole: boolean;
   isActive: boolean;
   level: number;
@@ -47,7 +48,7 @@ class RoleService {
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -67,7 +68,7 @@ class RoleService {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
@@ -86,7 +87,7 @@ class RoleService {
   async getRoles(filters: RoleFilters = {}): Promise<RoleResponse> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           queryParams.append(key, String(value));

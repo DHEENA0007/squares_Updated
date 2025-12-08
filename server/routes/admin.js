@@ -10,11 +10,13 @@ const Role = require('../models/Role');
 const AddonService = require('../models/AddonService');
 const Settings = require('../models/Settings');
 const Vendor = require('../models/Vendor');
+const Review = require('../models/Review');
 const SupportTicket = require('../models/SupportTicket');
 const mongoose = require('mongoose');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const { isSuperAdmin, isAnyAdmin } = require('../middleware/roleMiddleware');
 const { asyncHandler } = require('../middleware/errorMiddleware');
+const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 const adminRealtimeService = require('../services/adminRealtimeService');
 const { sendTemplateEmail, sendEmail } = require('../utils/emailService');
 
@@ -139,7 +141,18 @@ router.use(authenticateToken);
 // @desc    Get pending vendor approvals
 // @route   GET /api/admin/vendor-approvals
 // @access  Private/Admin & SubAdmin
-router.get('/vendor-approvals', isAnyAdmin, asyncHandler(async (req, res) => {
+router.get('/vendor-approvals', authenticateToken, asyncHandler(async (req, res) => {
+  // Check permission: Allow if user is SuperAdmin OR has vendors.view permission
+  const isSuperAdminUser = req.user.role === 'superadmin';
+  const hasViewPermission = hasPermission(req.user, PERMISSIONS.VENDORS_VIEW);
+  
+  if (!isSuperAdminUser && !hasViewPermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view vendor approvals'
+    });
+  }
+
   try {
     const { 
       page = 1, 
@@ -216,7 +229,18 @@ router.get('/vendor-approvals', isAnyAdmin, asyncHandler(async (req, res) => {
 // @desc    Get vendor approval details
 // @route   GET /api/admin/vendor-approvals/:vendorId
 // @access  Private/Admin & SubAdmin
-router.get('/vendor-approvals/:vendorId', isAnyAdmin, asyncHandler(async (req, res) => {
+router.get('/vendor-approvals/:vendorId', authenticateToken, asyncHandler(async (req, res) => {
+  // Check permission: Allow if user is SuperAdmin OR has vendors.view permission
+  const isSuperAdminUser = req.user.role === 'superadmin';
+  const hasViewPermission = hasPermission(req.user, PERMISSIONS.VENDORS_VIEW);
+  
+  if (!isSuperAdminUser && !hasViewPermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view vendor details'
+    });
+  }
+
   try {
     const { vendorId } = req.params;
 
@@ -305,7 +329,18 @@ router.post('/vendor-approvals/:vendorId/verify-phone', isAnyAdmin, asyncHandler
 // @desc    Approve vendor application
 // @route   POST /api/admin/vendor-approvals/:vendorId/approve
 // @access  Private/Admin & SubAdmin
-router.post('/vendor-approvals/:vendorId/approve', isAnyAdmin, asyncHandler(async (req, res) => {
+router.post('/vendor-approvals/:vendorId/approve', authenticateToken, isAnyAdmin, asyncHandler(async (req, res) => {
+  // Check permission: Allow if user is SuperAdmin OR has vendors.approve permission
+  const isSuperAdminUser = req.user.role === 'superadmin';
+  const hasApprovePermission = hasPermission(req.user, PERMISSIONS.VENDORS_APPROVE);
+  
+  if (!isSuperAdminUser && !hasApprovePermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to approve vendor applications'
+    });
+  }
+
   try {
     const { vendorId } = req.params;
     const { approvalNotes, verificationLevel = 'complete', approverName, verificationChecklist } = req.body;
@@ -397,7 +432,18 @@ router.post('/vendor-approvals/:vendorId/approve', isAnyAdmin, asyncHandler(asyn
 // @desc    Reject vendor application
 // @route   POST /api/admin/vendor-approvals/:vendorId/reject
 // @access  Private/Admin & SubAdmin
-router.post('/vendor-approvals/:vendorId/reject', isAnyAdmin, asyncHandler(async (req, res) => {
+router.post('/vendor-approvals/:vendorId/reject', authenticateToken, isAnyAdmin, asyncHandler(async (req, res) => {
+  // Check permission: Allow if user is SuperAdmin OR has vendors.approve permission
+  const isSuperAdminUser = req.user.role === 'superadmin';
+  const hasApprovePermission = hasPermission(req.user, PERMISSIONS.VENDORS_APPROVE);
+  
+  if (!isSuperAdminUser && !hasApprovePermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to reject vendor applications'
+    });
+  }
+
   try {
     const { vendorId } = req.params;
     const { rejectionReason, allowResubmission = true, approverName, verificationChecklist } = req.body;
@@ -586,7 +632,18 @@ router.post('/vendor-approvals/:vendorId/verify-document', isAnyAdmin, asyncHand
 // @desc    Get vendor approval statistics
 // @route   GET /api/admin/vendor-approval-stats
 // @access  Private/Admin & SubAdmin
-router.get('/vendor-approval-stats', isAnyAdmin, asyncHandler(async (req, res) => {
+router.get('/vendor-approval-stats', authenticateToken, asyncHandler(async (req, res) => {
+  // Check permission: Allow if user is SuperAdmin OR has vendors.view permission
+  const isSuperAdminUser = req.user.role === 'superadmin';
+  const hasViewPermission = hasPermission(req.user, PERMISSIONS.VENDORS_VIEW);
+  
+  if (!isSuperAdminUser && !hasViewPermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view vendor statistics'
+    });
+  }
+
   try {
     const now = new Date();
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -865,8 +922,9 @@ router.post('/reports/generate', authenticateToken, isAnyAdmin, asyncHandler(asy
   }
 }));
 
-// Super Admin access middleware for remaining routes
-router.use(isSuperAdmin);
+// NOTE: Global isSuperAdmin middleware removed to support custom role permissions
+// Each route now has individual permission checks using hasPermission()
+// router.use(isSuperAdmin); // COMMENTED OUT - DO NOT UNCOMMENT
 
 // Enhanced dashboard statistics with real-time data
 router.get('/dashboard', async (req, res) => {
@@ -972,7 +1030,7 @@ router.get('/dashboard', async (req, res) => {
     const recentProperties = await Property.find()
       .sort({ createdAt: -1 })
       .limit(5)
-      .populate('owner', 'email profile.firstName profile.lastName')
+      .populate('owner', 'email profile.firstName profile.lastName profile.phone')
       .select('title status createdAt owner');
 
     const recentSubscriptions = await Subscription.find()
@@ -1138,7 +1196,18 @@ router.get('/system-metrics', async (req, res) => {
 });
 
 // Enhanced user management endpoints
-router.get('/users', async (req, res) => {
+router.get('/users', authenticateToken, async (req, res) => {
+  // Check permission: Allow if user is SuperAdmin OR has users.view permission
+  const isSuperAdminUser = req.user.role === 'superadmin';
+  const hasViewPermission = hasPermission(req.user, PERMISSIONS.USERS_VIEW);
+  
+  if (!isSuperAdminUser && !hasViewPermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view users'
+    });
+  }
+
   try {
     const { 
       page = 1, 
@@ -1399,7 +1468,18 @@ router.delete('/users/:userId', async (req, res) => {
 });
 
 // Property management endpoints
-router.get('/properties', async (req, res) => {
+router.get('/properties', authenticateToken, async (req, res) => {
+  // Check permission: Allow if user is SuperAdmin OR has properties.view permission
+  const isSuperAdminUser = req.user.role === 'superadmin';
+  const hasViewPermission = hasPermission(req.user, PERMISSIONS.PROPERTIES_VIEW);
+  
+  if (!isSuperAdminUser && !hasViewPermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view properties'
+    });
+  }
+
   try {
     const { 
       page = 1, 
@@ -1430,7 +1510,7 @@ router.get('/properties', async (req, res) => {
 
     const [properties, totalProperties] = await Promise.all([
       Property.find(query)
-        .populate('owner', 'email profile.firstName profile.lastName')
+        .populate('owner', 'email profile.firstName profile.lastName profile.phone')
         .sort(sort)
         .skip(skip)
         .limit(parseInt(limit)),
@@ -1476,7 +1556,7 @@ router.get('/properties/:id', async (req, res) => {
     }
 
     const property = await Property.findById(id)
-      .populate('owner', 'profile.firstName profile.lastName email');
+      .populate('owner', 'profile.firstName profile.lastName profile.phone email');
 
     if (!property) {
       return res.status(404).json({
@@ -1499,7 +1579,18 @@ router.get('/properties/:id', async (req, res) => {
 });
 
 // Create property (Admin)
-router.post('/properties', async (req, res) => {
+router.post('/properties', authenticateToken, async (req, res) => {
+  // Check permission: Allow if user is SuperAdmin OR has properties.create permission
+  const isSuperAdminUser = req.user.role === 'superadmin';
+  const hasCreatePermission = hasPermission(req.user, PERMISSIONS.PROPERTIES_CREATE);
+  
+  if (!isSuperAdminUser && !hasCreatePermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to create properties'
+    });
+  }
+
   try {
     const propertyData = {
       ...req.body,
@@ -1550,7 +1641,7 @@ router.patch('/properties/:id/status', asyncHandler(async (req, res) => {
     });
   }
 
-  const property = await Property.findById(id).populate('owner', 'email profile.firstName profile.lastName');
+  const property = await Property.findById(id).populate('owner', 'email profile.firstName profile.lastName profile.phone');
 
   if (!property) {
     return res.status(404).json({
@@ -1607,7 +1698,18 @@ router.patch('/properties/:id/status', asyncHandler(async (req, res) => {
 // @desc    Approve property
 // @route   POST /api/admin/properties/:id/approve
 // @access  Private/Admin
-router.post('/properties/:id/approve', asyncHandler(async (req, res) => {
+router.post('/properties/:id/approve', authenticateToken, asyncHandler(async (req, res) => {
+  // Check permission: Allow if user is SuperAdmin OR has properties.approve permission
+  const isSuperAdminUser = req.user.role === 'superadmin';
+  const hasApprovePermission = hasPermission(req.user, PERMISSIONS.PROPERTIES_APPROVE);
+  
+  if (!isSuperAdminUser && !hasApprovePermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to approve properties'
+    });
+  }
+
   const { id } = req.params;
 
   // Validate ObjectId format
@@ -1618,7 +1720,7 @@ router.post('/properties/:id/approve', asyncHandler(async (req, res) => {
     });
   }
 
-  const property = await Property.findById(id).populate('owner', 'email profile.firstName profile.lastName');
+  const property = await Property.findById(id).populate('owner', 'email profile.firstName profile.lastName profile.phone');
 
   if (!property) {
     return res.status(404).json({
@@ -1662,7 +1764,18 @@ router.post('/properties/:id/approve', asyncHandler(async (req, res) => {
 // @desc    Reject property
 // @route   POST /api/admin/properties/:id/reject
 // @access  Private/Admin
-router.post('/properties/:id/reject', asyncHandler(async (req, res) => {
+router.post('/properties/:id/reject', authenticateToken, asyncHandler(async (req, res) => {
+  // Check permission: Allow if user is SuperAdmin OR has properties.approve permission
+  const isSuperAdminUser = req.user.role === 'superadmin';
+  const hasApprovePermission = hasPermission(req.user, PERMISSIONS.PROPERTIES_APPROVE);
+  
+  if (!isSuperAdminUser && !hasApprovePermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to reject properties'
+    });
+  }
+
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -1682,7 +1795,7 @@ router.post('/properties/:id/reject', asyncHandler(async (req, res) => {
       });
     }
 
-    const property = await Property.findById(id).populate('owner', 'email profile.firstName profile.lastName');
+    const property = await Property.findById(id).populate('owner', 'email profile.firstName profile.lastName profile.phone');
 
     if (!property) {
       return res.status(404).json({
@@ -3068,7 +3181,7 @@ router.get('/properties/expired-free-listings', authenticateToken, isSuperAdmin,
       { archived: false }
     ]
   })
-  .populate('owner', 'email profile.firstName profile.lastName')
+  .populate('owner', 'email profile.firstName profile.lastName profile.phone')
   .populate('vendor', 'businessName')
   .sort({ freeListingExpiresAt: -1 });
 
@@ -3077,7 +3190,7 @@ router.get('/properties/expired-free-listings', authenticateToken, isSuperAdmin,
     isFreeListing: true,
     archived: true
   })
-  .populate('owner', 'email profile.firstName profile.lastName')
+  .populate('owner', 'email profile.firstName profile.lastName profile.phone')
   .populate('vendor', 'businessName')
   .sort({ archivedAt: -1 })
   .limit(50);
@@ -3159,5 +3272,327 @@ router.post('/properties/:id/unarchive', authenticateToken, isSuperAdmin, asyncH
     data: { property }
   });
 }));
+
+// Review Management Routes
+router.get('/reviews', authenticateToken, async (req, res) => {
+  try {
+    const isSA = req.user.role === 'SuperAdmin';
+    const hasPerm = req.user.rolePermissions?.includes('reviews.view');
+    
+    if (!isSA && !hasPerm) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { page = 1, limit = 10, search = '', status = '', rating = '', flagged = '' } = req.query;
+    const query = {};
+    
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { comment: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    if (status === 'approved') query.status = 'active';
+    else if (status === 'pending') query.status = { $in: ['reported', 'hidden'] };
+    else if (status === 'rejected') query.status = 'deleted';
+    else if (status) query.status = status;
+    
+    if (rating) query.rating = parseInt(rating);
+    if (flagged === 'true') query.status = 'reported';
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const total = await Review.countDocuments(query);
+    
+    const reviews = await Review.find(query)
+      .populate('client', 'name email')
+      .populate('vendor', 'businessName')
+      .populate('property', 'name')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const formatted = reviews.map(r => ({
+      id: r._id,
+      user: r.client ? { name: r.client.name, email: r.client.email } : null,
+      property: r.property ? { name: r.property.name } : null,
+      vendor: r.vendor ? { name: r.vendor.businessName } : null,
+      rating: r.rating,
+      title: r.title,
+      comment: r.comment,
+      isApproved: r.status === 'active',
+      isFlagged: r.status === 'reported',
+      createdAt: r.createdAt,
+      helpfulVotes: r.helpfulVotes || 0,
+      unhelpfulVotes: r.unhelpfulVotes || 0,
+      vendorResponse: r.vendorResponse
+    }));
+
+    res.json({
+      reviews: formatted,
+      pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) }
+    });
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+    res.status(500).json({ message: 'Failed to fetch reviews' });
+  }
+});
+
+router.get('/reviews/stats', authenticateToken, async (req, res) => {
+  try {
+    const isSA = req.user.role === 'SuperAdmin';
+    const hasPerm = req.user.rolePermissions?.includes('reviews.view');
+    
+    if (!isSA && !hasPerm) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const [total, approved, pending, flagged] = await Promise.all([
+      Review.countDocuments(),
+      Review.countDocuments({ status: 'active' }),
+      Review.countDocuments({ status: { $in: ['reported', 'hidden'] } }),
+      Review.countDocuments({ status: 'reported' })
+    ]);
+
+    const avgRatingResult = await Review.aggregate([
+      { $group: { _id: null, avg: { $avg: '$rating' } } }
+    ]);
+    const avgRating = avgRatingResult[0]?.avg || 0;
+
+    res.json({ total, approved, pending, flagged, avgRating: parseFloat(avgRating.toFixed(1)) });
+  } catch (error) {
+    console.error('Error fetching review stats:', error);
+    res.status(500).json({ message: 'Failed to fetch stats' });
+  }
+});
+
+router.post('/reviews/:id/approve', authenticateToken, async (req, res) => {
+  try {
+    const isSA = req.user.role === 'SuperAdmin';
+    const hasPerm = req.user.rolePermissions?.includes('reviews.report');
+    
+    if (!isSA && !hasPerm) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const review = await Review.findByIdAndUpdate(
+      req.params.id,
+      { status: 'active', isPublic: true },
+      { new: true }
+    ).populate('client', 'name email')
+     .populate('vendor', 'businessName')
+     .populate('property', 'name');
+
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+
+    res.json({
+      message: 'Review approved',
+      review: {
+        id: review._id,
+        user: review.client ? { name: review.client.name, email: review.client.email } : null,
+        property: review.property ? { name: review.property.name } : null,
+        vendor: review.vendor ? { name: review.vendor.businessName } : null,
+        rating: review.rating,
+        title: review.title,
+        comment: review.comment,
+        isApproved: true,
+        isFlagged: false,
+        createdAt: review.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Error approving review:', error);
+    res.status(500).json({ message: 'Failed to approve review' });
+  }
+});
+
+router.post('/reviews/:id/reject', authenticateToken, async (req, res) => {
+  try {
+    const isSA = req.user.role === 'SuperAdmin';
+    const hasPerm = req.user.rolePermissions?.includes('reviews.report');
+    
+    if (!isSA && !hasPerm) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const review = await Review.findByIdAndUpdate(
+      req.params.id,
+      { status: 'hidden', isPublic: false },
+      { new: true }
+    ).populate('client', 'name email')
+     .populate('vendor', 'businessName')
+     .populate('property', 'name');
+
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+
+    res.json({
+      message: 'Review rejected',
+      review: {
+        id: review._id,
+        user: review.client ? { name: review.client.name, email: review.client.email } : null,
+        property: review.property ? { name: review.property.name } : null,
+        vendor: review.vendor ? { name: review.vendor.businessName } : null,
+        rating: review.rating,
+        title: review.title,
+        comment: review.comment,
+        isApproved: false,
+        isFlagged: false,
+        createdAt: review.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Error rejecting review:', error);
+    res.status(500).json({ message: 'Failed to reject review' });
+  }
+});
+
+router.delete('/reviews/:id', authenticateToken, async (req, res) => {
+  try {
+    const isSA = req.user.role === 'SuperAdmin';
+    const hasPerm = req.user.rolePermissions?.includes('reviews.delete');
+    
+    if (!isSA && !hasPerm) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const review = await Review.findByIdAndUpdate(
+      req.params.id,
+      { status: 'deleted', isPublic: false },
+      { new: true }
+    );
+
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+
+    res.json({ message: 'Review deleted' });
+  } catch (error) {
+    console.error('Error deleting review:', error);
+    res.status(500).json({ message: 'Failed to delete review' });
+  }
+});
+
+router.post('/reviews/:id/flag', authenticateToken, async (req, res) => {
+  try {
+    const isSA = req.user.role === 'SuperAdmin';
+    const hasPerm = req.user.rolePermissions?.includes('reviews.report');
+    
+    if (!isSA && !hasPerm) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const review = await Review.findByIdAndUpdate(
+      req.params.id,
+      { status: 'reported', isPublic: false },
+      { new: true }
+    ).populate('client', 'name email')
+     .populate('vendor', 'businessName')
+     .populate('property', 'name');
+
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+
+    // Send email notification to customer
+    if (review.client && review.client.email) {
+      try {
+        await sendEmail({
+          to: review.client.email,
+          template: 'review-flagged',
+          data: {
+            customerName: review.client.name || 'Valued Customer',
+            propertyName: review.property?.name,
+            rating: review.rating,
+            reviewTitle: review.title,
+            reviewComment: review.comment
+          }
+        });
+        console.log(`✅ Flagged review notification sent to ${review.client.email}`);
+      } catch (emailError) {
+        console.error('❌ Failed to send flagged review email:', emailError);
+        // Don't fail the request if email fails
+      }
+    }
+
+    res.json({
+      message: 'Review flagged',
+      review: {
+        id: review._id,
+        user: review.client ? { name: review.client.name, email: review.client.email } : null,
+        property: review.property ? { name: review.property.name } : null,
+        vendor: review.vendor ? { name: review.vendor.businessName } : null,
+        rating: review.rating,
+        title: review.title,
+        comment: review.comment,
+        isApproved: false,
+        isFlagged: true,
+        createdAt: review.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Error flagging review:', error);
+    res.status(500).json({ message: 'Failed to flag review' });
+  }
+});
+
+router.post('/reviews/:id/reply', authenticateToken, async (req, res) => {
+  try {
+    const isSA = req.user.role === 'SuperAdmin';
+    const hasPerm = req.user.rolePermissions?.includes('reviews.respond');
+    
+    if (!isSA && !hasPerm) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { message } = req.body;
+    
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: 'Reply message is required' });
+    }
+
+    const review = await Review.findByIdAndUpdate(
+      req.params.id,
+      {
+        vendorResponse: {
+          message: message.trim(),
+          respondedAt: new Date(),
+          respondedBy: req.user.name || req.user.email,
+          respondedByRole: req.user.role
+        }
+      },
+      { new: true }
+    ).populate('client', 'name email')
+     .populate('vendor', 'businessName')
+     .populate('property', 'name');
+
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+
+    res.json({
+      message: 'Reply posted successfully',
+      review: {
+        id: review._id,
+        user: review.client ? { name: review.client.name, email: review.client.email } : null,
+        property: review.property ? { name: review.property.name } : null,
+        vendor: review.vendor ? { name: review.vendor.businessName } : null,
+        rating: review.rating,
+        title: review.title,
+        comment: review.comment,
+        isApproved: review.status === 'active',
+        isFlagged: review.status === 'reported',
+        vendorResponse: review.vendorResponse,
+        createdAt: review.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Error posting reply:', error);
+    res.status(500).json({ message: 'Failed to post reply' });
+  }
+});
 
 module.exports = router;

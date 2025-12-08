@@ -29,6 +29,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { propertyService } from "@/services/propertyService";
 import { locaService, type PincodeSuggestion } from "@/services/locaService";
 import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
+import { DynamicPropertyFields } from "@/components/property/DynamicPropertyFields";
 import { DynamicPropertyDetails } from "@/components/property/DynamicPropertyDetails";
 import { usePropertyTypeConfig } from "@/hooks/usePropertyTypeConfig";
 import { configurationService } from "@/services/configurationService";
@@ -144,6 +145,9 @@ const AddProperty = () => {
   const [uploadedVideos, setUploadedVideos] = useState([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadingVideos, setUploadingVideos] = useState(false);
+  const [selectedPropertyTypeId, setSelectedPropertyTypeId] = useState<string>('');
+  const [dynamicFields, setDynamicFields] = useState<Record<string, any>>({});
+  const [dynamicFieldErrors, setDynamicFieldErrors] = useState<Record<string, string>>({});
 
   // Get property type configuration
   const { getAmenities } = usePropertyTypeConfig(formData.propertyType);
@@ -188,9 +192,18 @@ const AddProperty = () => {
         ]);
         setPropertyTypes(typesData);
         setAmenitiesList(amenitiesData);
-        setListingTypes(listingTypesData);
-        console.log(`Loaded ${typesData.length} property types, ${amenitiesData.length} amenities, and ${listingTypesData.length} listing types from configuration`);
-        console.log('AddProperty - Listing types data:', listingTypesData);
+        
+        // Map listing types to include id
+        const mappedListingTypes = listingTypesData.map(type => ({
+          id: type._id,
+          name: type.name,
+          value: type.value,
+          displayLabel: type.displayLabel
+        }));
+        setListingTypes(mappedListingTypes);
+        
+        console.log(`Loaded ${typesData.length} property types, ${amenitiesData.length} amenities, and ${mappedListingTypes.length} listing types from configuration`);
+        console.log('AddProperty - Listing types data:', mappedListingTypes);
       } catch (error) {
         console.error('Error initializing data:', error);
         toast({
@@ -312,7 +325,7 @@ const AddProperty = () => {
         );
         if (selectedPropertyType) {
           const typeAmenities = await configurationService.getPropertyTypeAmenities(
-            selectedPropertyType.id
+            selectedPropertyType._id
           );
           setAmenitiesList(typeAmenities);
           console.log(`Loaded ${typeAmenities.length} amenities for property type ${formData.propertyType}`);
@@ -375,7 +388,6 @@ const AddProperty = () => {
       propertyType: formData.propertyType,
       listingType: formData.listingType,
       price: formData.price,
-      builtUpArea: formData.builtUpArea,
       pincode: formData.pincode
     };
 
@@ -421,6 +433,16 @@ const AddProperty = () => {
       return;
     }
 
+    // Validate required dynamic fields
+    if (Object.keys(dynamicFieldErrors).length > 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please fix the errors in property details",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // Upload images to Cloudinary first
@@ -455,14 +477,6 @@ const AddProperty = () => {
         type: formData.propertyType as 'apartment' | 'villa' | 'house' | 'commercial' | 'plot' | 'land' | 'office' | 'pg',
         listingType: formData.listingType as 'sale' | 'rent' | 'lease',
         price: parseFloat(formData.price),
-        area: {
-          builtUp: formData.builtUpArea ? parseFloat(formData.builtUpArea) : undefined,
-          carpet: formData.carpetArea ? parseFloat(formData.carpetArea) : undefined,
-          plot: formData.plotArea ? parseFloat(formData.plotArea) : undefined,
-          unit: 'sqft' as const
-        },
-        bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : 0,
-        bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : 0,
         address: {
           street: formData.address.trim(),
           district: formData.district || '',
@@ -484,28 +498,7 @@ const AddProperty = () => {
         clientName: formData.ownerType === 'client' ? formData.clientName : undefined
       };
 
-      // Only add optional fields if they have values
-      if (formData.virtualTour?.trim()) {
-        propertyData.virtualTour = formData.virtualTour.trim();
-      }
-      if (formData.furnishing) {
-        propertyData.furnishing = formData.furnishing;
-      }
-      if (formData.age) {
-        propertyData.age = formData.age;
-      }
-      if (formData.floor?.trim()) {
-        propertyData.floor = formData.floor.trim();
-      }
-      if (formData.totalFloors?.trim()) {
-        propertyData.totalFloors = formData.totalFloors.trim();
-      }
-      if (formData.facing) {
-        propertyData.facing = formData.facing;
-      }
-      if (formData.parkingSpaces) {
-        propertyData.parkingSpaces = formData.parkingSpaces;
-      }
+      // Add pricing optional fields
       if (formData.priceNegotiable !== undefined) {
         propertyData.priceNegotiable = formData.priceNegotiable;
       }
@@ -515,19 +508,34 @@ const AddProperty = () => {
       if (formData.securityDeposit?.trim()) {
         propertyData.securityDeposit = parseFloat(formData.securityDeposit);
       }
-      if (formData.availability?.trim()) {
-        propertyData.availability = formData.availability.trim();
+      if (formData.virtualTour?.trim()) {
+        propertyData.virtualTour = formData.virtualTour.trim();
       }
-      if (formData.possession?.trim()) {
-        propertyData.possession = formData.possession.trim();
-      }
-      
-      // Add land/plot specific fields
-      if (formData.roadWidth?.trim()) {
-        propertyData.roadWidth = formData.roadWidth.trim();
-      }
-      if (formData.cornerPlot) {
-        propertyData.cornerPlot = formData.cornerPlot;
+
+      // Add dynamic fields from configuration as customFields
+      if (Object.keys(dynamicFields).length > 0) {
+        propertyData.customFields = dynamicFields;
+        
+        // Map common fields to top-level for backward compatibility
+        if (dynamicFields.builtUpArea) {
+          propertyData.area = propertyData.area || {};
+          propertyData.area.builtUp = parseFloat(dynamicFields.builtUpArea);
+          propertyData.area.unit = 'sqft';
+        }
+        if (dynamicFields.carpetArea) {
+          propertyData.area = propertyData.area || {};
+          propertyData.area.carpet = parseFloat(dynamicFields.carpetArea);
+        }
+        if (dynamicFields.plotArea) {
+          propertyData.area = propertyData.area || {};
+          propertyData.area.plot = parseFloat(dynamicFields.plotArea);
+        }
+        if (dynamicFields.bedrooms) {
+          propertyData.bedrooms = parseInt(dynamicFields.bedrooms);
+        }
+        if (dynamicFields.bathrooms) {
+          propertyData.bathrooms = parseInt(dynamicFields.bathrooms);
+        }
       }
 
       // Log the data being sent for debugging
@@ -642,7 +650,12 @@ const AddProperty = () => {
                 <Label htmlFor="propertyType" className="text-base font-medium">Property Type *</Label>
                 <Select
                   value={formData.propertyType}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, propertyType: value }))}
+                  onValueChange={(value) => {
+                    const selectedType = propertyTypes.find(t => t.value === value);
+                    setFormData(prev => ({ ...prev, propertyType: value }));
+                    setSelectedPropertyTypeId(selectedType?._id || '');
+                    setDynamicFields({}); // Reset dynamic fields when property type changes
+                  }}
                   disabled={isLoadingConfig}
                 >
                   <SelectTrigger className="h-12">
@@ -650,7 +663,7 @@ const AddProperty = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {propertyTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.value}>
+                      <SelectItem key={type._id} value={type.value}>
                         {type.name}
                       </SelectItem>
                     ))}
@@ -896,14 +909,43 @@ const AddProperty = () => {
         );
 
       case 3:
-        // Use dynamic property details component
         return (
-          <DynamicPropertyDetails
-            propertyType={formData.propertyType}
-            formData={formData}
-            setFormData={setFormData}
-            showValidationErrors={false}
-          />
+          <div className="space-y-4">
+            {!formData.propertyType ? (
+              <Alert>
+                <AlertDescription>
+                  Please select a property type in the Basic Details step to see relevant property specifications.
+                </AlertDescription>
+              </Alert>
+            ) : selectedPropertyTypeId ? (
+              <DynamicPropertyFields
+                propertyTypeId={selectedPropertyTypeId}
+                values={dynamicFields}
+                onChange={(fieldName, value) => {
+                  setDynamicFields(prev => ({ ...prev, [fieldName]: value }));
+                  // Clear error for this field if it exists
+                  if (dynamicFieldErrors[fieldName]) {
+                    setDynamicFieldErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors[fieldName];
+                      return newErrors;
+                    });
+                  }
+                }}
+                errors={dynamicFieldErrors}
+                onValidationChange={(isValid, errors) => {
+                  setDynamicFieldErrors(errors);
+                }}
+              />
+            ) : (
+              <DynamicPropertyDetails
+                propertyType={formData.propertyType}
+                formData={formData}
+                setFormData={setFormData}
+                showValidationErrors={false}
+              />
+            )}
+          </div>
         );
 
       case 4:
@@ -988,7 +1030,7 @@ const AddProperty = () => {
                   </div>
                 ) : (
                   amenitiesList.map((amenity) => (
-                    <div key={amenity.id} className="flex items-center space-x-2">
+                    <div key={amenity._id} className="flex items-center space-x-2">
                       <Checkbox
                         id={amenity.name}
                         checked={formData.amenities.includes(amenity.name)}

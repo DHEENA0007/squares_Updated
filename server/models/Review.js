@@ -76,6 +76,14 @@ const reviewSchema = new mongoose.Schema({
     },
     respondedAt: {
       type: Date
+    },
+    respondedBy: {
+      type: String,
+      trim: true
+    },
+    respondedByRole: {
+      type: String,
+      trim: true
     }
   },
   // Track who found this review helpful/unhelpful

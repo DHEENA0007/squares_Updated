@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, X, Loader2, Upload, MapPin } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -62,6 +63,7 @@ const EditProperty = () => {
   const { toast } = useToast();
   const [property, setProperty] = useState<Property | null>(null);
   const [uploadedPhotos, setUploadedPhotos] = useState<File[]>([]);
+  const [existingImages, setExistingImages] = useState<Array<{url: string; caption?: string; isPrimary: boolean}>>([]);
 
 
   const form = useForm<PropertyFormValues>({
@@ -87,6 +89,49 @@ const EditProperty = () => {
 
     fetchProperty();
   }, [id]);
+
+  // Populate form when property is loaded
+  useEffect(() => {
+    if (property) {
+      // Set existing images
+      if (property.images && property.images.length > 0) {
+        setExistingImages(property.images);
+      }
+
+      form.reset({
+        userType: "owner",
+        name: property.owner?.profile?.firstName && property.owner?.profile?.lastName 
+          ? `${property.owner.profile.firstName} ${property.owner.profile.lastName}` 
+          : "",
+        email: property.owner?.email || "",
+        phone: property.owner?.profile?.phone || "",
+        lookingTo: property.listingType === 'sale' ? 'sell' : 'rent',
+        propertyType: property.type || "",
+        bedrooms: property.bedrooms?.toString() || "",
+        bathrooms: property.bathrooms?.toString() || "",
+        builtUpArea: property.area?.builtUp?.toString() || "",
+        carpetArea: property.area?.carpet?.toString() || "",
+        carpetAreaUnit: property.area?.unit || "sqft",
+        superArea: property.area?.plot?.toString() || "",
+        superAreaUnit: property.area?.unit || "sqft",
+        city: property.address?.city || "",
+        locality: property.address?.locationName || property.address?.street || "",
+        street: property.address?.street || "",
+        state: property.address?.state || "",
+        pincode: property.address?.pincode || "",
+        floorNo: property.floor || "",
+        totalFloors: property.totalFloors || "",
+        furnishing: property.furnishing || "",
+        parking: property.parkingSpaces || "",
+        possession: property.possession || "",
+        availability: property.availability || "",
+        ageOfProperty: property.age || "",
+        expectedPrice: property.price?.toString() || "",
+        priceNegotiable: property.priceNegotiable || false,
+        propertyDescription: property.description || "",
+      });
+    }
+  }, [property, form]);
 
   // Deprecated manual submit retained only for reference; using react-hook-form's onSubmit
 
@@ -708,6 +753,36 @@ const EditProperty = () => {
                     Add photos to get better response (Max 20 photos)
                   </p>
                   
+                  {/* Display existing images */}
+                  {existingImages.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="text-sm font-medium mb-3">Existing Images ({existingImages.length})</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {existingImages.map((image, index) => (
+                          <div key={index} className="relative group">
+                            <img
+                              src={image.url}
+                              alt={image.caption || `Property ${index + 1}`}
+                              className="w-full h-32 object-cover rounded-lg border"
+                            />
+                            {image.isPrimary && (
+                              <Badge className="absolute top-2 left-2" variant="default">Primary</Badge>
+                            )}
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => setExistingImages(existingImages.filter((_, i) => i !== index))}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
                     <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                     <Label htmlFor="photo-upload" className="cursor-pointer">
@@ -723,9 +798,31 @@ const EditProperty = () => {
                       onChange={handlePhotoUpload}
                     />
                     {uploadedPhotos.length > 0 && (
-                      <p className="text-sm text-foreground mt-2">
-                        {uploadedPhotos.length} photo(s) selected
-                      </p>
+                      <div className="mt-4">
+                        <p className="text-sm text-foreground mb-3">
+                          {uploadedPhotos.length} new photo(s) selected
+                        </p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {uploadedPhotos.map((file, index) => (
+                            <div key={index} className="relative group">
+                              <img
+                                src={URL.createObjectURL(file)}
+                                alt={`Upload ${index + 1}`}
+                                className="w-full h-32 object-cover rounded-lg border"
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => setUploadedPhotos(uploadedPhotos.filter((_, i) => i !== index))}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>

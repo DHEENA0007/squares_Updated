@@ -28,6 +28,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { locaService, PincodeSuggestion } from "@/services/locaService";
 import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
 import { useEffect, useCallback } from "react";
+import roleService, { Role } from "@/services/roleService";
 
 const baseFields = {
   first_name: z.string().min(2, "First name must be at least 2 characters"),
@@ -39,7 +40,7 @@ const baseFields = {
     .max(10, "Must be exactly 10 digits"),
   password: z.string()
     .min(8, "Password must be at least 8 characters")
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])/, 
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])/,
       "Password must contain uppercase, lowercase, number, and special character (!@#$%^&*)"),
   confirm_password: z.string().min(1, "Please confirm your password"),
   status: z.enum(["active", "inactive"]),
@@ -116,14 +117,28 @@ const optionalVendorFields = {
   pincode: z.string().optional(),
 };
 
-const userSchema = z.discriminatedUnion("role", [
-  z.object({ role: z.literal("agent"), ...baseFields, ...vendorFields }),
-  z.object({ role: z.literal("customer"), ...baseFields, ...optionalVendorFields }),
-  z.object({ role: z.literal("subadmin"), ...baseFields, ...optionalVendorFields }),
-  z.object({ role: z.literal("superadmin"), ...baseFields, ...optionalVendorFields }),
-]).refine((data) => data.password === data.confirm_password, {
+const vendorSchemaObj = z.object(vendorFields);
+
+const userSchema = z.object({
+  role: z.string().min(1, "Role is required"),
+  ...baseFields,
+  ...optionalVendorFields,
+}).refine((data) => data.password === data.confirm_password, {
   message: "Passwords don't match",
   path: ["confirm_password"],
+}).superRefine((data, ctx) => {
+  const role = data.role.toLowerCase();
+  if (role === 'agent' || role === 'vendor') {
+    const result = vendorSchemaObj.safeParse(data);
+    if (!result.success) {
+      result.error.issues.forEach((issue) => {
+        ctx.addIssue({
+          ...issue,
+          path: issue.path,
+        });
+      });
+    }
+  }
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -131,6 +146,7 @@ type UserFormValues = z.infer<typeof userSchema>;
 const AddUser = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const isVendorRole = (r: string) => r.toLowerCase() === 'agent' || r.toLowerCase() === 'vendor';
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>("customer");
@@ -144,7 +160,21 @@ const AddUser = () => {
   const [phoneTimeoutId, setPhoneTimeoutId] = useState<NodeJS.Timeout | null>(null);
   const [businessNameTimeoutId, setBusinessNameTimeoutId] = useState<NodeJS.Timeout | null>(null);
   const [businessNameAbortController, setBusinessNameAbortController] = useState<AbortController | null>(null);
-  
+  const [roles, setRoles] = useState<Role[]>([]);
+
+  // Fetch roles on mount
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const response = await roleService.getRoles({ limit: 100, isActive: true });
+        setRoles(response.data.roles);
+      } catch (error) {
+        console.error("Failed to fetch roles", error);
+      }
+    };
+    fetchRoles();
+  }, []);
+
   // Location service states
   const [states, setStates] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
@@ -196,7 +226,7 @@ const AddUser = () => {
         setStates([]);
       }
     };
-    
+
     initLocaService();
   }, []);
 
@@ -229,7 +259,7 @@ const AddUser = () => {
 
   // Clear business name check when role changes
   useEffect(() => {
-    if (selectedRole !== 'agent') {
+    if (!isVendorRole(selectedRole)) {
       setBusinessNameAvailable(null);
       setIsCheckingBusinessName(false);
       if (businessNameTimeoutId) {
@@ -264,7 +294,7 @@ const AddUser = () => {
     try {
       const response = await userService.checkAvailability({ email });
       setEmailAvailable(response.data.email.available);
-      
+
       if (!response.data.email.available) {
         form.setError('email', {
           type: 'manual',
@@ -293,7 +323,7 @@ const AddUser = () => {
     try {
       const response = await userService.checkAvailability({ phone });
       setPhoneAvailable(response.data.phone.available);
-      
+
       if (!response.data.phone.available) {
         form.setError('phone', {
           type: 'manual',
@@ -332,15 +362,15 @@ const AddUser = () => {
     const controller = new AbortController();
     setBusinessNameAbortController(controller);
     setIsCheckingBusinessName(true);
-    
+
     try {
       const response = await userService.checkAvailability({ businessName: businessName.trim() });
-      
+
       // Don't update state if request was aborted
       if (controller.signal.aborted) return;
-      
+
       setBusinessNameAvailable(response.data.businessName?.available ?? null);
-      
+
       if (response.data.businessName && !response.data.businessName.available) {
         form.setError('businessName', {
           type: 'manual',
@@ -352,7 +382,7 @@ const AddUser = () => {
     } catch (error) {
       // Ignore abort errors
       if (error instanceof Error && error.name === 'AbortError') return;
-      
+
       console.error('Business name check failed:', error);
       setBusinessNameAvailable(null);
     } finally {
@@ -385,7 +415,7 @@ const AddUser = () => {
       }
 
       // Only check business name for vendor role
-      if (data.role === "agent" && isCheckingBusinessName) {
+      if (isVendorRole(data.role) && isCheckingBusinessName) {
         toast({
           title: "Please wait",
           description: "Business name availability check in progress...",
@@ -414,7 +444,7 @@ const AddUser = () => {
       }
 
       // Check business name for vendor role only
-      if (data.role === "agent") {
+      if (isVendorRole(data.role)) {
         if (businessNameAvailable === false) {
           toast({
             title: "Error",
@@ -435,7 +465,7 @@ const AddUser = () => {
       }
 
       // Validate required fields for vendor role
-      if (data.role === "agent") {
+      if (isVendorRole(data.role)) {
         if (!data.businessName || !data.businessType) {
           toast({
             title: "Error",
@@ -444,7 +474,7 @@ const AddUser = () => {
           });
           return;
         }
-        
+
         if (!data.businessDescription || data.businessDescription.length < 50) {
           toast({
             title: "Error",
@@ -453,7 +483,7 @@ const AddUser = () => {
           });
           return;
         }
-        
+
         if (!data.panNumber || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(data.panNumber)) {
           toast({
             title: "Error",
@@ -462,7 +492,7 @@ const AddUser = () => {
           });
           return;
         }
-        
+
         if (!data.address || data.address.length < 10) {
           toast({
             title: "Error",
@@ -471,7 +501,7 @@ const AddUser = () => {
           });
           return;
         }
-        
+
         if (!data.city || !data.state || !data.pincode) {
           toast({
             title: "Error",
@@ -480,7 +510,7 @@ const AddUser = () => {
           });
           return;
         }
-        
+
         if (data.gstNumber && data.gstNumber.length > 0 && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(data.gstNumber)) {
           toast({
             title: "Error",
@@ -504,7 +534,7 @@ const AddUser = () => {
       };
 
       // If role is agent/vendor, include vendor profile data
-      if (data.role === "agent") {
+      if (isVendorRole(data.role)) {
         userData.businessInfo = {
           businessName: data.businessName.trim(),
           businessType: data.businessType,
@@ -515,7 +545,7 @@ const AddUser = () => {
           state: data.state,
           pincode: data.pincode.trim(),
         };
-        
+
         // Only add optional fields if they have values
         if (data.licenseNumber?.trim()) {
           userData.businessInfo.licenseNumber = data.licenseNumber.trim();
@@ -531,9 +561,9 @@ const AddUser = () => {
         }
 
       }
-      
+
       // Add address for vendor users
-      if (data.role === "agent") {
+      if (isVendorRole(data.role)) {
         userData.profile.address = {
           street: data.address,
           city: data.city,
@@ -549,24 +579,24 @@ const AddUser = () => {
       }
 
       const response = await userService.createUser(userData);
-      
+
       toast({
         title: "Success",
-        description: `${data.role === "agent" ? "Vendor" : "User"} created successfully.${data.role === "agent" ? " Vendor profile has been auto-approved." : ""}`,
+        description: `${isVendorRole(data.role) ? "Vendor" : "User"} created successfully.${isVendorRole(data.role) ? " Vendor profile has been auto-approved." : ""}`,
       });
       navigate("/admin/users");
     } catch (error: any) {
       console.error("Failed to create user:", error);
-      
+
       // Extract error message
       let errorMessage = "Failed to create user. Please try again.";
-      
+
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       // Check for specific errors
       if (errorMessage.includes("Duplicate business name")) {
         errorMessage = "Business name already exists. Please choose a different name.";
@@ -577,7 +607,7 @@ const AddUser = () => {
       } else if (errorMessage.includes("vendor profile")) {
         errorMessage = `${errorMessage} The user account was not created.`;
       }
-      
+
       toast({
         title: "Error",
         description: errorMessage,
@@ -586,7 +616,7 @@ const AddUser = () => {
     }
   };
 
-  const isVendor = selectedRole === "agent";
+  const isVendor = isVendorRole(selectedRole);
 
   return (
     <div className="max-w-5xl mx-auto mt-16">
@@ -642,19 +672,19 @@ const AddUser = () => {
                         <FormLabel>Email *</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input 
-                              type="email" 
-                              placeholder="Enter email" 
+                            <Input
+                              type="email"
+                              placeholder="Enter email"
                               {...field}
                               onChange={(e) => {
                                 field.onChange(e);
                                 const value = e.target.value;
-                                
+
                                 // Clear existing timeout
                                 if (emailTimeoutId) {
                                   clearTimeout(emailTimeoutId);
                                 }
-                                
+
                                 if (value && value.includes('@')) {
                                   const timeoutId = setTimeout(() => {
                                     checkEmailAvailability(value);
@@ -688,19 +718,19 @@ const AddUser = () => {
                         <FormLabel>Phone Number *</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input 
-                              placeholder="Enter 10-digit phone" 
+                            <Input
+                              placeholder="Enter 10-digit phone"
                               {...field}
                               maxLength={10}
                               onChange={(e) => {
                                 field.onChange(e);
                                 const value = e.target.value;
-                                
+
                                 // Clear existing timeout
                                 if (phoneTimeoutId) {
                                   clearTimeout(phoneTimeoutId);
                                 }
-                                
+
                                 if (value && value.length === 10) {
                                   const timeoutId = setTimeout(() => {
                                     checkPhoneAvailability(value);
@@ -732,11 +762,11 @@ const AddUser = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Role *</FormLabel>
-                        <Select 
+                        <Select
                           onValueChange={(value) => {
                             field.onChange(value);
                             setSelectedRole(value);
-                          }} 
+                          }}
                           defaultValue={field.value}
                         >
                           <FormControl>
@@ -745,10 +775,20 @@ const AddUser = () => {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="customer">Customer</SelectItem>
-                            <SelectItem value="agent">Vendor/Agent</SelectItem>
-                            <SelectItem value="subadmin">Sub Admin</SelectItem>
-                            <SelectItem value="superadmin">Super Admin</SelectItem>
+                            {roles.length > 0 ? (
+                              roles.map((role) => (
+                                <SelectItem key={role._id} value={role.name}>
+                                  {role.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <>
+                                <SelectItem value="customer">Customer</SelectItem>
+                                <SelectItem value="agent">Vendor/Agent</SelectItem>
+                                <SelectItem value="subadmin">Sub Admin</SelectItem>
+                                <SelectItem value="superadmin">Super Admin</SelectItem>
+                              </>
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -853,19 +893,19 @@ const AddUser = () => {
                             <FormLabel>Business Name *</FormLabel>
                             <FormControl>
                               <div className="relative">
-                                <Input 
-                                  placeholder="Enter business name" 
+                                <Input
+                                  placeholder="Enter business name"
                                   {...field}
                                   onChange={(e) => {
                                     field.onChange(e);
                                     const value = e.target.value;
-                                    
+
                                     if (businessNameTimeoutId) {
                                       clearTimeout(businessNameTimeoutId);
                                     }
-                                    
+
                                     // Only check if role is agent/vendor
-                                    if (selectedRole === 'agent' && value && value.trim().length >= 2) {
+                                    if (isVendorRole(selectedRole) && value && value.trim().length >= 2) {
                                       const timeoutId = setTimeout(() => {
                                         checkBusinessNameAvailability(value);
                                       }, 500); // 500ms debounce
@@ -955,10 +995,10 @@ const AddUser = () => {
                           <FormItem className="md:col-span-2">
                             <FormLabel>Business Description *</FormLabel>
                             <FormControl>
-                              <Textarea 
-                                placeholder="Describe the business, services, and expertise (minimum 50 characters)..." 
+                              <Textarea
+                                placeholder="Describe the business, services, and expertise (minimum 50 characters)..."
                                 rows={4}
-                                {...field} 
+                                {...field}
                                 maxLength={500}
                               />
                             </FormControl>
@@ -987,8 +1027,8 @@ const AddUser = () => {
                           <FormItem>
                             <FormLabel>PAN Number *</FormLabel>
                             <FormControl>
-                              <Input 
-                                placeholder="ABCDE1234F" 
+                              <Input
+                                placeholder="ABCDE1234F"
                                 {...field}
                                 onChange={(e) => {
                                   const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -1011,8 +1051,8 @@ const AddUser = () => {
                           <FormItem>
                             <FormLabel>GST Number</FormLabel>
                             <FormControl>
-                              <Input 
-                                placeholder="22ABCDE1234F1Z5" 
+                              <Input
+                                placeholder="22ABCDE1234F1Z5"
                                 {...field}
                                 onChange={(e) => {
                                   const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -1064,8 +1104,8 @@ const AddUser = () => {
                           <FormItem>
                             <FormLabel>Street Address *</FormLabel>
                             <FormControl>
-                              <Textarea 
-                                placeholder="Complete business address (building, street, area)" 
+                              <Textarea
+                                placeholder="Complete business address (building, street, area)"
                                 {...field}
                                 rows={2}
                                 maxLength={200}
@@ -1191,37 +1231,37 @@ const AddUser = () => {
                                 onChange={(pincode, locationData) => {
                                   console.log('Pincode selected:', pincode, locationData);
                                   field.onChange(pincode);
-                                  
+
                                   // Auto-fill location fields if suggestion provides data
                                   if (locationData) {
                                     console.log('Auto-filling location from pincode:', locationData);
-                                    
+
                                     // Set state if available and matches our states list
                                     if (locationData.state && states.includes(locationData.state.toUpperCase())) {
                                       const stateValue = locationData.state.toUpperCase();
                                       setSelectedState(stateValue);
                                       form.setValue("state", stateValue);
-                                      
+
                                       // Load districts and set district if available
                                       setTimeout(() => {
                                         if (locationData.district) {
                                           const districtsForState = locaService.getDistricts(stateValue);
-                                          const matchingDistrict = districtsForState.find(d => 
+                                          const matchingDistrict = districtsForState.find(d =>
                                             d.toUpperCase() === locationData.district.toUpperCase()
                                           );
-                                          
+
                                           if (matchingDistrict) {
                                             setSelectedDistrict(matchingDistrict);
                                             form.setValue("district", matchingDistrict);
-                                            
+
                                             // Load cities and set city if available
                                             setTimeout(() => {
                                               if (locationData.city) {
                                                 const citiesForDistrict = locaService.getCities(stateValue, matchingDistrict);
-                                                const matchingCity = citiesForDistrict.find(c => 
+                                                const matchingCity = citiesForDistrict.find(c =>
                                                   c.toUpperCase() === locationData.city.toUpperCase()
                                                 );
-                                                
+
                                                 if (matchingCity) {
                                                   setSelectedCity(matchingCity);
                                                   form.setValue("city", matchingCity);
@@ -1232,7 +1272,7 @@ const AddUser = () => {
                                         }
                                       }, 100);
                                     }
-                                    
+
                                     // Show success toast
                                     toast({
                                       title: "Location Auto-filled",
@@ -1295,8 +1335,8 @@ const AddUser = () => {
               >
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isCheckingEmail || isCheckingPhone || isCheckingBusinessName}
               >
                 Create {isVendor ? "Vendor" : "User"}

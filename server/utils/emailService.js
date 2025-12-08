@@ -1787,6 +1787,70 @@ const emailTemplates = {
         </div>
       </div>
     `
+  }),
+
+  'review-flagged': (data) => ({
+    subject: 'Your Review Has Been Flagged - BuildHomeMart Squares',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #f59e0b; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">⚠️ Review Flagged</h1>
+        </div>
+        <div style="padding: 30px; background: #fff;">
+          <h2 style="color: #1f2937; margin-bottom: 20px;">Hello ${data.customerName},</h2>
+          <p style="color: #475569; line-height: 1.6; margin: 0 0 20px 0;">
+            We want to inform you that your review has been flagged as inappropriate by our moderation team and has been hidden from public view.
+          </p>
+          
+          <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 20px; margin: 20px 0;">
+            <h3 style="margin: 0 0 15px 0; color: #78350f;">Review Details</h3>
+            <p style="margin: 5px 0;"><strong>Property:</strong> ${data.propertyName || 'N/A'}</p>
+            <p style="margin: 5px 0;"><strong>Rating:</strong> ${data.rating}/5</p>
+            ${data.reviewTitle ? `<p style="margin: 5px 0;"><strong>Title:</strong> ${data.reviewTitle}</p>` : ''}
+            <div style="margin-top: 10px; padding: 10px; background: #ffffff; border-radius: 4px;">
+              <p style="margin: 0; color: #6b7280; font-size: 14px;">${data.reviewComment ? data.reviewComment.substring(0, 200) + (data.reviewComment.length > 200 ? '...' : '') : ''}</p>
+            </div>
+          </div>
+
+          <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0;">
+            <h3 style="margin: 0 0 10px 0; color: #7f1d1d;">Why Was This Flagged?</h3>
+            <p style="margin: 0; color: #991b1b; font-size: 14px;">
+              Reviews may be flagged for containing inappropriate content, including but not limited to:
+            </p>
+            <ul style="margin: 10px 0; color: #991b1b; font-size: 14px;">
+              <li>Offensive or abusive language</li>
+              <li>Personal attacks or harassment</li>
+              <li>False or misleading information</li>
+              <li>Spam or promotional content</li>
+              <li>Violation of community guidelines</li>
+            </ul>
+          </div>
+
+          <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin: 0 0 10px 0; color: #1f2937;">What Happens Next?</h3>
+            <p style="margin: 0; color: #4b5563; font-size: 14px; line-height: 1.6;">
+              Your review is currently hidden from public view. If you believe this was done in error, please contact our support team to discuss this matter. We're committed to maintaining a respectful and helpful community for all users.
+            </p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="mailto:${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}" style="background: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
+              Contact Support
+            </a>
+          </div>
+
+          <p style="color: #6b7280; font-size: 14px; margin: 20px 0 0 0;">
+            Thank you for your understanding and for being part of our community.
+          </p>
+        </div>
+        <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+          <p style="margin: 0; color: #6c757d; font-size: 14px;">
+            BuildHomeMart Squares - Your Premium Real Estate Partner<br>
+            <a href="mailto:${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}" style="color: #007bff;">${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}</a>
+          </p>
+        </div>
+      </div>
+    `
   })
 };
 
@@ -1815,6 +1879,7 @@ const sendEmail = async (options) => {
         'service-status-update': { name: 'BuildHomeMart Services', email: process.env.SMTP_FROM || process.env.SMTP_USER },
         'weekly-report': { name: 'BuildHomeMart Reports', email: process.env.SMTP_FROM || process.env.SMTP_USER },
         'free-listing-expired': { name: 'BuildHomeMart Subscriptions', email: process.env.SMTP_FROM || process.env.SMTP_USER },
+        'review-flagged': { name: 'BuildHomeMart Moderation', email: process.env.SMTP_FROM || process.env.SMTP_USER },
         default: { name: 'BuildHomeMart Squares', email: process.env.SMTP_FROM || process.env.SMTP_USER }
       };
       return senders[template] || senders.default;

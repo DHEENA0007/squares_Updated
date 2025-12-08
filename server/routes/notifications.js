@@ -1,5 +1,6 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/authMiddleware');
+const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 const notificationService = require('../services/notificationService');
 
 const router = express.Router();
@@ -31,7 +32,14 @@ router.post('/test', authenticateToken, (req, res) => {
 // @route   GET /api/notifications/stats
 // @access  Private (Admin only)
 router.get('/stats', authenticateToken, (req, res) => {
-  // Add admin check here if needed
+  // Check permission for viewing notifications
+  if (!hasPermission(req.user, PERMISSIONS.NOTIFICATIONS_VIEW)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view notification statistics'
+    });
+  }
+
   const stats = notificationService.getStats();
   
   res.json({
@@ -44,6 +52,14 @@ router.get('/stats', authenticateToken, (req, res) => {
 // @route   POST /api/notifications/property
 // @access  Private
 router.post('/property', authenticateToken, (req, res) => {
+  // Check permission for sending notifications
+  if (!hasPermission(req.user, PERMISSIONS.NOTIFICATIONS_SEND)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to send notifications'
+    });
+  }
+
   const { userId, propertyData, action } = req.body;
   
   if (!userId || !propertyData || !action) {
@@ -65,6 +81,14 @@ router.post('/property', authenticateToken, (req, res) => {
 // @route   POST /api/notifications/message
 // @access  Private
 router.post('/message', authenticateToken, (req, res) => {
+  // Check permission for sending notifications
+  if (!hasPermission(req.user, PERMISSIONS.NOTIFICATIONS_SEND)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to send notifications'
+    });
+  }
+
   const { userId, messageData } = req.body;
   
   if (!userId || !messageData) {
@@ -86,7 +110,14 @@ router.post('/message', authenticateToken, (req, res) => {
 // @route   POST /api/notifications/broadcast
 // @access  Private (Admin only)
 router.post('/broadcast', authenticateToken, (req, res) => {
-  // Add admin check here
+  // Check permission for managing notifications (broadcast is a management function)
+  if (!hasPermission(req.user, PERMISSIONS.NOTIFICATIONS_MANAGE)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to broadcast notifications'
+    });
+  }
+
   const { notification } = req.body;
   
   if (!notification) {

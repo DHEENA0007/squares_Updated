@@ -330,7 +330,7 @@ const VendorSubscriptionPlans: React.FC = () => {
           </h1>
           <p className="text-muted-foreground text-lg mb-8">
             {currentSubscription 
-              ? `You currently have the ${currentSubscription.planName} (₹${currentSubscription.amount?.toLocaleString() || 0}/month). Select a higher-priced plan to upgrade.`
+              ? `You currently have the ${currentSubscription.planName}. Select a higher-priced plan to upgrade.`
               : 'Select the plan that best fits your business needs'
             }
           </p>
@@ -344,7 +344,13 @@ const VendorSubscriptionPlans: React.FC = () => {
                 <Badge variant="secondary" className="px-3 py-1 text-xs">
                   {plans.filter(plan => {
                     if (plan.id === 'free') return false;
-                    const currentPlanPrice = currentSubscription.amount || 0;
+                    // Find current plan's actual price by matching plan names
+                    const currentPlan = plans.find(p => {
+                      const planNameMatch = p.name.toLowerCase().includes(currentSubscription.planName?.toLowerCase()) ||
+                                           currentSubscription.planName?.toLowerCase().includes(p.name.toLowerCase());
+                      return planNameMatch;
+                    });
+                    const currentPlanPrice = currentPlan?.price || 0;
                     return plan.price > currentPlanPrice;
                   }).length} Upgrade Options Available
                 </Badge>
@@ -362,9 +368,17 @@ const VendorSubscriptionPlans: React.FC = () => {
               }
               
               // If user has existing subscription, only show plans with higher price
-              // This ensures users can only upgrade to better plans, not downgrade
+              // Compare based on actual plan price, not monthly billing amount
               if (currentSubscription) {
-                const currentPlanPrice = currentSubscription.amount || 0;
+                // Find current plan's actual price by matching plan names
+                const currentPlan = plans.find(p => {
+                  const planNameMatch = p.name.toLowerCase().includes(currentSubscription.planName?.toLowerCase()) ||
+                                       currentSubscription.planName?.toLowerCase().includes(p.name.toLowerCase());
+                  return planNameMatch;
+                });
+                const currentPlanPrice = currentPlan?.price || 0;
+                
+                // Only show plans with higher base price than current plan
                 return plan.price > currentPlanPrice;
               }
               

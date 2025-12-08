@@ -8,15 +8,15 @@ const TwoFactorAuth = require('../models/TwoFactorAuth');
 const { asyncHandler, validateRequest } = require('../middleware/errorMiddleware');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const { sendEmail } = require('../utils/emailService');
-const { 
-  registerSchema, 
-  loginSchema, 
-  forgotPasswordSchema, 
-  resetPasswordSchema 
+const {
+  registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema
 } = require('../utils/validationSchemas');
-const { 
-  createOTP, 
-  verifyOTP, 
+const {
+  createOTP,
+  verifyOTP,
   canRequestOTP,
   isOTPVerified,
   consumeVerifiedOTP
@@ -135,8 +135,8 @@ router.post('/check-business-name', asyncHandler(async (req, res) => {
   }
 
   // Check if business name already exists (case-insensitive)
-  const existingBusiness = await Vendor.findOne({ 
-    'businessInfo.companyName': new RegExp(`^${businessName.trim()}$`, 'i') 
+  const existingBusiness = await Vendor.findOne({
+    'businessInfo.companyName': new RegExp(`^${businessName.trim()}$`, 'i')
   });
 
   if (existingBusiness) {
@@ -159,7 +159,7 @@ router.post('/check-business-name', asyncHandler(async (req, res) => {
 // @access  Public
 router.post('/check-phone', asyncHandler(async (req, res) => {
   console.log('📞 Check phone route hit with body:', req.body);
-  
+
   const { phone } = req.body;
 
   if (!phone || phone.trim().length === 0) {
@@ -233,12 +233,12 @@ router.post('/verify-otp', asyncHandler(async (req, res) => {
 // @route   POST /api/auth/register
 // @access  Public
 router.post('/register', validateRequest(registerSchema), asyncHandler(async (req, res) => {
-  const { 
-    email, 
-    password, 
-    firstName, 
-    lastName, 
-    phone, 
+  const {
+    email,
+    password,
+    firstName,
+    lastName,
+    phone,
     role = 'customer',
     agreeToTerms,
     businessInfo,
@@ -265,7 +265,7 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
   // Check if OTP is already verified (for multi-step processes)
   const otpStatus = await isOTPVerified(email, 'email_verification');
   console.log('OTP Status for', email, ':', otpStatus);
-  
+
   if (!otpStatus.verified) {
     // If not verified, try to verify the provided OTP
     console.log('Attempting to verify OTP for registration:', email);
@@ -303,8 +303,8 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
 
   // For vendors, check if business name already exists
   if (role === 'agent' && businessInfo?.businessName) {
-    const existingBusiness = await Vendor.findOne({ 
-      'businessInfo.companyName': new RegExp(`^${businessInfo.businessName.trim()}$`, 'i') 
+    const existingBusiness = await Vendor.findOne({
+      'businessInfo.companyName': new RegExp(`^${businessInfo.businessName.trim()}$`, 'i')
     });
     if (existingBusiness) {
       return res.status(400).json({
@@ -349,7 +349,7 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
   if (role === 'agent') {
     // Prepare documents array properly - ensure each document has required 'type' field
     const vendorDocuments = [];
-    
+
     if (documents && Array.isArray(documents)) {
       // Frontend sends documents as array: [{ type, name, url, status, uploadDate }]
       documents.forEach(doc => {
@@ -373,7 +373,7 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
         'panCard': 'pan_card',
         'gstCertificate': 'gst_certificate'
       };
-      
+
       Object.entries(documents).forEach(([key, doc]) => {
         if (doc && doc.url) {
           vendorDocuments.push({
@@ -386,9 +386,9 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
         }
       });
     }
-    
+
     console.log('Vendor documents prepared:', vendorDocuments);
-    
+
     // Map documents to approval.submittedDocuments format
     const submittedDocuments = vendorDocuments.map(doc => ({
       documentType: mapDocumentType(doc.type),
@@ -397,9 +397,9 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
       uploadedAt: doc.uploadDate || new Date(),
       verified: false
     }));
-    
+
     console.log('Submitted documents for approval:', submittedDocuments);
-    
+
     const vendorData = {
       user: user._id,
       businessInfo: {
@@ -555,7 +555,7 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
 
   res.status(201).json({
     success: true,
-    message: role === 'agent' 
+    message: role === 'agent'
       ? 'Vendor registration successful! Your email is verified. Please wait for admin approval to start offering services.'
       : 'Registration successful! Your account is ready to use.',
     data: {
@@ -585,7 +585,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
 
   // Check login attempts
   let loginAttempt = await LoginAttempt.findOne({ email, ipAddress });
-  
+
   if (!loginAttempt) {
     loginAttempt = new LoginAttempt({ email, ipAddress, userAgent, attempts: 0 });
   }
@@ -604,20 +604,20 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
 
   // Get user
   const user = await User.findOne({ email });
-  
+
   if (!user) {
     // Increment failed attempts
     loginAttempt.attempts += 1;
     loginAttempt.lastAttempt = new Date();
-    
+
     // Lock account if max attempts reached
     if (loginAttempt.attempts >= maxAttempts) {
       loginAttempt.isLocked = true;
       loginAttempt.lockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
     }
-    
+
     await loginAttempt.save();
-    
+
     return res.status(401).json({
       success: false,
       message: 'Invalid email or password',
@@ -657,11 +657,11 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
     // Increment failed attempts
     loginAttempt.attempts += 1;
     loginAttempt.lastAttempt = new Date();
-    
+
     if (loginAttempt.attempts >= maxAttempts) {
       loginAttempt.isLocked = true;
       loginAttempt.lockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
-      
+
       // Send account locked email
       try {
         await sendEmail({
@@ -678,9 +678,9 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
         console.error('Failed to send account locked email:', emailError);
       }
     }
-    
+
     await loginAttempt.save();
-    
+
     return res.status(401).json({
       success: false,
       message: 'Invalid email or password',
@@ -690,7 +690,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
 
   // Check if 2FA is enabled for user
   const twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id, isEnabled: true });
-  
+
   if (twoFactorAuth) {
     // 2FA is enabled, verify code
     if (!twoFactorCode) {
@@ -705,7 +705,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
     // Verify 2FA token or backup code
     const isValidToken = twoFactorAuth.verifyToken(twoFactorCode);
     const isValidBackupCode = !isValidToken && twoFactorAuth.verifyBackupCode(twoFactorCode);
-    
+
     if (!isValidToken && !isValidBackupCode) {
       return res.status(401).json({
         success: false,
@@ -718,7 +718,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
     if (isValidBackupCode) {
       twoFactorAuth.lastUsed = new Date();
       await twoFactorAuth.save();
-      
+
       const remainingCodes = twoFactorAuth.getRemainingBackupCodes();
       if (remainingCodes < 3) {
         // Warn user about low backup codes
@@ -754,14 +754,15 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
   user.profile.lastLogin = new Date();
   await user.save();
 
-  // Get role pages
+  // Get role pages and permissions
   let rolePages = user.rolePages || [];
-  
+  let rolePermissions = [];
+
   let userRoleDoc = null;
   try {
     const Role = require('../models/Role');
     userRoleDoc = await Role.findOne({ name: user.role });
-    
+
     if (!userRoleDoc) {
       return res.status(403).json({
         success: false,
@@ -769,7 +770,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
         reason: 'role_deleted'
       });
     }
-    
+
     if (!userRoleDoc.isActive) {
       return res.status(403).json({
         success: false,
@@ -777,22 +778,29 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
         reason: 'role_inactive'
       });
     }
-    
+
     if (!rolePages || rolePages.length === 0) {
       if (userRoleDoc.pages) {
         rolePages = userRoleDoc.pages;
       }
     }
+
+    if (userRoleDoc.permissions) {
+      rolePermissions = userRoleDoc.permissions;
+    }
   } catch (error) {
     console.error('Error checking role status:', error);
   }
-  
+
   if (!rolePages || rolePages.length === 0) {
     try {
       const Role = require('../models/Role');
       const userRole = await Role.findOne({ name: user.role });
       if (userRole && userRole.pages) {
         rolePages = userRole.pages;
+      }
+      if (userRole && userRole.permissions) {
+        rolePermissions = userRole.permissions;
       }
     } catch (error) {
       console.error('Error fetching role pages:', error);
@@ -801,10 +809,10 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
 
   // Generate JWT token
   const token = jwt.sign(
-    { 
-      userId: user._id, 
-      email: user.email, 
-      role: user.role 
+    {
+      userId: user._id,
+      email: user.email,
+      role: user.role
     },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRE || '7d' }
@@ -822,9 +830,9 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
 
   // Send login alert email
   try {
-    const deviceInfo = userAgent.includes('Mobile') ? 'Mobile Device' : 
-                      userAgent.includes('Chrome') ? 'Chrome Browser' : 
-                      'Unknown Device';
+    const deviceInfo = userAgent.includes('Mobile') ? 'Mobile Device' :
+      userAgent.includes('Chrome') ? 'Chrome Browser' :
+        'Unknown Device';
 
     await sendEmail({
       to: user.email,
@@ -859,6 +867,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
         email: user.email,
         role: user.role,
         rolePages: rolePages,
+        rolePermissions: rolePermissions,
         profile: user.profile,
         has2FA: !!twoFactorAuth
       }
@@ -871,7 +880,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
 // @access  Private
 router.post('/logout', authenticateToken, asyncHandler(async (req, res) => {
   res.clearCookie('token');
-  
+
   res.json({
     success: true,
     message: 'Logged out successfully'
@@ -883,12 +892,26 @@ router.post('/logout', authenticateToken, asyncHandler(async (req, res) => {
 // @access  Private
 router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id);
-  
+
   if (!user) {
     return res.status(404).json({
       success: false,
       message: 'User not found'
     });
+  }
+
+  // Fetch fresh role permissions
+  let rolePermissions = [];
+  const defaultRoles = ['customer', 'agent', 'admin', 'subadmin', 'superadmin'];
+
+  if (!defaultRoles.includes(user.role)) {
+    // User has a custom role, fetch permissions from Role collection
+    const Role = require('../models/Role');
+    const roleDoc = await Role.findOne({ name: user.role, isActive: true });
+
+    if (roleDoc && roleDoc.permissions) {
+      rolePermissions = roleDoc.permissions;
+    }
   }
 
   res.json({
@@ -898,6 +921,7 @@ router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
         id: user._id,
         email: user.email,
         role: user.role,
+        rolePermissions: rolePermissions,
         status: user.status,
         createdAt: user.createdAt,
         profile: user.profile
@@ -921,7 +945,7 @@ router.post('/verify-email', asyncHandler(async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     if (decoded.type !== 'email_verification') {
       return res.status(400).json({
         success: false,
@@ -954,7 +978,7 @@ router.post('/verify-email', asyncHandler(async (req, res) => {
         message: 'Verification token has expired'
       });
     }
-    
+
     return res.status(400).json({
       success: false,
       message: 'Invalid verification token'
@@ -1470,7 +1494,7 @@ router.post('/verify-profile-update-otp', authenticateToken, asyncHandler(async 
 // @access  Private
 router.post('/request-deactivation', authenticateToken, asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id);
-  
+
   if (!user) {
     return res.status(404).json({
       success: false,
@@ -1480,8 +1504,8 @@ router.post('/request-deactivation', authenticateToken, asyncHandler(async (req,
 
   // Generate deactivation token (valid for 24 hours)
   const deactivationToken = jwt.sign(
-    { 
-      userId: user._id, 
+    {
+      userId: user._id,
       email: user.email,
       type: 'account_deactivation'
     },
@@ -1529,7 +1553,7 @@ router.post('/confirm-deactivation', asyncHandler(async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     if (decoded.type !== 'account_deactivation') {
       return res.status(400).json({
         success: false,
@@ -1584,7 +1608,7 @@ router.post('/confirm-deactivation', asyncHandler(async (req, res) => {
         message: 'Deactivation link has expired. Please request a new one.'
       });
     }
-    
+
     return res.status(400).json({
       success: false,
       message: 'Invalid deactivation token'
@@ -1597,7 +1621,7 @@ router.post('/confirm-deactivation', asyncHandler(async (req, res) => {
 // @access  Private
 router.post('/request-deletion', authenticateToken, asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id);
-  
+
   if (!user) {
     return res.status(404).json({
       success: false,
@@ -1607,8 +1631,8 @@ router.post('/request-deletion', authenticateToken, asyncHandler(async (req, res
 
   // Generate deletion token (valid for 24 hours)
   const deletionToken = jwt.sign(
-    { 
-      userId: user._id, 
+    {
+      userId: user._id,
       email: user.email,
       type: 'account_deletion'
     },
@@ -1656,7 +1680,7 @@ router.post('/confirm-deletion', asyncHandler(async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     if (decoded.type !== 'account_deletion') {
       return res.status(400).json({
         success: false,
@@ -1679,7 +1703,7 @@ router.post('/confirm-deletion', asyncHandler(async (req, res) => {
     // Delete related data
     // Note: Add cascade delete for related models as needed
     // Examples: Properties, Messages, Favorites, etc.
-    
+
     // If user is a vendor, delete vendor profile
     if (user.role === 'agent' && user.vendorProfile) {
       await Vendor.findByIdAndDelete(user.vendorProfile);
@@ -1724,7 +1748,7 @@ router.post('/confirm-deletion', asyncHandler(async (req, res) => {
         message: 'Deletion link has expired. Please request a new one.'
       });
     }
-    
+
     return res.status(400).json({
       success: false,
       message: 'Invalid deletion token'
@@ -1748,7 +1772,7 @@ router.post('/2fa/setup', authenticateToken, asyncHandler(async (req, res) => {
 
   // Check if 2FA already exists
   let twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id });
-  
+
   if (twoFactorAuth && twoFactorAuth.isEnabled) {
     return res.status(400).json({
       success: false,
@@ -1763,13 +1787,13 @@ router.post('/2fa/setup', authenticateToken, asyncHandler(async (req, res) => {
 
   // Generate secret
   const secret = twoFactorAuth.generateSecret();
-  
+
   // Generate QR code
   const qrCode = await twoFactorAuth.generateQRCode(user.email);
-  
+
   // Generate backup codes
   const backupCodes = twoFactorAuth.generateBackupCodes();
-  
+
   await twoFactorAuth.save();
 
   res.json({
@@ -1805,7 +1829,7 @@ router.post('/2fa/enable', authenticateToken, asyncHandler(async (req, res) => {
   }
 
   const twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id });
-  
+
   if (!twoFactorAuth) {
     return res.status(400).json({
       success: false,
@@ -1822,7 +1846,7 @@ router.post('/2fa/enable', authenticateToken, asyncHandler(async (req, res) => {
 
   // Verify token
   const isValid = twoFactorAuth.verifyToken(token);
-  
+
   if (!isValid) {
     return res.status(400).json({
       success: false,
@@ -1894,7 +1918,7 @@ router.post('/2fa/disable', authenticateToken, asyncHandler(async (req, res) => 
   }
 
   const twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id });
-  
+
   if (!twoFactorAuth || !twoFactorAuth.isEnabled) {
     return res.status(400).json({
       success: false,
@@ -1950,7 +1974,7 @@ router.post('/2fa/disable', authenticateToken, asyncHandler(async (req, res) => 
 // @access  Private
 router.get('/2fa/status', authenticateToken, asyncHandler(async (req, res) => {
   const twoFactorAuth = await TwoFactorAuth.findOne({ user: req.user.id });
-  
+
   res.json({
     success: true,
     data: {
@@ -1994,7 +2018,7 @@ router.post('/2fa/regenerate-backup-codes', authenticateToken, asyncHandler(asyn
   }
 
   const twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id });
-  
+
   if (!twoFactorAuth || !twoFactorAuth.isEnabled) {
     return res.status(400).json({
       success: false,

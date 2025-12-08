@@ -5,12 +5,59 @@ const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { authenticateToken } = require('../middleware/authMiddleware');
+const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 const vendorNotificationService = require('../services/vendorNotificationService');
 const notificationService = require('../services/notificationService');
 const router = express.Router();
 
 // Apply auth middleware to all routes
 router.use(authenticateToken);
+
+// @desc    Get all messages (admin view)
+// @route   GET /api/messages/admin/all
+// @access  Private (Requires messages.view permission)
+router.get('/admin/all', asyncHandler(async (req, res) => {
+  // Check permission for viewing all messages
+  if (!hasPermission(req.user, PERMISSIONS.MESSAGES_VIEW)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view all messages'
+    });
+  }
+
+  const { page = 1, limit = 50, search, conversationId } = req.query;
+  const skip = (page - 1) * limit;
+
+  // Build query
+  const query = {};
+  if (conversationId) {
+    query.conversationId = conversationId;
+  }
+  if (search) {
+    query.message = { $regex: search, $options: 'i' };
+  }
+
+  const totalMessages = await Message.countDocuments(query);
+  const messages = await Message.find(query)
+    .populate('sender', 'profile.firstName profile.lastName email role')
+    .populate('recipient', 'profile.firstName profile.lastName email role')
+    .populate('property', 'title location')
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(parseInt(limit));
+
+  res.json({
+    success: true,
+    data: {
+      messages,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalMessages / limit),
+        totalMessages
+      }
+    }
+  });
+}));
 
 // @desc    Get conversations for user
 // @route   GET /api/messages/conversations
@@ -120,8 +167,8 @@ router.get('/conversations', asyncHandler(async (req, res) => {
       const lastMessage = conv.lastMessage?.message?.toLowerCase() || '';
 
       return otherUserName.includes(searchLower) ||
-             propertyTitle.includes(searchLower) ||
-             lastMessage.includes(searchLower);
+        propertyTitle.includes(searchLower) ||
+        lastMessage.includes(searchLower);
     });
   }
 
@@ -174,6 +221,14 @@ router.get('/conversations', asyncHandler(async (req, res) => {
 // @route   POST /api/messages
 // @access  Private
 router.post('/', asyncHandler(async (req, res) => {
+  // Check permission for sending messages
+  if (!hasPermission(req.user, PERMISSIONS.MESSAGES_SEND)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to send messages'
+    });
+  }
+
   const { conversationId, recipientId, content, attachments } = req.body;
 
   if (!conversationId || !recipientId || !content) {
@@ -237,7 +292,7 @@ router.post('/', asyncHandler(async (req, res) => {
       const vendor = await Vendor.findOne({ user: newMessage.recipient._id });
       if (vendor) {
         const senderName = `${newMessage.sender.profile?.firstName || ''} ${newMessage.sender.profile?.lastName || ''}`.trim() || 'A customer';
-        
+
         vendorNotificationService.sendNewMessageEmail(vendor._id, {
           senderName: senderName,
           content: newMessage.message
@@ -251,7 +306,7 @@ router.post('/', asyncHandler(async (req, res) => {
   // Send real-time notification to recipient
   try {
     const senderName = `${newMessage.sender.profile?.firstName || ''} ${newMessage.sender.profile?.lastName || ''}`.trim() || 'Someone';
-    
+
     notificationService.sendMessageNotification(recipientId, {
       conversationId: conversationId,
       senderId: req.user.id,
@@ -265,11 +320,11 @@ router.post('/', asyncHandler(async (req, res) => {
   // Check if recipient has auto-response enabled (for vendors)
   try {
     const recipient = await User.findById(recipientId);
-    if (recipient && 
-        recipient.role === 'agent' && 
-        recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseEnabled &&
-        recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseMessage) {
-      
+    if (recipient &&
+      recipient.role === 'agent' &&
+      recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseEnabled &&
+      recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseMessage) {
+
       // Check if this is the first message in the conversation from this sender
       const existingMessages = await Message.countDocuments({
         conversationId,
@@ -310,7 +365,7 @@ router.post('/', asyncHandler(async (req, res) => {
   res.status(201).json({
     success: true,
     message: 'Message sent successfully',
-    data: { 
+    data: {
       message: {
         _id: newMessage._id,
         message: newMessage.message,
@@ -397,7 +452,7 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
   // 3. Otherwise → send to property owner
   let recipientId;
   const wasPostedByAdmin = property.owner?.role === 'admin' || property.owner?.role === 'superadmin';
-  
+
   if (wasPostedByAdmin) {
     // Properties posted by admin route to the admin who posted them
     recipientId = property.owner._id;
@@ -458,15 +513,28 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
     { path: 'property', select: 'title price address city state' }
   ]);
 
+  // Emit real-time notification to vendor about new inquiry
+  const socketService = require('../services/socketService');
+  if (socketService.isUserOnline(recipientId)) {
+    socketService.sendToUser(recipientId, 'vendor:new_inquiry', {
+      inquiryId: newMessage._id,
+      customerName: `${newMessage.sender.profile?.firstName || ''} ${newMessage.sender.profile?.lastName || ''}`.trim(),
+      customerEmail: newMessage.sender.email,
+      propertyTitle: newMessage.property?.title,
+      message: content.trim(),
+      timestamp: new Date()
+    });
+  }
+
   // Check if recipient has auto-response enabled (for vendors)
   let autoResponseMessage = null;
   try {
     const recipient = await User.findById(recipientId);
-    if (recipient && 
-        recipient.role === 'agent' && 
-        recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseEnabled &&
-        recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseMessage) {
-      
+    if (recipient &&
+      recipient.role === 'agent' &&
+      recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseEnabled &&
+      recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseMessage) {
+
       // Create auto-response message
       const autoResponseData = {
         conversationId,
@@ -500,7 +568,7 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
   // Send real-time notification to recipient
   try {
     const senderName = `${newMessage.sender.profile?.firstName || ''} ${newMessage.sender.profile?.lastName || ''}`.trim() || 'Someone';
-    
+
     notificationService.sendMessageNotification(recipientId.toString(), {
       conversationId: conversationId,
       senderId: req.user.id,
@@ -531,9 +599,9 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
   res.status(201).json({
     success: true,
     message: 'Message sent successfully',
-    data: { 
+    data: {
       message: newMessage,
-      conversationId 
+      conversationId
     }
   });
 }));
@@ -548,7 +616,7 @@ router.get('/conversation/:conversationId', asyncHandler(async (req, res) => {
 
   // Extract user IDs from conversation ID
   const userIds = conversationId.split('_');
-  
+
   if (userIds.length !== 2 || !userIds.includes(req.user.id.toString())) {
     return res.status(403).json({
       success: false,
@@ -628,7 +696,7 @@ router.patch('/:messageId/read', asyncHandler(async (req, res) => {
 
   // Find the message and verify user is the recipient
   const message = await Message.findById(messageId);
-  
+
   if (!message) {
     return res.status(404).json({
       success: false,
@@ -690,7 +758,7 @@ router.post('/active-status', asyncHandler(async (req, res) => {
   if (!global.activeStatuses) {
     global.activeStatuses = new Map();
   }
-  
+
   const statusKey = `${conversationId}:${req.user.id}`;
   global.activeStatuses.set(statusKey, {
     status,
@@ -786,9 +854,9 @@ router.post('/typing-status', asyncHandler(async (req, res) => {
   if (!global.typingStatuses) {
     global.typingStatuses = new Map();
   }
-  
+
   const statusKey = `${conversationId}:${req.user.id}`;
-  
+
   if (isTyping) {
     global.typingStatuses.set(statusKey, {
       userId: req.user.id,
@@ -871,10 +939,10 @@ router.post('/online-status', asyncHandler(async (req, res) => {
   }
 
   const User = require('../models/User');
-  
+
   const now = new Date();
   const updatedUser = await User.findByIdAndUpdate(
-    req.user.id, 
+    req.user.id,
     {
       isOnline: status === 'online',
       lastSeen: now
@@ -929,7 +997,7 @@ router.get('/online-status/:userId', asyncHandler(async (req, res) => {
 // @access  Private
 router.get('/notification-preferences', asyncHandler(async (req, res) => {
   const User = require('../models/User');
-  
+
   const user = await User.findById(req.user.id).select('profile.preferences.notifications');
 
   res.json({
@@ -999,32 +1067,33 @@ router.get('/unread-count', asyncHandler(async (req, res) => {
 // @access  Private
 router.delete('/:messageId', asyncHandler(async (req, res) => {
   const { messageId } = req.params;
-  
+
   // Find the message
   const message = await Message.findById(messageId);
-  
+
   if (!message) {
     return res.status(404).json({
       success: false,
       message: 'Message not found'
     });
   }
-  
-  // Check if user is authorized to delete this message (sender or recipient)
+
+  // Check if user is authorized to delete this message (sender/recipient or has permission)
   const userId = req.user.id.toString();
   const isSender = message.sender.toString() === userId;
   const isRecipient = message.recipient.toString() === userId;
-  
-  if (!isSender && !isRecipient) {
+  const hasDeletePermission = hasPermission(req.user, PERMISSIONS.MESSAGES_DELETE);
+
+  if (!isSender && !isRecipient && !hasDeletePermission) {
     return res.status(403).json({
       success: false,
       message: 'Not authorized to delete this message'
     });
   }
-  
+
   // Delete the message
   await Message.findByIdAndDelete(messageId);
-  
+
   res.json({
     success: true,
     message: 'Message deleted successfully'
@@ -1036,7 +1105,7 @@ router.delete('/:messageId', asyncHandler(async (req, res) => {
 // @access  Private
 router.delete('/conversations/:conversationId', asyncHandler(async (req, res) => {
   const { conversationId } = req.params;
-  
+
   // Find all messages in this conversation where user is sender or recipient
   const messages = await Message.find({
     conversationId,
@@ -1045,14 +1114,14 @@ router.delete('/conversations/:conversationId', asyncHandler(async (req, res) =>
       { recipient: req.user.id }
     ]
   });
-  
+
   if (messages.length === 0) {
     return res.status(404).json({
       success: false,
       message: 'Conversation not found or you are not part of this conversation'
     });
   }
-  
+
   // Delete all messages in the conversation where user is involved
   await Message.deleteMany({
     conversationId,
@@ -1061,7 +1130,7 @@ router.delete('/conversations/:conversationId', asyncHandler(async (req, res) =>
       { recipient: req.user.id }
     ]
   });
-  
+
   // Clean up active status for this conversation
   if (global.activeStatuses) {
     Object.keys(global.activeStatuses).forEach(key => {
@@ -1070,7 +1139,7 @@ router.delete('/conversations/:conversationId', asyncHandler(async (req, res) =>
       }
     });
   }
-  
+
   res.json({
     success: true,
     message: 'Conversation deleted successfully'

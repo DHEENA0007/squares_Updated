@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Clock,
   CheckCircle,
@@ -151,13 +152,14 @@ interface VendorApprovalStats {
 
 const VendorApprovals: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [applications, setApplications] = useState<VendorApplication[]>([]);
   const [stats, setStats] = useState<VendorApprovalStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedApplication, setSelectedApplication] = useState<VendorApplication | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [filters, setFilters] = useState({
-    status: 'pending',
+    status: 'all',
     search: '',
     businessType: '',
     experienceMin: '',
@@ -264,6 +266,18 @@ const VendorApprovals: React.FC = () => {
       setApproverName(name);
     }
   }, [user]);
+
+  // Handle vendorId from URL query parameter
+  useEffect(() => {
+    const vendorId = searchParams.get('vendorId');
+    if (vendorId && applications.length > 0) {
+      const vendor = applications.find(app => app._id === vendorId);
+      if (vendor) {
+        setSelectedApplication(vendor);
+        setShowDetails(true);
+      }
+    }
+  }, [searchParams, applications]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -854,15 +868,15 @@ const VendorApprovals: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <User className="w-3 h-3" />
-                        {app.user.profile.firstName} {app.user.profile.lastName}
+                        {app.user?.profile?.firstName} {app.user?.profile?.lastName}
                       </div>
                       <div className="flex items-center gap-1">
                         <Mail className="w-3 h-3" />
-                        {app.user.email}
+                        {app.user?.email || 'N/A'}
                       </div>
                       <div className="flex items-center gap-1">
                         <Phone className="w-3 h-3" />
-                        {app.user.profile.phone || 'N/A'}
+                        {app.user?.profile?.phone || 'N/A'}
                       </div>
                       <div className="flex items-center gap-1">
                         <Building className="w-3 h-3" />

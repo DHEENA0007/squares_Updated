@@ -3,6 +3,7 @@ const Role = require('../models/Role');
 const User = require('../models/User');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { authenticateToken } = require('../middleware/authMiddleware');
+const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 const router = express.Router();
 
 // Apply auth middleware
@@ -12,7 +13,11 @@ router.use(authenticateToken);
 // @route   GET /api/roles/pages
 // @access  Private/Admin
 router.get('/pages', asyncHandler(async (req, res) => {
-  if (!['superadmin', 'subadmin'].includes(req.user.role)) {
+  // Allow admin, subadmin, and custom roles
+  const defaultRoles = ['customer', 'agent', 'admin', 'subadmin', 'superadmin'];
+  const isCustomRole = !defaultRoles.includes(req.user.role);
+
+  if (!['superadmin', 'subadmin', 'admin'].includes(req.user.role) && !isCustomRole) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'
@@ -83,29 +88,30 @@ router.get('/pages', asyncHandler(async (req, res) => {
 // @route   GET /api/roles
 // @access  Private/Admin
 router.get('/', asyncHandler(async (req, res) => {
-  if (!['superadmin', 'subadmin'].includes(req.user.role)) {
+  // Check permission
+  if (!hasPermission(req.user, PERMISSIONS.ROLES_VIEW)) {
     return res.status(403).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Insufficient permissions to view roles'
     });
   }
 
-  const { 
-    page = 1, 
-    limit = 10, 
+  const {
+    page = 1,
+    limit = 10,
     isActive,
-    search 
+    search
   } = req.query;
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
-  
+
   // Build filter object
   const filter = {};
-  
+
   if (isActive !== undefined) {
     filter.isActive = isActive === 'true';
   }
-  
+
   if (search) {
     filter.$or = [
       { name: { $regex: search, $options: 'i' } },
@@ -115,7 +121,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
   // Get total count for pagination
   const totalRoles = await Role.countDocuments(filter);
-  
+
   // Get roles with pagination
   const roles = await Role.find(filter)
     .sort({ level: -1, createdAt: -1 })
@@ -155,7 +161,11 @@ router.get('/', asyncHandler(async (req, res) => {
 // @route   GET /api/roles/:id
 // @access  Private/Admin
 router.get('/:id', asyncHandler(async (req, res) => {
-  if (!['superadmin', 'subadmin'].includes(req.user.role)) {
+  // Allow admin, subadmin, and custom roles
+  const defaultRoles = ['customer', 'agent', 'admin', 'subadmin', 'superadmin'];
+  const isCustomRole = !defaultRoles.includes(req.user.role);
+
+  if (!['superadmin', 'subadmin', 'admin'].includes(req.user.role) && !isCustomRole) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required'
@@ -163,7 +173,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   }
 
   const role = await Role.findById(req.params.id).lean();
-  
+
   if (!role) {
     return res.status(404).json({
       success: false,
@@ -176,7 +186,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: { 
+    data: {
       role: {
         ...role,
         userCount
@@ -189,10 +199,10 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // @route   POST /api/roles
 // @access  Private/Admin
 router.post('/', asyncHandler(async (req, res) => {
-  if (!['superadmin'].includes(req.user.role)) {
+  if (!hasPermission(req.user, PERMISSIONS.ROLES_CREATE)) {
     return res.status(403).json({
       success: false,
-      message: 'Super Admin access required'
+      message: 'Insufficient permissions to create roles'
     });
   }
 
@@ -208,15 +218,15 @@ router.post('/', asyncHandler(async (req, res) => {
 // @route   PUT /api/roles/:id
 // @access  Private/Admin
 router.put('/:id', asyncHandler(async (req, res) => {
-  if (!['superadmin'].includes(req.user.role)) {
+  if (!hasPermission(req.user, PERMISSIONS.ROLES_EDIT)) {
     return res.status(403).json({
       success: false,
-      message: 'Super Admin access required'
+      message: 'Insufficient permissions to edit roles'
     });
   }
 
   const role = await Role.findById(req.params.id);
-  
+
   if (!role) {
     return res.status(404).json({
       success: false,
@@ -248,15 +258,15 @@ router.put('/:id', asyncHandler(async (req, res) => {
 // @route   PATCH /api/roles/:id/toggle-status
 // @access  Private/Admin
 router.patch('/:id/toggle-status', asyncHandler(async (req, res) => {
-  if (!['superadmin'].includes(req.user.role)) {
+  if (!hasPermission(req.user, PERMISSIONS.ROLES_EDIT)) {
     return res.status(403).json({
       success: false,
-      message: 'Super Admin access required'
+      message: 'Insufficient permissions to edit roles'
     });
   }
 
   const role = await Role.findById(req.params.id);
-  
+
   if (!role) {
     return res.status(404).json({
       success: false,
@@ -293,7 +303,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   }
 
   const role = await Role.findById(req.params.id);
-  
+
   if (!role) {
     return res.status(404).json({
       success: false,
@@ -309,15 +319,9 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     });
   }
 
-  // Check if role is assigned to any users
-  const usersWithRole = await User.countDocuments({ role: role.name });
-
-  if (usersWithRole > 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'Cannot delete role that is assigned to users'
-    });
-  }
+  // Delete all users with this role
+  const deletedUsers = await User.deleteMany({ role: role.name });
+  console.log(`Deleted ${deletedUsers.deletedCount} users with role ${role.name}`);
 
   await Role.findByIdAndDelete(req.params.id);
 

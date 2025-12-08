@@ -340,6 +340,45 @@ class VendorDashboardService {
     }
   }
 
+  async getRecentActivities(limit = 20): Promise<Array<{
+    _id: string;
+    type: string;
+    message: string;
+    property?: string;
+    time: string;
+    icon: string;
+    propertyId?: string;
+    metadata?: any;
+  }>> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: { 
+          activities: Array<{
+            _id: string;
+            type: string;
+            message: string;
+            property?: string;
+            time: string;
+            icon: string;
+            propertyId?: string;
+            metadata?: any;
+          }>;
+          total: number;
+        };
+      }>(`/vendors/activities/recent?limit=${limit}`);
+
+      if (response.success && response.data) {
+        return response.data.activities;
+      }
+
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch recent activities:", error);
+      return [];
+    }
+  }
+
   async markNotificationAsRead(notificationId: string): Promise<boolean> {
     try {
       const response = await this.makeRequest<{

@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { userService, User } from "@/services/userService";
+import roleService, { Role } from "@/services/roleService";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,13 +48,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
+import { PERMISSIONS } from "@/config/permissionConfig";
 
 interface UserTableProps {
   searchQuery: string;
 }
 
 const UserTable = ({ searchQuery }: UserTableProps) => {
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, user } = useAuth();
+  const userPermissions = user?.rolePermissions || [];
+  const hasPermission = (permission: string) => userPermissions.includes(permission);
+  const canPromoteUsers = isSuperAdmin || hasPermission(PERMISSIONS.USERS_PROMOTE);
   const isMobile = useIsMobile();
   const [currentPage, setCurrentPage] = useState(1);
   const [users, setUsers] = useState<User[]>([]);
@@ -66,7 +71,21 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
   const [isPromoteDialogOpen, setIsPromoteDialogOpen] = useState(false);
   const [promotingUserId, setPromotingUserId] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>("");
+  const [roles, setRoles] = useState<Role[]>([]);
   const itemsPerPage = 10;
+
+  // Fetch roles on mount
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const response = await roleService.getRoles({ limit: 100, isActive: true });
+        setRoles(response.data.roles);
+      } catch (error) {
+        console.error("Failed to fetch roles", error);
+      }
+    };
+    fetchRoles();
+  }, []);
 
   // Fetch users when page or search changes
   useEffect(() => {
@@ -154,7 +173,7 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
     }
   };
 
-  const availableRoles = ["customer", "agent", "subadmin", "superadmin"];
+
 
   if (loading) {
     return (
@@ -208,8 +227,8 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
                         user.status === "active"
                           ? "default"
                           : user.status === "pending"
-                          ? "secondary"
-                          : "destructive"
+                            ? "secondary"
+                            : "destructive"
                       }
                       className={isMobile ? 'text-xs px-1 py-0' : ''}
                     >
@@ -230,7 +249,7 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
                       >
                         <Eye className={isMobile ? 'h-3 w-3' : 'h-4 w-4'} />
                       </Button>
-                      {isSuperAdmin && (
+                      {canPromoteUsers && (
                         <Button
                           variant="ghost"
                           size={isMobile ? "sm" : "icon"}
@@ -329,7 +348,7 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
               Complete information about {selectedUser ? userService.getFullName(selectedUser) : 'user'}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedUser && (
             <div className="space-y-6">
               {/* Basic Information */}
@@ -385,8 +404,8 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
                           selectedUser.status === "active"
                             ? "default"
                             : selectedUser.status === "pending"
-                            ? "secondary"
-                            : "destructive"
+                              ? "secondary"
+                              : "destructive"
                         }
                         className="mt-1"
                       >
@@ -468,7 +487,7 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
                       <p className="text-base">Not available</p>
                     </div>
                   </div>
-                  
+
                   {selectedUser.profile?.preferences?.notifications && (
                     <div>
                       <p className="text-sm font-medium text-muted-foreground mb-2">Notification Preferences</p>
@@ -541,14 +560,14 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
               Change the role of {selectedUser ? userService.getFullName(selectedUser) : 'user'}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedUser && (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <p className="text-sm font-medium">Current Role</p>
                 <Badge variant="secondary">{selectedUser.role}</Badge>
               </div>
-              
+
               <div className="space-y-2">
                 <p className="text-sm font-medium">New Role</p>
                 <Select value={selectedRole} onValueChange={setSelectedRole}>
@@ -556,11 +575,20 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableRoles.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role}
-                      </SelectItem>
-                    ))}
+                    {roles.length > 0 ? (
+                      roles.map((role) => (
+                        <SelectItem key={role._id} value={role.name}>
+                          {role.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <>
+                        <SelectItem value="customer">Customer</SelectItem>
+                        <SelectItem value="agent">Vendor/Agent</SelectItem>
+                        <SelectItem value="subadmin">Sub Admin</SelectItem>
+                        <SelectItem value="superadmin">Super Admin</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

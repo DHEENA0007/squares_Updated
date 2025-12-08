@@ -53,7 +53,14 @@ const PropertyManagement: React.FC = () => {
             </TabsList>
 
             <TabsContent value="property-types" className="mt-6">
-              <PropertyTypesTab />
+              <div className="space-y-4">
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertDescription>
+                    <strong>Property Type Fields:</strong> Click the <Settings className="h-3 w-3 inline mx-1" /> icon next to each property type to configure which fields vendors must fill when adding that type of property.
+                  </AlertDescription>
+                </Alert>
+                <PropertyTypesTab />
+              </div>
             </TabsContent>
 
             <TabsContent value="amenities" className="mt-6">

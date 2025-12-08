@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRealtime } from "@/contexts/RealtimeContext";
+import { socketService } from "@/services/socketService";
 import { vendorDashboardService, VendorStats, Property, Lead, PerformanceData, VendorFilters } from "@/services/vendorDashboardService";
 import { toast } from "@/hooks/use-toast";
 
@@ -13,6 +14,16 @@ interface VendorDashboardState {
   stats: VendorStats | null;
   recentProperties: Property[];
   recentLeads: Lead[];
+  recentActivities: Array<{
+    _id: string;
+    type: string;
+    message: string;
+    property?: string;
+    time: string;
+    icon: string;
+    propertyId?: string;
+    metadata?: any;
+  }>;
   performanceData: PerformanceData[];
   notifications: Array<{
     id: string;
@@ -32,6 +43,7 @@ interface VendorDashboardActions {
   refreshStats: () => Promise<void>;
   refreshProperties: () => Promise<void>;
   refreshLeads: () => Promise<void>;
+  refreshActivities: () => Promise<void>;
   refreshPerformance: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   updateFilters: (filters: VendorFilters) => void;
@@ -56,6 +68,7 @@ export const useVendorDashboard = (
     stats: null,
     recentProperties: [],
     recentLeads: [],
+    recentActivities: [],
     performanceData: [],
     notifications: [],
     isLoading: true,
@@ -123,6 +136,15 @@ export const useVendorDashboard = (
     }
   }, [updateState]);
 
+  const refreshActivities = useCallback(async () => {
+    try {
+      const recentActivities = await vendorDashboardService.getRecentActivities(20);
+      updateState({ recentActivities });
+    } catch (error) {
+      console.error("Failed to refresh activities:", error);
+    }
+  }, [updateState]);
+
   const refreshData = useCallback(async () => {
     updateState({ isLoading: true, error: null });
     
@@ -133,6 +155,7 @@ export const useVendorDashboard = (
         stats: dashboardData.stats,
         recentProperties: dashboardData.recentProperties,
         recentLeads: dashboardData.recentLeads,
+        recentActivities: dashboardData.recentActivities || [],
         performanceData: dashboardData.performanceData,
         notifications: dashboardData.notifications,
         isLoading: false,
@@ -201,11 +224,58 @@ export const useVendorDashboard = (
   useEffect(() => {
     if (!enableRealtime || !isConnected) return;
 
-    // TODO: Implement real-time event subscriptions once RealtimeContext provides the events API
-    // For now, rely on auto-refresh to update dashboard data
+    // Subscribe to vendor-specific real-time events
+    const unsubscribeActivities = socketService.on('vendor:activities_updated', (data: any) => {
+      console.log('Real-time activities update received:', data);
+      if (data.activities) {
+        updateState({ 
+          recentActivities: data.activities,
+          lastUpdated: new Date()
+        });
+      }
+    });
+
+    const unsubscribeLeads = socketService.on('vendor:leads_updated', (data: any) => {
+      console.log('Real-time leads update received:', data);
+      if (data.leads) {
+        updateState({ 
+          recentLeads: data.leads,
+          lastUpdated: new Date()
+        });
+      }
+    });
+
+    const unsubscribePropertyUpdate = socketService.on('vendor:property_updated', (data: any) => {
+      console.log('Real-time property update received:', data);
+      refreshProperties();
+      refreshStats();
+    });
+
+    const unsubscribeNewInquiry = socketService.on('vendor:new_inquiry', (data: any) => {
+      console.log('Real-time new inquiry received:', data);
+      refreshLeads();
+      refreshActivities();
+      
+      toast({
+        title: "New Inquiry",
+        description: `New inquiry from ${data.customerName || 'a customer'}`,
+      });
+    });
+
+    return () => {
+      unsubscribeActivities();
+      unsubscribeLeads();
+      unsubscribePropertyUpdate();
+      unsubscribeNewInquiry();
+    };
   }, [
     enableRealtime,
     isConnected,
+    updateState,
+    refreshProperties,
+    refreshStats,
+    refreshLeads,
+    refreshActivities,
   ]);
 
   // Auto refresh setup - Fixed memory leak by removing state.isLoading from dependencies
@@ -248,6 +318,7 @@ export const useVendorDashboard = (
     refreshStats,
     refreshProperties,
     refreshLeads,
+    refreshActivities,
     refreshPerformance,
     refreshNotifications,
     updateFilters,

@@ -132,7 +132,7 @@ export const ViewPropertyDialog = ({ property, open, onOpenChange }: ViewPropert
           <Separator />
           <div>
             <h3 className="font-semibold mb-2">Owner Information</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-muted-foreground">Name</p>
                 <p className="font-medium">
@@ -141,14 +141,12 @@ export const ViewPropertyDialog = ({ property, open, onOpenChange }: ViewPropert
               </div>
               <div>
                 <p className="text-muted-foreground">Email</p>
-                <p className="font-medium">{property.owner?.email}</p>
+                <p className="font-medium">{property.owner?.email || 'N/A'}</p>
               </div>
-              {property.owner?.profile?.phone && (
-                <div>
-                  <p className="text-muted-foreground">Phone</p>
-                  <p className="font-medium">{property.owner.profile.phone}</p>
-                </div>
-              )}
+              <div>
+                <p className="text-muted-foreground">Contact Number</p>
+                <p className="font-medium">{property.owner?.profile?.phone || 'N/A'}</p>
+              </div>
             </div>
           </div>
 

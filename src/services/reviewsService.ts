@@ -457,6 +457,150 @@ class ReviewsService {
     if (total === 0) return 0;
     return Math.round((count / total) * 100);
   }
+
+  // Admin Review Management
+  async getAdminReviews(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    rating?: number;
+    flagged?: boolean;
+  }) {
+    const token = localStorage.getItem("token");
+    const queryParams = new URLSearchParams();
+    
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.rating) queryParams.append('rating', params.rating.toString());
+    if (params?.flagged !== undefined) queryParams.append('flagged', params.flagged.toString());
+
+    const response = await fetch(
+      `${API_BASE_URL}/admin/reviews?${queryParams.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch reviews");
+    }
+
+    return response.json();
+  }
+
+  async getAdminReviewStats() {
+    const token = localStorage.getItem("token");
+    
+    const response = await fetch(`${API_BASE_URL}/admin/reviews/stats`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch review stats");
+    }
+
+    return response.json();
+  }
+
+  async approveReview(reviewId: string) {
+    const token = localStorage.getItem("token");
+    
+    const response = await fetch(`${API_BASE_URL}/admin/reviews/${reviewId}/approve`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to approve review");
+    }
+
+    return response.json();
+  }
+
+  async rejectReview(reviewId: string) {
+    const token = localStorage.getItem("token");
+    
+    const response = await fetch(`${API_BASE_URL}/admin/reviews/${reviewId}/reject`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to reject review");
+    }
+
+    return response.json();
+  }
+
+  async deleteReview(reviewId: string) {
+    const token = localStorage.getItem("token");
+    
+    const response = await fetch(`${API_BASE_URL}/admin/reviews/${reviewId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to delete review");
+    }
+
+    return response.json();
+  }
+
+  async flagReview(reviewId: string) {
+    const token = localStorage.getItem("token");
+    
+    const response = await fetch(`${API_BASE_URL}/admin/reviews/${reviewId}/flag`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to flag review");
+    }
+
+    return response.json();
+  }
+
+  async replyToReview(reviewId: string, message: string) {
+    const token = localStorage.getItem("token");
+    
+    const response = await fetch(`${API_BASE_URL}/admin/reviews/${reviewId}/reply`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to post reply");
+    }
+
+    return response.json();
+  }
 }
 
 export const reviewsService = new ReviewsService();

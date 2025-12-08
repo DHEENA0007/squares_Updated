@@ -28,10 +28,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Settings2 } from 'lucide-react';
 import { configurationService } from '@/services/configurationService';
 import type { PropertyType, CreatePropertyTypeDTO, UpdatePropertyTypeDTO } from '@/types/configuration';
 import { useToast } from '@/hooks/use-toast';
+import PropertyTypeFieldsDialog from './PropertyTypeFieldsDialog';
 
 const PropertyTypesTab: React.FC = () => {
   const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
@@ -43,6 +44,8 @@ const PropertyTypesTab: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPropertyType, setSelectedPropertyType] = useState<PropertyType | null>(null);
+  const [isFieldsDialogOpen, setIsFieldsDialogOpen] = useState(false);
   const [formData, setFormData] = useState<CreatePropertyTypeDTO>({
     name: '',
     value: '',
@@ -351,6 +354,17 @@ const PropertyTypesTab: React.FC = () => {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => {
+                            setSelectedPropertyType(type);
+                            setIsFieldsDialogOpen(true);
+                          }}
+                          title="Manage Fields"
+                        >
+                          <Settings2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleOpenDialog(type)}
                         >
                           <Pencil className="h-4 w-4" />
@@ -580,6 +594,17 @@ const PropertyTypesTab: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {selectedPropertyType && (
+        <PropertyTypeFieldsDialog
+          propertyType={selectedPropertyType}
+          isOpen={isFieldsDialogOpen}
+          onClose={() => {
+            setIsFieldsDialogOpen(false);
+            setSelectedPropertyType(null);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -36,6 +36,7 @@ import EnhancedLocationSelector from "@/components/vendor/EnhancedLocationSelect
 import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { configurationService } from "@/services/configurationService";
+import DynamicPropertyFields from "@/components/vendor/DynamicPropertyFields";
 
 // Upload function using server-side endpoint
 const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
@@ -146,6 +147,11 @@ const AddProperty = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [listingTypes, setListingTypes] = useState<Array<{ id: string; name: string; value: string; displayLabel?: string }>>([]);
   const [isLoadingListingTypes, setIsLoadingListingTypes] = useState(true);
+  const [propertyTypes, setPropertyTypes] = useState<Array<{ value: string; label: string; id: string }>>([]);
+  const [isLoadingPropertyTypes, setIsLoadingPropertyTypes] = useState(true);
+  const [selectedPropertyTypeId, setSelectedPropertyTypeId] = useState<string>('');
+  const [dynamicFields, setDynamicFields] = useState<Record<string, any>>({});
+  const [dynamicFieldErrors, setDynamicFieldErrors] = useState<Record<string, string>>({});
   
   // Refs for file inputs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -202,7 +208,16 @@ const AddProperty = () => {
       try {
         setIsLoadingListingTypes(true);
         const listingTypesData = await configurationService.getFilterConfigurationsByType('listing_type', false);
-        setListingTypes(listingTypesData);
+        
+        // Map FilterConfiguration to expected format
+        const mappedListingTypes = listingTypesData.map(type => ({
+          id: type._id,
+          name: type.name,
+          value: type.value,
+          displayLabel: type.displayLabel
+        }));
+        
+        setListingTypes(mappedListingTypes);
       } catch (error) {
         console.error('Error fetching listing types:', error);
         toast({
@@ -216,6 +231,49 @@ const AddProperty = () => {
     };
 
     fetchListingTypes();
+  }, []);
+
+  // Fetch property types from configuration
+  useEffect(() => {
+    const fetchPropertyTypes = async () => {
+      try {
+        setIsLoadingPropertyTypes(true);
+        const propertyTypesData = await configurationService.getAllPropertyTypes(false);
+        
+        // Map property types to the format expected by the form
+        const mappedPropertyTypes = propertyTypesData
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map(type => ({
+            id: type._id,
+            value: type.value,
+            label: type.name
+          }));
+        
+        setPropertyTypes(mappedPropertyTypes);
+      } catch (error) {
+        console.error('Error fetching property types:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load property types. Using default types.",
+          variant: "destructive",
+        });
+        // Fallback to hardcoded types
+        setPropertyTypes([
+          { id: '', value: "apartment", label: "Apartment" },
+          { id: '', value: "villa", label: "Villa" },
+          { id: '', value: "house", label: "House" },
+          { id: '', value: "commercial", label: "Commercial" },
+          { id: '', value: "plot", label: "Plot" },
+          { id: '', value: "land", label: "Land" },
+          { id: '', value: "office", label: "Office Space" },
+          { id: '', value: "pg", label: "PG (Paying Guest)" }
+        ]);
+      } finally {
+        setIsLoadingPropertyTypes(false);
+      }
+    };
+
+    fetchPropertyTypes();
   }, []);
 
   // Load districts when state changes
@@ -373,17 +431,6 @@ const AddProperty = () => {
     { id: 7, title: "Review", description: "Review and submit listing" }
   ];
 
-  const propertyTypes = [
-    { value: "apartment", label: "Apartment" },
-    { value: "villa", label: "Villa" },
-    { value: "house", label: "House" },
-    { value: "commercial", label: "Commercial" },
-    { value: "plot", label: "Plot" },
-    { value: "land", label: "Land" },
-    { value: "office", label: "Office Space" },
-    { value: "pg", label: "PG (Paying Guest)" }
-  ];
-
   const amenitiesList = [
     "Swimming Pool", "Gym/Fitness Center", "Parking", "Security",
     "Garden/Park", "Playground", "Clubhouse", "Power Backup",
@@ -455,7 +502,6 @@ const AddProperty = () => {
       propertyType: formData.propertyType,
       listingType: formData.listingType,
       price: formData.price,
-      builtUpArea: formData.builtUpArea,
       pincode: formData.pincode
     };
 
@@ -477,6 +523,16 @@ const AddProperty = () => {
       toast({
         title: "Location Required",
         description: "Please select state and city for your property",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate required dynamic fields
+    if (Object.keys(dynamicFieldErrors).length > 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please fix the errors in property details",
         variant: "destructive",
       });
       return;
@@ -516,14 +572,6 @@ const AddProperty = () => {
         type: formData.propertyType as 'apartment' | 'villa' | 'house' | 'commercial' | 'plot' | 'land' | 'office' | 'pg',
         listingType: formData.listingType as 'sale' | 'rent' | 'lease',
         price: parseFloat(formData.price),
-        area: {
-          builtUp: formData.builtUpArea ? parseFloat(formData.builtUpArea) : undefined,
-          carpet: formData.carpetArea ? parseFloat(formData.carpetArea) : undefined,
-          plot: formData.plotArea ? parseFloat(formData.plotArea) : undefined,
-          unit: 'sqft' as const
-        },
-        bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : 0,
-        bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : 0,
         address: {
           street: formData.address.trim(),
           district: formData.district || '',
@@ -536,28 +584,7 @@ const AddProperty = () => {
         videos: uploadedVideoUrls || []
       };
 
-      // Only add optional fields if they have values
-      if (formData.virtualTour?.trim()) {
-        propertyData.virtualTour = formData.virtualTour.trim();
-      }
-      if (formData.furnishing) {
-        propertyData.furnishing = formData.furnishing;
-      }
-      if (formData.age) {
-        propertyData.age = formData.age;
-      }
-      if (formData.floor?.trim()) {
-        propertyData.floor = formData.floor.trim();
-      }
-      if (formData.totalFloors?.trim()) {
-        propertyData.totalFloors = formData.totalFloors.trim();
-      }
-      if (formData.facing) {
-        propertyData.facing = formData.facing;
-      }
-      if (formData.parkingSpaces) {
-        propertyData.parkingSpaces = formData.parkingSpaces;
-      }
+      // Add pricing optional fields
       if (formData.priceNegotiable !== undefined) {
         propertyData.priceNegotiable = formData.priceNegotiable;
       }
@@ -567,19 +594,34 @@ const AddProperty = () => {
       if (formData.securityDeposit?.trim()) {
         propertyData.securityDeposit = parseFloat(formData.securityDeposit);
       }
-      if (formData.availability?.trim()) {
-        propertyData.availability = formData.availability.trim();
+      if (formData.virtualTour?.trim()) {
+        propertyData.virtualTour = formData.virtualTour.trim();
       }
-      if (formData.possession?.trim()) {
-        propertyData.possession = formData.possession.trim();
-      }
-      
-      // Add land/plot specific fields
-      if (formData.roadWidth?.trim()) {
-        propertyData.roadWidth = formData.roadWidth.trim();
-      }
-      if (formData.cornerPlot) {
-        propertyData.cornerPlot = formData.cornerPlot;
+
+      // Add dynamic fields from configuration as customFields
+      if (Object.keys(dynamicFields).length > 0) {
+        propertyData.customFields = dynamicFields;
+        
+        // Map common fields to top-level for backward compatibility
+        if (dynamicFields.builtUpArea) {
+          propertyData.area = propertyData.area || {};
+          propertyData.area.builtUp = parseFloat(dynamicFields.builtUpArea);
+          propertyData.area.unit = 'sqft';
+        }
+        if (dynamicFields.carpetArea) {
+          propertyData.area = propertyData.area || {};
+          propertyData.area.carpet = parseFloat(dynamicFields.carpetArea);
+        }
+        if (dynamicFields.plotArea) {
+          propertyData.area = propertyData.area || {};
+          propertyData.area.plot = parseFloat(dynamicFields.plotArea);
+        }
+        if (dynamicFields.bedrooms) {
+          propertyData.bedrooms = parseInt(dynamicFields.bedrooms);
+        }
+        if (dynamicFields.bathrooms) {
+          propertyData.bathrooms = parseInt(dynamicFields.bathrooms);
+        }
       }
 
       // Submit property to backend
@@ -835,16 +877,38 @@ const AddProperty = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="propertyType" className="text-sm md:text-base">Property Type *</Label>
-                <Select value={formData.propertyType} onValueChange={(value) => setFormData(prev => ({ ...prev, propertyType: value }))}>
+                <Select 
+                  value={formData.propertyType} 
+                  onValueChange={(value) => {
+                    const selectedType = propertyTypes.find(t => t.value === value);
+                    setFormData(prev => ({ ...prev, propertyType: value }));
+                    setSelectedPropertyTypeId(selectedType?.id || '');
+                    setDynamicFields({}); // Reset dynamic fields when property type changes
+                  }}
+                  disabled={isLoadingPropertyTypes}
+                >
                   <SelectTrigger className="text-sm md:text-base">
-                    <SelectValue placeholder="Select property type" />
+                    <SelectValue placeholder={isLoadingPropertyTypes ? "Loading property types..." : "Select property type"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {propertyTypes.map((type) => (
-                      <SelectItem key={type.value} value={type.value} className="text-sm md:text-base">
-                        {type.label}
+                    {isLoadingPropertyTypes ? (
+                      <SelectItem value="loading" disabled>
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading...
+                        </div>
                       </SelectItem>
-                    ))}
+                    ) : propertyTypes.length === 0 ? (
+                      <SelectItem value="no-types" disabled>
+                        No property types available
+                      </SelectItem>
+                    ) : (
+                      propertyTypes.map((type) => (
+                        <SelectItem key={type.value} value={type.value} className="text-sm md:text-base">
+                          {type.label}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1076,29 +1140,56 @@ const AddProperty = () => {
         );
 
       case 3:
-        // Residential properties: apartment, villa, house, pg
-        const isResidential = ['apartment', 'villa', 'house', 'pg'].includes(formData.propertyType);
-        // Commercial properties: commercial, office
-        const isCommercial = ['commercial', 'office'].includes(formData.propertyType);
-        // Land/Plot properties: plot, land
-        const isLand = ['plot', 'land'].includes(formData.propertyType);
-        // PG specific
-        const isPG = formData.propertyType === 'pg';
-
         return (
           <div className="space-y-4 md:space-y-6">
+            {!formData.propertyType ? (
+              <Alert>
+                <AlertDescription>
+                  Please select a property type in the Basic Details step to see relevant property specifications.
+                </AlertDescription>
+              </Alert>
+            ) : selectedPropertyTypeId ? (
+              <DynamicPropertyFields
+                propertyTypeId={selectedPropertyTypeId}
+                values={dynamicFields}
+                onChange={(fieldName, value) => {
+                  setDynamicFields(prev => ({ ...prev, [fieldName]: value }));
+                  // Clear error for this field if it exists
+                  if (dynamicFieldErrors[fieldName]) {
+                    setDynamicFieldErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors[fieldName];
+                      return newErrors;
+                    });
+                  }
+                }}
+                errors={dynamicFieldErrors}
+                onValidationChange={(isValid, errors) => {
+                  setDynamicFieldErrors(errors);
+                }}
+              />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No custom fields configured for this property type.</p>
+                <p className="text-sm mt-2">The property type may be using legacy hardcoded fields.</p>
+              </div>
+            )}
+
+            {/* Legacy hardcoded fields - kept as fallback */}
+            {!selectedPropertyTypeId && formData.propertyType && (
+              <>
             {/* Residential Properties - Apartment, Villa, House, PG */}
-            {isResidential && (
+            {['apartment', 'villa', 'house', 'pg'].includes(formData.propertyType) && (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="bedrooms" className="text-sm md:text-base">Bedrooms {!isPG && '*'}</Label>
+                    <Label htmlFor="bedrooms" className="text-sm md:text-base">Bedrooms {formData.propertyType !== 'pg' && '*'}</Label>
                     <Select value={formData.bedrooms} onValueChange={(value) => setFormData(prev => ({ ...prev, bedrooms: value }))}>
                       <SelectTrigger className="text-sm md:text-base">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
-                        {isPG ? (
+                        {formData.propertyType === 'pg' ? (
                           <>
                             <SelectItem value="1" className="text-sm md:text-base">Single Sharing</SelectItem>
                             <SelectItem value="2" className="text-sm md:text-base">Double Sharing</SelectItem>
@@ -1125,7 +1216,7 @@ const AddProperty = () => {
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
-                        {isPG ? (
+                        {formData.propertyType === 'pg' ? (
                           <>
                             <SelectItem value="1" className="text-sm md:text-base">Attached</SelectItem>
                             <SelectItem value="0" className="text-sm md:text-base">Common</SelectItem>
@@ -1159,17 +1250,17 @@ const AddProperty = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="builtUpArea" className="text-sm md:text-base">{isPG ? 'Room Area (sq ft)' : 'Built-up Area (sq ft)'} *</Label>
+                    <Label htmlFor="builtUpArea" className="text-sm md:text-base">{formData.propertyType === 'pg' ? 'Room Area (sq ft)' : 'Built-up Area (sq ft)'} *</Label>
                     <Input
                       id="builtUpArea"
-                      placeholder={isPG ? "e.g., 150" : "e.g., 1200"}
+                      placeholder={formData.propertyType === 'pg' ? "e.g., 150" : "e.g., 1200"}
                       value={formData.builtUpArea}
                       onChange={(e) => setFormData(prev => ({ ...prev, builtUpArea: e.target.value }))}
                       className="text-sm md:text-base"
                     />
                   </div>
 
-                  {!isPG && (
+                  {formData.propertyType !== 'pg' && (
                     <div className="space-y-2">
                       <Label htmlFor="carpetArea" className="text-sm md:text-base">Carpet Area (sq ft)</Label>
                       <Input
@@ -1199,7 +1290,7 @@ const AddProperty = () => {
                   </div>
                 </div>
 
-                {!isPG && (
+                {formData.propertyType !== 'pg' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="floor" className="text-sm md:text-base">Floor</Label>
@@ -1225,7 +1316,7 @@ const AddProperty = () => {
                   </div>
                 )}
 
-                {isPG && (
+                {formData.propertyType === 'pg' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="floor" className="text-sm md:text-base">Floor</Label>
@@ -1257,7 +1348,7 @@ const AddProperty = () => {
             )}
 
             {/* Commercial Properties - Office, Commercial */}
-            {isCommercial && (
+            {['commercial', 'office'].includes(formData.propertyType) && (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   <div className="space-y-2">
@@ -1372,7 +1463,7 @@ const AddProperty = () => {
             )}
 
             {/* Land/Plot Properties */}
-            {isLand && (
+            {['plot', 'land'].includes(formData.propertyType) && (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   <div className="space-y-2">
@@ -1475,14 +1566,7 @@ const AddProperty = () => {
                 </div>
               </>
             )}
-
-            {/* Show message if no property type selected */}
-            {!formData.propertyType && (
-              <Alert>
-                <AlertDescription>
-                  Please select a property type in the Basic Details step to see relevant property specifications.
-                </AlertDescription>
-              </Alert>
+            </>
             )}
           </div>
         );

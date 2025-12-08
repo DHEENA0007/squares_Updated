@@ -7,6 +7,7 @@ interface User {
   email: string;
   role: string;
   rolePages?: string[];
+  rolePermissions?: string[];
   profile?: any;
 }
 
@@ -27,7 +28,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<LoginResult>;
   logout: (skipRedirect?: boolean) => void;
   checkAuth: () => Promise<void>;
-  clearAuthDataAndUser: () => void; // add clearAuthDataAndUser to context type
+  refreshUser: () => Promise<void>; // Add refresh function
+  clearAuthDataAndUser: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -51,24 +53,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkAuth = async () => {
     try {
       if (authService.isAuthenticated()) {
-        const storedUser = authService.getStoredUser();
-        if (storedUser) {
-          setUser(storedUser);
+        // Always fetch fresh user data from API to get updated permissions
+        const response = await authService.getCurrentUser();
+        if (response.success) {
+          const userData = response.data.user;
+          setUser(userData);
+          // Update localStorage with fresh data
+          localStorage.setItem('user', JSON.stringify(userData));
         } else {
-          const response = await authService.getCurrentUser();
-          if (response.success) {
-            setUser(response.data.user);
-          } else {
-            authService.logout();
-          }
+          authService.logout();
         }
-      } else {
-        // Not authenticated
       }
     } catch (error) {
       authService.logout();
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Function to refresh user permissions without full re-authentication
+  const refreshUser = async () => {
+    try {
+      if (authService.isAuthenticated()) {
+        const response = await authService.getCurrentUser();
+        if (response.success) {
+          const userData = response.data.user;
+          setUser(userData);
+          // Update localStorage with fresh data
+          localStorage.setItem('user', JSON.stringify(userData));
+          toast({
+            title: "Permissions Updated",
+            description: "Your permissions have been refreshed.",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
     }
   };
 
@@ -84,10 +104,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error: any) {
       // Handle specific vendor pending approval case
       if (error.message?.includes('pending approval') || error.message?.includes('pending_approval')) {
-        return { 
-          success: false, 
-          error: 'Your vendor profile is pending approval. You will be notified once approved by our admin team.', 
-          isVendorPendingApproval: true 
+        return {
+          success: false,
+          error: 'Your vendor profile is pending approval. You will be notified once approved by our admin team.',
+          isVendorPendingApproval: true
         };
       }
       return { success: false, error: error.message || 'An error occurred. Please try again.' };
@@ -97,7 +117,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = (skipRedirect?: boolean) => {
     authService.logout();
     setUser(null);
-    
+
     // Only redirect if not explicitly skipped
     if (!skipRedirect) {
       // Force reload to clear all state and redirect to login
@@ -115,25 +135,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const isAuthenticated = !!user;
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'subadmin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'subadmin' || (user?.rolePermissions && user.rolePermissions.length > 0);
   const isSuperAdmin = user?.role === 'superadmin';
   const isSubAdmin = user?.role === 'subadmin';
   const isVendor = user?.role === 'agent';
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        isAuthenticated, 
-        isAdmin, 
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        isAdmin,
         isSuperAdmin,
         isSubAdmin,
         isVendor,
-        loading, 
-        login, 
-        logout, 
+        loading,
+        login,
+        logout,
         checkAuth,
-        clearAuthDataAndUser // add to context
+        refreshUser,
+        clearAuthDataAndUser
       }}
     >
       {children}

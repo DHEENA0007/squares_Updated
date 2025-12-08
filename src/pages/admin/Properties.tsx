@@ -48,6 +48,8 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { adminPropertyService } from "@/services/adminPropertyService";
+import { usePermissions } from "@/hooks/usePermissions";
+import { PERMISSIONS } from "@/config/permissionConfig";
 import { useToast } from "@/hooks/use-toast";
 import { ViewPropertyDialog } from "@/components/adminpanel/ViewPropertyDialog";
 import authService from "@/services/authService";
@@ -55,6 +57,7 @@ import authService from "@/services/authService";
 const Properties = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { hasPermission } = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -83,13 +86,16 @@ const Properties = () => {
 
   useEffect(() => {
     // Get current user info
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-    // Pre-fill approver name from user profile
-    if (user?.profile) {
-      setApproverName(`${user.profile.firstName || ''} ${user.profile.lastName || ''}`.trim());
-    }
-    fetchProperties();
+    const fetchUserAndProperties = async () => {
+      const user = await authService.getCurrentUser();
+      setCurrentUser(user);
+      // Pre-fill approver name from user profile
+      if (user?.profile) {
+        setApproverName(`${user.profile.firstName || ''} ${user.profile.lastName || ''}`.trim());
+      }
+      fetchProperties();
+    };
+    fetchUserAndProperties();
   }, []);
 
   const fetchProperties = async () => {
@@ -390,24 +396,24 @@ const Properties = () => {
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
               
-              {/* If property created by admin - show Edit */}
-              {adminCreated && (
-                <DropdownMenuItem onClick={() => navigate(`/admin/properties/edit/${property._id}`)}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit Property
-                </DropdownMenuItem>
-              )}
-              
-              {/* If property created by vendor/agent - show View Details */}
-              {!adminCreated && (
+              {/* View Details - Always show if user has view permission */}
+              {hasPermission(PERMISSIONS.PROPERTIES_VIEW) && (
                 <DropdownMenuItem onClick={() => openViewDialog(property)}>
                   <Eye className="w-4 h-4 mr-2" />
                   View Details
                 </DropdownMenuItem>
               )}
               
-              {/* Approval Actions for Pending Vendor Properties */}
-              {!adminCreated && isPending && (
+              {/* If property created by admin - show Edit (with permission check) */}
+              {adminCreated && hasPermission(PERMISSIONS.PROPERTIES_EDIT) && (
+                <DropdownMenuItem onClick={() => navigate(`/admin/properties/edit/${property._id}`)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Property
+                </DropdownMenuItem>
+              )}
+              
+              {/* Approval Actions for Pending Vendor Properties (with permission check) */}
+              {!adminCreated && isPending && hasPermission(PERMISSIONS.PROPERTIES_APPROVE) && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -427,8 +433,8 @@ const Properties = () => {
                 </>
               )}
 
-              {/* Featured Toggle for Available Properties */}
-              {property.status === 'available' && (
+              {/* Featured Toggle for Available Properties (with permission check) */}
+              {property.status === 'available' && hasPermission(PERMISSIONS.PROPERTIES_EDIT) && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => handleToggleFeatured(property)}>
@@ -447,14 +453,19 @@ const Properties = () => {
                 </>
               )}
 
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => openDeleteDialog(property)}
-                className="text-red-600"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
+              {/* Delete action (with permission check) */}
+              {hasPermission(PERMISSIONS.PROPERTIES_DELETE) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => openDeleteDialog(property)}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -480,11 +491,13 @@ const Properties = () => {
             Manage property listings and details
           </p>
         </div>
-        <Button onClick={() => navigate("/admin/properties/add")} className="w-full sm:w-auto">
-          <Plus className="w-4 h-4 mr-2" />
-          <span className="hidden sm:inline">Add Property</span>
-          <span className="sm:hidden">Add</span>
-        </Button>
+        {hasPermission(PERMISSIONS.PROPERTIES_CREATE) && (
+          <Button onClick={() => navigate("/admin/properties/add")} className="w-full sm:w-auto">
+            <Plus className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">Add Property</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        )}
       </div>
 
       {/* Statistics Cards */}
@@ -586,7 +599,7 @@ const Properties = () => {
                   max={50000000}
                   step={100000}
                   value={priceRange}
-                  onValueChange={setPriceRange}
+                  onValueChange={value => setPriceRange([value[0], value[1]])}
                   className="flex-1"
                 />
                 <span className="text-sm font-medium">₹{priceRange[1].toLocaleString()}</span>

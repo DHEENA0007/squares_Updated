@@ -364,69 +364,82 @@ const VendorDashboard = () => {
           <CardHeader className="pb-3 md:pb-6">
             <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-base md:text-lg">
               <span>Recent Activities</span>
-              <Button variant="ghost" size="sm" className="self-start sm:self-auto">View All</Button>
+              <Button variant="ghost" size="sm" className="self-start sm:self-auto" asChild>
+                <Link to="/vendor/analytics">View All</Link>
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-3 md:space-y-4">
-              {recentLeads.length > 0 ? (
-                recentLeads.map((lead) => (
-                  <div key={lead._id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-lg gap-3">
-                    <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <div className="w-8 h-8 md:w-10 md:h-10 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0">
-                        <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
+              {dashboardState.recentActivities && dashboardState.recentActivities.length > 0 ? (
+                dashboardState.recentActivities.slice(0, 8).map((activity) => {
+                  // Determine icon based on activity type
+                  const getActivityIcon = () => {
+                    switch (activity.type) {
+                      case 'property_listed':
+                        return <Home className="w-4 h-4 md:w-5 md:h-5" />;
+                      case 'property_updated':
+                        return <Activity className="w-4 h-4 md:w-5 md:h-5" />;
+                      case 'inquiry_received':
+                        return <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />;
+                      case 'property_viewed':
+                        return <Eye className="w-4 h-4 md:w-5 md:h-5" />;
+                      default:
+                        return <Activity className="w-4 h-4 md:w-5 md:h-5" />;
+                    }
+                  };
+
+                  const getActivityColor = () => {
+                    switch (activity.type) {
+                      case 'property_listed':
+                        return 'bg-green-100 dark:bg-green-900';
+                      case 'property_updated':
+                        return 'bg-blue-100 dark:bg-blue-900';
+                      case 'inquiry_received':
+                        return 'bg-orange-100 dark:bg-orange-900';
+                      case 'property_viewed':
+                        return 'bg-purple-100 dark:bg-purple-900';
+                      default:
+                        return 'bg-gray-100 dark:bg-gray-900';
+                    }
+                  };
+
+                  return (
+                    <div key={activity._id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-lg gap-3 hover:bg-accent/50 transition-colors">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <div className={`w-8 h-8 md:w-10 md:h-10 ${getActivityColor()} rounded-full flex items-center justify-center flex-shrink-0`}>
+                          {getActivityIcon()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{activity.message}</p>
+                          {activity.property && (
+                            <p className="text-sm text-muted-foreground truncate">{activity.property}</p>
+                          )}
+                          {activity.metadata?.customerName && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              From: {activity.metadata.customerName}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{lead.name}</p>
-                        <p className="text-sm text-muted-foreground truncate">{lead.propertyTitle}</p>
-                        <p className="text-xs text-muted-foreground truncate">{lead.message || 'New inquiry'}</p>
+                      <div className="flex flex-col sm:items-end gap-2">
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(activity.time).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex flex-col sm:items-end gap-2 sm:space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {lead.status || 'new'}
-                        </Badge>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => updateLeadStatus(lead._id, 'contacted')}
-                              className="text-sm"
-                            >
-                              Mark as Contacted
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => updateLeadStatus(lead._id, 'qualified')}
-                              className="text-sm"
-                            >
-                              Mark as Qualified
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => updateLeadStatus(lead._id, 'converted')}
-                              className="text-sm"
-                            >
-                              Mark as Converted
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                      <p className="text-xs text-muted-foreground flex items-center">
-                        <Activity className="w-3 h-3 mr-1 flex-shrink-0" />
-                        <span className="truncate">{new Date(lead.createdAt).toLocaleDateString()}</span>
-                      </p>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="text-center py-6 md:py-8 text-muted-foreground">
                   <Activity className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-3 md:mb-4 opacity-50" />
                   <p className="text-sm md:text-base">No recent activities</p>
-                  <p className="text-xs md:text-sm">Property inquiries and messages will appear here</p>
+                  <p className="text-xs md:text-sm">Property inquiries and updates will appear here</p>
                 </div>
               )}
             </div>

@@ -3,6 +3,7 @@ const Property = require('../models/Property');
 const PropertyView = require('../models/PropertyView');
 const { asyncHandler, validateRequest } = require('../middleware/errorMiddleware');
 const { authenticateToken, optionalAuth } = require('../middleware/authMiddleware');
+const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 const mongoose = require('mongoose');
 const router = express.Router();
 
@@ -29,15 +30,15 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
     } = req.query;
 
     const skip = (page - 1) * limit;
-    
+
     // Debug: Log user info
     console.log('Properties API - User:', req.user ? { id: req.user.id, role: req.user.role } : 'Not authenticated');
     console.log('Query params:', { page, limit, location, search, propertyType, bedrooms, listingType });
-    
+
     // Admin users can see all properties, customers only see available/active verified properties
     let queryFilter = {};
-    
-    if (!req.user || !['admin', 'superadmin', 'subadmin'].includes(req.user.role)) {
+
+    if (!req.user || !hasPermission(req.user, PERMISSIONS.PROPERTIES_VIEW)) {
       // For customers: show only available and non-archived properties
       queryFilter = {
         status: 'available',
@@ -64,7 +65,7 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
         { 'address.locationName': { $regex: search, $options: 'i' } }
       ];
     }
-    
+
     // Apply location filter (backward compatibility)
     if (location && !search) {
       queryFilter.$or = [
@@ -106,10 +107,10 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
 
     // Apply amenities filter
     if (req.query.amenities) {
-      const amenitiesList = Array.isArray(req.query.amenities) 
-        ? req.query.amenities 
+      const amenitiesList = Array.isArray(req.query.amenities)
+        ? req.query.amenities
         : [req.query.amenities];
-      
+
       // Properties must have all selected amenities
       if (amenitiesList.length > 0) {
         queryFilter.amenities = { $all: amenitiesList };
@@ -120,7 +121,7 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
 
     const totalProperties = await Property.countDocuments(queryFilter);
     console.log(`Total properties matching filter: ${totalProperties}`);
-    
+
     const properties = await Property.find(queryFilter)
       .populate('owner', 'profile.firstName profile.lastName profile.phone email role')
       .sort({ createdAt: -1 })
@@ -157,7 +158,7 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
 router.get('/:id', asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     console.log('Fetching property with ID:', id);
 
     // Validate ObjectId format
@@ -212,12 +213,29 @@ router.get('/:id', asyncHandler(async (req, res) => {
       referrer: req.get('referer'),
       viewedAt: new Date()
     };
-    
+
     // Create view record
     await PropertyView.create(viewData);
-    
+
     // Increment view count in property
     await Property.findByIdAndUpdate(id, { $inc: { views: 1 } });
+
+    // Emit real-time notification to property owner about new view (if viewer is logged in)
+    if (req.user && property.owner._id.toString() !== req.user.id) {
+      const socketService = require('../services/socketService');
+      const ownerId = property.owner._id.toString();
+      
+      if (socketService.isUserOnline(ownerId)) {
+        socketService.sendToUser(ownerId, 'vendor:property_viewed', {
+          propertyId: property._id,
+          propertyTitle: property.title,
+          viewerName: req.user.profile?.firstName ? 
+            `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim() : 
+            'Anonymous',
+          timestamp: new Date()
+        });
+      }
+    }
 
     res.json({
       success: true,
@@ -237,14 +255,25 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // @route   POST /api/properties
 // @access  Private
 router.post('/', authenticateToken, asyncHandler(async (req, res) => {
+  // Check permission for property creation
+  if (!hasPermission(req.user, PERMISSIONS.PROPERTIES_CREATE)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to create properties'
+    });
+  }
+
   try {
     const User = require('../models/User');
     const Vendor = require('../models/Vendor');
     const Subscription = require('../models/Subscription');
-    
+
+    // Declare activeSubscription outside the if block
+    let activeSubscription = null;
+
     // Check user's subscription limits
     if (req.user.role === 'agent') {
-      const activeSubscription = await Subscription.findOne({
+      activeSubscription = await Subscription.findOne({
         user: req.user.id,
         status: 'active',
         endDate: { $gt: new Date() }
@@ -329,7 +358,7 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
     });
   } catch (error) {
     console.error('Create property error:', error);
-    
+
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(e => e.message);
       return res.status(400).json({
@@ -338,7 +367,7 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
         errors
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to create property'
@@ -370,17 +399,17 @@ router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
       });
     }
 
-    // Check if user owns this property, is the agent for this property, or is admin
+    // Check if user owns this property, is the agent for this property, or has edit permission
     const isOwner = property.owner.toString() === req.user.id.toString();
     const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
-    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    
+    const canEdit = hasPermission(req.user, PERMISSIONS.PROPERTIES_EDIT);
+
     console.log('Property update - User ID:', req.user.id, 'Role:', req.user.role);
     console.log('Property update - Property owner:', property.owner?.toString());
     console.log('Property update - Property agent:', property.agent?.toString());
-    console.log('Property update - Is Owner:', isOwner, 'Is Agent:', isAgent, 'Is Admin:', isAdmin);
-    
-    if (!isOwner && !isAgent && !isAdmin) {
+    console.log('Property update - Is Owner:', isOwner, 'Is Agent:', isAgent, 'Can Edit:', canEdit);
+
+    if (!isOwner && !isAgent && !canEdit) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this property'
@@ -401,7 +430,7 @@ router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
     });
   } catch (error) {
     console.error('Update property error:', error);
-    
+
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(e => e.message);
       return res.status(400).json({
@@ -410,7 +439,7 @@ router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
         errors
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to update property'
@@ -447,7 +476,7 @@ router.patch('/:id/status', authenticateToken, asyncHandler(async (req, res) => 
     const isOwner = property.owner.toString() === req.user.id.toString();
     const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    
+
     if (!isOwner && !isAgent && !isAdmin) {
       return res.status(403).json({
         success: false,
@@ -457,7 +486,7 @@ router.patch('/:id/status', authenticateToken, asyncHandler(async (req, res) => 
 
     // Validate status for vendors/customers (they can't set to pending)
     const validStatusesForOwner = ['available', 'sold', 'rented'];
-    if (!['admin', 'superadmin'].includes(req.user.role) && !validStatusesForOwner.includes(status)) {
+    if (!hasPermission(req.user, PERMISSIONS.PROPERTIES_EDIT) && !validStatusesForOwner.includes(status)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid status. Available options: available, sold, rented'
@@ -514,7 +543,7 @@ router.patch('/:id/featured', authenticateToken, asyncHandler(async (req, res) =
     const isOwner = property.owner.toString() === req.user.id.toString();
     const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    
+
     if (!isOwner && !isAgent && !isAdmin) {
       return res.status(403).json({
         success: false,
@@ -525,7 +554,7 @@ router.patch('/:id/featured', authenticateToken, asyncHandler(async (req, res) =
     // For non-admin users, check subscription limits when featuring a property
     if (!isAdmin && featured === true && !property.featured) {
       const Subscription = require('../models/Subscription');
-      
+
       // Check if user has active subscription with featured listing limits
       const activeSubscription = await Subscription.findOne({
         user: property.owner,
@@ -593,6 +622,91 @@ router.patch('/:id/featured', authenticateToken, asyncHandler(async (req, res) =
   }
 }));
 
+// @desc    Approve/Reject property
+// @route   PATCH /api/properties/:id/approve
+// @access  Private (Requires properties.approve permission)
+router.patch('/:id/approve', authenticateToken, asyncHandler(async (req, res) => {
+  // Check permission for property approval
+  if (!hasPermission(req.user, PERMISSIONS.PROPERTIES_APPROVE)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to approve properties'
+    });
+  }
+
+  try {
+    const { id } = req.params;
+    const { action, rejectionReason } = req.body; // action: 'approve' or 'reject'
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    // Validate action
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid action. Must be "approve" or "reject"'
+      });
+    }
+
+    // Find property
+    const property = await Property.findById(id);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Update property based on action
+    const updateData = {
+      updatedAt: new Date()
+    };
+
+    if (action === 'approve') {
+      updateData.status = 'available';
+      updateData.verified = true;
+      updateData.approvedBy = req.user.id;
+      updateData.approvedAt = new Date();
+      updateData.rejectedBy = undefined;
+      updateData.rejectionReason = undefined;
+    } else {
+      updateData.status = 'rejected';
+      updateData.verified = false;
+      updateData.rejectedBy = req.user.id;
+      updateData.rejectedAt = new Date();
+      updateData.rejectionReason = rejectionReason || 'No reason provided';
+      updateData.approvedBy = undefined;
+    }
+
+    const updatedProperty = await Property.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    )
+      .populate('owner', 'profile.firstName profile.lastName profile.phone email role')
+      .populate('approvedBy', 'profile.firstName profile.lastName email')
+      .populate('rejectedBy', 'profile.firstName profile.lastName email');
+
+    res.json({
+      success: true,
+      data: { property: updatedProperty },
+      message: `Property ${action === 'approve' ? 'approved' : 'rejected'} successfully`
+    });
+  } catch (error) {
+    console.error('Approve/reject property error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process property approval'
+    });
+  }
+}));
+
 // @desc    Assign property to customer
 // @route   POST /api/properties/:id/assign-customer
 // @access  Private (Vendor/Agent/Admin)
@@ -652,8 +766,8 @@ router.post('/:id/assign-customer', authenticateToken, asyncHandler(async (req, 
     const finalStatus = correctStatus;
 
     // Check if user owns this property or is admin/agent
-    if (property.owner.toString() !== req.user.id.toString() && 
-        !['admin', 'superadmin', 'agent'].includes(req.user.role)) {
+    if (property.owner.toString() !== req.user.id.toString() &&
+      !['admin', 'superadmin', 'agent'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to assign this property'
@@ -680,7 +794,7 @@ router.post('/:id/assign-customer', authenticateToken, asyncHandler(async (req, 
     // Update property status and assign to customer
     const updatedProperty = await Property.findByIdAndUpdate(
       id,
-      { 
+      {
         status: finalStatus,
         assignedTo: customerId,
         assignedAt: new Date(),
@@ -690,13 +804,13 @@ router.post('/:id/assign-customer', authenticateToken, asyncHandler(async (req, 
       },
       { new: true, runValidators: true }
     ).populate('owner', 'profile.firstName profile.lastName email')
-     .populate('assignedTo', 'profile.firstName profile.lastName email');
+      .populate('assignedTo', 'profile.firstName profile.lastName email');
 
     // Update vendor statistics if property is sold
     if (finalStatus === 'sold') {
       const Vendor = require('../models/Vendor');
       const vendor = await Vendor.findByUserId(property.owner);
-      
+
       if (vendor) {
         // Initialize statistics if not exists
         if (!vendor.performance) {
@@ -708,24 +822,24 @@ router.post('/:id/assign-customer', authenticateToken, asyncHandler(async (req, 
         if (!vendor.performance.statistics) {
           vendor.performance.statistics = {};
         }
-        
+
         // Increment sold properties count
-        vendor.performance.statistics.soldProperties = 
+        vendor.performance.statistics.soldProperties =
           (vendor.performance.statistics.soldProperties || 0) + 1;
-        
+
         // Calculate total revenue (sum of all sold properties)
-        const soldProps = await Property.find({ 
-          owner: property.owner, 
-          status: 'sold' 
+        const soldProps = await Property.find({
+          owner: property.owner,
+          status: 'sold'
         }).select('price');
-        
+
         const totalRevenue = soldProps.reduce((sum, prop) => {
           const price = parseFloat(prop.price.toString().replace(/[^0-9.]/g, ''));
           return sum + (isNaN(price) ? 0 : price);
         }, 0);
-        
+
         vendor.performance.statistics.totalRevenue = totalRevenue;
-        
+
         await vendor.save();
       }
     }
@@ -775,7 +889,7 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req, res) => {
     const isOwner = property.owner.toString() === req.user.id.toString();
     const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    
+
     if (!isOwner && !isAgent && !isAdmin) {
       return res.status(403).json({
         success: false,

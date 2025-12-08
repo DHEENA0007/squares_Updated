@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['customer', 'agent', 'admin', 'subadmin', 'superadmin'],
+    required: true,
     default: 'customer'
   },
   rolePages: [{
@@ -108,7 +108,7 @@ const userSchema = new mongoose.Schema({
       }
     }
   },
-  
+
   // Reference to vendor profile if user is an agent
   vendorProfile: {
     type: mongoose.Schema.Types.ObjectId,
@@ -118,7 +118,7 @@ const userSchema = new mongoose.Schema({
 }, {
   timestamps: true,
   toJSON: {
-    transform: function(doc, ret) {
+    transform: function (doc, ret) {
       delete ret.password;
       return ret;
     }
@@ -126,14 +126,14 @@ const userSchema = new mongoose.Schema({
 });
 
 // Virtual for full name
-userSchema.virtual('profile.fullName').get(function() {
+userSchema.virtual('profile.fullName').get(function () {
   return `${this.profile.firstName} ${this.profile.lastName}`;
 });
 
 // Pre-save middleware to hash password
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-  
+
   try {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
@@ -144,12 +144,12 @@ userSchema.pre('save', async function(next) {
 });
 
 // Method to compare password
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Method to get public profile
-userSchema.methods.getPublicProfile = function() {
+userSchema.methods.getPublicProfile = function () {
   return {
     id: this._id,
     email: this.email,
@@ -166,17 +166,17 @@ userSchema.methods.getPublicProfile = function() {
 };
 
 // Method to get vendor profile if user is an agent
-userSchema.methods.getVendorProfile = async function() {
+userSchema.methods.getVendorProfile = async function () {
   if (this.role !== 'agent' || !this.vendorProfile) {
     return null;
   }
-  
+
   const Vendor = require('./Vendor');
   return await Vendor.findById(this.vendorProfile);
 };
 
 // Method to check if user is a vendor
-userSchema.methods.isVendor = function() {
+userSchema.methods.isVendor = function () {
   return this.role === 'agent' && this.vendorProfile;
 };
 

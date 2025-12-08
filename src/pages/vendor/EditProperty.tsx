@@ -20,6 +20,7 @@ import {
   Camera
 } from "lucide-react";
 import { propertyService, type Property } from "@/services/propertyService";
+import { configurationService } from "@/services/configurationService";
 
 // Upload function using server-side endpoint
 const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
@@ -60,6 +61,8 @@ const EditProperty = () => {
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [propertyTypes, setPropertyTypes] = useState<Array<{ value: string; label: string }>>([]);
+  const [isLoadingPropertyTypes, setIsLoadingPropertyTypes] = useState(true);
   const [uploadedImages, setUploadedImages] = useState<Array<{
     id: string | number;
     name: string;
@@ -94,17 +97,6 @@ const EditProperty = () => {
     virtualTour: ""
   });
 
-  const propertyTypes = [
-    { value: "apartment", label: "Apartment" },
-    { value: "villa", label: "Villa" },
-    { value: "house", label: "House" },
-    { value: "commercial", label: "Commercial" },
-    { value: "plot", label: "Plot" },
-    { value: "land", label: "Land" },
-    { value: "office", label: "Office Space" },
-    { value: "pg", label: "PG (Paying Guest)" }
-  ];
-
   const amenitiesList = [
     "Swimming Pool", "Gym/Fitness Center", "Parking", "Security",
     "Garden/Park", "Playground", "Clubhouse", "Power Backup",
@@ -112,6 +104,48 @@ const EditProperty = () => {
     "Water Supply", "Waste Management", "Fire Safety", "Visitor Parking",
     "Shopping Complex", "Restaurant", "Spa", "Jogging Track"
   ];
+
+  // Fetch property types from configuration
+  useEffect(() => {
+    const fetchPropertyTypes = async () => {
+      try {
+        setIsLoadingPropertyTypes(true);
+        const propertyTypesData = await configurationService.getAllPropertyTypes(false);
+        
+        // Map property types to the format expected by the form
+        const mappedPropertyTypes = propertyTypesData
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map(type => ({
+            value: type.value,
+            label: type.name
+          }));
+        
+        setPropertyTypes(mappedPropertyTypes);
+      } catch (error) {
+        console.error('Error fetching property types:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load property types. Using default types.",
+          variant: "destructive",
+        });
+        // Fallback to hardcoded types
+        setPropertyTypes([
+          { value: "apartment", label: "Apartment" },
+          { value: "villa", label: "Villa" },
+          { value: "house", label: "House" },
+          { value: "commercial", label: "Commercial" },
+          { value: "plot", label: "Plot" },
+          { value: "land", label: "Land" },
+          { value: "office", label: "Office Space" },
+          { value: "pg", label: "PG (Paying Guest)" }
+        ]);
+      } finally {
+        setIsLoadingPropertyTypes(false);
+      }
+    };
+
+    fetchPropertyTypes();
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -442,16 +476,33 @@ const EditProperty = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="type">Property Type *</Label>
-                  <Select value={formData.type} onValueChange={(value) => handleInputChange('type', value)}>
+                  <Select 
+                    value={formData.type} 
+                    onValueChange={(value) => handleInputChange('type', value)}
+                    disabled={isLoadingPropertyTypes}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select property type" />
+                      <SelectValue placeholder={isLoadingPropertyTypes ? "Loading property types..." : "Select property type"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {propertyTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
+                      {isLoadingPropertyTypes ? (
+                        <SelectItem value="loading" disabled>
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Loading...
+                          </div>
                         </SelectItem>
-                      ))}
+                      ) : propertyTypes.length === 0 ? (
+                        <SelectItem value="no-types" disabled>
+                          No property types available
+                        </SelectItem>
+                      ) : (
+                        propertyTypes.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

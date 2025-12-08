@@ -193,6 +193,32 @@ class SocketService {
       this.emit('online_users_status', data);
     });
 
+    // Vendor-specific events
+    this.socket.on('vendor:activities_updated', (data: any) => {
+      console.log(' Vendor activities updated:', data);
+      this.emit('vendor:activities_updated', data);
+    });
+
+    this.socket.on('vendor:leads_updated', (data: any) => {
+      console.log(' Vendor leads updated:', data);
+      this.emit('vendor:leads_updated', data);
+    });
+
+    this.socket.on('vendor:new_inquiry', (data: any) => {
+      console.log(' Vendor new inquiry:', data);
+      this.emit('vendor:new_inquiry', data);
+    });
+
+    this.socket.on('vendor:property_viewed', (data: any) => {
+      console.log(' Vendor property viewed:', data);
+      this.emit('vendor:property_viewed', data);
+    });
+
+    this.socket.on('vendor:property_updated', (data: any) => {
+      console.log(' Vendor property updated:', data);
+      this.emit('vendor:property_updated', data);
+    });
+
     // Error
     this.socket.on('error', (error: any) => {
       console.error(' Socket error:', error);
