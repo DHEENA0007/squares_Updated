@@ -125,6 +125,14 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
       });
     });
 
+    const unsubscribeNotification = socketService.on('notification', (data: any) => {
+      handleEvent({
+        type: data.type || 'broadcast', 
+        data: data,
+        timestamp: new Date().toISOString()
+      });
+    });
+
     // Check connection status periodically
     const checkConnection = setInterval(() => {
       const notificationConnected = notificationService.isConnected();
@@ -146,11 +154,27 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
       unsubscribeReadReceipt();
       unsubscribeConversationRead();
       unsubscribeUserStatus();
+      unsubscribeNotification();
       clearInterval(checkConnection);
       clearInterval(activityPing);
       socketService.disconnect();
     };
   }, [isAuthenticated, user]);
+
+  // Request notification permission on mount
+  useEffect(() => {
+      const requestPermission = async () => {
+        if ('Notification' in window && Notification.permission === 'default') {
+          try {
+            await Notification.requestPermission();
+          } catch (e) {
+            console.error('Error requesting notification permission:', e);
+          }
+        }
+      };
+      
+      requestPermission();
+  }, []);
 
   const handleEvent = useCallback((event: RealtimeEvent) => {
     setLastEvent(event);

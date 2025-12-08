@@ -3099,11 +3099,12 @@ router.put('/support/tickets/:id/status', isAnyAdmin, asyncHandler(async (req, r
     });
   }
 
-  ticket.status = status;
-  
   if (status === 'resolved') {
+    ticket.status = 'closed'; // Auto-close resolved tickets
     ticket.resolvedBy = req.user.id;
     ticket.resolvedAt = new Date();
+  } else {
+    ticket.status = status;
   }
 
   await ticket.save();
@@ -3594,5 +3595,311 @@ router.post('/reviews/:id/reply', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Failed to post reply' });
   }
 });
+
+
+// @desc    Get audience counts for notifications
+// @route   GET /api/admin/notifications/audience-counts
+// @access  Private/Admin
+router.get('/notifications/audience-counts', authenticateToken, isAnyAdmin, asyncHandler(async (req, res) => {
+  try {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+
+    const [
+      allUsers,
+      customers,
+      vendors,
+      activeUsers,
+      premiumUsers
+    ] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ role: 'customer' }),
+      User.countDocuments({ role: 'vendor' }),
+      User.countDocuments({ lastLogin: { $gte: thirtyDaysAgo } }),
+      User.countDocuments({ 'profile.isPremium': true })
+    ]);
+    
+    const premiumSubs = await Subscription.countDocuments({ status: 'active' });
+
+    res.json({
+      success: true,
+      counts: {
+        all_users: allUsers,
+        customers: customers,
+        vendors: vendors,
+        active_users: activeUsers,
+        premium_users: premiumSubs || premiumUsers
+      }
+    });
+  } catch (error) {
+    console.error('Get audience counts error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch audience counts' });
+  }
+}));
+
+// @desc    Get notification history
+// @route   GET /api/admin/notifications/history
+// @access  Private/Admin
+router.get('/notifications/history', authenticateToken, isAnyAdmin, asyncHandler(async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const notifications = await Notification.find({})
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('sentBy', 'name email');
+
+    const total = await Notification.countDocuments({});
+
+    res.json({
+      success: true,
+      notifications,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Get notification history error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch notification history' });
+  }
+}));
+
+// @desc    Send notifications (Push & Email) OR Save Draft
+// @route   POST /api/admin/notifications/send
+// @access  Private/Admin
+router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(async (req, res) => {
+  const { subject, message, targetAudience, channels, isScheduled, scheduledDate, saveAsDraft, notificationId } = req.body;
+
+  if (!subject || !message || !channels || channels.length === 0) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+
+  try {
+    // Define audience query
+    let query = {};
+    const thirtyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 30));
+
+    switch (targetAudience) {
+      case 'customers':
+        query = { role: 'customer' };
+        break;
+      case 'vendors':
+        query = { role: 'vendor' };
+        break;
+      case 'active_users':
+        query = { lastLogin: { $gte: thirtyDaysAgo } };
+        break;
+      case 'premium_users':
+        const activeSubUserIds = await Subscription.distinct('user', { status: 'active' });
+        query = { _id: { $in: activeSubUserIds } };
+        break;
+      case 'all_users':
+      default:
+        query = {};
+    }
+
+    // Fetch users (projection to save memory)
+    const users = await User.find(query).select('_id email role profile');
+
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, message: 'No users found for the selected audience' });
+    }
+
+    let notification;
+
+    if (notificationId) {
+       // Update existing draft
+       notification = await Notification.findById(notificationId);
+       if (!notification) {
+          return res.status(404).json({ success: false, message: 'Notification not found' });
+       }
+       
+       notification.title = subject;
+       notification.subject = subject;
+       notification.message = message;
+       notification.targetAudience = targetAudience;
+       notification.channels = channels;
+       notification.recipients = users.map(u => ({ user: u._id }));
+       notification.status = saveAsDraft ? 'draft' : 'sending'; // Update status
+       notification.isScheduled = isScheduled || false;
+       notification.scheduledDate = isScheduled ? scheduledDate : null;
+       notification.sentAt = (saveAsDraft || isScheduled) ? null : new Date();
+       
+       await notification.save();
+    } else {
+       // Create New Notification
+        notification = new Notification({
+          title: subject,
+          subject: subject,
+          message: message,
+          type: 'informational',
+          targetAudience: targetAudience,
+          channels: channels,
+          recipients: users.map(u => ({ user: u._id })),
+          status: saveAsDraft ? 'draft' : 'sending',
+          sentBy: req.user.id,
+          isScheduled: isScheduled || false,
+          scheduledDate: isScheduled ? scheduledDate : null,
+          sentAt: (saveAsDraft || isScheduled) ? null : new Date()
+        });
+    
+        await notification.save();
+    }
+
+    // If saving as draft, return early
+    if (saveAsDraft) {
+        return res.json({
+            success: true,
+            message: 'Notification draft saved successfully',
+            notification
+        });
+    }
+
+    const results = {
+      total: users.length,
+      email: { sent: 0, failed: 0 },
+      push: { sent: 0, failed: 0 }
+    };
+
+    // Process Emails
+    if (channels.includes('email') && !isScheduled) {
+      const emailPromises = users.map(user => {
+          if (!user.email) return Promise.resolve();
+          return sendTemplateEmail(user.email, 'general-notification', {
+              subject,
+              message,
+              firstName: user.profile?.firstName || 'User',
+              actionLink: process.env.CLIENT_URL,
+              actionText: 'Go to Dashboard'
+          }).then(res => {
+              if(res.success) results.email.sent++;
+              else results.email.failed++;
+          });
+      });
+      
+      await Promise.all(emailPromises);
+    }
+
+    // Process Push (Socket.IO)
+    if (channels.includes('push') && !isScheduled) {
+      const userIds = users.map(u => u._id.toString());
+      const notificationData = {
+          type: 'admin_broadcast',
+          title: subject,
+          message: message,
+          data: {
+            timestamp: new Date().toISOString(),
+            notificationId: notification._id 
+          }
+      };
+      
+      const notificationService = require('../services/notificationService');
+      notificationService.sendNotification(userIds, notificationData);
+      results.push.sent = userIds.length;
+    }
+
+    // Update notification status and stats
+    if (!isScheduled) {
+        notification.status = 'sent';
+        
+        // Mark all recipients as delivered for accurate stats in pre-save hook
+        if (notification.recipients && notification.recipients.length > 0) {
+            notification.recipients.forEach(r => {
+                r.delivered = true;
+                r.deliveredAt = new Date();
+            });
+        }
+
+        notification.statistics = {
+          totalRecipients: users.length,
+          delivered: results.push.sent + results.email.sent,
+        };
+        await notification.save();
+    }
+
+    res.json({
+      success: true,
+      message: isScheduled ? 'Notification scheduled successfully' : 'Notifications sent successfully',
+      detailedStatus: results,
+      notification
+    });
+  } catch (error) {
+    console.error('Send notification error:', error);
+    res.status(500).json({ success: false, message: 'Failed to process notification' });
+  }
+}));
+
+// @desc    Update a notification draft
+// @route   PUT /api/admin/notifications/:id
+// @access  Private/Admin
+router.put('/notifications/:id', authenticateToken, isAnyAdmin, asyncHandler(async (req, res) => {
+    try {
+        const notification = await Notification.findById(req.params.id);
+        
+        if (!notification) {
+            return res.status(404).json({ success: false, message: 'Notification not found' });
+        }
+
+        if (notification.status !== 'draft') {
+            return res.status(400).json({ success: false, message: 'Only drafts can be edited' });
+        }
+
+        const { subject, message, targetAudience, channels, isScheduled, scheduledDate } = req.body;
+
+        if (subject) notification.subject = subject;
+        if (subject) notification.title = subject;
+        if (message) notification.message = message;
+        if (targetAudience) notification.targetAudience = targetAudience;
+        if (channels) notification.channels = channels;
+        if (isScheduled !== undefined) notification.isScheduled = isScheduled;
+        if (scheduledDate) notification.scheduledDate = scheduledDate;
+
+        await notification.save();
+
+        res.json({
+            success: true,
+            message: 'Draft updated successfully',
+            notification
+        });
+    } catch (error) {
+        console.error('Update notification error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update notification' });
+    }
+}));
+
+
+
+// @desc    Delete notification
+// @route   DELETE /api/admin/notifications/:id
+// @access  Private/Admin
+router.delete('/notifications/:id', authenticateToken, isAnyAdmin, asyncHandler(async (req, res) => {
+    try {
+        if (!hasPermission(req.user, PERMISSIONS.NOTIFICATIONS_DELETE)) {
+            return res.status(403).json({ success: false, message: 'Insufficient permissions to delete notifications' });
+        }
+
+        const notification = await Notification.findById(req.params.id);
+        
+        if (!notification) {
+            return res.status(404).json({ success: false, message: 'Notification not found' });
+        }
+
+        await notification.deleteOne();
+
+        res.json({
+            success: true,
+            message: 'Notification deleted successfully'
+        });
+    } catch (error) {
+        console.error('Delete notification error:', error);
+        res.status(500).json({ success: false, message: 'Failed to delete notification' });
+    }
+}));
 
 module.exports = router;

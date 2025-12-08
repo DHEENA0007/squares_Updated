@@ -257,7 +257,7 @@ const VendorNavbar = ({ setSidebarOpen }: VendorNavbarProps) => {
             <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3 md:gap-4 mr-2 xs:mr-0">
               <ThemeToggle />
 
-              {/* <VendorNotificationCenter /> */}
+              <VendorNotificationCenter />
 
               <button
                 onClick={() => setSidebarOpen(true)}

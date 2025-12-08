@@ -486,7 +486,9 @@ router.get('/support/tickets',
 
     let query = {};
     if (status && status !== 'all') {
-      query.status = status;
+      // Support both hyphenated and underscored values for robustness
+      if (status === 'in-progress') query.status = 'in_progress';
+      else query.status = status;
     }
 
     const [tickets, total] = await Promise.all([
@@ -600,6 +602,13 @@ router.patch('/support/tickets/:id',
           responses: ticket.responses
         }
       });
+    }
+
+    // Auto-close resolved tickets
+    if (status === 'resolved') {
+      updateData.status = 'closed';
+      updateData.resolvedBy = req.user.id;
+      updateData.resolvedAt = new Date();
     }
 
     const ticket = await SupportTicket.findByIdAndUpdate(

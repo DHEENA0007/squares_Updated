@@ -139,6 +139,12 @@ class SocketService {
       this.emit('message_notification', data);
     });
 
+    // General notification (Push)
+    this.socket.on('notification', (data: any) => {
+      console.log(' Notification received:', data);
+      this.emit('notification', data);
+    });
+
     // Typing indicator
     this.socket.on('user_typing', (data: TypingIndicator) => {
       console.log(' User typing:', data);

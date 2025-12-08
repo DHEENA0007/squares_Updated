@@ -33,7 +33,7 @@ interface SupportTicket {
   };
   subject?: string;
   message: string;
-  status: 'open' | 'in-progress' | 'resolved' | 'closed';
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   createdAt: string;
   updatedAt: string;

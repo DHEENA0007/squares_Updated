@@ -111,7 +111,7 @@ router.post('/message', authenticateToken, (req, res) => {
 // @access  Private (Admin only)
 router.post('/broadcast', authenticateToken, (req, res) => {
   // Check permission for managing notifications (broadcast is a management function)
-  if (!hasPermission(req.user, PERMISSIONS.NOTIFICATIONS_MANAGE)) {
+  if (!hasPermission(req.user, PERMISSIONS.NOTIFICATIONS_SEND)) {
     return res.status(403).json({
       success: false,
       message: 'Insufficient permissions to broadcast notifications'

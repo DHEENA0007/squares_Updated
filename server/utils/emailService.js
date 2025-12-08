@@ -1851,6 +1851,38 @@ const emailTemplates = {
         </div>
       </div>
     `
+  }),
+
+  'general-notification': (data) => ({
+    subject: data.subject || 'Notification from BuildHomeMart Squares',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin: 0;">BuildHomeMart Squares</h1>
+          <p style="color: #666; margin: 5px 0 0 0;">Notification</p>
+        </div>
+        
+        <div style="background: #f8fafc; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
+          <h2 style="color: #1e293b; margin: 0 0 20px 0;">${data.subject || 'Notification'}</h2>
+          <div style="color: #475569; line-height: 1.6; margin: 0 0 20px 0; white-space: pre-wrap;">
+            ${data.message}
+          </div>
+          
+          ${data.actionLink ? `
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${data.actionLink}" style="background: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
+              ${data.actionText || 'View Details'}
+            </a>
+          </div>
+          ` : ''}
+        </div>
+        
+        <div style="text-align: center; color: #94a3b8; font-size: 12px;">
+          <p>&copy; 2024 BuildHomeMart Squares. All rights reserved.</p>
+          <p>You received this email because you are subscribed to notifications.</p>
+        </div>
+      </div>
+    `
   })
 };
 

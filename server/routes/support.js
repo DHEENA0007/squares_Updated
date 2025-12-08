@@ -137,7 +137,8 @@ router.get('/tickets/my', authenticateToken, asyncHandler(async (req, res) => {
   const query = { user: req.user.id };
   
   if (status) {
-    query.status = status;
+    if (status === 'in-progress') query.status = 'in_progress';
+    else query.status = status;
   }
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -186,7 +187,8 @@ router.get('/tickets/:ticketNumber', authenticateToken, asyncHandler(async (req,
   }
 
   // Check if user owns this ticket or is admin
-  if (ticket.user._id.toString() !== req.user.id && req.user.role !== 'superadmin' && req.user.role !== 'subadmin') {
+  const isAdmin = req.user.role === 'superadmin' || req.user.role === 'subadmin' || req.user.role === 'admin';
+  if (ticket.user._id.toString() !== req.user.id.toString() && !isAdmin) {
     return res.status(403).json({
       success: false,
       message: 'Access denied'
@@ -224,8 +226,14 @@ router.post('/tickets/:ticketNumber/responses', authenticateToken, asyncHandler(
   }
 
   // Check if user owns this ticket or is admin
-  const isAdmin = req.user.role === 'superadmin' || req.user.role === 'subadmin';
-  if (ticket.user._id.toString() !== req.user.id && !isAdmin) {
+  const isAdmin = req.user.role === 'superadmin' || req.user.role === 'subadmin' || req.user.role === 'admin';
+  const ticketUserId = ticket.user._id.toString();
+  const currentUserId = req.user.id.toString();
+  
+  console.log(`[Support Response] Ticket User ID: ${ticketUserId}, Current User ID: ${currentUserId}, Is Admin: ${isAdmin}`);
+  
+  if (ticketUserId !== currentUserId && !isAdmin) {
+    console.log(`[Support Response] Access denied - User ${currentUserId} trying to access ticket owned by ${ticketUserId}`);
     return res.status(403).json({
       success: false,
       message: 'Access denied'

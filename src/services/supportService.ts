@@ -161,6 +161,21 @@ class SupportService {
     }
   }
 
+  async getTicketByNumberAuth(ticketNumber: string): Promise<SingleTicketResponse> {
+    try {
+      const response = await this.makeRequest<SingleTicketResponse>(`/support/tickets/${ticketNumber}`);
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch ticket";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
   async getTicketByNumber(ticketNumber: string, email: string): Promise<SingleTicketResponse> {
     try {
       const response = await this.makeRequest<SingleTicketResponse>(`/support/tickets/track`, {

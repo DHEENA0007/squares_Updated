@@ -30,7 +30,7 @@ interface SupportTicket {
   };
   subject?: string;
   message: string;
-  status: 'open' | 'in-progress' | 'resolved' | 'closed';
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   category?: string;
   ticketNumber?: string;
@@ -103,7 +103,6 @@ const SupportTickets = () => {
       case 'open':
         return 'destructive';
       case 'in_progress':
-      case 'in-progress':
         return 'default';
       case 'resolved':
         return 'secondary';
@@ -234,7 +233,7 @@ const SupportTickets = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="open">Open Tickets</SelectItem>
-            <SelectItem value="in-progress">In Progress</SelectItem>
+            <SelectItem value="in_progress">In Progress</SelectItem>
             <SelectItem value="resolved">Resolved</SelectItem>
             <SelectItem value="closed">Closed</SelectItem>
             <SelectItem value="all">All Tickets</SelectItem>
@@ -334,14 +333,14 @@ const SupportTickets = () => {
                     <Button
                       size="sm"
                       variant="secondary"
-                      onClick={() => handleUpdateStatus(ticket._id, 'in-progress')}
+                      onClick={() => handleUpdateStatus(ticket._id, 'in_progress')}
                       disabled={actionLoading}
                       className="flex-1 touch-manipulation min-h-[40px]"
                     >
                       Mark In Progress
                     </Button>
                   )}
-                  {ticket.status === 'in-progress' && (
+                  {ticket.status === 'in_progress' && (
                     <Button
                       size="sm"
                       variant="secondary"

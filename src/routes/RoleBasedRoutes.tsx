@@ -19,7 +19,6 @@ const Messages = lazy(() => import("@/pages/rolebased/Messages"));
 const Notifications = lazy(() => import("@/pages/rolebased/Notifications"));
 const Analytics = lazy(() => import("@/pages/rolebased/Analytics"));
 const Settings = lazy(() => import("@/pages/rolebased/Settings"));
-const VendorSettings = lazy(() => import("@/pages/vendor/VendorSettings"));
 
 const RoleBasedRoutes = () => {
     const { user } = useAuth();
@@ -31,7 +30,7 @@ const RoleBasedRoutes = () => {
     const roleBasePath = `/${sanitizedRole}`;
 
     // Determine which Settings component to use based on role
-    const SettingsComponent = user?.role === 'agent' ? VendorSettings : Settings;
+    // const SettingsComponent = user?.role === 'agent' ? VendorSettings : Settings;
 
     return (
         <AdminProtectedRoute>
@@ -51,7 +50,6 @@ const RoleBasedRoutes = () => {
                         <Route path="messages" element={<Messages />} />
                         <Route path="notifications" element={<Notifications />} />
                         <Route path="analytics" element={<Analytics />} />
-                        <Route path="settings" element={<SettingsComponent />} />
                         <Route path="*" element={<Navigate to={roleBasePath} replace />} />
                     </Routes>
                 </Suspense>

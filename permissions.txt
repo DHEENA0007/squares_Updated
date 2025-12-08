@@ -1,0 +1,68 @@
+Clients {
+Permission.readClients - view only
+permission.accessClientsAction - enables action button
+permission.accessClientDetails - view only
+permission.accessClientsDetailsEdit - able to cancel subscription(with messege)
+
+NOTE: REMOVE THE RENEW SUBSCRIPTION OR ADD SEND EMAIL TO SUBSCRIBE
+}
+
+Properties {
+permission.readProperties - view only(have only view details action)
+permission.editProperties - enables edit property button
+permission.deleteProperties - enable the delete button
+
+}
+
+Plans {
+permission.readPlans - view only action buttons will be removed from the table
+permission.ceratePlan - enable create plan button
+permission.editPlan - enable actions in the table
+}
+
+
+Addons {
+permission.readAddon - view only action buttons will be removed from the table
+permission.createAddon - enable to create new addon service
+permission.editAddon - enable edit actions
+permission.deactivateAddon - enable Deactivate button in table
+permission.deleteAddon - enable delete "" "" ""
+
+}
+
+
+PropertyManagement {
+permission.read - access this page both property types and amenities
+permission.pmTPT - access only property types{
+permission.pmTRead - only read
+permission.pmTCreateCategory - able to create category
+permission.pmTCreatePropertyType - able to create property
+permission.pmTStatus - enable status(turn on or off)
+permission.pmTEdit - edit
+permission.pmTDelete - delete
+permission.pmTManageFields - manage fields
+permission.pmTOrders - manage order based
+}
+permission.pmA - access only amenities{
+permission.pmARead - only read
+permission.pmACreateAmenity - enable create bbutton
+permission.pmAStatus - enable status
+permission.pmAedit - edit
+permission.pmAdelete - delete
+permission.pmAorder - order
+}
+
+}
+
+
+Filter Management {
+permission.read - read only
+permission.createNTP - enable create filter type
+permission.createFTO - enable create filter type option button
+permission.order - order
+permission.status - status
+permission.edit - edit
+permission.delete - delete
+}
+
+

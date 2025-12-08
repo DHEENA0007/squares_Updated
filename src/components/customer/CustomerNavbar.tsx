@@ -213,7 +213,7 @@ const CustomerNavbar = ({ onMenuClick }: CustomerNavbarProps) => {
           </div>
 
           <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3 mr-2 xs:mr-0">
-            {/* <CustomerNotificationCenter /> */}
+            <CustomerNotificationCenter />
             
             <ThemeToggle />
             <UnifiedProfileDropdown />

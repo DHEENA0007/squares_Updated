@@ -39,7 +39,7 @@ export const PERMISSIONS = {
     // Notifications
     NOTIFICATIONS_VIEW: 'notifications.view',
     NOTIFICATIONS_SEND: 'notifications.send',
-    NOTIFICATIONS_MANAGE: 'notifications.manage',
+    NOTIFICATIONS_DELETE: 'notifications.delete',
 
     // System
     SETTINGS_MANAGE: 'settings.manage',
@@ -120,7 +120,7 @@ export const PERMISSION_GROUPS = [
         permissions: [
             { id: PERMISSIONS.NOTIFICATIONS_VIEW, label: 'View Notifications' },
             { id: PERMISSIONS.NOTIFICATIONS_SEND, label: 'Send Notifications' },
-            { id: PERMISSIONS.NOTIFICATIONS_MANAGE, label: 'Manage Notifications' },
+            { id: PERMISSIONS.NOTIFICATIONS_DELETE, label: 'Delete Notifications' },
         ]
     },
     {

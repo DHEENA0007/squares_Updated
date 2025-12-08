@@ -158,6 +158,13 @@ export const useRealTimeNotifications = () => {
         playSound: false,
         showBrowserNotification: true,
       },
+      admin_broadcast: {
+        showToast: true,
+        variant: 'default',
+        duration: 10000, // Longer duration for admin broadcasts
+        playSound: true,   // specific sound
+        showBrowserNotification: true,
+      },
       lead_alert: {
         showToast: true,
         variant: 'default',
@@ -201,11 +208,12 @@ export const useRealTimeNotifications = () => {
   // Play notification sound
   const playNotificationSound = () => {
     try {
-      const audio = new Audio('/mixkit-software-interface-start-2574.wav');
+      const audio = new Audio('/notification-sound.mp3');
       audio.volume = 0.6;
       
       audio.play().catch((error) => {
-        console.warn('Failed to play notification sound:', error);
+        console.warn('Could not play audio file, attempting fallback...', error.name);
+         
         
         // Fallback to beep sound using Web Audio API
         try {

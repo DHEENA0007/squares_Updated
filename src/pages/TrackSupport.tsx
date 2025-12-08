@@ -124,12 +124,14 @@ const TrackSupport = () => {
         description: "Your reply has been sent. Our support team will respond soon.",
       });
       
-      // Refresh ticket details
-      const response = await supportService.getTicketByNumber(selectedTicket.ticketNumber, trackingEmail || selectedTicket.email);
-      setSelectedTicket(response.data.ticket);
-      
+      // Refresh ticket details - use appropriate method based on auth status
       if (isAuthenticated) {
+        const response = await supportService.getTicketByNumberAuth(selectedTicket.ticketNumber);
+        setSelectedTicket(response.data.ticket);
         fetchTickets();
+      } else {
+        const response = await supportService.getTicketByNumber(selectedTicket.ticketNumber, trackingEmail || selectedTicket.email);
+        setSelectedTicket(response.data.ticket);
       }
     } catch (error) {
       console.error("Error adding response:", error);
@@ -141,7 +143,7 @@ const TrackSupport = () => {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { icon: any; class: string; label: string }> = {
       open: { icon: AlertCircle, class: 'bg-blue-600', label: 'Open' },
-      'in-progress': { icon: Clock, class: 'bg-yellow-600', label: 'In Progress' },
+      'in_progress': { icon: Clock, class: 'bg-yellow-600', label: 'In Progress' },
       resolved: { icon: CheckCircle, class: 'bg-green-600', label: 'Resolved' },
       closed: { icon: XCircle, class: 'bg-gray-600', label: 'Closed' }
     };
@@ -173,7 +175,7 @@ const TrackSupport = () => {
   const getStatusTooltip = (status: string) => {
     const tooltips: Record<string, string> = {
       open: 'Your ticket has been received and is waiting to be reviewed',
-      'in-progress': 'Our support team is currently working on your ticket',
+      'in_progress': 'Our support team is currently working on your ticket',
       resolved: 'Your issue has been resolved. You can reopen if needed',
       closed: 'This ticket has been closed and is archived'
     };
@@ -303,7 +305,7 @@ const TrackSupport = () => {
                 <TabsList>
                   <TabsTrigger value="all">All</TabsTrigger>
                   <TabsTrigger value="open">Open</TabsTrigger>
-                  <TabsTrigger value="in-progress">In Progress</TabsTrigger>
+                  <TabsTrigger value="in_progress">In Progress</TabsTrigger>
                   <TabsTrigger value="resolved">Resolved</TabsTrigger>
                   <TabsTrigger value="closed">Closed</TabsTrigger>
                 </TabsList>

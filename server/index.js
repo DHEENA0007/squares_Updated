@@ -47,6 +47,7 @@ const { authenticateToken } = require('./middleware/authMiddleware');
 const paymentStatusService = require('./services/paymentStatusService');
 const paymentCleanupJob = require('./jobs/paymentCleanup');
 const freeListingExpiryJob = require('./jobs/freeListingExpiry');
+const notificationSchedulerJob = require('./jobs/notificationScheduler');
 
 // Import database
 const { connectDB } = require('./config/database');
@@ -378,6 +379,10 @@ const startServer = async () => {
       freeListingExpiryJob.start(24);
       console.log(` Free listing expiry job started (runs every 24 hours)`);
       console.log(`  Free listings expire after 30 days`);
+
+      // Start notification scheduler job (runs every minute)
+      notificationSchedulerJob.start(1);
+      console.log(` Notification scheduler job started (runs every 1 minute)`);
     });
   } catch (error) {
     console.error(' Failed to start server:', error.message);
@@ -410,6 +415,10 @@ const gracefulShutdown = (signal) => {
       // Stop free listing expiry job
       freeListingExpiryJob.stop();
       console.log('Free listing expiry job stopped');
+
+      // Stop notification scheduler job
+      notificationSchedulerJob.stop();
+      console.log('Notification scheduler job stopped');
 
       // Close database connection
       await mongoose.connection.close();

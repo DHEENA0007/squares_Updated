@@ -53,13 +53,13 @@ const UnifiedProfileDropdown = () => {
 
   const handleSupport = () => {
     // Route support clicks to the appropriate pages per role
-    if (isSuperAdmin || isAdmin) {
+    // Priority check for Vendor first because isAdmin might be true for vendors with permissions
+    if (isVendor) {
+      navigate('/vendor/support-tickets');
+    } else if (isSuperAdmin || isAdmin) {
       navigate('/admin/support-tickets');
     } else if (isSubAdmin) {
       navigate('/subadmin/support-tickets');
-    } else if (isVendor) {
-      // Vendors can create/track tickets via the public TrackSupport page
-      navigate('/track-support');
     } else {
       // Customers -> contact page or track support
       navigate('/contact');

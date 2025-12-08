@@ -47,14 +47,22 @@ const isAnyAdmin = (req, res, next) => {
     });
   }
 
-  if (!['subadmin', 'superadmin'].includes(req.user.role)) {
-    return res.status(403).json({
-      success: false,
-      message: 'Admin access required'
-    });
+  // Allow standard admin roles
+  if (['subadmin', 'superadmin', 'admin'].includes(req.user.role)) {
+    return next();
   }
 
-  next();
+  // Allow custom roles - any role that is not a standard user role
+  // We exclude standard user/vendor roles to identify "admin-like" custom roles
+  const nonAdminRoles = ['customer', 'agent', 'vendor', 'builder']; // Adjust based on your system's standard roles
+  if (!nonAdminRoles.includes(req.user.role)) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    message: 'Admin access required'
+  });
 };
 
 // Check specific permission
