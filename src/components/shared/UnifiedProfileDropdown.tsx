@@ -17,8 +17,16 @@ const UnifiedProfileDropdown = () => {
   const navigate = useNavigate();
   const { user, logout, isAdmin, isSuperAdmin, isSubAdmin, isVendor } = useAuth();
 
+  // Check if user has a custom role (not one of the default system roles)
+  const isCustomRole = user?.role && 
+    !['superadmin', 'admin', 'subadmin', 'agent', 'customer'].includes(user.role.toLowerCase());
+
   const getRoleBasedPath = (path: string) => {
-    // Priority order: SuperAdmin -> SubAdmin -> Admin -> Vendor -> Customer
+    // Check custom role FIRST before checking isAdmin
+    // Because isAdmin returns true for users with rolePermissions
+    if (isCustomRole) return `/rolebased/${path}`;
+    
+    // Then check default roles
     if (isSuperAdmin) return `/admin/${path}`;
     if (isSubAdmin) return `/subadmin/${path}`;
     if (isAdmin) return `/admin/${path}`;
@@ -53,13 +61,14 @@ const UnifiedProfileDropdown = () => {
 
   const handleSupport = () => {
     // Route support clicks to the appropriate pages per role
-    // Priority check for Vendor first because isAdmin might be true for vendors with permissions
     if (isVendor) {
       navigate('/vendor/support-tickets');
     } else if (isSuperAdmin || isAdmin) {
       navigate('/admin/support-tickets');
     } else if (isSubAdmin) {
       navigate('/subadmin/support-tickets');
+    } else if (isCustomRole) {
+      navigate('/rolebased/support-tickets');
     } else {
       // Customers -> contact page or track support
       navigate('/contact');
@@ -76,6 +85,7 @@ const UnifiedProfileDropdown = () => {
     isSuperAdmin ? "Super Admin" : 
     isSubAdmin ? "Sub Admin" : 
     isAdmin ? "Admin User" : 
+    isCustomRole ? user?.role?.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') || "Role User" :
     isVendor ? "Vendor User" : "Customer";
   const userEmail = user?.email || "user@example.com";
   const initials = user?.profile ? 
@@ -83,6 +93,7 @@ const UnifiedProfileDropdown = () => {
     isSuperAdmin ? "SA" :
     isSubAdmin ? "SU" :
     isAdmin ? "AU" : 
+    isCustomRole ? user?.role?.substring(0, 2).toUpperCase() || "RU" :
     isVendor ? "VU" : "CU";
 
   const getRoleBadge = () => {
@@ -90,6 +101,12 @@ const UnifiedProfileDropdown = () => {
     if (user?.role === 'admin') return 'Admin';
     if (user?.role === 'subadmin') return 'Sub Admin';
     if (user?.role === 'agent') return 'Vendor';
+    if (isCustomRole) {
+      // Format custom role name (e.g., "content_manager" -> "Content Manager")
+      return user?.role?.split('_').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ') || 'Custom Role';
+    }
     return 'Customer';
   };
 
@@ -123,12 +140,7 @@ const UnifiedProfileDropdown = () => {
           className="cursor-pointer"
         >
           <User className="mr-2 h-4 w-4" />
-          <span>
-            {isVendor ? 'Profile Settings' : 
-             isSuperAdmin || isAdmin ? 'Admin Profile' : 
-             isSubAdmin ? 'SubAdmin Profile' : 
-             'My Profile'}
-          </span>
+          <span>Profile</span>
         </DropdownMenuItem>
 
         {isVendor && (
@@ -141,14 +153,16 @@ const UnifiedProfileDropdown = () => {
           </DropdownMenuItem>
         )}
         
-        {/* Settings - Show for Customer, Vendor, SubAdmin, and Admin (all roles) */}
-        <DropdownMenuItem 
-          onClick={handleSettings}
-          className="cursor-pointer"
-        >
-          <Settings className="mr-2 h-4 w-4" />
-          <span>Settings</span>
-        </DropdownMenuItem>
+        {/* Settings - Show for all roles except custom roles (they use rolebased settings page) */}
+        {!isCustomRole && (
+          <DropdownMenuItem 
+            onClick={handleSettings}
+            className="cursor-pointer"
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Settings</span>
+          </DropdownMenuItem>
+        )}
 
         {/* Billing - Only for Vendors */}
         {isVendor && (
@@ -161,8 +175,8 @@ const UnifiedProfileDropdown = () => {
           </DropdownMenuItem>
         )}
 
-        {/* Support - Show for vendors and subadmin only (removed for superadmin) */}
-        {(isVendor || isSubAdmin) && (
+        {/* Support - Show for vendors, subadmin, and custom roles */}
+        {(isVendor || isSubAdmin || isCustomRole) && (
           <DropdownMenuItem 
             onClick={handleSupport}
             className="cursor-pointer"

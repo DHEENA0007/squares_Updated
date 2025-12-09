@@ -2,21 +2,37 @@ import React, { useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Filter } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { PERMISSIONS } from '@/config/permissionConfig';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 import FiltersTab from '@/components/admin/configuration/FiltersTab';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const FilterManagement: React.FC = () => {
-  const { isSuperAdmin } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const permissions = user?.rolePermissions || [];
+  
+  // Check if user has admin role
+  const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
+  
+  // Permission checks - support both old role-based AND new permission-based
+  const hasPermission = (permission: string) => permissions.includes(permission);
+  const canViewFilterManagement = hasAdminRole || hasPermission(PERMISSIONS.FILTER_READ);
 
   useEffect(() => {
-    if (!isSuperAdmin) {
-      navigate('/admin/dashboard');
+    if (!canViewFilterManagement) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to view filter management.",
+        variant: "destructive",
+      });
+      navigate('/rolebased');
     }
-  }, [isSuperAdmin, navigate]);
+  }, [canViewFilterManagement, navigate, toast]);
 
-  if (!isSuperAdmin) {
+  if (!canViewFilterManagement) {
     return null;
   }
 

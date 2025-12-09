@@ -33,8 +33,25 @@ import { Plus, Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { configurationService } from '@/services/configurationService';
 import type { Amenity, CreateAmenityDTO, PropertyType } from '@/types/configuration';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { PERMISSIONS } from '@/config/permissionConfig';
 
 const AmenitiesTab: React.FC = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const permissions = user?.rolePermissions || [];
+  
+  // Check if user has admin role
+  const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
+  
+  // Permission checks - support both old role-based AND new permission-based
+  const hasPermission = (permission: string) => permissions.includes(permission);
+  const canCreateAmenity = hasAdminRole || hasPermission(PERMISSIONS.PM_A_CREATE);
+  const canEditAmenity = hasAdminRole || hasPermission(PERMISSIONS.PM_A_EDIT);
+  const canDeleteAmenity = hasAdminRole || hasPermission(PERMISSIONS.PM_A_DELETE);
+  const canToggleStatus = hasAdminRole || hasPermission(PERMISSIONS.PM_A_STATUS);
+  const canChangeOrder = hasAdminRole || hasPermission(PERMISSIONS.PM_A_ORDER);
+  
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>([]);
@@ -49,7 +66,7 @@ const AmenitiesTab: React.FC = () => {
     displayOrder: 0,
   });
   const [searchTerm, setSearchTerm] = useState('');
-  const { toast } = useToast();
+
 
   useEffect(() => {
     fetchData();
@@ -270,10 +287,12 @@ const AmenitiesTab: React.FC = () => {
             Manage amenities available for property listings
           </p>
         </div>
-        <Button onClick={() => handleOpenDialog()}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Amenity
-        </Button>
+        {canCreateAmenity && (
+          <Button onClick={() => handleOpenDialog()}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Amenity
+          </Button>
+        )}
       </div>
 
       <div className="border rounded-lg">
@@ -315,24 +334,26 @@ const AmenitiesTab: React.FC = () => {
                 return (
                   <TableRow key={amenity._id}>
                     <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleReorder(amenity._id, 'up')}
-                          disabled={index === 0}
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleReorder(amenity._id, 'down')}
-                          disabled={index === amenities.length - 1}
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {canChangeOrder && (
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReorder(amenity._id, 'up')}
+                            disabled={index === 0}
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReorder(amenity._id, 'down')}
+                            disabled={index === amenities.length - 1}
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="font-medium">{amenity.name}</TableCell>
                     <TableCell>
@@ -359,24 +380,29 @@ const AmenitiesTab: React.FC = () => {
                       <Switch
                         checked={amenity.isActive}
                         onCheckedChange={() => handleToggleActive(amenity._id, amenity.isActive)}
+                        disabled={!canToggleStatus}
                       />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenDialog(amenity)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(amenity._id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {canEditAmenity && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenDialog(amenity)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDeleteAmenity && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(amenity._id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

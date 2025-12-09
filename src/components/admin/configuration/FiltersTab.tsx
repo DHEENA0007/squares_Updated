@@ -32,8 +32,26 @@ import { Plus, Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { configurationService } from '@/services/configurationService';
 import type { FilterConfiguration, CreateFilterConfigurationDTO } from '@/types/configuration';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { PERMISSIONS } from '@/config/permissionConfig';
 
 const FiltersTab: React.FC = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const permissions = user?.rolePermissions || [];
+  
+  // Check if user has admin role
+  const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
+  
+  // Permission checks - support both old role-based AND new permission-based
+  const hasPermission = (permission: string) => permissions.includes(permission);
+  const canCreateFilterType = hasAdminRole || hasPermission(PERMISSIONS.FILTER_CREATE_NTP);
+  const canCreateFilterOption = hasAdminRole || hasPermission(PERMISSIONS.FILTER_CREATE_FTO);
+  const canEditFilter = hasAdminRole || hasPermission(PERMISSIONS.FILTER_EDIT);
+  const canDeleteFilter = hasAdminRole || hasPermission(PERMISSIONS.FILTER_DELETE);
+  const canToggleStatus = hasAdminRole || hasPermission(PERMISSIONS.FILTER_STATUS);
+  const canChangeOrder = hasAdminRole || hasPermission(PERMISSIONS.FILTER_ORDER);
+  
   const [filters, setFilters] = useState<FilterConfiguration[]>([]);
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,7 +70,6 @@ const FiltersTab: React.FC = () => {
     display_label: '',
     display_order: 0,
   });
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchFilters();
@@ -282,10 +299,12 @@ const FiltersTab: React.FC = () => {
           <p className="text-sm text-muted-foreground">
             Manage {getFilterTypeLabel()} filter options
           </p>
-          <Button onClick={() => handleOpenDialog()}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add {getFilterTypeLabel()} Option
-          </Button>
+          {canCreateFilterOption && (
+            <Button onClick={() => handleOpenDialog()}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add {getFilterTypeLabel()} Option
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center space-x-2">
@@ -328,24 +347,26 @@ const FiltersTab: React.FC = () => {
                   return (
                   <TableRow key={filter._id}>
                     <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleReorder(filter._id, 'up', filterType)}
-                          disabled={originalIndex === 0}
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleReorder(filter._id, 'down', filterType)}
-                          disabled={originalIndex === typeFilters.length - 1}
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {canChangeOrder && (
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReorder(filter._id, 'up', filterType)}
+                            disabled={originalIndex === 0}
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReorder(filter._id, 'down', filterType)}
+                            disabled={originalIndex === typeFilters.length - 1}
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="font-medium">{filter.name}</TableCell>
                     <TableCell>{filter.displayLabel || '-'}</TableCell>
@@ -362,24 +383,29 @@ const FiltersTab: React.FC = () => {
                       <Switch
                         checked={filter.isActive}
                         onCheckedChange={() => handleToggleActive(filter._id, filter.isActive)}
+                        disabled={!canToggleStatus}
                       />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenDialog(filter)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(filter._id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {canEditFilter && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenDialog(filter)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDeleteFilter && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(filter._id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -406,19 +432,23 @@ const FiltersTab: React.FC = () => {
             Manage filter options for property search and filtering
           </p>
         </div>
-        <Button onClick={() => setIsNewFilterTypeDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Filter Type
-        </Button>
+        {canCreateFilterType && (
+          <Button onClick={() => setIsNewFilterTypeDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Filter Type
+          </Button>
+        )}
       </div>
 
       {filterTypes.length === 0 ? (
         <div className="border rounded-lg p-8 text-center">
           <p className="text-muted-foreground mb-4">No filter types found. Create your first filter type to get started.</p>
-          <Button onClick={() => setIsNewFilterTypeDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create First Filter Type
-          </Button>
+          {canCreateFilterType && (
+            <Button onClick={() => setIsNewFilterTypeDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create First Filter Type
+            </Button>
+          )}
         </div>
       ) : (
         <Tabs value={activeFilterType} onValueChange={setActiveFilterType}>

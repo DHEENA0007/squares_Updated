@@ -257,10 +257,11 @@ class SubscriptionService {
     }
   }
 
-  async cancelSubscription(id: string): Promise<SingleSubscriptionResponse> {
+  async cancelSubscription(id: string, reason?: string): Promise<SingleSubscriptionResponse> {
     try {
       const response = await this.makeRequest<SingleSubscriptionResponse>(`/subscriptions/${id}/cancel`, {
         method: "PATCH",
+        body: JSON.stringify({ reason }),
       });
 
       toast({

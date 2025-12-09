@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Loader2, Eye, XCircle, RefreshCw, Calendar, CreditCard, User, Package, Star, Camera, Megaphone, Laptop, HeadphonesIcon, Users, Circle, Filter, X } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { PERMISSIONS } from "@/config/permissionConfig";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +11,7 @@ import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ExportUtils from "@/utils/exportUtils";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Custom currency formatter for exports to avoid encoding issues and handle null values
@@ -35,6 +39,20 @@ import { SearchFilter } from "@/components/adminpanel/shared/SearchFilter";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const Clients = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const permissions = user?.rolePermissions || [];
+  
+  // Check if user has admin role
+  const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
+  
+  // Permission checks - support both old role-based AND new permission-based
+  const hasPermission = (permission: string) => permissions.includes(permission);
+  const canViewClients = hasAdminRole || hasPermission(PERMISSIONS.CLIENTS_READ);
+  const canAccessActions = hasAdminRole || hasPermission(PERMISSIONS.CLIENTS_ACCESS_ACTIONS);
+  const canAccessDetails = hasAdminRole || hasPermission(PERMISSIONS.CLIENTS_ACCESS_DETAILS);
+  const canEditDetails = hasAdminRole || hasPermission(PERMISSIONS.CLIENTS_DETAILS_EDIT);
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -46,7 +64,22 @@ const Clients = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [subscriptionToCancel, setSubscriptionToCancel] = useState<Subscription | null>(null);
   const { toast } = useToast();
+
+  // Redirect if no view permission
+  useEffect(() => {
+    if (!canViewClients) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to view clients.",
+        variant: "destructive",
+      });
+      navigate('/rolebased');
+    }
+  }, [canViewClients, navigate, toast]);
 
   // Debounce search term to avoid excessive API calls
   useEffect(() => {
@@ -1233,6 +1266,15 @@ const Clients = () => {
   };
 
   const handleCancelSubscription = async (subscription: Subscription) => {
+    if (!canEditDetails) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to cancel subscriptions.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (subscription.status !== 'active') {
       toast({
         title: "Cannot Cancel",
@@ -1242,43 +1284,34 @@ const Clients = () => {
       return;
     }
 
-    try {
-      await subscriptionService.cancelSubscription(subscription._id);
-      toast({
-        title: "Subscription Cancelled",
-        description: `${subscription.user.name}'s subscription has been cancelled.`,
-      });
-      fetchSubscriptions(); // Refresh the data
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to cancel subscription. Please try again.",
-        variant: "destructive",
-      });
-    }
+    setSubscriptionToCancel(subscription);
+    setIsCancelDialogOpen(true);
   };
 
-  const handleRenewSubscription = async (subscription: Subscription) => {
-    if (subscription.status === 'active') {
+  const confirmCancelSubscription = async () => {
+    if (!subscriptionToCancel || !cancelReason.trim()) {
       toast({
-        title: "Cannot Renew",
-        description: "Subscription is already active.",
+        title: "Reason Required",
+        description: "Please provide a reason for cancellation.",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      await subscriptionService.renewSubscription(subscription._id);
+      await subscriptionService.cancelSubscription(subscriptionToCancel._id, cancelReason);
       toast({
-        title: "Subscription Renewed",
-        description: `${subscription.user.name}'s subscription has been renewed.`,
+        title: "Subscription Cancelled",
+        description: `${subscriptionToCancel.user.name}'s subscription has been cancelled. Email notification sent.`,
       });
-      fetchSubscriptions(); // Refresh the data
+      setIsCancelDialogOpen(false);
+      setCancelReason("");
+      setSubscriptionToCancel(null);
+      fetchSubscriptions();
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to renew subscription. Please try again.",
+        description: "Failed to cancel subscription. Please try again.",
         variant: "destructive",
       });
     }
@@ -1475,15 +1508,23 @@ const Clients = () => {
 
                         {/* Action Button */}
                         <div className="pt-2 border-t">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewDetails(subscription)}
-                            className="w-full"
-                          >
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Details
-                          </Button>
+                          {canAccessActions && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewDetails(subscription)}
+                              className="w-full"
+                              disabled={!canAccessDetails}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </Button>
+                          )}
+                          {!canAccessActions && (
+                            <p className="text-xs text-muted-foreground text-center py-2">
+                              No actions available
+                            </p>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -1570,15 +1611,20 @@ const Clients = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-center w-[120px] min-w-[100px]">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewDetails(subscription)}
-                            className="whitespace-nowrap"
-                          >
-                            <Eye className="w-4 h-4" />
-                            <span className="ml-2">View</span>
-                          </Button>
+                          {canAccessActions ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewDetails(subscription)}
+                              className="whitespace-nowrap"
+                              disabled={!canAccessDetails}
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span className="ml-2">View</span>
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))
@@ -2007,7 +2053,7 @@ const Clients = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="flex gap-2 flex-wrap">
-                      {selectedSubscription.status === 'active' && (
+                      {selectedSubscription.status === 'active' && canEditDetails && (
                         <Button
                           variant="destructive"
                           size="sm"
@@ -2018,20 +2064,6 @@ const Clients = () => {
                         >
                           <XCircle className="w-4 h-4 mr-2" />
                           Cancel Subscription
-                        </Button>
-                      )}
-                      
-                      {(selectedSubscription.status === 'expired' || selectedSubscription.status === 'cancelled') && (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => {
-                            handleRenewSubscription(selectedSubscription);
-                            setIsDetailsDialogOpen(false);
-                          }}
-                        >
-                          <RefreshCw className="w-4 h-4 mr-2" />
-                          Renew Subscription
                         </Button>
                       )}
                       
@@ -2047,6 +2079,58 @@ const Clients = () => {
                 </Card>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Cancel Subscription Dialog */}
+        <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Cancel Subscription</DialogTitle>
+              <DialogDescription>
+                Please provide a reason for cancelling {subscriptionToCancel?.user.name}'s subscription. 
+                An email will be sent to the customer with this information.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Cancellation Reason *
+                </label>
+                <Textarea
+                  placeholder="e.g., Customer requested cancellation due to budget constraints..."
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  rows={5}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  This reason will be included in the email sent to the customer.
+                </p>
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsCancelDialogOpen(false);
+                    setCancelReason("");
+                    setSubscriptionToCancel(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={confirmCancelSubscription}
+                  disabled={!cancelReason.trim()}
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Confirm Cancellation
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

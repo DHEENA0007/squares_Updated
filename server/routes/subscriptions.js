@@ -5,19 +5,25 @@ const User = require('../models/User');
 const Plan = require('../models/Plan');
 const Payment = require('../models/Payment');
 const { authenticateToken } = require('../middleware/authMiddleware');
+const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 
 // @desc    Get all subscriptions with filtering and pagination
 // @route   GET /api/subscriptions
-// @access  Private (Admin only)
+// @access  Private (Admin role OR CLIENTS_READ permission)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-  // Check if user has admin role
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
-    return res.status(403).json({
-      success: false,
-      message: 'Admin access required'
-    });
-  }    const { 
+    // Check if user has admin role OR CLIENTS_READ permission
+    const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+    const hasClientReadPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_READ);
+    
+    if (!hasAdminRole && !hasClientReadPermission) {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required or CLIENTS_READ permission needed'
+      });
+    }
+
+    const { 
       page = 1, 
       limit = 10, 
       search = '', 
@@ -103,13 +109,17 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // @desc    Get all subscriptions (no pagination)
 // @route   GET /api/subscriptions/all
-// @access  Private (Admin only)
+// @access  Private (Admin role OR CLIENTS_READ permission)
 router.get('/all', authenticateToken, async (req, res) => {
   try {
-    if (!['admin', 'superadmin'].includes(req.user.role)) {
+    // Check if user has admin role OR CLIENTS_READ permission
+    const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+    const hasClientReadPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_READ);
+    
+    if (!hasAdminRole && !hasClientReadPermission) {
       return res.status(403).json({
         success: false,
-        message: 'Admin access required'
+        message: 'Admin access required or CLIENTS_READ permission needed'
       });
     }
 
@@ -136,13 +146,17 @@ router.get('/all', authenticateToken, async (req, res) => {
 
 // @desc    Get subscription statistics
 // @route   GET /api/subscriptions/stats
-// @access  Private (Admin only)
+// @access  Private (Admin role OR CLIENTS_READ permission)
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+    // Check if user has admin role OR CLIENTS_READ permission
+    const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+    const hasClientReadPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_READ);
+    
+    if (!hasAdminRole && !hasClientReadPermission) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied'
+        message: 'Admin access required or CLIENTS_READ permission needed'
       });
     }
 
@@ -380,7 +394,7 @@ router.get('/my-subscriptions', authenticateToken, async (req, res) => {
 
 // @desc    Get subscription by ID
 // @route   GET /api/subscriptions/:id
-// @access  Private
+// @access  Private (Own subscription, Admin role, OR CLIENTS_ACCESS_DETAILS permission)
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const subscription = await Subscription.findById(req.params.id)
@@ -396,9 +410,12 @@ router.get('/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if user can access this subscription
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin' && 
-        subscription.user._id.toString() !== req.user.userId) {
+    // Check if user can access this subscription (own subscription, admin role, or has permission)
+    const isOwnSubscription = subscription.user._id.toString() === req.user.userId;
+    const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+    const hasAccessDetailsPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_ACCESS_DETAILS);
+    
+    if (!isOwnSubscription && !hasAdminRole && !hasAccessDetailsPermission) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
@@ -559,7 +576,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
 // @desc    Cancel subscription
 // @route   PATCH /api/subscriptions/:id/cancel
-// @access  Private
+// @access  Private (Own subscription, Admin role, OR CLIENTS_DETAILS_EDIT permission)
 router.patch('/:id/cancel', authenticateToken, async (req, res) => {
   try {
     const subscription = await Subscription.findById(req.params.id);
@@ -570,9 +587,12 @@ router.patch('/:id/cancel', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if user can cancel this subscription
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin' && 
-        subscription.user.toString() !== req.user.userId) {
+    // Check if user can cancel this subscription (own subscription, admin role, or has permission)
+    const isOwnSubscription = subscription.user.toString() === req.user.userId;
+    const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+    const hasEditDetailsPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_DETAILS_EDIT);
+    
+    if (!isOwnSubscription && !hasAdminRole && !hasEditDetailsPermission) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
@@ -586,8 +606,13 @@ router.patch('/:id/cancel', authenticateToken, async (req, res) => {
       });
     }
 
+    const { reason } = req.body;
+
     subscription.status = 'cancelled';
     subscription.autoRenew = false;
+    if (reason) {
+      subscription.cancellationReason = reason;
+    }
     await subscription.save();
 
     // Update plan subscriber count
@@ -599,6 +624,24 @@ router.patch('/:id/cancel', authenticateToken, async (req, res) => {
       { path: 'user', select: 'name email phone' },
       { path: 'plan', select: 'name description price billingPeriod' }
     ]);
+
+    // Send cancellation email to customer
+    try {
+      const emailService = require('../utils/emailService');
+      const user = subscription.user;
+      const plan = subscription.plan;
+      
+      await emailService.sendSubscriptionCancellationEmail({
+        to: user.email,
+        userName: user.name,
+        planName: plan.name,
+        cancellationReason: reason || 'No reason provided',
+        endDate: subscription.endDate,
+      });
+    } catch (emailError) {
+      console.error('Failed to send cancellation email:', emailError);
+      // Don't fail the request if email fails
+    }
 
     res.json({
       success: true,
@@ -617,7 +660,7 @@ router.patch('/:id/cancel', authenticateToken, async (req, res) => {
 
 // @desc    Renew subscription
 // @route   PATCH /api/subscriptions/:id/renew
-// @access  Private
+// @access  Private (Own subscription, Admin role, OR CLIENTS_ACCESS_ACTIONS permission)
 router.patch('/:id/renew', authenticateToken, async (req, res) => {
   try {
     const subscription = await Subscription.findById(req.params.id)
@@ -630,9 +673,12 @@ router.patch('/:id/renew', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if user can renew this subscription
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin' && 
-        subscription.user.toString() !== req.user.userId) {
+    // Check if user can renew this subscription (own subscription, admin role, or has permission)
+    const isOwnSubscription = subscription.user.toString() === req.user.userId;
+    const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+    const hasAccessActionsPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_ACCESS_ACTIONS);
+    
+    if (!isOwnSubscription && !hasAdminRole && !hasAccessActionsPermission) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
@@ -690,7 +736,7 @@ router.patch('/:id/renew', authenticateToken, async (req, res) => {
 
 // @desc    Upgrade subscription to a higher plan
 // @route   PATCH /api/subscriptions/:id/upgrade
-// @access  Private
+// @access  Private (Own subscription, Admin role, OR CLIENTS_ACCESS_ACTIONS permission)
 router.patch('/:id/upgrade', authenticateToken, async (req, res) => {
   try {
     const { newPlanId } = req.body;
@@ -712,9 +758,12 @@ router.patch('/:id/upgrade', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if user can upgrade this subscription
-    if (req.user.role !== 'admin' && req.user.role !== 'superadmin' && 
-        subscription.user.toString() !== req.user.userId) {
+    // Check if user can upgrade this subscription (own subscription, admin role, or has permission)
+    const isOwnSubscription = subscription.user.toString() === req.user.userId;
+    const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+    const hasAccessActionsPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_ACCESS_ACTIONS);
+    
+    if (!isOwnSubscription && !hasAdminRole && !hasAccessActionsPermission) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'

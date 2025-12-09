@@ -2011,10 +2011,80 @@ const sendTemplateEmail = async (to, templateName, data = {}) => {
   }
 };
 
+// Send subscription cancellation email to customer
+const sendSubscriptionCancellationEmail = async ({ to, userName, planName, cancellationReason, endDate }) => {
+  try {
+    const formattedEndDate = new Date(endDate).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #dc2626; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Subscription Cancelled</h1>
+        </div>
+        <div style="padding: 30px; background: #fff;">
+          <h2 style="color: #1f2937; margin-bottom: 20px;">Hello ${userName},</h2>
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+            We're sorry to inform you that your <strong>${planName}</strong> subscription has been cancelled.
+          </p>
+          
+          <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0;">
+            <h3 style="color: #991b1b; margin: 0 0 10px 0;">Cancellation Reason:</h3>
+            <p style="margin: 0; color: #7f1d1d; font-size: 15px;">${cancellationReason}</p>
+          </div>
+
+          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0; color: #374151;"><strong>Subscription Details:</strong></p>
+            <p style="margin: 5px 0; color: #6b7280;">Plan: <strong>${planName}</strong></p>
+            <p style="margin: 5px 0; color: #6b7280;">Access until: <strong>${formattedEndDate}</strong></p>
+          </div>
+
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-top: 20px;">
+            You will continue to have access to your subscription benefits until <strong>${formattedEndDate}</strong>.
+          </p>
+
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+            If you have any questions or would like to reactivate your subscription, please don't hesitate to contact our support team.
+          </p>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/contact" 
+               style="background: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+              Contact Support
+            </a>
+          </div>
+        </div>
+        <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+          <p style="margin: 0; color: #6c757d; font-size: 14px;">
+            BuildHomeMart Squares<br>
+            <a href="mailto:${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}" 
+               style="color: #007bff;">${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}</a>
+          </p>
+        </div>
+      </div>
+    `;
+
+    const result = await sendEmail({
+      to,
+      subject: `Subscription Cancelled - ${planName}`,
+      html: emailHtml
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Failed to send subscription cancellation email:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   sendEmail,
   sendBulkEmail,
   sendTemplateEmail,
+  sendSubscriptionCancellationEmail,
   testEmailConnection,
   getEmailStats,
   emailTemplates

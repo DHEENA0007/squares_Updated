@@ -32,26 +32,18 @@ permission.deleteAddon - enable delete "" "" ""
 
 
 PropertyManagement {
-permission.read - access this page both property types and amenities
-permission.pmTPT - access only property types{
-permission.pmTRead - only read
-permission.pmTCreateCategory - able to create category
-permission.pmTCreatePropertyType - able to create property
-permission.pmTStatus - enable status(turn on or off)
-permission.pmTEdit - edit
-permission.pmTDelete - delete
-permission.pmTManageFields - manage fields
-permission.pmTOrders - manage order based
-}
-permission.pmA - access only amenities{
-permission.pmARead - only read
-permission.pmACreateAmenity - enable create bbutton
-permission.pmAStatus - enable status
-permission.pmAedit - edit
-permission.pmAdelete - delete
-permission.pmAorder - order
-}
-
+permission.read - access property management page (view both property types and amenities)
+permission.pmTCreate - create property type category and property type
+permission.pmTEdit - edit property type
+permission.pmTDelete - delete property type
+permission.pmTStatus - toggle property type status (on/off)
+permission.pmTManageFields - manage property type fields
+permission.pmTOrder - manage property type order
+permission.pmACreate - create amenity
+permission.pmAEdit - edit amenity
+permission.pmADelete - delete amenity
+permission.pmAStatus - toggle amenity status (on/off)
+permission.pmAOrder - manage amenity order
 }
 
 
@@ -64,5 +56,29 @@ permission.status - status
 permission.edit - edit
 permission.delete - delete
 }
+
+
+Support Tickets {
+permission.supportTicketsRead - view support tickets
+permission.supportTicketsView - view full conversation
+permission.supportTicketsReply - reply to tickets
+permission.supportTicketsStatus - update ticket status
+}
+
+
+Addon Services {
+permission.addonServicesRead - view vendor addon services
+permission.addonServicesSchedule - schedule addon services
+permission.addonServicesManage - manage service schedules
+permission.addonServicesStatus - update schedule status
+permission.addonServicesNotes - add notes to schedules
+}
+
+Policies {
+permission.policiesRead - view policies (privacy, refund)
+permission.policiesEditPrivacy - edit privacy policy
+permission.policiesEditRefund - edit refund policy
+}
+
 
 

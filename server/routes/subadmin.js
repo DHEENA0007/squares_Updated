@@ -12,6 +12,7 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 const { isSubAdmin, hasPermission, SUB_ADMIN_PERMISSIONS } = require('../middleware/roleMiddleware');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const adminRealtimeService = require('../services/adminRealtimeService');
+const { PERMISSIONS } = require('../utils/permissions');
 
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
@@ -479,7 +480,7 @@ router.post('/content/reports/:id/dismiss',
 
 // Support Ticket Routes
 router.get('/support/tickets',
-  hasPermission(SUB_ADMIN_PERMISSIONS.HANDLE_SUPPORT),
+  hasPermission(PERMISSIONS.SUPPORT_TICKETS_READ),
   asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, status = 'open' } = req.query;
     const skip = (page - 1) * limit;
@@ -530,7 +531,7 @@ router.get('/support/tickets',
 
 // Update support ticket status
 router.patch('/support/tickets/:id',
-  hasPermission(SUB_ADMIN_PERMISSIONS.HANDLE_SUPPORT),
+  hasPermission(PERMISSIONS.SUPPORT_TICKETS_STATUS),
   asyncHandler(async (req, res) => {
     const { status, response } = req.body;
 
@@ -546,6 +547,14 @@ router.patch('/support/tickets/:id',
         return res.status(404).json({
           success: false,
           message: 'Support ticket not found'
+        });
+      }
+
+      // Prevent replies to closed or resolved tickets
+      if (ticket.status === 'closed' || ticket.status === 'resolved') {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot reply to ${ticket.status} tickets. Only open or in-progress tickets can receive replies.`
         });
       }
 
@@ -1734,7 +1743,7 @@ router.get('/reports/city/:city',
 
 // Addon Services Routes
 router.get('/addon-services',
-  hasPermission(SUB_ADMIN_PERMISSIONS.APPROVE_PROMOTIONS), // Reusing promotions permission for addon services
+  hasPermission(PERMISSIONS.ADDON_SERVICES_READ),
   asyncHandler(async (req, res) => {
     const { status = 'active', search = '' } = req.query;
     const AddonServiceSchedule = require('../models/AddonServiceSchedule');
@@ -1904,7 +1913,7 @@ router.get('/addon-services',
 
 // Schedule addon service - Send email to vendor
 router.post('/addon-services/schedule',
-  hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
+  hasPermission(PERMISSIONS.ADDON_SERVICES_SCHEDULE),
   asyncHandler(async (req, res) => {
     const { vendorId, addonId, subscriptionId, subject, message, vendorEmail, priority = 'medium', scheduledDate } = req.body;
     const AddonServiceSchedule = require('../models/AddonServiceSchedule');
@@ -2094,7 +2103,7 @@ router.post('/addon-services/schedule',
 
 // Update addon service schedule status
 router.patch('/addon-services/schedule/:scheduleId/status',
-  hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
+  hasPermission(PERMISSIONS.ADDON_SERVICES_STATUS),
   asyncHandler(async (req, res) => {
     const { scheduleId } = req.params;
     const { status, scheduledDate, vendorResponse, cancellationReason } = req.body;
@@ -2377,7 +2386,7 @@ router.patch('/addon-services/schedule/:scheduleId/status',
 
 // Add note to addon service schedule
 router.post('/addon-services/schedule/:scheduleId/notes',
-  hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
+  hasPermission(PERMISSIONS.ADDON_SERVICES_NOTES),
   asyncHandler(async (req, res) => {
     const { scheduleId } = req.params;
     const { message } = req.body;

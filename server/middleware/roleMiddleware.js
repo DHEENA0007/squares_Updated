@@ -28,14 +28,20 @@ const isSubAdmin = (req, res, next) => {
     });
   }
 
-  if (!['subadmin', 'superadmin'].includes(req.user.role)) {
-    return res.status(403).json({
-      success: false,
-      message: 'Admin access required'
-    });
+  // Allow standard admin roles
+  if (['subadmin', 'superadmin', 'admin'].includes(req.user.role)) {
+    return next();
   }
 
-  next();
+  // Allow custom roles with any rolePermissions (they have granular permission checks on routes)
+  if (req.user.rolePermissions && Array.isArray(req.user.rolePermissions) && req.user.rolePermissions.length > 0) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    message: 'Admin access required'
+  });
 };
 
 // Check if user has any admin privileges
@@ -76,8 +82,8 @@ const hasPermission = (permission) => {
     }
 
     try {
-      // Super admins have all permissions
-      if (req.user.role === 'superadmin') {
+      // Super admins and standard admins have all permissions
+      if (['superadmin', 'admin'].includes(req.user.role)) {
         return next();
       }
 
@@ -86,9 +92,18 @@ const hasPermission = (permission) => {
         return next();
       }
 
-      // For other roles, check if they have the required permission
-      // Since we're using page-based access, we'll allow all subadmin permissions
-      next();
+      // For custom roles, check if they have the required permission
+      if (req.user.rolePermissions && Array.isArray(req.user.rolePermissions)) {
+        if (req.user.rolePermissions.includes(permission)) {
+          return next();
+        }
+      }
+
+      // Permission denied
+      return res.status(403).json({
+        success: false,
+        message: 'Permission denied. Required permission: ' + permission
+      });
     } catch (error) {
       console.error('Permission check error:', error);
       return res.status(500).json({

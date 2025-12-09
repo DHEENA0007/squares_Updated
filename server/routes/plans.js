@@ -4,6 +4,7 @@ const Subscription = require('../models/Subscription');
 const planChangeService = require('../services/planChangeService');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { authenticateToken } = require('../middleware/authMiddleware');
+const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 const router = express.Router();
 
 // Apply auth middleware
@@ -90,12 +91,15 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
 // @desc    Create new plan (Admin only)
 // @route   POST /api/plans
-// @access  Private/Admin
+// @access  Private (Admin role OR PLANS_CREATE permission)
 router.post('/', asyncHandler(async (req, res) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
+  const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+  const hasCreatePermission = hasPermission(req.user, PERMISSIONS.PLANS_CREATE);
+  
+  if (!hasAdminRole && !hasCreatePermission) {
     return res.status(403).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Admin access required or PLANS_CREATE permission needed'
     });
   }
 
@@ -133,12 +137,15 @@ router.post('/', asyncHandler(async (req, res) => {
 
 // @desc    Update plan (Admin only)
 // @route   PUT /api/plans/:id
-// @access  Private/Admin
+// @access  Private (Admin role OR PLANS_EDIT permission)
 router.put('/:id', asyncHandler(async (req, res) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
+  const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+  const hasEditPermission = hasPermission(req.user, PERMISSIONS.PLANS_EDIT);
+  
+  if (!hasAdminRole && !hasEditPermission) {
     return res.status(403).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Admin access required or PLANS_EDIT permission needed'
     });
   }
 
@@ -268,12 +275,15 @@ router.patch('/:id/toggle-status', asyncHandler(async (req, res) => {
 
 // @desc    Delete plan (Admin only)
 // @route   DELETE /api/plans/:id
-// @access  Private/Admin
+// @access  Private (Admin role OR PLANS_EDIT permission)
 router.delete('/:id', asyncHandler(async (req, res) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
+  const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+  const hasEditPermission = hasPermission(req.user, PERMISSIONS.PLANS_EDIT);
+  
+  if (!hasAdminRole && !hasEditPermission) {
     return res.status(403).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Admin access required or PLANS_EDIT permission needed'
     });
   }
 

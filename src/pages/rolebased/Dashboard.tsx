@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import {
     Users, Shield, Home, ShoppingBag, Activity,
     FileText, Settings, BarChart3, CheckCircle,
-    AlertCircle, TrendingUp, Star, Eye
+    AlertCircle, TrendingUp, Star, Eye, Headphones as HeadphonesIcon, Package
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { userService } from "@/services/userService";
@@ -58,9 +58,50 @@ const RoleBasedDashboard = () => {
         hasPermission(PERMISSIONS.REVIEWS_REPORT) ||
         hasPermission(PERMISSIONS.REVIEWS_DELETE);
 
-    const hasAnySystemPermission = () =>
-        hasPermission(PERMISSIONS.SETTINGS_MANAGE) ||
-        hasPermission(PERMISSIONS.ANALYTICS_VIEW);
+    const hasAnyClientsPermission = () =>
+        hasPermission(PERMISSIONS.CLIENTS_READ) ||
+        hasPermission(PERMISSIONS.CLIENTS_ACCESS_ACTIONS) ||
+        hasPermission(PERMISSIONS.CLIENTS_ACCESS_DETAILS) ||
+        hasPermission(PERMISSIONS.CLIENTS_DETAILS_EDIT);
+
+    const hasAnyPlansPermission = () =>
+        hasPermission(PERMISSIONS.PLANS_READ) ||
+        hasPermission(PERMISSIONS.PLANS_CREATE) ||
+        hasPermission(PERMISSIONS.PLANS_EDIT);
+
+    const hasAnyAddonsPermission = () =>
+        hasPermission(PERMISSIONS.ADDONS_READ) ||
+        hasPermission(PERMISSIONS.ADDONS_CREATE) ||
+        hasPermission(PERMISSIONS.ADDONS_EDIT) ||
+        hasPermission(PERMISSIONS.ADDONS_DEACTIVATE) ||
+        hasPermission(PERMISSIONS.ADDONS_DELETE);
+
+    const hasAnyPropertyManagementPermission = () =>
+        hasPermission(PERMISSIONS.PM_READ) ||
+        hasPermission(PERMISSIONS.PM_T_CREATE) ||
+        hasPermission(PERMISSIONS.PM_T_EDIT) ||
+        hasPermission(PERMISSIONS.PM_T_DELETE) ||
+        hasPermission(PERMISSIONS.PM_A_CREATE) ||
+        hasPermission(PERMISSIONS.PM_A_EDIT) ||
+        hasPermission(PERMISSIONS.PM_A_DELETE);
+
+    const hasAnyFilterManagementPermission = () =>
+        hasPermission(PERMISSIONS.FILTER_READ) ||
+        hasPermission(PERMISSIONS.FILTER_CREATE_NTP) ||
+        hasPermission(PERMISSIONS.FILTER_CREATE_FTO);
+
+    const hasAnySupportTicketsPermission = () =>
+        hasPermission(PERMISSIONS.SUPPORT_TICKETS_READ) ||
+        hasPermission(PERMISSIONS.SUPPORT_TICKETS_VIEW) ||
+        hasPermission(PERMISSIONS.SUPPORT_TICKETS_REPLY) ||
+        hasPermission(PERMISSIONS.SUPPORT_TICKETS_STATUS);
+
+    const hasAnyAddonServicesPermission = () =>
+        hasPermission(PERMISSIONS.ADDON_SERVICES_READ) ||
+        hasPermission(PERMISSIONS.ADDON_SERVICES_SCHEDULE) ||
+        hasPermission(PERMISSIONS.ADDON_SERVICES_MANAGE) ||
+        hasPermission(PERMISSIONS.ADDON_SERVICES_STATUS) ||
+        hasPermission(PERMISSIONS.ADDON_SERVICES_NOTES);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -453,24 +494,311 @@ const RoleBasedDashboard = () => {
                     </Card>
                 )}
 
+                {/* Clients Management */}
+                {hasAnyClientsPermission() && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Users className="h-5 w-5" />
+                                Clients Management
+                            </CardTitle>
+                            <CardDescription>Manage client subscriptions</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2">
+                                {hasPermission(PERMISSIONS.CLIENTS_READ) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>View clients</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.CLIENTS_ACCESS_ACTIONS) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Access client actions</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.CLIENTS_ACCESS_DETAILS) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>View client details</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.CLIENTS_DETAILS_EDIT) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Cancel subscriptions</span>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Plans Management */}
+                {hasAnyPlansPermission() && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <FileText className="h-5 w-5" />
+                                Plans Management
+                            </CardTitle>
+                            <CardDescription>Manage subscription plans</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2">
+                                {hasPermission(PERMISSIONS.PLANS_READ) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>View plans</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.PLANS_CREATE) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Create plans</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.PLANS_EDIT) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Edit plans</span>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Addons Management */}
+                {hasAnyAddonsPermission() && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Activity className="h-5 w-5" />
+                                Addons Management
+                            </CardTitle>
+                            <CardDescription>Manage addon services</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2">
+                                {hasPermission(PERMISSIONS.ADDONS_READ) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>View addons</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.ADDONS_CREATE) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Create addons</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.ADDONS_EDIT) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Edit addons</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.ADDONS_DEACTIVATE) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Deactivate addons</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.ADDONS_DELETE) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Delete addons</span>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Property Management Extended */}
+                {hasAnyPropertyManagementPermission() && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Home className="h-5 w-5" />
+                                Property Types & Amenities
+                            </CardTitle>
+                            <CardDescription>Manage property types and amenities</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2">
+                                {hasPermission(PERMISSIONS.PM_READ) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>View property management</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.PM_T_CREATE) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Create property types</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.PM_T_EDIT) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Edit property types</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.PM_A_CREATE) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Create amenities</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.PM_A_EDIT) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Edit amenities</span>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Filter Management */}
+                {hasAnyFilterManagementPermission() && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <BarChart3 className="h-5 w-5" />
+                                Filter Management
+                            </CardTitle>
+                            <CardDescription>Manage search filters</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2">
+                                {hasPermission(PERMISSIONS.FILTER_READ) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>View filters</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.FILTER_CREATE_NTP) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Create filter types</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.FILTER_CREATE_FTO) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Create filter options</span>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Support Tickets */}
+                {hasAnySupportTicketsPermission() && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <HeadphonesIcon className="h-5 w-5" />
+                                Support Tickets
+                            </CardTitle>
+                            <CardDescription>Manage customer support requests</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2">
+                                {hasPermission(PERMISSIONS.SUPPORT_TICKETS_READ) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>View support tickets</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.SUPPORT_TICKETS_VIEW) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>View full conversations</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.SUPPORT_TICKETS_REPLY) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Reply to tickets</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.SUPPORT_TICKETS_STATUS) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Update ticket status</span>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Addon Services */}
+                {hasAnyAddonServicesPermission() && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Package className="h-5 w-5" />
+                                Addon Services
+                            </CardTitle>
+                            <CardDescription>Manage vendor addon services</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2">
+                                {hasPermission(PERMISSIONS.ADDON_SERVICES_READ) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>View addon services</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.ADDON_SERVICES_SCHEDULE) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Schedule services</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.ADDON_SERVICES_MANAGE) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Manage schedules</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.ADDON_SERVICES_STATUS) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Update status</span>
+                                    </div>
+                                )}
+                                {hasPermission(PERMISSIONS.ADDON_SERVICES_NOTES) && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        <span>Add notes</span>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {/* System & Settings */}
-                {hasAnySystemPermission() && (
+                {hasPermission(PERMISSIONS.ANALYTICS_VIEW) && (
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Settings className="h-5 w-5" />
-                                System & Settings
+                                Analytics
                             </CardTitle>
-                            <CardDescription>System configuration and analytics</CardDescription>
+                            <CardDescription>View system analytics</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-2">
-                                {hasPermission(PERMISSIONS.SETTINGS_MANAGE) && (
-                                    <div className="flex items-center gap-2 text-sm">
-                                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                                        <span>Manage settings</span>
-                                    </div>
-                                )}
                                 {hasPermission(PERMISSIONS.ANALYTICS_VIEW) && (
                                     <div className="flex items-center gap-2 text-sm">
                                         <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />

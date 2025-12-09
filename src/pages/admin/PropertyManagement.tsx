@@ -3,23 +3,39 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { PERMISSIONS } from '@/config/permissionConfig';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 import PropertyTypesTab from '@/components/admin/configuration/PropertyTypesTab';
 import AmenitiesTab from '@/components/admin/configuration/AmenitiesTab';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const PropertyManagement: React.FC = () => {
-  const { isSuperAdmin } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('property-types');
+  const permissions = user?.rolePermissions || [];
+  
+  // Check if user has admin role
+  const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
+  
+  // Permission checks - support both old role-based AND new permission-based
+  const hasPermission = (permission: string) => permissions.includes(permission);
+  const canViewPropertyManagement = hasAdminRole || hasPermission(PERMISSIONS.PM_READ);
 
   useEffect(() => {
-    if (!isSuperAdmin) {
-      navigate('/admin/dashboard');
+    if (!canViewPropertyManagement) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to view property management.",
+        variant: "destructive",
+      });
+      navigate('/rolebased');
     }
-  }, [isSuperAdmin, navigate]);
+  }, [canViewPropertyManagement, navigate, toast]);
 
-  if (!isSuperAdmin) {
+  if (!canViewPropertyManagement) {
     return null;
   }
 

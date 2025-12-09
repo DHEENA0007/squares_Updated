@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { PERMISSIONS } from "@/config/permissionConfig";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +23,19 @@ import { PriceRangeFilter } from "@/components/adminpanel/shared/PriceRangeFilte
 
 const Plans = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const permissions = user?.rolePermissions || [];
+  
+  // Check if user has admin role
+  const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
+  
+  // Permission checks - support both old role-based AND new permission-based
+  const hasPermission = (permission: string) => permissions.includes(permission);
+  const canViewPlans = hasAdminRole || hasPermission(PERMISSIONS.PLANS_READ);
+  const canCreatePlans = hasAdminRole || hasPermission(PERMISSIONS.PLANS_CREATE);
+  const canEditPlans = hasAdminRole || hasPermission(PERMISSIONS.PLANS_EDIT);
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [monthsFilter, setMonthsFilter] = useState<string>("");
   const [minPrice, setMinPrice] = useState<string>("");
@@ -27,6 +43,18 @@ const Plans = () => {
   const [maxPossiblePrice, setMaxPossiblePrice] = useState<number>(100000);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Redirect if no view permission
+  useEffect(() => {
+    if (!canViewPlans) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to view plans.",
+        variant: "destructive",
+      });
+      navigate('/rolebased');
+    }
+  }, [canViewPlans, navigate, toast]);
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -151,11 +179,13 @@ const Plans = () => {
               Manage subscription plans and pricing
             </p>
           </div>
-          <Button onClick={() => navigate("/admin/plans/create")} className="w-full sm:w-auto">
-            <Plus className="w-4 h-4 mr-2" />
-            <span className="hidden sm:inline">Create Plan</span>
-            <span className="sm:hidden">Create</span>
-          </Button>
+          {canCreatePlans && (
+            <Button onClick={() => navigate("/admin/plans/create")} className="w-full sm:w-auto">
+              <Plus className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Create Plan</span>
+              <span className="sm:hidden">Create</span>
+            </Button>
+          )}
         </div>
 
         <Card>
@@ -204,7 +234,8 @@ const Plans = () => {
                 <DataTable
                   columns={columns}
                   data={paginatedItems.map(plan => ({ ...plan, id: plan._id }))}
-                  editPath={(plan) => `/admin/plans/edit/${plan._id}`}
+                  editPath={canEditPlans ? (plan) => `/admin/plans/edit/${plan._id}` : undefined}
+                  hideDefaultActions={!canEditPlans}
                 />
               </div>
 

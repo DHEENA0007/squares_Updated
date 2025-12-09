@@ -35,19 +35,71 @@ const PERMISSIONS = {
     CONTENT_MODERATE: 'content.moderate',
     REVIEWS_MANAGE: 'reviews.manage',
 
-    // Messages & Communication
-    MESSAGES_VIEW: 'messages.view',
-    MESSAGES_SEND: 'messages.send',
-    MESSAGES_DELETE: 'messages.delete',
+    // Clients Management
+    CLIENTS_READ: 'clients.read',
+    CLIENTS_ACCESS_ACTIONS: 'clients.accessActions',
+    CLIENTS_ACCESS_DETAILS: 'clients.accessDetails',
+    CLIENTS_DETAILS_EDIT: 'clients.detailsEdit',
+
+    // Plans Management
+    PLANS_READ: 'plans.read',
+    PLANS_CREATE: 'plans.create',
+    PLANS_EDIT: 'plans.edit',
+
+    // Addons Management
+    ADDONS_READ: 'addons.read',
+    ADDONS_CREATE: 'addons.create',
+    ADDONS_EDIT: 'addons.edit',
+    ADDONS_DEACTIVATE: 'addons.deactivate',
+    ADDONS_DELETE: 'addons.delete',
+
+    // Property Management (Optimized)
+    PM_READ: 'propertyManagement.read',
+    PM_T_CREATE: 'propertyManagement.tCreate',
+    PM_T_STATUS: 'propertyManagement.tStatus',
+    PM_T_EDIT: 'propertyManagement.tEdit',
+    PM_T_DELETE: 'propertyManagement.tDelete',
+    PM_T_MANAGE_FIELDS: 'propertyManagement.tManageFields',
+    PM_T_ORDER: 'propertyManagement.tOrder',
+    PM_A_CREATE: 'propertyManagement.aCreate',
+    PM_A_STATUS: 'propertyManagement.aStatus',
+    PM_A_EDIT: 'propertyManagement.aEdit',
+    PM_A_DELETE: 'propertyManagement.aDelete',
+    PM_A_ORDER: 'propertyManagement.aOrder',
+
+    // Filter Management
+    FILTER_READ: 'filterManagement.read',
+    FILTER_CREATE_NTP: 'filterManagement.createNtp',
+    FILTER_CREATE_FTO: 'filterManagement.createFto',
+    FILTER_ORDER: 'filterManagement.order',
+    FILTER_STATUS: 'filterManagement.status',
+    FILTER_EDIT: 'filterManagement.edit',
+    FILTER_DELETE: 'filterManagement.delete',
+
+    // Support Tickets
+    SUPPORT_TICKETS_READ: 'supportTickets.read',
+    SUPPORT_TICKETS_VIEW: 'supportTickets.view',
+    SUPPORT_TICKETS_REPLY: 'supportTickets.reply',
+    SUPPORT_TICKETS_STATUS: 'supportTickets.status',
+
+    // Addon Services
+    ADDON_SERVICES_READ: 'addonServices.read',
+    ADDON_SERVICES_SCHEDULE: 'addonServices.schedule',
+    ADDON_SERVICES_MANAGE: 'addonServices.manage',
+    ADDON_SERVICES_STATUS: 'addonServices.status',
+    ADDON_SERVICES_NOTES: 'addonServices.notes',
+
+    // Policies
+    POLICIES_READ: 'policies.read',
+    POLICIES_EDIT_PRIVACY: 'policies.editPrivacy',
+    POLICIES_EDIT_REFUND: 'policies.editRefund',
 
     // Notifications
     NOTIFICATIONS_VIEW: 'notifications.view',
     NOTIFICATIONS_SEND: 'notifications.send',
     NOTIFICATIONS_MANAGE: 'notifications.manage',
 
-    // System
-    SETTINGS_MANAGE: 'settings.manage',
-    LOGS_VIEW: 'logs.view',
+    // Dashboard
     DASHBOARD_VIEW: 'dashboard.view',
     ANALYTICS_VIEW: 'analytics.view',
 };

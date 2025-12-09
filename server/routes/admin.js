@@ -1845,8 +1845,18 @@ router.post('/properties/:id/reject', authenticateToken, asyncHandler(async (req
 
 // @desc    Get all addon services for admin
 // @route   GET /api/admin/addons
-// @access  Private/Admin
+// @access  Private (Admin role OR ADDONS_READ permission)
 router.get('/addons', asyncHandler(async (req, res) => {
+  const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+  const hasReadPermission = hasPermission(req.user, PERMISSIONS.ADDONS_READ);
+  
+  if (!hasAdminRole && !hasReadPermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Admin access required or ADDONS_READ permission needed'
+    });
+  }
+  
   const { 
     category, 
     isActive, 
@@ -1932,8 +1942,18 @@ router.get('/addons/:id', asyncHandler(async (req, res) => {
 
 // @desc    Create addon service
 // @route   POST /api/admin/addons
-// @access  Private/Admin
+// @access  Private (Admin role OR ADDONS_CREATE permission)
 router.post('/addons', asyncHandler(async (req, res) => {
+  const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+  const hasCreatePermission = hasPermission(req.user, PERMISSIONS.ADDONS_CREATE);
+  
+  if (!hasAdminRole && !hasCreatePermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Admin access required or ADDONS_CREATE permission needed'
+    });
+  }
+  
   const {
     name,
     description,
@@ -1991,8 +2011,18 @@ router.post('/addons', asyncHandler(async (req, res) => {
 
 // @desc    Update addon service
 // @route   PUT /api/admin/addons/:id
-// @access  Private/Admin
+// @access  Private (Admin role OR ADDONS_EDIT permission)
 router.put('/addons/:id', asyncHandler(async (req, res) => {
+  const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+  const hasEditPermission = hasPermission(req.user, PERMISSIONS.ADDONS_EDIT);
+  
+  if (!hasAdminRole && !hasEditPermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Admin access required or ADDONS_EDIT permission needed'
+    });
+  }
+  
   const addon = await AddonService.findById(req.params.id);
 
   if (!addon) {
@@ -2053,8 +2083,18 @@ router.put('/addons/:id', asyncHandler(async (req, res) => {
 
 // @desc    Delete addon service
 // @route   DELETE /api/admin/addons/:id
-// @access  Private/Admin
+// @access  Private (Admin role OR ADDONS_DELETE permission)
 router.delete('/addons/:id', asyncHandler(async (req, res) => {
+  const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+  const hasDeletePermission = hasPermission(req.user, PERMISSIONS.ADDONS_DELETE);
+  
+  if (!hasAdminRole && !hasDeletePermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Admin access required or ADDONS_DELETE permission needed'
+    });
+  }
+  
   const addon = await AddonService.findById(req.params.id);
 
   if (!addon) {
@@ -2074,8 +2114,18 @@ router.delete('/addons/:id', asyncHandler(async (req, res) => {
 
 // @desc    Toggle addon service status
 // @route   PATCH /api/admin/addons/:id/toggle-status
-// @access  Private/Admin
+// @access  Private (Admin role OR ADDONS_DEACTIVATE permission)
 router.patch('/addons/:id/toggle-status', asyncHandler(async (req, res) => {
+  const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+  const hasTogglePermission = hasPermission(req.user, PERMISSIONS.ADDONS_DEACTIVATE);
+  
+  if (!hasAdminRole && !hasTogglePermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Admin access required or ADDONS_DEACTIVATE permission needed'
+    });
+  }
+  
   const addon = await AddonService.findById(req.params.id);
 
   if (!addon) {

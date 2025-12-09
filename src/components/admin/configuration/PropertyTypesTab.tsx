@@ -33,8 +33,26 @@ import { configurationService } from '@/services/configurationService';
 import type { PropertyType, CreatePropertyTypeDTO, UpdatePropertyTypeDTO } from '@/types/configuration';
 import { useToast } from '@/hooks/use-toast';
 import PropertyTypeFieldsDialog from './PropertyTypeFieldsDialog';
+import { useAuth } from '@/contexts/AuthContext';
+import { PERMISSIONS } from '@/config/permissionConfig';
 
 const PropertyTypesTab: React.FC = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const permissions = user?.rolePermissions || [];
+  
+  // Check if user has admin role
+  const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
+  
+  // Permission checks - support both old role-based AND new permission-based
+  const hasPermission = (permission: string) => permissions.includes(permission);
+  const canCreatePropertyType = hasAdminRole || hasPermission(PERMISSIONS.PM_T_CREATE);
+  const canEditPropertyType = hasAdminRole || hasPermission(PERMISSIONS.PM_T_EDIT);
+  const canDeletePropertyType = hasAdminRole || hasPermission(PERMISSIONS.PM_T_DELETE);
+  const canToggleStatus = hasAdminRole || hasPermission(PERMISSIONS.PM_T_STATUS);
+  const canManageFields = hasAdminRole || hasPermission(PERMISSIONS.PM_T_MANAGE_FIELDS);
+  const canChangeOrder = hasAdminRole || hasPermission(PERMISSIONS.PM_T_ORDER);
+  
   const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +71,6 @@ const PropertyTypesTab: React.FC = () => {
     icon: '',
     displayOrder: 0,
   });
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchPropertyTypes();
@@ -281,10 +298,12 @@ const PropertyTypesTab: React.FC = () => {
           <p className="text-sm text-muted-foreground">
             Manage {getCategoryLabel(category)} property types
           </p>
-          <Button onClick={() => handleOpenDialog()}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Property Type
-          </Button>
+          {canCreatePropertyType && (
+            <Button onClick={() => handleOpenDialog()}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Property Type
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center space-x-2">
@@ -320,24 +339,26 @@ const PropertyTypesTab: React.FC = () => {
                   return (
                   <TableRow key={type._id}>
                     <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleReorder(type._id, 'up', category)}
-                          disabled={originalIndex === 0}
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleReorder(type._id, 'down', category)}
-                          disabled={originalIndex === types.length - 1}
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {canChangeOrder && (
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReorder(type._id, 'up', category)}
+                            disabled={originalIndex === 0}
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReorder(type._id, 'down', category)}
+                            disabled={originalIndex === types.length - 1}
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="font-medium">{type.name}</TableCell>
                     <TableCell>
@@ -347,35 +368,42 @@ const PropertyTypesTab: React.FC = () => {
                       <Switch
                         checked={type.isActive}
                         onCheckedChange={() => handleToggleActive(type._id, type.isActive)}
+                        disabled={!canToggleStatus}
                       />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedPropertyType(type);
-                            setIsFieldsDialogOpen(true);
-                          }}
-                          title="Manage Fields"
-                        >
-                          <Settings2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenDialog(type)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(type._id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {canManageFields && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedPropertyType(type);
+                              setIsFieldsDialogOpen(true);
+                            }}
+                            title="Manage Fields"
+                          >
+                            <Settings2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canEditPropertyType && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenDialog(type)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDeletePropertyType && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(type._id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -402,12 +430,14 @@ const PropertyTypesTab: React.FC = () => {
         </p>
       </div>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => setIsNewCategoryDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Category
-        </Button>
-      </div>
+      {canCreatePropertyType && (
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={() => setIsNewCategoryDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Category
+          </Button>
+        </div>
+      )}
 
       {categories.length === 0 ? (
         <div className="border rounded-lg p-8 text-center text-muted-foreground">
