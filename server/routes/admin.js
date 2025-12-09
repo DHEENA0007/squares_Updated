@@ -3067,6 +3067,7 @@ router.get('/support/tickets', isAnyAdmin, asyncHandler(async (req, res) => {
     SupportTicket.find(query)
       .populate('user', 'email profile')
       .populate('assignedTo', 'email profile')
+      .populate('lockedBy', 'email profile')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit)),
@@ -3104,15 +3105,39 @@ router.post('/support/tickets/:id/respond', isAnyAdmin, asyncHandler(async (req,
     });
   }
 
+  // Check if ticket is locked by another admin
+  if (ticket.lockedBy && ticket.lockedBy.toString() !== req.user.id.toString()) {
+    const User = require('../models/User');
+    const lockedByUser = await User.findById(ticket.lockedBy).select('name email profile');
+    const lockerName = lockedByUser?.profile?.firstName 
+      ? `${lockedByUser.profile.firstName} ${lockedByUser.profile.lastName || ''}`
+      : lockedByUser?.email || 'another user';
+    
+    return res.status(423).json({
+      success: false,
+      message: `This ticket is currently being handled by ${lockerName}. Please choose a different ticket.`
+    });
+  }
+
   ticket.responses.push({
     message,
     author: req.user.profile?.firstName 
       ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`
       : req.user.email,
+    authorId: req.user.id,
     isAdmin: true
   });
 
-  ticket.assignedTo = req.user.id;
+  if (!ticket.assignedTo) {
+    ticket.assignedTo = req.user.id;
+    ticket.assignedAt = new Date();
+  }
+  
+  // Lock the ticket to this admin
+  if (!ticket.lockedBy) {
+    ticket.lockedBy = req.user.id;
+    ticket.lockedAt = new Date();
+  }
   
   if (ticket.status === 'open') {
     ticket.status = 'in_progress';
@@ -3149,10 +3174,35 @@ router.put('/support/tickets/:id/status', isAnyAdmin, asyncHandler(async (req, r
     });
   }
 
+  // Check if ticket is locked by another admin (unless resolving/closing)
+  if (ticket.lockedBy && ticket.lockedBy.toString() !== req.user.id.toString() && status !== 'resolved' && status !== 'closed') {
+    const User = require('../models/User');
+    const lockedByUser = await User.findById(ticket.lockedBy).select('name email profile');
+    const lockerName = lockedByUser?.profile?.firstName 
+      ? `${lockedByUser.profile.firstName} ${lockedByUser.profile.lastName || ''}`
+      : lockedByUser?.email || 'another user';
+    
+    return res.status(423).json({
+      success: false,
+      message: `This ticket is currently being handled by ${lockerName}. Please choose a different ticket.`
+    });
+  }
+
+  // When accepting/moving to in_progress, lock the ticket
+  if (status === 'in_progress' && !ticket.lockedBy) {
+    ticket.lockedBy = req.user.id;
+    ticket.lockedAt = new Date();
+    ticket.assignedTo = req.user.id;
+    ticket.assignedAt = new Date();
+  }
+
   if (status === 'resolved') {
     ticket.status = 'closed'; // Auto-close resolved tickets
     ticket.resolvedBy = req.user.id;
     ticket.resolvedAt = new Date();
+    // Unlock when resolving
+    ticket.lockedBy = null;
+    ticket.lockedAt = null;
   } else {
     ticket.status = status;
   }

@@ -401,6 +401,10 @@ class PropertyService {
     return 'Area not specified';
   }
 
+  hasValidArea(area: Property['area']): boolean {
+    return !!(area.builtUp || area.plot || area.carpet);
+  }
+
   // Vendor-specific methods
   async getVendorProperties(filters: PropertyFilters = {}): Promise<PropertyResponse> {
     try {
@@ -582,6 +586,8 @@ class PropertyService {
       case "pending": return "bg-yellow-500";
       case "sold": return "bg-blue-500";
       case "rented": return "bg-purple-500";
+      case "leased": return "bg-indigo-500";
+      case "rejected": return "bg-red-500";
       case "inactive": return "bg-gray-500";
       default: return "bg-gray-500";
     }
@@ -589,6 +595,18 @@ class PropertyService {
 
   getStatusText(status: string): string {
     return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+
+  // Track user interactions with properties
+  async trackInteraction(propertyId: string, interactionType: 'clickedPhone' | 'clickedEmail' | 'clickedWhatsApp' | 'viewedGallery' | 'sharedProperty'): Promise<void> {
+    try {
+      await this.api.post(`/properties/${propertyId}/track-interaction`, {
+        interactionType
+      });
+    } catch (error) {
+      console.error('Failed to track interaction:', error);
+      throw error;
+    }
   }
 }
 

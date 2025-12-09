@@ -49,19 +49,92 @@ class NotificationService extends EventEmitter {
   }
 
   /**
+   * Check if user has notifications enabled for a specific type
+   * @param {string} userId - User ID
+   * @param {string} notificationType - Type of notification
+   * @returns {Promise<boolean>}
+   */
+  async checkUserNotificationPreferences(userId, notificationType) {
+    try {
+      const User = require('../models/User');
+      const user = await User.findById(userId).select('profile.preferences.notifications');
+
+      if (!user || !user.profile?.preferences?.notifications) {
+        return true; // Default to enabled if preferences not found
+      }
+
+      const prefs = user.profile.preferences.notifications;
+
+      // Check if push notifications are globally disabled
+      if (prefs.push === false) {
+        return false;
+      }
+
+      // Check specific notification type preferences
+      const typeMapping = {
+        'property_alert': 'propertyAlerts',
+        'price_alert': 'priceDrops',
+        'new_message': 'newMessages',
+        'service_update': 'newsUpdates',
+        'lead_alert': 'propertyAlerts',
+        'inquiry_received': 'propertyAlerts',
+        'weekly_report': 'newsUpdates',
+        'business_update': 'newsUpdates',
+        'property_update': 'propertyAlerts'
+      };
+
+      const prefKey = typeMapping[notificationType];
+      if (prefKey && prefs[prefKey] === false) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error checking notification preferences:', error);
+      return true; // Default to enabled on error
+    }
+  }
+
+  /**
    * Send real-time notification to user(s) via Socket.IO
    * @param {string|Array} userIds - User ID(s) to send notification to
    * @param {object} notification - Notification data
+   * @param {object} options - Additional options (persistToDb: boolean)
    */
-  sendNotification(userIds, notification) {
+  async sendNotification(userIds, notification, options = { persistToDb: true }) {
     if (!this.io) {
       console.warn('Socket.IO not initialized, cannot send notification');
       return;
     }
 
     const targetUsers = Array.isArray(userIds) ? userIds : [userIds];
-    
-    targetUsers.forEach(userId => {
+
+    // Filter users based on their notification preferences
+    const filteredUsers = [];
+    for (const userId of targetUsers) {
+      const hasPermission = await this.checkUserNotificationPreferences(userId, notification.type);
+      if (hasPermission) {
+        filteredUsers.push(userId);
+      } else {
+        console.log(`Skipping notification for user ${userId} - preferences disabled for type: ${notification.type}`);
+      }
+    }
+
+    if (filteredUsers.length === 0) {
+      console.log('No users to notify after filtering by preferences');
+      return;
+    }
+
+    // Persist to database if requested (for offline delivery)
+    if (options.persistToDb) {
+      try {
+        await this.persistNotification(filteredUsers, notification);
+      } catch (error) {
+        console.error('Failed to persist notification to database:', error);
+      }
+    }
+
+    filteredUsers.forEach(userId => {
       const notificationData = {
         ...notification,
         timestamp: new Date().toISOString(),
@@ -69,16 +142,23 @@ class NotificationService extends EventEmitter {
       };
 
       if (this.isUserConnected(userId)) {
-        // User is online - send immediately via Socket.IO
+        // User is online - send immediately via Socket.IO and mark as delivered
         this.io.to(`user:${userId}`).emit('notification', notificationData);
+
+        // Mark as delivered in database
+        if (options.persistToDb) {
+          this.markAsDelivered(userId, notificationData).catch(err =>
+            console.error('Failed to mark notification as delivered:', err)
+          );
+        }
       } else {
-        // User is offline - queue notification
+        // User is offline - queue notification in memory as backup
         if (!this.notificationQueue.has(userId)) {
           this.notificationQueue.set(userId, []);
         }
-        
+
         this.notificationQueue.get(userId).push(notificationData);
-        
+
         // Limit queue size (keep only last 50 notifications)
         const queue = this.notificationQueue.get(userId);
         if (queue.length > 50) {
@@ -88,7 +168,52 @@ class NotificationService extends EventEmitter {
     });
 
     // Emit event for other services to listen
-    this.emit('notification_sent', { userIds: targetUsers, notification });
+    this.emit('notification_sent', { userIds: filteredUsers, notification });
+  }
+
+  /**
+   * Persist notification to database for offline users
+   * @param {Array} userIds - User IDs
+   * @param {object} notification - Notification data
+   */
+  async persistNotification(userIds, notification) {
+    const UserNotification = require('../models/UserNotification');
+
+    const notifications = userIds.map(userId => ({
+      user: userId,
+      type: notification.type || 'general',
+      title: notification.title,
+      message: notification.message,
+      data: notification.data || {},
+      delivered: false,
+      read: false
+    }));
+
+    await UserNotification.insertMany(notifications);
+  }
+
+  /**
+   * Mark notification as delivered for a user
+   * @param {string} userId - User ID
+   * @param {object} notificationData - Notification data
+   */
+  async markAsDelivered(userId, notificationData) {
+    const UserNotification = require('../models/UserNotification');
+
+    await UserNotification.updateOne(
+      {
+        user: userId,
+        title: notificationData.title,
+        message: notificationData.message,
+        delivered: false
+      },
+      {
+        $set: {
+          delivered: true,
+          deliveredAt: new Date()
+        }
+      }
+    );
   }
 
   /**

@@ -35,6 +35,19 @@ interface SupportTicket {
   message: string;
   status: 'open' | 'in_progress' | 'resolved' | 'closed';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
+  category?: string;
+  ticketNumber?: string;
+  attachments?: Array<{
+    filename: string;
+    url: string;
+    uploadedAt: string;
+  }>;
+  responses?: Array<{
+    message: string;
+    author: string;
+    isAdmin: boolean;
+    createdAt: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -155,7 +168,9 @@ class SubAdminService {
           };
         }
         
-        throw new Error(errorData.message || "An error occurred");
+        const error = new Error(errorData.message || "An error occurred");
+        (error as any).status = response.status;
+        throw error;
       }
 
       const contentType = response.headers.get('content-type');
@@ -256,7 +271,10 @@ class SubAdminService {
       );
       return res.data;
     } catch (error: any) {
-      throw new Error(error.message || 'Failed to update support ticket');
+      // Preserve the status code for locked tickets
+      const err = new Error(error.message || 'Failed to update support ticket');
+      (err as any).status = error.status;
+      throw err;
     }
   }
 

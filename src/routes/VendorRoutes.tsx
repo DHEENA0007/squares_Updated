@@ -103,6 +103,11 @@ const VendorRoutes = () => {
               <VendorProfile />
             </Suspense>
           } />
+          <Route path="settings" element={
+            <Suspense fallback={<div>Loading...</div>}>
+              <VendorProfile />
+            </Suspense>
+          } />
           <Route path="notifications" element={
             <Suspense fallback={<div>Loading...</div>}>
               <VendorNotifications />

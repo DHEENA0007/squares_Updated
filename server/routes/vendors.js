@@ -435,6 +435,27 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
   const vendor = req.vendor; // From requireVendorRole middleware
   const updateData = req.body;
 
+  // Helper to deeply clean undefined values from objects
+  const cleanUndefined = (obj) => {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+    
+    const cleaned = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value === undefined) continue;
+      
+      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+        const cleanedNested = cleanUndefined(value);
+        // Only add if nested object has properties
+        if (cleanedNested && Object.keys(cleanedNested).length > 0) {
+          cleaned[key] = cleanedNested;
+        }
+      } else {
+        cleaned[key] = value;
+      }
+    }
+    return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+  };
+
   // Get the associated user
   const user = await User.findById(vendor.user);
   if (!user) {
@@ -444,9 +465,18 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
     });
   }
 
+  // Clean the update data to remove undefined values
+  const cleanedUpdateData = cleanUndefined(updateData);
+  if (!cleanedUpdateData) {
+    return res.status(400).json({
+      success: false,
+      message: 'No valid data to update'
+    });
+  }
+
   // Handle profile updates - map frontend structure to backend models
-  if (updateData.profile) {
-    const { profile } = updateData;
+  if (cleanedUpdateData.profile) {
+    const { profile } = cleanedUpdateData;
 
     // Update user profile fields
     if (profile.firstName) user.profile.firstName = profile.firstName;
@@ -457,27 +487,61 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
 
     // Handle preferences update with proper defaults
     if (profile.preferences) {
-      // Ensure privacy object exists with defaults
-      const defaultPrivacy = {
-        showEmail: false,
-        showPhone: false,
-        allowMessages: true
-      };
+      // Initialize preferences if it doesn't exist
+      if (!user.profile.preferences) {
+        user.profile.preferences = {};
+      }
 
-      // Merge preferences while ensuring privacy is never undefined
-      user.profile.preferences = {
-        ...user.profile.preferences,
-        ...profile.preferences,
-        privacy: {
+      // Only update the nested objects that are actually provided
+      // Don't create or touch privacy/security if they're not in the update
+      if (profile.preferences.notifications) {
+        user.profile.preferences.notifications = {
+          ...(user.profile.preferences.notifications || {}),
+          ...profile.preferences.notifications
+        };
+      }
+
+      if (profile.preferences.privacy) {
+        const defaultPrivacy = {
+          showEmail: false,
+          showPhone: false,
+          allowMessages: true,
+          showActivity: true,
+          dataCollection: true,
+          marketingConsent: false,
+          thirdPartySharing: false
+        };
+        user.profile.preferences.privacy = {
           ...defaultPrivacy,
-          ...(user.profile.preferences?.privacy || {}),
-          ...(profile.preferences.privacy || {})
-        }
-      };
+          ...(user.profile.preferences.privacy || {}),
+          ...profile.preferences.privacy
+        };
+      }
+
+      if (profile.preferences.security) {
+        const defaultSecurity = {
+          twoFactorEnabled: false,
+          loginAlerts: true,
+          sessionTimeout: '30'
+        };
+        user.profile.preferences.security = {
+          ...defaultSecurity,
+          ...(user.profile.preferences.security || {}),
+          ...profile.preferences.security
+        };
+      }
+
+      // Update any other preferences fields that might exist
+      const { notifications, privacy, security, ...otherPrefs } = profile.preferences;
+      Object.assign(user.profile.preferences, otherPrefs);
     }
 
     // Update user address
-    if (profile.address) {
+    if (profile.address && typeof profile.address === 'object') {
+      // Initialize address if it doesn't exist
+      if (!user.profile.address) {
+        user.profile.address = {};
+      }
       user.profile.address = { ...user.profile.address, ...profile.address };
 
       // Also update vendor office address
@@ -2736,16 +2800,22 @@ router.get('/analytics/overview', requireVendorRole, asyncHandler(async (req, re
       }).select('price')
     ]);
 
-    const prevTotalRevenue = prevSoldProps.reduce((sum, prop) => {
-      const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
-      return sum + (isNaN(price) ? 0 : price);
-    }, 0) + prevLeasedProps.reduce((sum, prop) => {
-      const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
-      return sum + (isNaN(price) ? 0 : price);
-    }, 0) + prevRentedProps.reduce((sum, prop) => {
+    const prevSoldRevenue = prevSoldProps.reduce((sum, prop) => {
       const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
       return sum + (isNaN(price) ? 0 : price);
     }, 0);
+
+    const prevLeasedRevenue = prevLeasedProps.reduce((sum, prop) => {
+      const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
+      return sum + (isNaN(price) ? 0 : price);
+    }, 0);
+
+    const prevRentedRevenue = prevRentedProps.reduce((sum, prop) => {
+      const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
+      return sum + (isNaN(price) ? 0 : price);
+    }, 0);
+
+    const prevTotalRevenue = prevSoldRevenue + prevLeasedRevenue + prevRentedRevenue;
 
     const prevViews = previousViews;
     const prevLeads = previousLeads;
@@ -2760,6 +2830,14 @@ router.get('/analytics/overview', requireVendorRole, asyncHandler(async (req, re
       (totalProperties > 0 ? 100 : 0);
     const revenueGrowth = prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue * 100) :
       (totalRevenue > 0 ? 100 : 0);
+
+    // Calculate individual revenue growth
+    const soldRevenueGrowth = prevSoldRevenue > 0 ? ((soldPropertyRevenue - prevSoldRevenue) / prevSoldRevenue * 100) :
+      (soldPropertyRevenue > 0 ? 100 : 0);
+    const leasedRevenueGrowth = prevLeasedRevenue > 0 ? ((leasedPropertyRevenue - prevLeasedRevenue) / prevLeasedRevenue * 100) :
+      (leasedPropertyRevenue > 0 ? 100 : 0);
+    const rentedRevenueGrowth = prevRentedRevenue > 0 ? ((rentedPropertyRevenue - prevRentedRevenue) / prevRentedRevenue * 100) :
+      (rentedPropertyRevenue > 0 ? 100 : 0);
 
     // Calculate conversion rate
     const conversionRate = currentViews > 0 ? ((currentLeads / currentViews) * 100) : 0;
@@ -2821,6 +2899,21 @@ router.get('/analytics/overview', requireVendorRole, asyncHandler(async (req, re
           current: totalRevenue,
           previous: prevTotalRevenue,
           growth: Math.round(revenueGrowth * 10) / 10
+        },
+        soldRevenue: {
+          current: soldPropertyRevenue,
+          previous: prevSoldRevenue,
+          growth: Math.round(soldRevenueGrowth * 10) / 10
+        },
+        leasedRevenue: {
+          current: leasedPropertyRevenue,
+          previous: prevLeasedRevenue,
+          growth: Math.round(leasedRevenueGrowth * 10) / 10
+        },
+        rentedRevenue: {
+          current: rentedPropertyRevenue,
+          previous: prevRentedRevenue,
+          growth: Math.round(rentedRevenueGrowth * 10) / 10
         }
       },
       chartData: {
@@ -2904,8 +2997,11 @@ router.get('/analytics/performance', requireVendorRole, asyncHandler(async (req,
       createdAt: { $gte: startDate }
     }).lean();
 
-    // Build property performance data
-    const propertyPerformance = properties.map(property => {
+    // Get Favorite model
+    const Favorite = require('../models/Favorite');
+
+    // Build property performance data with favorites and revenue
+    const propertyPerformance = await Promise.all(properties.map(async property => {
       const propertyMessages = messages.filter(msg =>
         msg.property && msg.property.toString() === property._id.toString()
       );
@@ -2914,20 +3010,41 @@ router.get('/analytics/performance', requireVendorRole, asyncHandler(async (req,
         ['inquiry', 'lead', 'property_inquiry'].includes(msg.type)
       );
 
+      // Get favorites count for this property
+      const favoritesCount = await Favorite.countDocuments({ property: property._id });
+
       const views = property.views || 0;
       const leadsCount = leads.length;
       const conversionRate = views > 0 ? (leadsCount / views) * 100 : 0;
 
+      // Calculate revenue based on property status
+      let revenue = 0;
+      if (['sold', 'rented', 'leased'].includes(property.status)) {
+        // Parse price - handle both number and string formats
+        const priceValue = typeof property.price === 'number'
+          ? property.price
+          : parseFloat(property.price?.toString().replace(/[^0-9.]/g, '') || '0');
+        revenue = isNaN(priceValue) ? 0 : priceValue;
+      }
+
       return {
         propertyId: property._id,
         title: property.title,
+        status: property.status,
         views,
         leads: leadsCount,
         inquiries: propertyMessages.length,
         conversionRate: Math.round(conversionRate * 100) / 100,
-        revenue: 0
+        revenue,
+        favorites: favoritesCount
       };
-    }).sort((a, b) => b.views - a.views);
+    }));
+
+    // Sort by revenue first, then by views
+    propertyPerformance.sort((a, b) => {
+      if (b.revenue !== a.revenue) return b.revenue - a.revenue;
+      return b.views - a.views;
+    });
 
     // Get lead sources data
     const leadSourcesMap = {};

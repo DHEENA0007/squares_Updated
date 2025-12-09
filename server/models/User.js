@@ -98,13 +98,27 @@ const userSchema = new mongoose.Schema({
         email: { type: Boolean, default: true },
         sms: { type: Boolean, default: false },
         push: { type: Boolean, default: true },
+        propertyAlerts: { type: Boolean, default: true },
+        priceDrops: { type: Boolean, default: true },
+        newMessages: { type: Boolean, default: true },
+        newsUpdates: { type: Boolean, default: false },
         desktop: { type: Boolean, default: true },
         sound: { type: Boolean, default: true },
         typing: { type: Boolean, default: true }
       },
       privacy: {
         showEmail: { type: Boolean, default: false },
-        showPhone: { type: Boolean, default: false }
+        showPhone: { type: Boolean, default: false },
+        showActivity: { type: Boolean, default: true },
+        dataCollection: { type: Boolean, default: true },
+        marketingConsent: { type: Boolean, default: false },
+        thirdPartySharing: { type: Boolean, default: false },
+        allowMessages: { type: Boolean, default: true }
+      },
+      security: {
+        twoFactorEnabled: { type: Boolean, default: false },
+        loginAlerts: { type: Boolean, default: true },
+        sessionTimeout: { type: String, default: '30' }
       }
     }
   },

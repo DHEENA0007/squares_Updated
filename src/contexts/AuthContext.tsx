@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '@/services/authService';
 import { toast } from '@/components/ui/use-toast';
+import { notificationService } from '@/services/notificationService';
 
 interface User {
   id: string;
@@ -60,6 +61,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(userData);
           // Update localStorage with fresh data
           localStorage.setItem('user', JSON.stringify(userData));
+
+          // Process pending notifications for offline users
+          notificationService.processPendingNotifications().catch(err => {
+            console.error('Failed to process pending notifications:', err);
+          });
         } else {
           authService.logout();
         }
@@ -98,6 +104,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.success && response.data?.user) {
         const userData = response.data.user;
         setUser(userData);
+
+        // Process pending notifications after successful login
+        notificationService.processPendingNotifications().catch(err => {
+          console.error('Failed to process pending notifications:', err);
+        });
+
         return { success: true };
       }
       return { success: false, error: response.message || 'Login failed' };
@@ -135,7 +147,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const isAuthenticated = !!user;
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'subadmin' || (user?.rolePermissions && user.rolePermissions.length > 0);
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isSuperAdmin = user?.role === 'superadmin';
   const isSubAdmin = user?.role === 'subadmin';
   const isVendor = user?.role === 'agent';

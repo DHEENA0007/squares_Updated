@@ -41,6 +41,19 @@ const supportTicketSchema = new mongoose.Schema({
     ref: 'User',
     default: null
   },
+  assignedAt: {
+    type: Date,
+    default: null
+  },
+  lockedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  lockedAt: {
+    type: Date,
+    default: null
+  },
   responses: [{
     message: {
       type: String,
@@ -49,6 +62,10 @@ const supportTicketSchema = new mongoose.Schema({
     author: {
       type: String,
       required: true
+    },
+    authorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
     },
     isAdmin: {
       type: Boolean,

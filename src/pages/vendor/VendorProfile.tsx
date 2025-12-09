@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,13 +74,16 @@ interface BusinessSettings {
 
 const VendorProfilePage: React.FC = () => {
   const isMobile = useIsMobile();
+  const location = useLocation();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [vendorData, setVendorData] = useState<VendorProfile | null>(null);
   const [formData, setFormData] = useState<VendorProfile | null>(null);
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState(() => {
+    return location.pathname.includes('/settings') ? "settings" : "profile";
+  });
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -160,6 +164,15 @@ const VendorProfilePage: React.FC = () => {
     init();
   }, []);
 
+  // Watch for URL changes and update active tab
+  useEffect(() => {
+    if (location.pathname.includes('/settings')) {
+      setActiveTab("settings");
+    } else if (location.pathname.includes('/profile')) {
+      setActiveTab("profile");
+    }
+  }, [location.pathname]);
+
   // Load districts when state changes
   useEffect(() => {
     if (!formData?.profile?.address?.state) {
@@ -224,7 +237,7 @@ const VendorProfilePage: React.FC = () => {
       setVendorData(profileWithDefaults);
       setFormData(profileWithDefaults);
       
-      // Update localStorage with the full vendor profile so updateVendorProfile can access the user ID
+      // Update user in localStorage for authentication
       localStorage.setItem("user", JSON.stringify(profileWithDefaults));
     } catch (error) {
       console.error("Failed to load vendor profile:", error);
@@ -261,53 +274,39 @@ const VendorProfilePage: React.FC = () => {
     }
   };
 
-  // Load vendor settings
+  // Load vendor settings from server only (no localStorage)
   const loadVendorSettings = async () => {
     try {
-      const savedSettings = localStorage.getItem('vendorSettings');
-      if (savedSettings) {
-        const parsedSettings = JSON.parse(savedSettings);
-        setVendorSettings(prevSettings => ({
-          ...prevSettings,
-          ...parsedSettings
-        }));
-      }
-      
-      try {
-        const response = await vendorService.getVendorProfile();
-        if (response && response.profile.vendorInfo?.vendorPreferences) {
-          const apiPrefs = response.profile.vendorInfo.vendorPreferences;
-          
-          const mergedSettings: VendorSettingsConfig = {
-            notifications: { 
-              email: response.profile?.preferences?.notifications?.email || vendorSettings.notifications.email,
-              push: response.profile?.preferences?.notifications?.push || vendorSettings.notifications.push,
-              newMessages: response.profile?.preferences?.notifications?.newMessages || vendorSettings.notifications.newMessages,
-              newsUpdates: response.profile?.preferences?.notifications?.newsUpdates || vendorSettings.notifications.newsUpdates,
-              marketing: response.profile?.preferences?.notifications?.marketing || vendorSettings.notifications.marketing
-            },
-            business: {
-              emailNotifications: apiPrefs.emailNotifications || vendorSettings.business.emailNotifications,
-              smsNotifications: apiPrefs.smsNotifications || vendorSettings.business.smsNotifications,
-              leadAlerts: apiPrefs.leadAlerts || vendorSettings.business.leadAlerts,
-              marketingEmails: apiPrefs.marketingEmails || vendorSettings.business.marketingEmails,
-              weeklyReports: apiPrefs.weeklyReports || vendorSettings.business.weeklyReports,
-              autoResponseEnabled: apiPrefs.autoResponseEnabled || vendorSettings.business.autoResponseEnabled,
-              autoResponseMessage: apiPrefs.autoResponseMessage || vendorSettings.business.autoResponseMessage
-            }
-          };
-          
-          setVendorSettings(mergedSettings);
-          localStorage.setItem('vendorSettings', JSON.stringify(mergedSettings));
-        }
-      } catch (apiError) {
-        console.log("Using local settings - API unavailable");
+      const response = await vendorService.getVendorProfile();
+      if (response && response.profile.vendorInfo?.vendorPreferences) {
+        const apiPrefs = response.profile.vendorInfo.vendorPreferences;
+        
+        const serverSettings: VendorSettingsConfig = {
+          notifications: { 
+            email: response.profile?.preferences?.notifications?.email ?? true,
+            push: response.profile?.preferences?.notifications?.push ?? true,
+            newMessages: response.profile?.preferences?.notifications?.newMessages ?? true,
+            newsUpdates: response.profile?.preferences?.notifications?.newsUpdates ?? true,
+            marketing: response.profile?.preferences?.notifications?.marketing ?? true
+          },
+          business: {
+            emailNotifications: apiPrefs.emailNotifications ?? true,
+            smsNotifications: apiPrefs.smsNotifications ?? true,
+            leadAlerts: apiPrefs.leadAlerts ?? true,
+            marketingEmails: apiPrefs.marketingEmails ?? false,
+            weeklyReports: apiPrefs.weeklyReports ?? true,
+            autoResponseEnabled: apiPrefs.autoResponseEnabled ?? false,
+            autoResponseMessage: apiPrefs.autoResponseMessage || 'Thank you for your interest! I will get back to you soon.'
+          }
+        };
+        
+        setVendorSettings(serverSettings);
       }
     } catch (error) {
       console.error("Settings load failed:", error);
       toast({
-        title: "Settings Loaded",
-        description: "Using saved settings.",
+        title: "Settings Load Failed",
+        description: "Using default settings. Changes will be saved to server.",
         variant: "default"
       });
     }
@@ -328,7 +327,9 @@ const VendorProfilePage: React.FC = () => {
       }
 
       try {
-        const profileUpdate = {
+        // Build update object with only the fields we're actually updating
+        // Avoid sending partial nested objects that might have undefined siblings
+        const profileUpdate: any = {
           profile: {
             preferences: {
               notifications: {
@@ -338,6 +339,7 @@ const VendorProfilePage: React.FC = () => {
                 newsUpdates: vendorSettings.notifications.newsUpdates,
                 marketing: vendorSettings.notifications.marketing
               }
+              // Explicitly NOT including privacy or security to avoid Mongoose casting errors
             },
             vendorInfo: {
               vendorPreferences: {
@@ -350,26 +352,25 @@ const VendorProfilePage: React.FC = () => {
                 autoResponseMessage: vendorSettings.business.autoResponseMessage
               }
             }
+            // Explicitly NOT including address to avoid Mongoose casting errors
           }
         };
 
         await vendorService.updateVendorProfile(profileUpdate);
-        localStorage.setItem('vendorSettings', JSON.stringify(vendorSettings));
         setLastSyncTime(new Date().toISOString());
         
         toast({
           title: "Settings Saved",
-          description: "Your preferences have been updated",
+          description: "Your preferences have been updated on the server",
         });
         
       } catch (apiError) {
         console.error('Failed to save settings:', apiError);
-        localStorage.setItem('vendorSettings', JSON.stringify(vendorSettings));
         
         toast({
-          title: "Settings Saved",
-          description: "Your preferences have been saved",
-          variant: "default"
+          title: "Save Failed",
+          description: "Unable to save settings to server. Please try again.",
+          variant: "destructive"
         });
       }
     } catch (error: any) {

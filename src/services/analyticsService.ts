@@ -61,6 +61,7 @@ export interface PerformanceMetrics {
   propertyPerformance: Array<{
     propertyId: string;
     title: string;
+    status: string;
     views: number;
     leads: number;
     conversionRate: number;

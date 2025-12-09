@@ -22,15 +22,13 @@ const UnifiedProfileDropdown = () => {
     !['superadmin', 'admin', 'subadmin', 'agent', 'customer'].includes(user.role.toLowerCase());
 
   const getRoleBasedPath = (path: string) => {
-    // Check custom role FIRST before checking isAdmin
-    // Because isAdmin returns true for users with rolePermissions
+    // Check roles in priority order
+    // Vendor check MUST come before admin checks since agents might have admin-like permissions
+    if (isVendor) return `/vendor/${path}`;
     if (isCustomRole) return `/rolebased/${path}`;
-    
-    // Then check default roles
     if (isSuperAdmin) return `/admin/${path}`;
     if (isSubAdmin) return `/subadmin/${path}`;
     if (isAdmin) return `/admin/${path}`;
-    if (isVendor) return `/vendor/${path}`;
     return `/customer/${path}`;
   };
 

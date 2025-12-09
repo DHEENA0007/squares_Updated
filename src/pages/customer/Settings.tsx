@@ -70,6 +70,7 @@ const CustomerSettings = () => {
   const [saving, setSaving] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   // Consolidated settings state - removed profile data overlap
   const [settings, setSettings] = useState<SettingsConfig>({
@@ -129,72 +130,65 @@ const CustomerSettings = () => {
 
   // Auto-save when settings change
   useEffect(() => {
-    if (settings.preferences.autoSave && !loading) {
+    if (settings.preferences.autoSave && !loading && !isInitialLoad) {
       const timeoutId = setTimeout(() => {
         saveSettings();
       }, 1500);
 
       return () => clearTimeout(timeoutId);
     }
-  }, [settings, loading]);
+  }, [settings, loading, isInitialLoad]);
 
   // Load settings on component mount
   const loadSettings = async () => {
     try {
       setLoading(true);
-      
-      // Load from local storage first
-      const savedSettings = localStorage.getItem('userSettings');
-      if (savedSettings) {
-        const parsedSettings = JSON.parse(savedSettings);
-        setSettings(prevSettings => ({
-          ...prevSettings,
-          ...parsedSettings,
+
+      // Fetch directly from server
+      const response = await userService.getCurrentUser();
+      if (response.success && response.data.user.profile?.preferences) {
+        const apiPrefs = response.data.user.profile.preferences as any;
+
+        // Load server data directly
+        const serverSettings: SettingsConfig = {
+          notifications: {
+            email: apiPrefs.notifications?.email ?? true,
+            push: apiPrefs.notifications?.push ?? true,
+            propertyAlerts: apiPrefs.notifications?.propertyAlerts ?? true,
+            priceDrops: apiPrefs.notifications?.priceDrops ?? true,
+            newMessages: apiPrefs.notifications?.newMessages ?? true,
+            newsUpdates: apiPrefs.notifications?.newsUpdates ?? false
+          },
+          privacy: {
+            allowMessages: apiPrefs.privacy?.allowMessages ?? true,
+            showActivity: apiPrefs.privacy?.showActivity ?? true,
+            dataCollection: apiPrefs.privacy?.dataCollection ?? true,
+            marketingConsent: apiPrefs.privacy?.marketingConsent ?? false,
+            thirdPartySharing: apiPrefs.privacy?.thirdPartySharing ?? false
+          },
+          security: {
+            twoFactorEnabled: apiPrefs.security?.twoFactorEnabled ?? false,
+            loginAlerts: apiPrefs.security?.loginAlerts ?? true,
+            sessionTimeout: apiPrefs.security?.sessionTimeout ?? '30'
+          },
           preferences: {
-            ...parsedSettings.preferences
+            autoSave: apiPrefs.autoSave ?? true,
+            theme: apiPrefs.theme || theme || "system"
           }
-        }));
-        setTheme(parsedSettings.preferences?.theme || theme);
-      }
-      
-      // Fetch from server if connected
-      try {
-        const response = await userService.getCurrentUser();
-        if (response.success && response.data.user.profile?.preferences) {
-          const apiPrefs = response.data.user.profile.preferences as any;
-          
-          // Merge server data with local settings
-          const mergedSettings: SettingsConfig = {
-            notifications: { 
-              ...settings.notifications, 
-              ...(apiPrefs.notifications || {})
-            },
-            privacy: { 
-              ...settings.privacy,
-              ...(apiPrefs.privacy || {})
-            },
-            security: { 
-              ...settings.security,
-              ...(apiPrefs.security || {})
-            },
-            preferences: { 
-              ...settings.preferences,
-              theme: apiPrefs.theme || settings.preferences.theme
-            }
-          };
-          
-          setSettings(mergedSettings);
-          localStorage.setItem('userSettings', JSON.stringify(mergedSettings));
-        }
-      } catch (apiError) {
-        console.log("Using local settings - server unavailable");
+        };
+
+        setSettings(serverSettings);
+        setTheme(serverSettings.preferences.theme);
+
+        // Mark initial load as complete after a short delay
+        setTimeout(() => setIsInitialLoad(false), 2000);
       }
     } catch (error) {
       console.error("Settings load failed:", error);
       toast({
-        title: "Settings Loaded Locally",
-        description: "Using saved settings. Will update when connection is restored.",
-        variant: "default"
+        title: "Error Loading Settings",
+        description: "Failed to load settings from server. Please try again.",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -242,7 +236,13 @@ const CustomerSettings = () => {
               showActivity: settings.privacy.showActivity,
               dataCollection: settings.privacy.dataCollection,
               marketingConsent: settings.privacy.marketingConsent,
-              thirdPartySharing: settings.privacy.thirdPartySharing
+              thirdPartySharing: settings.privacy.thirdPartySharing,
+              allowMessages: settings.privacy.allowMessages
+            },
+            security: {
+              twoFactorEnabled: settings.security.twoFactorEnabled,
+              loginAlerts: settings.security.loginAlerts,
+              sessionTimeout: settings.security.sessionTimeout
             },
             autoSave: settings.preferences.autoSave
           }
@@ -255,29 +255,20 @@ const CustomerSettings = () => {
       }
 
       // Save to server
-      try {
-        const response = await userService.updateUserPreferences(settingsData);
-        
-        if (response.success) {
-          // Save local copy for offline access
-          localStorage.setItem('userSettings', JSON.stringify(settings));
-          setLastSyncTime(new Date().toISOString());
-          
+      const response = await userService.updateUserPreferences(settingsData);
+
+      if (response.success) {
+        setLastSyncTime(new Date().toISOString());
+
+        // Only show toast if it's a manual save (not auto-save)
+        if (!settings.preferences.autoSave) {
           toast({
-            title: "✅ Settings Saved",
+            title: "Settings Saved",
             description: "Your preferences have been updated successfully."
           });
-        } else {
-          throw new Error("Failed to save settings");
         }
-      } catch (apiError) {
-        // Save locally when offline
-        localStorage.setItem('userSettings', JSON.stringify(settings));
-        toast({
-          title: "Saved Locally",
-          description: "Settings saved on your device. Will update when you're back online.",
-          variant: "default"
-        });
+      } else {
+        throw new Error("Failed to save settings");
       }
     } catch (error: any) {
       toast({
@@ -477,18 +468,14 @@ const CustomerSettings = () => {
       </div>
 
       <Tabs defaultValue="notifications" className="space-y-6">
-        <TabsList className={`grid w-full grid-cols-3 ${isMobile ? 'gap-1' : 'gap-2'}`}>
+        <TabsList className={`grid w-full grid-cols-2 ${isMobile ? 'gap-1' : 'gap-2'}`}>
           <TabsTrigger value="notifications" className={`flex items-center gap-2 ${isMobile ? 'text-xs' : ''}`}>
             <Bell className="w-4 h-4" />
             {isMobile ? 'Notifs' : 'Notifications'}
           </TabsTrigger>
-          <TabsTrigger value="privacy" className={`flex items-center gap-2 ${isMobile ? 'text-xs' : ''}`}>
-            <Lock className="w-4 h-4" />
-            Privacy
-          </TabsTrigger>
-          <TabsTrigger value="security" className={`flex items-center gap-2 ${isMobile ? 'text-xs' : ''}`}>
+          <TabsTrigger value="privacy-security" className={`flex items-center gap-2 ${isMobile ? 'text-xs' : ''}`}>
             <Shield className="w-4 h-4" />
-            Security
+            {isMobile ? 'Privacy' : 'Privacy & Security'}
           </TabsTrigger>
         </TabsList>
 
@@ -540,8 +527,9 @@ const CustomerSettings = () => {
           />
         </TabsContent>
 
-        {/* Privacy Tab */}
-        <TabsContent value="privacy" className="space-y-6">
+        {/* Privacy & Security Tab (Combined) */}
+        <TabsContent value="privacy-security" className="space-y-6">
+          {/* Privacy Settings Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -573,13 +561,6 @@ const CustomerSettings = () => {
                     description: 'Promotional emails and marketing content',
                     value: settings.privacy.marketingConsent
                   }
-                  // Commented out: Third-Party Sharing
-                  // {
-                  //   key: 'thirdPartySharing',
-                  //   title: 'Third-Party Sharing',
-                  //   description: 'Anonymous data sharing with partners',
-                  //   value: settings.privacy.thirdPartySharing
-                  // }
                 ].map((item, index) => (
                   <div key={item.key}>
                     <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-center justify-between'} py-2`}>
@@ -628,10 +609,8 @@ const CustomerSettings = () => {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* Security Tab */}
-        <TabsContent value="security" className="space-y-6">
+          {/* Security Settings */}
           <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
             {/* Security Settings Card */}
             <Card>

@@ -190,7 +190,7 @@ class VendorService {
     }
   }
 
-  // Helper function to recursively remove undefined values from objects
+  // Helper function to recursively remove undefined values and ensure nested objects are valid
   private cleanObject(obj: any): any {
     if (obj === null || typeof obj !== 'object') {
       return obj;
@@ -202,11 +202,27 @@ class VendorService {
 
     const cleaned: any = {};
     for (const [key, value] of Object.entries(obj)) {
+      // Skip undefined values completely
+      if (value === undefined) {
+        continue;
+      }
+      
       const cleanedValue = this.cleanObject(value);
+      
+      // Only add if cleanedValue is not undefined and not an empty object
       if (cleanedValue !== undefined) {
-        cleaned[key] = cleanedValue;
+        // For objects, check if they have any keys
+        if (typeof cleanedValue === 'object' && !Array.isArray(cleanedValue)) {
+          if (Object.keys(cleanedValue).length > 0) {
+            cleaned[key] = cleanedValue;
+          }
+        } else {
+          cleaned[key] = cleanedValue;
+        }
       }
     }
+    
+    // Return undefined for empty objects instead of {}
     return Object.keys(cleaned).length > 0 ? cleaned : undefined;
   }
 

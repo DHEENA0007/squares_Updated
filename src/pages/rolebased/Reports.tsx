@@ -123,7 +123,7 @@ const RoleBasedReports = () => {
 
       // Fetch user activity report from backend
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/user-activity/report?timeRange=${timeRange}`,
+        `${import.meta.env.VITE_API_URL}/user-activity/report?timeRange=${timeRange}`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,

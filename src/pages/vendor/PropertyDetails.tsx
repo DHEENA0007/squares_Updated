@@ -279,21 +279,27 @@ const PropertyDetails = () => {
                     <p className="text-sm text-muted-foreground">Bedrooms</p>
                   </div>
                 )}
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <Bath className="w-6 h-6 mx-auto mb-2 text-primary" />
-                  <p className="text-2xl font-bold">{property.bathrooms}</p>
-                  <p className="text-sm text-muted-foreground">Bathrooms</p>
-                </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <Maximize className="w-6 h-6 mx-auto mb-2 text-primary" />
-                  <p className="text-2xl font-bold">{propertyService.formatArea(property.area).split(' ')[0]}</p>
-                  <p className="text-sm text-muted-foreground">Sq Ft</p>
-                </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <Building2 className="w-6 h-6 mx-auto mb-2 text-primary" />
-                  <p className="text-2xl font-bold capitalize">{property.type}</p>
-                  <p className="text-sm text-muted-foreground">Type</p>
-                </div>
+                {property.bathrooms > 0 && (
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <Bath className="w-6 h-6 mx-auto mb-2 text-primary" />
+                    <p className="text-2xl font-bold">{property.bathrooms}</p>
+                    <p className="text-sm text-muted-foreground">Bathrooms</p>
+                  </div>
+                )}
+                {propertyService.hasValidArea(property.area) && (
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <Maximize className="w-6 h-6 mx-auto mb-2 text-primary" />
+                    <p className="text-2xl font-bold">{propertyService.formatArea(property.area).split(' ')[0]}</p>
+                    <p className="text-sm text-muted-foreground">Sq Ft</p>
+                  </div>
+                )}
+                {property.type && (
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <Building2 className="w-6 h-6 mx-auto mb-2 text-primary" />
+                    <p className="text-2xl font-bold capitalize">{property.type}</p>
+                    <p className="text-sm text-muted-foreground">Type</p>
+                  </div>
+                )}
               </div>
 
               {property.description && (
@@ -315,28 +321,38 @@ const PropertyDetails = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Property Type:</span>
-                    <span className="font-medium capitalize">{property.type}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Listing Type:</span>
-                    <span className="font-medium capitalize">{property.listingType}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Bedrooms:</span>
-                    <span className="font-medium">{property.bedrooms}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Bathrooms:</span>
-                    <span className="font-medium">{property.bathrooms}</span>
-                  </div>
+                  {property.type && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Property Type:</span>
+                      <span className="font-medium capitalize">{property.type}</span>
+                    </div>
+                  )}
+                  {property.listingType && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Listing Type:</span>
+                      <span className="font-medium capitalize">{property.listingType}</span>
+                    </div>
+                  )}
+                  {property.bedrooms > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Bedrooms:</span>
+                      <span className="font-medium">{property.bedrooms}</span>
+                    </div>
+                  )}
+                  {property.bathrooms > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Bathrooms:</span>
+                      <span className="font-medium">{property.bathrooms}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Area:</span>
-                    <span className="font-medium">{propertyService.formatArea(property.area)}</span>
-                  </div>
+                  {propertyService.hasValidArea(property.area) && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Area:</span>
+                      <span className="font-medium">{propertyService.formatArea(property.area)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Status:</span>
                     <span className="font-medium capitalize">{property.status}</span>

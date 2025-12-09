@@ -807,7 +807,11 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
     }
   }
 
-  // Generate JWT token
+  // Get user's session timeout preference (in minutes, default 30)
+  const sessionTimeout = user.profile?.preferences?.security?.sessionTimeout || '30';
+  const timeoutMinutes = sessionTimeout === '0' ? 7 * 24 * 60 : parseInt(sessionTimeout); // 0 = never expire (7 days)
+
+  // Generate JWT token with user's preferred session timeout
   const token = jwt.sign(
     {
       userId: user._id,
@@ -815,16 +819,50 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
       role: user.role
     },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    { expiresIn: sessionTimeout === '0' ? '7d' : `${timeoutMinutes}m` }
   );
 
-  // Set secure cookie
+  // Set secure cookie with matching expiration
+  const cookieExpiryMs = sessionTimeout === '0' ? 7 * 24 * 60 * 60 * 1000 : timeoutMinutes * 60 * 1000;
   const cookieOptions = {
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    expires: new Date(Date.now() + cookieExpiryMs),
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax'
   };
+
+  // Send login alert if enabled in user preferences
+  const loginAlertsEnabled = user.profile?.preferences?.security?.loginAlerts;
+  if (loginAlertsEnabled) {
+    try {
+      const { sendEmail } = require('../utils/emailService');
+      const requestIp = req.ip || req.connection.remoteAddress || 'Unknown';
+      const userAgent = req.get('user-agent') || 'Unknown Device';
+
+      // Send login alert email (non-blocking)
+      sendEmail({
+        to: user.email,
+        template: 'login-alert',
+        data: {
+          firstName: user.profile?.firstName || 'User',
+          loginDate: new Date().toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          device: userAgent,
+          location: 'India', // Can be enhanced with IP geolocation
+          ipAddress: requestIp,
+          secureAccountLink: `${process.env.CLIENT_URL}/customer/settings`
+        }
+      }).catch(err => console.error('Failed to send login alert:', err));
+    } catch (error) {
+      console.error('Error sending login alert:', error);
+    }
+  }
 
   res.cookie('token', token, cookieOptions);
 

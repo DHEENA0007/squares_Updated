@@ -195,13 +195,8 @@ const VendorAnalytics = () => {
       const sortedProperties = [...performanceMetrics.propertyPerformance].sort((a, b) => (b.revenue || 0) - (a.revenue || 0));
 
       sortedProperties.forEach((property, index) => {
-        // Determine property status based on revenue and conversion rate
-        let status = 'Available';
-        if ((property.revenue || 0) > 0) {
-          if (property.conversionRate && property.conversionRate > 50) status = 'Sold';
-          else if (property.conversionRate && property.conversionRate > 20) status = 'Leased';
-          else status = 'Rented';
-        }
+        // Use actual property status
+        const status = property.status ? property.status.charAt(0).toUpperCase() + property.status.slice(1) : 'Pending';
 
         // Calculate engagement score (weighted combination of metrics)
         const engagementScore = ((property.views || 0) * 0.4 + (property.favorites || 0) * 0.3 + (property.conversionRate || 0) * 0.3).toFixed(1);
@@ -496,20 +491,29 @@ const VendorAnalytics = () => {
       const sortedProperties = [...performanceMetrics.propertyPerformance].sort((a, b) => (b.revenue || 0) - (a.revenue || 0));
 
       sortedProperties.forEach((property, index) => {
-        // Determine property status with better logic
-        let status = 'Available';
+        // Use actual property status
+        const status = property.status ? property.status.charAt(0).toUpperCase() + property.status.slice(1) : 'Pending';
+
+        // Determine status color based on actual status
         let statusColor = colors.dark;
-        if ((property.revenue || 0) > 0) {
-          if (property.conversionRate && property.conversionRate > 50) {
-            status = 'Sold';
+        switch (property.status?.toLowerCase()) {
+          case 'sold':
             statusColor = colors.success;
-          } else if (property.conversionRate && property.conversionRate > 20) {
-            status = 'Leased';
+            break;
+          case 'leased':
             statusColor = colors.warning;
-          } else {
-            status = 'Rented';
+            break;
+          case 'rented':
             statusColor = colors.secondary;
-          }
+            break;
+          case 'available':
+            statusColor = colors.primary;
+            break;
+          case 'rejected':
+            statusColor = colors.danger;
+            break;
+          default:
+            statusColor = colors.dark;
         }
 
         propertyData.push([
@@ -659,6 +663,9 @@ const VendorAnalytics = () => {
     const leadsChange = formatChange(stats.trends?.leads?.growth);
     const propertiesChange = formatChange(stats.trends?.properties?.growth);
     const revenueChange = formatChange(stats.trends?.revenue?.growth);
+    const soldRevenueChange = formatChange(stats.trends?.soldRevenue?.growth);
+    const leasedRevenueChange = formatChange(stats.trends?.leasedRevenue?.growth);
+    const rentedRevenueChange = formatChange(stats.trends?.rentedRevenue?.growth);
 
     return [
     {
@@ -704,24 +711,24 @@ const VendorAnalytics = () => {
     {
       title: "Sold Properties",
       value: `₹${analyticsService.formatNumber(stats.soldPropertyRevenue)}`,
-      change: revenueChange.change,
-      changeType: revenueChange.changeType,
+      change: soldRevenueChange.change,
+      changeType: soldRevenueChange.changeType,
       icon: Star,
       description: "Revenue from sold properties"
     },
     {
       title: "Leased Properties",
       value: `₹${analyticsService.formatNumber(stats.leasedPropertyRevenue)}`,
-      change: revenueChange.change,
-      changeType: revenueChange.changeType,
+      change: leasedRevenueChange.change,
+      changeType: leasedRevenueChange.changeType,
       icon: Star,
       description: "Revenue from leased properties"
     },
     {
       title: "Rented Properties",
       value: `₹${analyticsService.formatNumber(stats.rentedPropertyRevenue)}`,
-      change: revenueChange.change,
-      changeType: revenueChange.changeType,
+      change: rentedRevenueChange.change,
+      changeType: rentedRevenueChange.changeType,
       icon: Star,
       description: "Revenue from rented properties"
     },
@@ -1328,8 +1335,8 @@ const VendorAnalytics = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`text-xs font-semibold inline-block py-1 px-2 rounded-full ${property.revenue && property.revenue > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                            {property.revenue && property.revenue > 0 ? 'Active' : 'Inactive'}
+                          <span className={`text-xs font-semibold inline-block py-1 px-2 rounded-full ${propertyService.getStatusColor(property.status || 'pending')} text-white`}>
+                            {(property.status || 'pending').charAt(0).toUpperCase() + (property.status || 'pending').slice(1)}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

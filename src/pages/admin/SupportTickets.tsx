@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { MessageSquare, User, Calendar, Clock, CheckCircle, AlertCircle, Search, Filter } from "lucide-react";
+import { MessageSquare, User, Calendar, Clock, CheckCircle, AlertCircle, Search, Filter, Paperclip, Download } from "lucide-react";
 
 interface SupportTicket {
   _id: string;
@@ -21,6 +21,11 @@ interface SupportTicket {
     email: string;
   };
   assignedTo?: string;
+  attachments?: Array<{
+    filename: string;
+    url: string;
+    uploadedAt: string;
+  }>;
   responses: Array<{
     message: string;
     author: string;
@@ -266,6 +271,13 @@ const SupportTickets = () => {
                     <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
                       {ticket.description}
                     </p>
+                    
+                    {ticket.attachments && ticket.attachments.length > 0 && (
+                      <div className="flex items-center gap-1 mb-4 text-xs text-muted-foreground">
+                        <Paperclip className="h-3 w-3" />
+                        <span>{ticket.attachments.length} attachment{ticket.attachments.length > 1 ? 's' : ''}</span>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -334,13 +346,58 @@ const SupportTickets = () => {
                                 <div className="p-4 border rounded-lg">
                                   <h4 className="font-semibold text-sm mb-2">Original Message</h4>
                                   <p className="text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
+                                  
+                                  {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t space-y-2">
+                                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <Paperclip className="h-3 w-3" />
+                                        <span>{selectedTicket.attachments.length} attachment{selectedTicket.attachments.length > 1 ? 's' : ''}</span>
+                                      </div>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {selectedTicket.attachments.map((attachment, idx) => {
+                                          const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(attachment.filename);
+                                          return (
+                                            <div key={idx} className="border rounded-lg overflow-hidden bg-white dark:bg-gray-900">
+                                              {isImage ? (
+                                                <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="block">
+                                                  <img 
+                                                    src={attachment.url} 
+                                                    alt={attachment.filename}
+                                                    className="w-full h-32 object-cover cursor-pointer hover:opacity-90 transition"
+                                                  />
+                                                </a>
+                                              ) : (
+                                                <div className="flex items-center justify-center h-32 bg-gray-100 dark:bg-gray-800">
+                                                  <Paperclip className="h-8 w-8 text-muted-foreground" />
+                                                </div>
+                                              )}
+                                              <div className="p-2 flex items-center justify-between">
+                                                <span className="text-xs truncate flex-1 mr-2" title={attachment.filename}>
+                                                  {attachment.filename}
+                                                </span>
+                                                <a 
+                                                  href={attachment.url} 
+                                                  download={attachment.filename}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-blue-600 hover:text-blue-700"
+                                                >
+                                                  <Download className="h-3 w-3" />
+                                                </a>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* Conversation */}
-                                {selectedTicket.responses.length > 0 && (
+                                {selectedTicket.responses.length > 1 && (
                                   <div className="space-y-3">
                                     <h4 className="font-semibold">Conversation</h4>
-                                    {selectedTicket.responses.map((response, index) => (
+                                    {selectedTicket.responses.slice(1).map((response, index) => (
                                       <div 
                                         key={index}
                                         className={`p-3 rounded-lg ${

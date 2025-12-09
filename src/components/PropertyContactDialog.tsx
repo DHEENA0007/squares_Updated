@@ -51,8 +51,16 @@ const PropertyContactDialog: React.FC<PropertyContactDialogProps> = ({
     });
   };
 
-  const handleCall = () => {
+  const handleCall = async () => {
     if (contactInfo.phone && contactInfo.phone !== "Not available") {
+      // Track phone click interaction
+      try {
+        await propertyService.trackInteraction(property._id, 'clickedPhone');
+      } catch (error) {
+        console.error('Failed to track phone click:', error);
+        // Don't block the call if tracking fails
+      }
+
       if (isMobile()) {
         window.location.href = `tel:${contactInfo.phone}`;
       } else {

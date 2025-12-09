@@ -1,15 +1,42 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const { v2: cloudinary } = require('cloudinary');
 const SupportTicket = require('../models/SupportTicket');
 const User = require('../models/User');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { authenticateToken, optionalAuth } = require('../middleware/authMiddleware');
 const { sendTemplateEmail } = require('../utils/emailService');
 
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// Configure multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`File type ${file.mimetype} is not allowed`), false);
+    }
+  }
+});
+
 // @desc    Create a new support ticket (public endpoint)
 // @route   POST /api/support/tickets
 // @access  Public (with optional auth)
-router.post('/tickets', optionalAuth, asyncHandler(async (req, res) => {
+router.post('/tickets', optionalAuth, upload.array('attachments', 5), asyncHandler(async (req, res) => {
   const { name, email, phone, subject, category, priority, description } = req.body;
 
   // Validation
@@ -53,6 +80,61 @@ router.post('/tickets', optionalAuth, asyncHandler(async (req, res) => {
     userId = guestUser._id;
   }
 
+  // Handle file uploads to Cloudinary
+  const attachmentObjects = [];
+  if (req.files && req.files.length > 0) {
+    try {
+      console.log(`Processing ${req.files.length} file(s) for support ticket...`);
+      
+      for (const file of req.files) {
+        try {
+          // Set a timeout for each file upload (30 seconds)
+          const uploadPromise = new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+              {
+                folder: 'ninety-nine-acres/support-tickets',
+                resource_type: 'auto',
+                allowed_formats: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'],
+                timeout: 30000 // 30 second timeout
+              },
+              (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+              }
+            );
+            uploadStream.end(file.buffer);
+          });
+
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Upload timeout - file too large or slow connection')), 35000)
+          );
+
+          const result = await Promise.race([uploadPromise, timeoutPromise]);
+          
+          // Create attachment object matching the schema
+          attachmentObjects.push({
+            filename: file.originalname,
+            url: result.secure_url,
+            uploadedAt: new Date()
+          });
+          
+          console.log(`File uploaded successfully: ${file.originalname}`);
+        } catch (fileError) {
+          console.error(`Failed to upload file ${file.originalname}:`, fileError.message);
+          // Continue with other files instead of failing completely
+        }
+      }
+      
+      if (attachmentObjects.length === 0 && req.files.length > 0) {
+        console.warn('All file uploads failed, creating ticket without attachments');
+      }
+    } catch (uploadError) {
+      console.error('File upload error:', uploadError);
+      // Don't fail the ticket creation, just log the error
+      console.warn('Creating support ticket without attachments due to upload failure');
+    }
+  }
+
   // Create support ticket
   const ticket = await SupportTicket.create({
     subject,
@@ -60,6 +142,7 @@ router.post('/tickets', optionalAuth, asyncHandler(async (req, res) => {
     category: category || 'general',
     priority: priority || 'medium',
     user: userId,
+    attachments: attachmentObjects,
     responses: [{
       message: description,
       author: name || req.user?.name || 'Guest User',
@@ -122,6 +205,7 @@ router.post('/tickets', optionalAuth, asyncHandler(async (req, res) => {
         status: ticket.status,
         priority: ticket.priority,
         category: ticket.category,
+        attachments: ticket.attachments,
         createdAt: ticket.createdAt
       }
     }
@@ -148,7 +232,8 @@ router.get('/tickets/my', authenticateToken, asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .populate('assignedTo', 'name email')
+      .populate('assignedTo', 'name email profile')
+      .populate('lockedBy', 'name email profile')
       .populate('resolvedBy', 'name email'),
     SupportTicket.countDocuments(query)
   ]);
@@ -176,7 +261,8 @@ router.get('/tickets/:ticketNumber', authenticateToken, asyncHandler(async (req,
 
   const ticket = await SupportTicket.findOne({ ticketNumber })
     .populate('user', 'name email phone')
-    .populate('assignedTo', 'name email')
+    .populate('assignedTo', 'name email profile')
+    .populate('lockedBy', 'name email profile')
     .populate('resolvedBy', 'name email');
 
   if (!ticket) {
@@ -240,13 +326,40 @@ router.post('/tickets/:ticketNumber/responses', authenticateToken, asyncHandler(
     });
   }
 
+  // Check if ticket is locked by another admin
+  if (isAdmin && ticket.lockedBy && ticket.lockedBy.toString() !== currentUserId) {
+    const lockedByUser = await User.findById(ticket.lockedBy).select('name email profile');
+    const lockerName = lockedByUser?.profile?.firstName 
+      ? `${lockedByUser.profile.firstName} ${lockedByUser.profile.lastName || ''}`
+      : lockedByUser?.email || 'another user';
+    
+    return res.status(423).json({
+      success: false,
+      message: `This ticket is currently being handled by ${lockerName}. Please choose a different ticket.`
+    });
+  }
+
   // Add response
   ticket.responses.push({
     message: message.trim(),
     author: req.user.name || req.user.email,
+    authorId: req.user.id,
     isAdmin: isAdmin,
     createdAt: new Date()
   });
+
+  // Lock and assign ticket to admin if admin is responding
+  if (isAdmin) {
+    if (!ticket.assignedTo) {
+      ticket.assignedTo = req.user.id;
+      ticket.assignedAt = new Date();
+    }
+    // Lock the ticket to this admin
+    if (!ticket.lockedBy) {
+      ticket.lockedBy = req.user.id;
+      ticket.lockedAt = new Date();
+    }
+  }
 
   // Update status if it's the first user response after being assigned
   if (!isAdmin && ticket.status === 'open') {
@@ -296,7 +409,8 @@ router.post('/tickets/track', asyncHandler(async (req, res) => {
 
   const ticket = await SupportTicket.findOne({ ticketNumber })
     .populate('user', 'name email phone')
-    .populate('assignedTo', 'name email')
+    .populate('assignedTo', 'name email profile')
+    .populate('lockedBy', 'name email profile')
     .populate('resolvedBy', 'name email');
 
   if (!ticket) {
@@ -343,6 +457,154 @@ router.get('/stats', authenticateToken, asyncHandler(async (req, res) => {
       resolved,
       closed
     }
+  });
+}));
+
+// @desc    Transfer ticket to another user
+// @route   POST /api/support/tickets/:ticketNumber/transfer
+// @access  Private (User handling the ticket)
+router.post('/tickets/:ticketNumber/transfer', authenticateToken, asyncHandler(async (req, res) => {
+  const { ticketNumber } = req.params;
+  const { targetUserId } = req.body;
+
+  if (!targetUserId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Target user ID is required'
+    });
+  }
+
+  const ticket = await SupportTicket.findOne({ ticketNumber })
+    .populate('user', 'name email');
+
+  if (!ticket) {
+    return res.status(404).json({
+      success: false,
+      message: 'Support ticket not found'
+    });
+  }
+
+  // Check if current user is handling this ticket (either assigned to them or locked by them)
+  const isHandlingTicket = (ticket.lockedBy && ticket.lockedBy.toString() === req.user.id.toString()) ||
+                           (ticket.assignedTo && ticket.assignedTo.toString() === req.user.id.toString());
+
+  if (!isHandlingTicket) {
+    return res.status(403).json({
+      success: false,
+      message: 'You can only transfer tickets you are currently handling. Please accept or lock the ticket first.'
+    });
+  }
+
+  // Verify target user exists and has appropriate role
+  const targetUser = await User.findById(targetUserId);
+  
+  if (!targetUser) {
+    return res.status(404).json({
+      success: false,
+      message: 'Target user not found'
+    });
+  }
+
+  if (targetUser.role === 'customer' || targetUser.role === 'superadmin' || targetUser.role === 'vendor' || targetUser.role === 'agent') {
+    return res.status(400).json({
+      success: false,
+      message: 'Cannot transfer ticket to customer, vendor, agent, or superadmin'
+    });
+  }
+
+  // Transfer ticket
+  ticket.assignedTo = targetUserId;
+  ticket.assignedAt = new Date();
+  ticket.lockedBy = targetUserId;
+  ticket.lockedAt = new Date();
+
+  // Add a system message to responses
+  ticket.responses.push({
+    message: `Ticket transferred from ${req.user.name || req.user.email} to ${targetUser.profile?.firstName ? `${targetUser.profile.firstName} ${targetUser.profile.lastName || ''}` : targetUser.email}`,
+    author: 'System',
+    authorId: null,
+    isAdmin: true,
+    createdAt: new Date()
+  });
+
+  await ticket.save();
+
+  // Send notification email to target user
+  try {
+    await sendTemplateEmail({
+      to: targetUser.email,
+      subject: `New Support Ticket Assigned - ${ticketNumber}`,
+      template: 'ticket-assigned',
+      context: {
+        ticketNumber: ticket.ticketNumber,
+        subject: ticket.subject,
+        assignedBy: req.user.name || req.user.email,
+        userName: targetUser.profile?.firstName || targetUser.email
+      }
+    });
+  } catch (emailError) {
+    console.error('Failed to send assignment notification:', emailError);
+  }
+
+  res.json({
+    success: true,
+    message: 'Ticket transferred successfully',
+    data: { ticket }
+  });
+}));
+
+// @desc    Get available roles for ticket transfer
+// @route   GET /api/support/transfer-roles
+// @access  Private (Any authenticated user)
+router.get('/transfer-roles', authenticateToken, asyncHandler(async (req, res) => {
+  console.log('[Transfer Roles] User role:', req.user.role);
+  
+  const Role = require('../models/Role');
+  
+  console.log('[Transfer Roles] Fetching available roles...');
+  
+  const roles = await Role.find({
+    isActive: true,
+    name: { $nin: ['customer', 'vendor', 'superadmin', 'agent'] }
+  })
+    .select('name description level')
+    .sort({ level: -1 });
+
+  console.log('[Transfer Roles] Found roles:', roles.length, 'roles');
+  console.log('[Transfer Roles] Roles:', roles.map(r => r.name));
+
+  res.json({
+    success: true,
+    data: { roles }
+  });
+}));
+
+// @desc    Get users by role for ticket transfer
+// @route   GET /api/support/transfer-users
+// @access  Private (Any authenticated user)
+router.get('/transfer-users', authenticateToken, asyncHandler(async (req, res) => {
+  console.log('[Transfer Users] User role:', req.user.role);
+  
+  const { role } = req.query;
+
+  const query = {
+    status: 'active',
+    role: { $nin: ['customer', 'vendor', 'superadmin', 'agent'] }
+  };
+
+  if (role && role !== 'all') {
+    query.role = role;
+  }
+
+  const users = await User.find(query)
+    .select('email role profile')
+    .sort({ email: 1 });
+
+  console.log('[Transfer Users] Found', users.length, 'users');
+
+  res.json({
+    success: true,
+    data: { users }
   });
 }));
 

@@ -16,6 +16,7 @@ import { Property, propertyService } from "@/services/propertyService";
 import { Column, DataTable } from "@/components/adminpanel/shared/DataTable";
 import { SearchFilter } from "@/components/adminpanel/shared/SearchFilter";
 import { Loader2, Plus, MoreHorizontal, Eye, Edit, Trash2, Star, StarOff } from "lucide-react";
+import { configurationService } from "@/services/configurationService";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,6 +72,8 @@ const Properties = () => {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [propertyTypes, setPropertyTypes] = useState<Array<{ value: string; label: string }>>([]);
+  const [isLoadingPropertyTypes, setIsLoadingPropertyTypes] = useState(true);
 
   // Approval/Rejection form state
   const [approverName, setApproverName] = useState("");
@@ -96,6 +99,42 @@ const Properties = () => {
       fetchProperties();
     };
     fetchUserAndProperties();
+
+    // Fetch property types from admin portal
+    const fetchPropertyTypes = async () => {
+      try {
+        setIsLoadingPropertyTypes(true);
+        const propertyTypesData = await configurationService.getAllPropertyTypes(false);
+
+        // Map property types to the format expected by the form
+        const mappedPropertyTypes = propertyTypesData
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map(type => ({
+            value: type.value,
+            label: type.name
+          }));
+
+        setPropertyTypes(mappedPropertyTypes);
+      } catch (error) {
+        console.error('Error fetching property types:', error);
+        toast({
+          title: "Warning",
+          description: "Failed to load property types from configuration. Using defaults.",
+          variant: "default",
+        });
+        // Fallback to hardcoded types
+        setPropertyTypes([
+          { value: "house", label: "House" },
+          { value: "apartment", label: "Apartment" },
+          { value: "land", label: "Land" },
+          { value: "commercial", label: "Commercial" }
+        ]);
+      } finally {
+        setIsLoadingPropertyTypes(false);
+      }
+    };
+
+    fetchPropertyTypes();
   }, []);
 
   const fetchProperties = async () => {
@@ -565,12 +604,14 @@ const Properties = () => {
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
                   className="w-full p-2 border rounded-md mt-1"
+                  disabled={isLoadingPropertyTypes}
                 >
-                  <option value="all">All Types</option>
-                  <option value="house">House</option>
-                  <option value="apartment">Apartment</option>
-                  <option value="land">Land</option>
-                  <option value="commercial">Commercial</option>
+                  <option value="all">{isLoadingPropertyTypes ? "Loading..." : "All Types"}</option>
+                  {propertyTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="w-full sm:w-48">
@@ -587,6 +628,7 @@ const Properties = () => {
                   <option value="rejected">Rejected</option>
                   <option value="sold">Sold</option>
                   <option value="rented">Rented</option>
+                  <option value="leased">Leased</option>
                 </select>
               </div>
             </div>

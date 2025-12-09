@@ -103,25 +103,37 @@ class SupportService {
 
   async createTicket(data: CreateTicketData): Promise<SingleTicketResponse> {
     try {
-      // Send as JSON instead of FormData
-      const requestBody = {
-        name: data.name,
-        email: data.email,
-        phone: data.phone || '',
-        subject: data.subject,
-        category: data.category,
-        priority: data.priority || 'medium',
-        description: data.description,
-      };
+      const formData = new FormData();
+      
+      // Append text fields
+      formData.append('name', data.name);
+      formData.append('email', data.email);
+      formData.append('phone', data.phone || '');
+      formData.append('subject', data.subject);
+      formData.append('category', data.category);
+      formData.append('priority', data.priority || 'medium');
+      formData.append('description', data.description);
+
+      // Append attachments if any
+      if (data.attachments && data.attachments.length > 0) {
+        data.attachments.forEach((file) => {
+          formData.append('attachments', file);
+        });
+      }
 
       const response = await this.makeRequest<SingleTicketResponse>('/support/tickets', {
         method: 'POST',
-        body: JSON.stringify(requestBody),
+        body: formData,
       });
+
+      const attachmentCount = data.attachments?.length || 0;
+      const attachmentText = attachmentCount > 0 
+        ? ` with ${attachmentCount} attachment${attachmentCount > 1 ? 's' : ''}`
+        : '';
 
       toast({
         title: "Success",
-        description: "Support ticket created successfully! We'll get back to you soon.",
+        description: `Support ticket #${response.data.ticket.ticketNumber} created successfully${attachmentText}!`,
       });
 
       return response;

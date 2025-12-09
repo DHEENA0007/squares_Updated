@@ -30,6 +30,7 @@ import {
 import { Link, useSearchParams } from "react-router-dom";
 import { propertyService, type Property } from "@/services/propertyService";
 import { toast } from "@/hooks/use-toast";
+import { configurationService } from "@/services/configurationService";
 
 const VendorProperties = () => {
   const [searchParams] = useSearchParams();
@@ -40,6 +41,8 @@ const VendorProperties = () => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [propertyTypes, setPropertyTypes] = useState<Array<{ value: string; label: string }>>([]);
+  const [isLoadingPropertyTypes, setIsLoadingPropertyTypes] = useState(true);
   const [stats, setStats] = useState({
     totalProperties: 0,
     totalViews: 0,
@@ -57,7 +60,40 @@ const VendorProperties = () => {
   useEffect(() => {
     loadProperties();
     loadStats();
+    fetchPropertyTypes();
   }, []);
+
+  const fetchPropertyTypes = async () => {
+    try {
+      setIsLoadingPropertyTypes(true);
+      const propertyTypesData = await configurationService.getAllPropertyTypes(false);
+
+      // Map property types to the format expected by the form
+      const mappedPropertyTypes = propertyTypesData
+        .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+        .map(type => ({
+          value: type.value,
+          label: type.name
+        }));
+
+      setPropertyTypes(mappedPropertyTypes);
+    } catch (error) {
+      console.error('Error fetching property types:', error);
+      // Fallback to hardcoded types
+      setPropertyTypes([
+        { value: "apartment", label: "Apartment" },
+        { value: "house", label: "House" },
+        { value: "villa", label: "Villa" },
+        { value: "plot", label: "Plot" },
+        { value: "land", label: "Land" },
+        { value: "commercial", label: "Commercial" },
+        { value: "office", label: "Office" },
+        { value: "pg", label: "PG (Paying Guest)" }
+      ]);
+    } finally {
+      setIsLoadingPropertyTypes(false);
+    }
+  };
 
   // Update search query from URL params
   useEffect(() => {
@@ -126,6 +162,15 @@ const VendorProperties = () => {
 
   const handleUpdatePropertyStatus = async (propertyId: string, newStatus: string, customerId?: string, reason?: string) => {
     try {
+      // Optimistically update the local state first for instant feedback
+      setProperties(prevProperties =>
+        prevProperties.map(prop =>
+          prop._id === propertyId
+            ? { ...prop, status: newStatus as any }
+            : prop
+        )
+      );
+
       // If customer is selected, assign property to customer
       if (customerId && (newStatus === 'sold' || newStatus === 'rented' || newStatus === 'leased')) {
         // Call API to assign property to customer
@@ -142,11 +187,13 @@ const VendorProperties = () => {
           description: `Property status updated to ${newStatus}!`,
         });
       }
-      
-      loadProperties(); // Refresh the list
-      loadStats(); // Refresh stats
+
+      // Refresh stats to get updated counts
+      loadStats();
     } catch (error) {
       console.error('Failed to update property status:', error);
+      // Revert the optimistic update on error
+      loadProperties();
       toast({
         title: "Error",
         description: "Failed to update property status",
@@ -265,23 +312,21 @@ const VendorProperties = () => {
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="sold">Sold</SelectItem>
                   <SelectItem value="rented">Rented</SelectItem>
+                  <SelectItem value="leased">Leased</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <Select value={typeFilter} onValueChange={setTypeFilter} disabled={isLoadingPropertyTypes}>
                 <SelectTrigger className="w-full sm:w-40">
-                  <SelectValue placeholder="Type" />
+                  <SelectValue placeholder={isLoadingPropertyTypes ? "Loading..." : "Type"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="apartment">Apartment</SelectItem>
-                  <SelectItem value="house">House</SelectItem>
-                  <SelectItem value="villa">Villa</SelectItem>
-                  <SelectItem value="plot">Plot</SelectItem>
-                  <SelectItem value="land">Land</SelectItem>
-                  <SelectItem value="commercial">Commercial</SelectItem>
-                  <SelectItem value="office">Office</SelectItem>
-                  <SelectItem value="pg">PG (Paying Guest)</SelectItem>
+                  {propertyTypes.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -364,12 +409,14 @@ const VendorProperties = () => {
                           {property.featured ? 'Unfeature' : 'Promote'}
                         </DropdownMenuItem>
 
-                        {/* Status Update Option - Only show for approved properties */}
-                        {property.status === 'available' && (
+                        {/* Status Update Option - Show for available OR rented/leased properties */}
+                        {(property.status === 'available' || property.status === 'rented' || property.status === 'leased') && (
                           <DropdownMenuItem onClick={() => openStatusDialog(property)}>
                             <Users className="w-4 h-4 mr-2" />
-                            {property.listingType === 'sale' ? 'Mark as Sold' :
-                             property.listingType === 'rent' ? 'Mark as Rented' : 'Mark as Leased'}
+                            {property.status === 'available'
+                              ? (property.listingType === 'sale' ? 'Mark as Sold' :
+                                 property.listingType === 'rent' ? 'Mark as Rented' : 'Mark as Leased')
+                              : 'Mark as Available'}
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem
@@ -390,18 +437,24 @@ const VendorProperties = () => {
                         <p className="font-semibold text-sm md:text-base">{property.bedrooms}</p>
                       </div>
                     )}
-                    <div className="text-center">
-                      <p className="text-xs md:text-sm text-muted-foreground">Bathrooms</p>
-                      <p className="font-semibold text-sm md:text-base">{property.bathrooms}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs md:text-sm text-muted-foreground">Area</p>
-                      <p className="font-semibold text-sm md:text-base">{propertyService.formatArea(property.area)}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs md:text-sm text-muted-foreground">Type</p>
-                      <p className="font-semibold text-sm md:text-base capitalize">{property.type}</p>
-                    </div>
+                    {property.bathrooms > 0 && (
+                      <div className="text-center">
+                        <p className="text-xs md:text-sm text-muted-foreground">Bathrooms</p>
+                        <p className="font-semibold text-sm md:text-base">{property.bathrooms}</p>
+                      </div>
+                    )}
+                    {propertyService.hasValidArea(property.area) && (
+                      <div className="text-center">
+                        <p className="text-xs md:text-sm text-muted-foreground">Area</p>
+                        <p className="font-semibold text-sm md:text-base">{propertyService.formatArea(property.area)}</p>
+                      </div>
+                    )}
+                    {property.type && (
+                      <div className="text-center">
+                        <p className="text-xs md:text-sm text-muted-foreground">Type</p>
+                        <p className="font-semibold text-sm md:text-base capitalize">{property.type}</p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap justify-between items-center text-xs md:text-sm text-muted-foreground mb-3 md:mb-4 gap-2">
@@ -445,11 +498,13 @@ const VendorProperties = () => {
                           {property.featured ? 'Unfeature' : 'Promote'}
                         </Button>
 
-                        {/* Status Update Button - Only show for approved properties */}
-                        {property.status === 'available' && (
+                        {/* Status Update Button - Show for available OR rented/leased properties */}
+                        {(property.status === 'available' || property.status === 'rented' || property.status === 'leased') && (
                           <Button size="sm" variant="outline" onClick={() => openStatusDialog(property)} className="flex-1 text-xs md:text-sm">
-                            {property.listingType === 'sale' ? 'Mark as Sold' :
-                             property.listingType === 'rent' ? 'Mark as Rented' : 'Mark as Leased'}
+                            {property.status === 'available'
+                              ? (property.listingType === 'sale' ? 'Mark as Sold' :
+                                 property.listingType === 'rent' ? 'Mark as Rented' : 'Mark as Leased')
+                              : 'Mark as Available'}
                           </Button>
                         )}
                       </div>

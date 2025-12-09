@@ -157,6 +157,18 @@ const AddonServices = () => {
   const [cancellationReason, setCancellationReason] = useState<string>("");
   const [newNote, setNewNote] = useState<string>("");
   const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 10;
+  const [stats, setStats] = useState({
+    activeVendors: 0,
+    totalAddons: 0,
+    totalSchedules: 0,
+    completedSchedules: 0,
+    inProgressSchedules: 0,
+    scheduledSchedules: 0,
+    categories: 0
+  });
 
   useEffect(() => {
     if (!canViewAddonServices) {
@@ -169,15 +181,22 @@ const AddonServices = () => {
       return;
     }
     fetchVendorAddons();
+    fetchStats();
+  }, [activeTab, searchTerm, currentPage]);
+
+  // Reset to page 1 when tab or search changes
+  useEffect(() => {
+    setCurrentPage(1);
   }, [activeTab, searchTerm]);
 
   const fetchVendorAddons = async () => {
     if (!canViewAddonServices) return;
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`/subadmin/addon-services?status=${activeTab}&search=${searchTerm}`);
-      const data = await handleApiResponse<{ data: { vendorAddons: VendorAddon[] } }>(response);
+      const response = await fetchWithAuth(`/subadmin/addon-services?status=${activeTab}&search=${searchTerm}&page=${currentPage}&limit=${itemsPerPage}`);
+      const data = await handleApiResponse<{ data: { vendorAddons: VendorAddon[], total: number, totalPages: number } }>(response);
       setVendorAddons(data.data.vendorAddons || []);
+      setTotalPages(data.data.totalPages || 1);
     } catch (error: any) {
       console.error('Error fetching addon services:', error);
       toast({
@@ -188,6 +207,16 @@ const AddonServices = () => {
       setVendorAddons([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetchWithAuth(`/subadmin/addon-services/stats?status=${activeTab}`);
+      const data = await handleApiResponse<{ data: any }>(response);
+      setStats(data.data);
+    } catch (error: any) {
+      console.error('Error fetching stats:', error);
     }
   };
 
@@ -446,7 +475,7 @@ const AddonServices = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {vendorAddons.filter(v => v.totalAddons > 0).length}
+              {stats.activeVendors}
             </div>
           </CardContent>
         </Card>
@@ -458,7 +487,7 @@ const AddonServices = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {vendorAddons.reduce((sum, v) => sum + v.totalAddons, 0)}
+              {stats.totalAddons}
             </div>
           </CardContent>
         </Card>
@@ -470,10 +499,10 @@ const AddonServices = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {vendorAddons.reduce((sum, v) => sum + (v.schedules?.length || 0), 0)}
+              {stats.totalSchedules}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {vendorAddons.reduce((sum, v) => sum + (v.schedules?.filter(s => s.status === 'completed').length || 0), 0)} completed
+              {stats.completedSchedules} completed
             </p>
           </CardContent>
         </Card>
@@ -485,10 +514,10 @@ const AddonServices = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {vendorAddons.reduce((sum, v) => sum + (v.schedules?.filter(s => s.status === 'in_progress').length || 0), 0)}
+              {stats.inProgressSchedules}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {vendorAddons.reduce((sum, v) => sum + (v.schedules?.filter(s => s.status === 'scheduled').length || 0), 0)} scheduled
+              {stats.scheduledSchedules} scheduled
             </p>
           </CardContent>
         </Card>
@@ -500,7 +529,7 @@ const AddonServices = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Set(vendorAddons.flatMap(v => v.activeAddons.map(a => a.category))).size}
+              {stats.categories}
             </div>
           </CardContent>
         </Card>
@@ -685,6 +714,40 @@ const AddonServices = () => {
               </Card>
             ))
           )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -723,6 +786,14 @@ const AddonServices = () => {
                     );
                     const isScheduled = !!existingSchedule;
                     
+                    // Check if addon subscription is active
+                    const addonSubscription = selectedVendor.subscriptions.find(sub => 
+                      sub.addons.some(a => a._id === addon._id)
+                    );
+                    const isSubscriptionActive = addonSubscription && 
+                      addonSubscription.status === 'active' && 
+                      new Date(addonSubscription.endDate) > new Date();
+                    
                     return (
                     <Card key={addon._id} className="hover:shadow-md transition-shadow">
                       <CardHeader className="pb-3">
@@ -741,6 +812,11 @@ const AddonServices = () => {
                                   Scheduled
                                 </Badge>
                               )}
+                              {!isSubscriptionActive && (
+                                <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                  Expired
+                                </Badge>
+                              )}
                             </div>
                           </div>
                           <div className="text-right">
@@ -754,7 +830,7 @@ const AddonServices = () => {
                         <p className="text-xs text-muted-foreground mb-3">
                           {addon.description}
                         </p>
-                        {canScheduleServices && (
+                        {canScheduleServices && isSubscriptionActive && (
                           <>
                             {isScheduled ? (
                               <Button
@@ -782,6 +858,11 @@ const AddonServices = () => {
                               </Button>
                             )}
                           </>
+                        )}
+                        {!isSubscriptionActive && (
+                          <div className="text-xs text-red-600 dark:text-red-400 text-center py-2">
+                            Subscription expired - Cannot schedule
+                          </div>
                         )}
                       </CardContent>
                     </Card>

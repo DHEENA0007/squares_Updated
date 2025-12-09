@@ -14,14 +14,15 @@ const PERMISSIONS = {
     PROPERTIES_APPROVE: 'properties.approve',
     VENDORS_VIEW: 'vendors.view',
     VENDORS_APPROVE: 'vendors.approve',
-    SUPPORT_TICKETS_READ: 'support.tickets.read',
-    SUPPORT_TICKETS_REPLY: 'support.tickets.reply',
-    ADDON_SERVICES_READ: 'addon.services.read',
-    ADDON_SERVICES_MANAGE: 'addon.services.manage',
+    SUPPORT_TICKETS_READ: 'supportTickets.read',
+    SUPPORT_TICKETS_REPLY: 'supportTickets.reply',
+    SUPPORT_TICKETS_STATUS: 'supportTickets.status',
+    ADDON_SERVICES_READ: 'addonServices.read',
+    ADDON_SERVICES_MANAGE: 'addonServices.manage',
     REVIEWS_VIEW: 'reviews.view',
     REVIEWS_DELETE: 'reviews.delete',
-    POLICIES_EDIT_PRIVACY: 'policies.edit.privacy',
-    POLICIES_EDIT_REFUND: 'policies.edit.refund'
+    POLICIES_EDIT_PRIVACY: 'policies.editPrivacy',
+    POLICIES_EDIT_REFUND: 'policies.editRefund'
 };
 
 // Helper function to calculate date range
@@ -152,11 +153,20 @@ router.get('/report', authenticateToken, async (req, res) => {
             try {
                 const SupportTicket = require('../models/SupportTicket');
                 
-                // Count tickets replied to by this user
-                const ticketsReplied = await SupportTicket.countDocuments({
-                    'messages.sender': userId,
-                    'messages.senderModel': 'User',
-                    'messages.createdAt': { $gte: startDate }
+                // Count tickets where user has replied
+                const ticketsWithReplies = await SupportTicket.find({
+                    'responses.authorId': userId,
+                    'responses.createdAt': { $gte: startDate }
+                });
+
+                // Count total replies by this user
+                let totalReplies = 0;
+                ticketsWithReplies.forEach(ticket => {
+                    const userReplies = ticket.responses.filter(r => 
+                        r.authorId && r.authorId.toString() === userId.toString() && 
+                        r.createdAt >= startDate
+                    );
+                    totalReplies += userReplies.length;
                 });
 
                 // Count tickets resolved by this user
@@ -165,35 +175,50 @@ router.get('/report', authenticateToken, async (req, res) => {
                     resolvedAt: { $gte: startDate }
                 });
 
-                // Count tickets closed by this user
-                const ticketsClosed = await SupportTicket.countDocuments({
-                    closedBy: userId,
-                    closedAt: { $gte: startDate }
+                // Count tickets assigned to this user
+                const ticketsAssigned = await SupportTicket.countDocuments({
+                    assignedTo: userId,
+                    assignedAt: { $gte: startDate }
                 });
 
-                const ticketsLast7Days = await SupportTicket.countDocuments({
-                    'messages.sender': userId,
-                    'messages.createdAt': { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+                // Last 7 days activity
+                const last7DaysTickets = await SupportTicket.find({
+                    'responses.authorId': userId,
+                    'responses.createdAt': { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
                 });
 
-                const ticketsLast30Days = await SupportTicket.countDocuments({
-                    'messages.sender': userId,
-                    'messages.createdAt': { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+                let last7DaysReplies = 0;
+                last7DaysTickets.forEach(ticket => {
+                    const userReplies = ticket.responses.filter(r => 
+                        r.authorId && r.authorId.toString() === userId.toString() && 
+                        r.createdAt >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+                    );
+                    last7DaysReplies += userReplies.length;
+                });
+
+                // Last 30 days activity
+                const last30DaysTickets = await SupportTicket.find({
+                    'responses.authorId': userId,
+                    'responses.createdAt': { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+                });
+
+                let last30DaysReplies = 0;
+                last30DaysTickets.forEach(ticket => {
+                    const userReplies = ticket.responses.filter(r => 
+                        r.authorId && r.authorId.toString() === userId.toString() && 
+                        r.createdAt >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+                    );
+                    last30DaysReplies += userReplies.length;
                 });
 
                 // Calculate average response time for this user
-                const userTickets = await SupportTicket.find({
-                    'messages.sender': userId,
-                    'messages.createdAt': { $gte: startDate }
-                }).select('messages createdAt');
-
                 let totalResponseTime = 0;
                 let responseCount = 0;
 
-                userTickets.forEach(ticket => {
-                    const userMessages = ticket.messages.filter(m => 
-                        m.sender.toString() === userId.toString() && 
-                        m.createdAt >= startDate
+                ticketsWithReplies.forEach(ticket => {
+                    const userMessages = ticket.responses.filter(r => 
+                        r.authorId && r.authorId.toString() === userId.toString() && 
+                        r.createdAt >= startDate
                     );
                     
                     userMessages.forEach(msg => {
@@ -208,12 +233,14 @@ router.get('/report', authenticateToken, async (req, res) => {
                     : 0;
 
                 activityReport.activities.supportTickets = {
-                    replied: ticketsReplied,
+                    replied: totalReplies,
+                    ticketsHandled: ticketsWithReplies.length,
                     resolved: ticketsResolved,
-                    closed: ticketsClosed,
+                    assigned: ticketsAssigned,
+                    closed: 0,
                     avgResponseTime,
-                    last7Days: ticketsLast7Days,
-                    last30Days: ticketsLast30Days
+                    last7Days: last7DaysReplies,
+                    last30Days: last30DaysReplies
                 };
             } catch (error) {
                 console.error('Error fetching support ticket activity:', error);

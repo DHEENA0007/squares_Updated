@@ -1,6 +1,26 @@
 import { emailService } from './emailService';
 import { userService } from './userService';
 import { socketService } from './socketService';
+import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+// Create axios instance with auth token
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add auth token to requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 export interface NotificationData {
   type: 'property_alert' | 'price_drop' | 'new_message' | 'news_update' | 'welcome' | 'password_reset' | 'email_verification';
@@ -248,6 +268,106 @@ class NotificationService {
       body: 'This is a test notification from BuildHomeMart Squares',
       data: { test: true }
     });
+  }
+
+  // Fetch pending notifications from backend (for offline users)
+  async fetchPendingNotifications(): Promise<any[]> {
+    try {
+      const response = await api.get('/notifications/pending');
+      if (response.data.success) {
+        return response.data.data || [];
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching pending notifications:', error);
+      return [];
+    }
+  }
+
+  // Fetch all notifications with pagination
+  async fetchNotifications(page = 1, limit = 20, unreadOnly = false): Promise<any> {
+    try {
+      const response = await api.get('/notifications', {
+        params: { page, limit, unreadOnly }
+      });
+      if (response.data.success) {
+        return response.data.data;
+      }
+      return { notifications: [], pagination: {}, unreadCount: 0 };
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      return { notifications: [], pagination: {}, unreadCount: 0 };
+    }
+  }
+
+  // Mark notifications as delivered
+  async markAsDelivered(notificationIds: string[]): Promise<boolean> {
+    try {
+      const response = await api.post('/notifications/mark-delivered', {
+        notificationIds
+      });
+      return response.data.success;
+    } catch (error) {
+      console.error('Error marking notifications as delivered:', error);
+      return false;
+    }
+  }
+
+  // Mark notifications as read
+  async markAsRead(notificationIds: string[]): Promise<boolean> {
+    try {
+      const response = await api.post('/notifications/mark-read', {
+        notificationIds
+      });
+      return response.data.success;
+    } catch (error) {
+      console.error('Error marking notifications as read:', error);
+      return false;
+    }
+  }
+
+  // Mark all notifications as read
+  async markAllAsRead(): Promise<boolean> {
+    try {
+      const response = await api.post('/notifications/mark-all-read');
+      return response.data.success;
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      return false;
+    }
+  }
+
+  // Delete notification
+  async deleteNotification(notificationId: string): Promise<boolean> {
+    try {
+      const response = await api.delete(`/notifications/${notificationId}`);
+      return response.data.success;
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      return false;
+    }
+  }
+
+  // Process and display pending notifications
+  async processPendingNotifications(): Promise<void> {
+    const pendingNotifications = await this.fetchPendingNotifications();
+
+    if (pendingNotifications.length === 0) {
+      return;
+    }
+
+    // Show push notifications for pending items
+    for (const notification of pendingNotifications) {
+      await this.showPushNotification({
+        title: notification.title,
+        body: notification.message,
+        data: notification.data || {}
+      });
+    }
+
+    // Mark all as delivered
+    const notificationIds = pendingNotifications.map((n: any) => n._id);
+    await this.markAsDelivered(notificationIds);
   }
 }
 

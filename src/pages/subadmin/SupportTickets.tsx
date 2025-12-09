@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { HeadphonesIcon, Clock, User, Mail, MessageSquare, Eye } from "lucide-react";
+import { HeadphonesIcon, Clock, User, Mail, MessageSquare, Eye, Paperclip, Download, Lock, LockOpen, ArrowRightLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import subAdminService from "@/services/subAdminService";
 import { useRealtimeEvent } from "@/contexts/RealtimeContext";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SupportTicket {
   _id: string;
@@ -36,9 +37,32 @@ interface SupportTicket {
   ticketNumber?: string;
   createdAt: string;
   updatedAt: string;
+  assignedTo?: {
+    _id: string;
+    email: string;
+    profile: {
+      firstName: string;
+      lastName: string;
+    };
+  };
+  lockedBy?: {
+    _id: string;
+    email: string;
+    profile: {
+      firstName: string;
+      lastName: string;
+    };
+  };
+  lockedAt?: string;
+  attachments?: Array<{
+    filename: string;
+    url: string;
+    uploadedAt: string;
+  }>;
   responses?: Array<{
     message: string;
     author: string;
+    authorId?: string;
     isAdmin: boolean;
     createdAt: string;
   }>;
@@ -53,9 +77,15 @@ const SupportTickets = () => {
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [replyDialogOpen, setReplyDialogOpen] = useState(false);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [replyMessage, setReplyMessage] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [transferUsers, setTransferUsers] = useState<any[]>([]);
+  const [transferRoles, setTransferRoles] = useState<any[]>([]);
+  const [selectedRole, setSelectedRole] = useState('all');
+  const [selectedUser, setSelectedUser] = useState('');
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchTickets();
@@ -166,11 +196,22 @@ const SupportTickets = () => {
       setSelectedTicket(null);
       fetchTickets();
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send reply",
-        variant: "destructive",
-      });
+      // Check if ticket is locked by another user
+      if (error.status === 423 || error.message?.includes('locked') || error.message?.includes('being handled')) {
+        toast({
+          title: "Ticket Locked",
+          description: error.message || "This ticket is currently being handled by another user",
+          variant: "destructive",
+        });
+        setReplyDialogOpen(false);
+        fetchTickets(); // Refresh to show updated lock status
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to send reply",
+          variant: "destructive",
+        });
+      }
     } finally {
       setActionLoading(false);
     }
@@ -188,14 +229,139 @@ const SupportTickets = () => {
       
       fetchTickets();
     } catch (error: any) {
+      // Check if ticket is locked by another user
+      if (error.status === 423 || error.message?.includes('locked') || error.message?.includes('being handled')) {
+        toast({
+          title: "Ticket Locked",
+          description: error.message || "This ticket is currently being handled by another user",
+          variant: "destructive",
+        });
+        fetchTickets(); // Refresh to show updated lock status
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update ticket status",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleTransferTicket = (ticket: SupportTicket) => {
+    setSelectedTicket(ticket);
+    setTransferDialogOpen(true);
+    fetchTransferRoles();
+    fetchTransferUsers();
+  };
+
+  const fetchTransferRoles = async () => {
+    try {
+      const response = await fetch('/api/support/transfer-roles', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      console.log('Transfer roles response:', data);
+      if (data.success) {
+        setTransferRoles(data.data.roles || []);
+      } else {
+        console.error('Failed to fetch roles:', data.message);
+        toast({
+          title: "Error",
+          description: data.message || "Failed to fetch available roles",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch transfer roles:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to update ticket status",
+        description: "Failed to fetch available roles",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchTransferUsers = async (role?: string) => {
+    try {
+      const url = role && role !== 'all' 
+        ? `/api/support/transfer-users?role=${role}` 
+        : '/api/support/transfer-users';
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setTransferUsers(data.data.users);
+      }
+    } catch (error) {
+      console.error('Failed to fetch transfer users:', error);
+    }
+  };
+
+  const handleConfirmTransfer = async () => {
+    if (!selectedTicket || !selectedUser) {
+      toast({
+        title: "Error",
+        description: "Please select a user to transfer to",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const response = await fetch(`/api/support/tickets/${selectedTicket.ticketNumber}/transfer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ targetUserId: selectedUser })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to transfer ticket');
+      }
+
+      toast({
+        title: "Success",
+        description: "Ticket transferred successfully",
+      });
+
+      setTransferDialogOpen(false);
+      setSelectedUser('');
+      setSelectedRole('all');
+      setSelectedTicket(null);
+      fetchTickets();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to transfer ticket",
         variant: "destructive",
       });
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const filteredTransferUsers = transferUsers.filter(u => 
+    selectedRole === 'all' ? true : u.role === selectedRole
+  );
+
+  // Update users when role changes
+  const handleRoleChange = (role: string) => {
+    setSelectedRole(role);
+    setSelectedUser(''); // Reset user selection when role changes
+    fetchTransferUsers(role); // Fetch users for the selected role
   };
 
   if (loading && tickets.length === 0) {
@@ -299,6 +465,23 @@ const SupportTickets = () => {
                           <span className="truncate">{new Date(ticket.createdAt).toLocaleDateString()}</span>
                         </span>
                       </div>
+                      {/* Show who is handling the ticket */}
+                      {ticket.lockedBy && (
+                        <div className="flex items-center gap-1 text-xs">
+                          <Lock className="h-3 w-3 text-orange-600" />
+                          <span className="text-orange-600 font-medium">
+                            Being handled by {ticket.lockedBy.profile?.firstName} {ticket.lockedBy.profile?.lastName || ticket.lockedBy.email}
+                          </span>
+                        </div>
+                      )}
+                      {ticket.assignedTo && !ticket.lockedBy && (
+                        <div className="flex items-center gap-1 text-xs">
+                          <LockOpen className="h-3 w-3 text-blue-600" />
+                          <span className="text-blue-600">
+                            Assigned to {ticket.assignedTo.profile?.firstName} {ticket.assignedTo.profile?.lastName || ticket.assignedTo.email}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -309,6 +492,12 @@ const SupportTickets = () => {
                     <MessageSquare className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
                     <p className="text-sm leading-relaxed break-words">{ticket.message}</p>
                   </div>
+                  {ticket.attachments && ticket.attachments.length > 0 && (
+                    <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                      <Paperclip className="h-3 w-3" />
+                      <span>{ticket.attachments.length} attachment{ticket.attachments.length > 1 ? 's' : ''}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -321,34 +510,67 @@ const SupportTickets = () => {
                     <Eye className="h-4 w-4 mr-2" />
                     View Full Conversation
                   </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => handleReply(ticket)}
-                    className="flex-1 touch-manipulation min-h-[40px]"
-                  >
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Reply
-                  </Button>
-                  {ticket.status === 'open' && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => handleUpdateStatus(ticket._id, 'in_progress')}
-                      disabled={actionLoading}
-                      className="flex-1 touch-manipulation min-h-[40px]"
-                    >
-                      Mark In Progress
-                    </Button>
+                  
+                  {/* Only show reply/action buttons if ticket is not locked by another user */}
+                  {(!ticket.lockedBy || ticket.lockedBy._id === user?.id) && (
+                    <>
+                      {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleReply(ticket)}
+                          className="flex-1 touch-manipulation min-h-[40px]"
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Reply
+                        </Button>
+                      )}
+                      {ticket.status === 'open' && (
+                        ticket.assignedTo ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => handleUpdateStatus(ticket._id, 'in_progress')}
+                            disabled={actionLoading}
+                            className="flex-1 touch-manipulation min-h-[40px]"
+                          >
+                            Mark In Progress
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => handleUpdateStatus(ticket._id, 'in_progress')}
+                            disabled={actionLoading}
+                            className="flex-1 touch-manipulation min-h-[40px]"
+                          >
+                            Accept
+                          </Button>
+                        )
+                      )}
+                      {ticket.status === 'in_progress' && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleUpdateStatus(ticket._id, 'resolved')}
+                          disabled={actionLoading}
+                          className="flex-1 touch-manipulation min-h-[40px]"
+                        >
+                          Mark Resolved
+                        </Button>
+                      )}
+                    </>
                   )}
-                  {ticket.status === 'in_progress' && (
+                  
+                  {/* Transfer button - only show if current user is handling the ticket */}
+                  {ticket.lockedBy && ticket.lockedBy._id === user?.id && (
                     <Button
                       size="sm"
-                      variant="secondary"
-                      onClick={() => handleUpdateStatus(ticket._id, 'resolved')}
-                      disabled={actionLoading}
+                      variant="outline"
+                      onClick={() => handleTransferTicket(ticket)}
                       className="flex-1 touch-manipulation min-h-[40px]"
                     >
-                      Mark Resolved
+                      <ArrowRightLeft className="h-4 w-4 mr-2" />
+                      Transfer
                     </Button>
                   )}
                 </div>
@@ -411,13 +633,58 @@ const SupportTickets = () => {
                   </span>
                 </div>
                 <p className="text-sm">{selectedTicket.message}</p>
+                
+                {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
+                  <div className="mt-3 pt-3 border-t space-y-2">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Paperclip className="h-3 w-3" />
+                      <span>{selectedTicket.attachments.length} attachment{selectedTicket.attachments.length > 1 ? 's' : ''}</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {selectedTicket.attachments.map((attachment, idx) => {
+                        const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(attachment.filename);
+                        return (
+                          <div key={idx} className="border rounded-lg overflow-hidden bg-white dark:bg-gray-900">
+                            {isImage ? (
+                              <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="block">
+                                <img 
+                                  src={attachment.url} 
+                                  alt={attachment.filename}
+                                  className="w-full h-32 object-cover cursor-pointer hover:opacity-90 transition"
+                                />
+                              </a>
+                            ) : (
+                              <div className="flex items-center justify-center h-32 bg-gray-100 dark:bg-gray-800">
+                                <Paperclip className="h-8 w-8 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="p-2 flex items-center justify-between">
+                              <span className="text-xs truncate flex-1 mr-2" title={attachment.filename}>
+                                {attachment.filename}
+                              </span>
+                              <a 
+                                href={attachment.url} 
+                                download={attachment.filename}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-700"
+                              >
+                                <Download className="h-3 w-3" />
+                              </a>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Responses */}
-              {selectedTicket.responses && selectedTicket.responses.length > 0 && (
+              {selectedTicket.responses && selectedTicket.responses.length > 1 && (
                 <div className="space-y-3">
                   <h4 className="font-semibold text-sm">Responses</h4>
-                  {selectedTicket.responses.map((response, index) => (
+                  {selectedTicket.responses.slice(1).map((response, index) => (
                     <div 
                       key={index} 
                       className={`p-4 rounded-lg ${response.isAdmin ? 'bg-blue-50 dark:bg-blue-950' : 'bg-muted'}`}
@@ -506,6 +773,94 @@ const SupportTickets = () => {
               disabled={actionLoading || !replyMessage.trim()}
             >
               {actionLoading ? 'Sending...' : 'Send Reply'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Ticket Dialog */}
+      <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
+        <DialogContent className="mx-4 sm:mx-auto max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg sm:text-xl">Transfer Support Ticket</DialogTitle>
+            <DialogDescription className="text-sm">
+              Transfer #{selectedTicket?.ticketNumber} to another support team member
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="role-filter">Filter by Role</Label>
+              <Select 
+                value={selectedRole} 
+                onValueChange={handleRoleChange}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Available Staff</SelectItem>
+                  {transferRoles.length > 0 ? (
+                    transferRoles.map((role) => (
+                      <SelectItem key={role._id} value={role.name}>
+                        {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="subadmin">Sub Admin</SelectItem>
+                      <SelectItem value="agent">Support Agent</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="transfer-to">Select User</Label>
+              <Select 
+                value={selectedUser} 
+                onValueChange={setSelectedUser}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Choose a user to transfer to" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredTransferUsers.length === 0 ? (
+                    <SelectItem value="none" disabled>No users available</SelectItem>
+                  ) : (
+                    filteredTransferUsers.map((usr) => (
+                      <SelectItem key={usr._id} value={usr._id}>
+                        <div className="flex flex-col">
+                          <span>{usr.profile?.firstName} {usr.profile?.lastName}</span>
+                          <span className="text-xs text-muted-foreground">{usr.email} - {usr.role}</span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {filteredTransferUsers.length === 0 && selectedRole !== 'all' && (
+              <p className="text-sm text-muted-foreground">
+                No {selectedRole} users found. Try selecting a different role.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setTransferDialogOpen(false);
+              setSelectedUser('');
+              setSelectedRole('all');
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmTransfer}
+              disabled={actionLoading || !selectedUser}
+            >
+              {actionLoading ? 'Transferring...' : 'Transfer Ticket'}
             </Button>
           </DialogFooter>
         </DialogContent>

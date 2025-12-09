@@ -484,12 +484,12 @@ router.patch('/:id/status', authenticateToken, asyncHandler(async (req, res) => 
       });
     }
 
-    // Validate status for vendors/customers (they can't set to pending)
-    const validStatusesForOwner = ['available', 'sold', 'rented'];
+    // Validate status for vendors/customers (they can't set to pending/rejected)
+    const validStatusesForOwner = ['available', 'sold', 'rented', 'leased'];
     if (!hasPermission(req.user, PERMISSIONS.PROPERTIES_EDIT) && !validStatusesForOwner.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid status. Available options: available, sold, rented'
+        message: 'Invalid status. Available options: available, sold, rented, leased'
       });
     }
 
@@ -857,6 +857,73 @@ router.post('/:id/assign-customer', authenticateToken, asyncHandler(async (req, 
     res.status(500).json({
       success: false,
       message: 'Failed to assign property to customer'
+    });
+  }
+}));
+
+// @desc    Track property interaction (phone click, email click, etc.)
+// @route   POST /api/properties/:id/track-interaction
+// @access  Public (can be tracked by non-logged in users too)
+router.post('/:id/track-interaction', asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { interactionType } = req.body;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    // Validate interaction type
+    const validInteractionTypes = ['clickedPhone', 'clickedEmail', 'clickedWhatsApp', 'viewedGallery', 'sharedProperty'];
+    if (!validInteractionTypes.includes(interactionType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid interaction type'
+      });
+    }
+
+    // Find property
+    const property = await Property.findById(id);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Get or create PropertyView for tracking
+    const PropertyView = require('../models/PropertyView');
+
+    // Create or update property view with interaction
+    const interactionData = {
+      property: id,
+      sessionId: req.sessionID || req.headers['x-session-id'] || `anon-${Date.now()}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      referrer: req.headers.referer || req.headers.referrer,
+      [`interactions.${interactionType}`]: true
+    };
+
+    // If user is authenticated, add viewer
+    if (req.user) {
+      interactionData.viewer = req.user.id;
+    }
+
+    await PropertyView.create(interactionData);
+
+    res.json({
+      success: true,
+      message: 'Interaction tracked successfully'
+    });
+  } catch (error) {
+    console.error('Track interaction error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to track interaction'
     });
   }
 }));

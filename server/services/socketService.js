@@ -154,13 +154,18 @@ class SocketService {
             conversationId
           });
 
-          // Send notification to recipient
-          this.io.to(`user:${recipientId}`).emit('message_notification', {
-            conversationId,
-            message: newMessage,
-            senderId: userId,
-            senderName: `${newMessage.sender.profile?.firstName} ${newMessage.sender.profile?.lastName}`.trim()
-          });
+          // Send notification to recipient (check preferences first)
+          const notificationService = require('./notificationService');
+          const shouldNotify = await notificationService.checkUserNotificationPreferences(recipientId, 'new_message');
+
+          if (shouldNotify) {
+            this.io.to(`user:${recipientId}`).emit('message_notification', {
+              conversationId,
+              message: newMessage,
+              senderId: userId,
+              senderName: `${newMessage.sender.profile?.firstName} ${newMessage.sender.profile?.lastName}`.trim()
+            });
+          }
 
           // Confirm to sender
           socket.emit('message_sent', {
