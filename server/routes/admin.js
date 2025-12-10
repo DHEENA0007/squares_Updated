@@ -189,6 +189,9 @@ router.get('/vendor-approvals', authenticateToken, asyncHandler(async (req, res)
       Vendor.find(query)
         .populate('user', 'email profile.firstName profile.lastName profile.phone createdAt')
         .populate('approval.reviewedBy', 'profile.firstName profile.lastName email')
+        .populate('approval.lockedBy', 'profile.firstName profile.lastName email')
+        .populate('approval.assignedTo', 'profile.firstName profile.lastName email')
+        .populate('approval.phoneVerifiedBy', 'profile.firstName profile.lastName email')
         .sort(sort)
         .skip(skip)
         .limit(parseInt(limit)),
@@ -226,6 +229,80 @@ router.get('/vendor-approvals', authenticateToken, asyncHandler(async (req, res)
   }
 }));
 
+// @desc    Get available roles for vendor approval transfer
+// @route   GET /api/admin/vendor-approvals/transfer-roles
+// @access  Private (Any authenticated admin)
+router.get('/vendor-approvals/transfer-roles', authenticateToken, asyncHandler(async (req, res) => {
+  console.log('[Vendor Transfer Roles] User role:', req.user.role);
+
+  const roles = await Role.find({
+    isActive: true,
+    name: { $nin: ['customer', 'vendor', 'agent'] }
+  })
+    .select('name description level')
+    .sort({ level: -1 });
+
+  console.log('[Vendor Transfer Roles] Found roles:', roles.length, 'roles');
+
+  res.json({
+    success: true,
+    data: { roles }
+  });
+}));
+
+// @desc    Get users by role for vendor approval transfer
+// @route   GET /api/admin/vendor-approvals/transfer-users
+// @access  Private (Any authenticated admin)
+router.get('/vendor-approvals/transfer-users', authenticateToken, async (req, res) => {
+  try {
+    console.log('[Vendor Transfer Users] User role:', req.user.role);
+
+    const { role } = req.query;
+
+    // Step 1: Query Role model to find roles with vendors.approve permission
+    const rolesWithPermission = await Role.find({
+      isActive: true,
+      permissions: PERMISSIONS.VENDORS_APPROVE
+    }).select('name');
+
+    const roleNamesWithPermission = rolesWithPermission.map(r => r.name);
+    console.log('[Vendor Transfer Users] Roles with vendors.approve:', roleNamesWithPermission);
+
+    // Step 2: Add 'superadmin' to the list (has all permissions by default)
+    if (!roleNamesWithPermission.includes('superadmin')) {
+      roleNamesWithPermission.push('superadmin');
+    }
+
+    // Step 3: Build query to fetch users with these roles
+    let query = {
+      status: 'active',
+      role: { $in: roleNamesWithPermission }
+    };
+
+    // If specific role filter is provided
+    if (role && role !== 'all') {
+      query.role = role;
+    }
+
+    const users = await User.find(query)
+      .select('email role profile')
+      .sort({ email: 1 });
+
+    console.log('[Vendor Transfer Users] Found', users.length, 'eligible users');
+
+    res.json({
+      success: true,
+      data: { users }
+    });
+  } catch (error) {
+    console.error('[Vendor Transfer Users] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch transfer users'
+    });
+  }
+});
+
 // @desc    Get vendor approval details
 // @route   GET /api/admin/vendor-approvals/:vendorId
 // @access  Private/Admin & SubAdmin
@@ -246,7 +323,12 @@ router.get('/vendor-approvals/:vendorId', authenticateToken, asyncHandler(async 
 
     const vendor = await Vendor.findById(vendorId)
       .populate('user', 'email profile role status createdAt')
-      .populate('approval.reviewedBy', 'profile.firstName profile.lastName email');
+      .populate('approval.reviewedBy', 'profile.firstName profile.lastName email')
+      .populate('approval.lockedBy', 'profile.firstName profile.lastName email')
+      .populate('approval.assignedTo', 'profile.firstName profile.lastName email')
+      .populate('approval.phoneVerifiedBy', 'profile.firstName profile.lastName email')
+      .populate('approval.activityLog.performedBy', 'profile.firstName profile.lastName email')
+      .populate('approval.activityLog.transferredTo', 'profile.firstName profile.lastName email');
 
     if (!vendor) {
       return res.status(404).json({
@@ -305,16 +387,33 @@ router.post('/vendor-approvals/:vendorId/verify-phone', isAnyAdmin, asyncHandler
     vendor.approval.status = 'under_review';
     vendor.approval.verificationChecklist.phoneVerified = true;
     vendor.approval.phoneVerifiedAt = new Date();
+    vendor.approval.phoneVerifiedBy = adminId;
     vendor.approval.reviewedBy = adminId;
     vendor.approval.approverName = approverName;
+
+    // Lock the vendor to this admin after phone verification
+    vendor.approval.lockedBy = adminId;
+    vendor.approval.lockedAt = new Date();
+    vendor.approval.assignedTo = adminId;
+    vendor.approval.assignedAt = new Date();
+
+    // Add activity log entry
+    vendor.approval.activityLog.push({
+      action: 'phone_verified',
+      performedBy: adminId,
+      performedAt: new Date(),
+      details: `Phone verified by ${approverName}. Vendor locked and assigned.`,
+      notes: approverName
+    });
 
     await vendor.save();
 
     res.json({
       success: true,
-      message: 'Phone verified successfully. Status changed to under review.',
+      message: 'Phone verified successfully. Status changed to under review and locked to you.',
       data: {
-        phoneVerifiedAt: vendor.approval.phoneVerifiedAt
+        phoneVerifiedAt: vendor.approval.phoneVerifiedAt,
+        lockedBy: adminId
       }
     });
   } catch (error) {
@@ -322,6 +421,229 @@ router.post('/vendor-approvals/:vendorId/verify-phone', isAnyAdmin, asyncHandler
     res.status(500).json({
       success: false,
       message: 'Failed to verify phone'
+    });
+  }
+}));
+
+// @desc    Accept vendor approval (take responsibility)
+// @route   POST /api/admin/vendor-approvals/:vendorId/accept
+// @access  Private/Admin & SubAdmin (SuperAdmin can always accept)
+router.post('/vendor-approvals/:vendorId/accept', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const adminId = req.user.id;
+    const isSuperAdminUser = req.user.role === 'superadmin';
+
+    // Check permission: Allow if user is SuperAdmin OR has vendors.view permission
+    const hasViewPermission = hasPermission(req.user, PERMISSIONS.VENDORS_VIEW);
+
+    if (!isSuperAdminUser && !hasViewPermission) {
+      return res.status(403).json({
+        success: false,
+        message: 'Insufficient permissions to accept vendor approvals'
+      });
+    }
+
+    // Find vendor
+    const vendor = await Vendor.findById(vendorId)
+      .populate('approval.lockedBy', 'profile.firstName profile.lastName email');
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    // Check if phone verification is done
+    if (!vendor.approval.verificationChecklist.phoneVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone verification must be completed before accepting the vendor approval'
+      });
+    }
+
+    // SuperAdmin can always accept, others check if locked
+    if (!isSuperAdminUser) {
+      // Check if vendor is locked by another admin
+      if (vendor.approval.lockedBy && vendor.approval.lockedBy._id.toString() !== adminId.toString()) {
+        const lockerName = vendor.approval.lockedBy.profile?.firstName
+          ? `${vendor.approval.lockedBy.profile.firstName} ${vendor.approval.lockedBy.profile.lastName || ''}`
+          : vendor.approval.lockedBy.email || 'another user';
+
+        return res.status(423).json({
+          success: false,
+          message: `This vendor application is currently being handled by ${lockerName}. Please choose a different application.`
+        });
+      }
+    }
+
+    // Lock and assign to admin
+    vendor.approval.lockedBy = adminId;
+    vendor.approval.lockedAt = new Date();
+    vendor.approval.assignedTo = adminId;
+    vendor.approval.assignedAt = new Date();
+    vendor.approval.status = 'under_review';
+
+    // Add activity log entry
+    const adminUser = await User.findById(adminId).select('profile email');
+    const adminName = adminUser?.profile?.firstName
+      ? `${adminUser.profile.firstName} ${adminUser.profile.lastName || ''}`
+      : adminUser?.email || 'Unknown';
+
+    vendor.approval.activityLog.push({
+      action: 'accepted',
+      performedBy: adminId,
+      performedAt: new Date(),
+      details: `Responsibility accepted by ${adminName}. Vendor locked for processing.`,
+      notes: adminName
+    });
+
+    await vendor.save();
+
+    res.json({
+      success: true,
+      message: 'Vendor approval accepted successfully. You are now responsible for completing the verification process.',
+      data: {
+        vendorId: vendor._id,
+        lockedBy: adminId,
+        lockedAt: vendor.approval.lockedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Accept vendor approval error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to accept vendor approval'
+    });
+  }
+}));
+
+// @desc    Transfer vendor approval to another user
+// @route   POST /api/admin/vendor-approvals/:vendorId/transfer
+// @access  Private (User handling the vendor approval)
+router.post('/vendor-approvals/:vendorId/transfer', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const { targetUserId } = req.body;
+    const isSuperAdminUser = req.user.role === 'superadmin';
+
+    if (!targetUserId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Target user ID is required'
+      });
+    }
+
+    const vendor = await Vendor.findById(vendorId);
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    // SuperAdmin can transfer any vendor, others can only transfer if they're handling it
+    if (!isSuperAdminUser) {
+      const isHandlingVendor = (vendor.approval.lockedBy && vendor.approval.lockedBy.toString() === req.user.id.toString()) ||
+                               (vendor.approval.assignedTo && vendor.approval.assignedTo.toString() === req.user.id.toString());
+
+      if (!isHandlingVendor) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only transfer vendor approvals you are currently handling. Please accept the vendor approval first.'
+        });
+      }
+    }
+
+    // Verify target user exists and has appropriate role
+    const targetUser = await User.findById(targetUserId);
+
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Target user not found'
+      });
+    }
+
+    if (targetUser.role === 'customer' || targetUser.role === 'vendor' || targetUser.role === 'agent') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot transfer vendor approval to customer, vendor, or agent'
+      });
+    }
+
+    // Check if target user's role has vendors.approve permission (unless superadmin)
+    if (targetUser.role !== 'superadmin') {
+      // Fetch the target user's role document to check permissions
+      const Role = require('../models/Role');
+      const targetUserRole = await Role.findOne({ name: targetUser.role, isActive: true });
+
+      if (!targetUserRole || !targetUserRole.permissions || !targetUserRole.permissions.includes(PERMISSIONS.VENDORS_APPROVE)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Target user does not have permission to approve vendors. Please select a user with vendors.approve permission.'
+        });
+      }
+    }
+
+    // Transfer vendor
+    vendor.approval.assignedTo = targetUserId;
+    vendor.approval.assignedAt = new Date();
+    vendor.approval.lockedBy = targetUserId;
+    vendor.approval.lockedAt = new Date();
+
+    // Add activity log entry
+    const transferredByName = req.user.profile?.firstName
+      ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`
+      : req.user.email;
+    const transferredToName = targetUser.profile?.firstName
+      ? `${targetUser.profile.firstName} ${targetUser.profile.lastName || ''}`
+      : targetUser.email;
+
+    vendor.approval.activityLog.push({
+      action: 'transferred',
+      performedBy: req.user.id,
+      performedAt: new Date(),
+      details: `Transferred from ${transferredByName} to ${transferredToName}`,
+      transferredTo: targetUserId,
+      notes: `${transferredByName} → ${transferredToName}`
+    });
+
+    await vendor.save();
+
+    // Send notification email to target user
+    try {
+      await sendTemplateEmail(targetUser.email, 'vendor-approval-assigned', {
+        userName: targetUser.profile?.firstName || targetUser.email,
+        vendorName: vendor.businessInfo.companyName,
+        assignedBy: req.user.profile?.firstName
+          ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`
+          : req.user.email,
+        vendorId: `VEN-${vendor._id.toString().slice(-8).toUpperCase()}`,
+        reviewUrl: `${process.env.CLIENT_URL || 'http://localhost:3000'}/admin/vendor-approvals/${vendor._id}`
+      });
+    } catch (emailError) {
+      console.error('Failed to send assignment notification:', emailError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Vendor approval transferred successfully',
+      data: {
+        vendorId: vendor._id,
+        assignedTo: targetUserId,
+        lockedBy: targetUserId
+      }
+    });
+
+  } catch (error) {
+    console.error('Transfer vendor approval error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to transfer vendor approval'
     });
   }
 }));
@@ -343,11 +665,14 @@ router.post('/vendor-approvals/:vendorId/approve', authenticateToken, isAnyAdmin
 
   try {
     const { vendorId } = req.params;
-    const { approvalNotes, verificationLevel = 'complete', approverName, verificationChecklist } = req.body;
+    const { approvalNotes, verificationLevel = 'basic', approverName, verificationChecklist } = req.body;
     const adminId = req.user.id;
 
     // Find vendor
-    const vendor = await Vendor.findById(vendorId).populate('user');
+    const vendor = await Vendor.findById(vendorId)
+      .populate('user')
+      .populate('approval.lockedBy', 'profile.firstName profile.lastName email');
+
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -362,6 +687,20 @@ router.post('/vendor-approvals/:vendorId/approve', authenticateToken, isAnyAdmin
       });
     }
 
+    // SuperAdmin can approve any vendor, others must be the one handling it
+    if (!isSuperAdminUser) {
+      if (vendor.approval.lockedBy && vendor.approval.lockedBy._id.toString() !== adminId.toString()) {
+        const lockerName = vendor.approval.lockedBy.profile?.firstName
+          ? `${vendor.approval.lockedBy.profile.firstName} ${vendor.approval.lockedBy.profile.lastName || ''}`
+          : vendor.approval.lockedBy.email || 'another user';
+
+        return res.status(423).json({
+          success: false,
+          message: `This vendor application is currently being handled by ${lockerName}. Please choose a different application.`
+        });
+      }
+    }
+
     // Update vendor approval status
     vendor.approval.status = 'approved';
     vendor.approval.reviewedAt = new Date();
@@ -369,6 +708,10 @@ router.post('/vendor-approvals/:vendorId/approve', authenticateToken, isAnyAdmin
     vendor.approval.approvalNotes = approvalNotes || 'Application approved';
     vendor.approval.approverName = approverName;
     vendor.approval.verificationChecklist = verificationChecklist;
+
+    // Unlock after approval
+    vendor.approval.lockedBy = null;
+    vendor.approval.lockedAt = null;
 
     // Update verification status
     vendor.verification.isVerified = true;
@@ -383,6 +726,15 @@ router.post('/vendor-approvals/:vendorId/approve', authenticateToken, isAnyAdmin
       doc.verified = true;
       doc.verifiedAt = new Date();
       doc.verifiedBy = adminId;
+    });
+
+    // Add activity log entry
+    vendor.approval.activityLog.push({
+      action: 'approved',
+      performedBy: adminId,
+      performedAt: new Date(),
+      details: `Vendor application approved by ${approverName}. Status changed to active.`,
+      notes: approvalNotes || 'Application approved'
     });
 
     await vendor.save();
@@ -457,7 +809,10 @@ router.post('/vendor-approvals/:vendorId/reject', authenticateToken, isAnyAdmin,
     }
 
     // Find vendor
-    const vendor = await Vendor.findById(vendorId).populate('user');
+    const vendor = await Vendor.findById(vendorId)
+      .populate('user')
+      .populate('approval.lockedBy', 'profile.firstName profile.lastName email');
+
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -472,16 +827,43 @@ router.post('/vendor-approvals/:vendorId/reject', authenticateToken, isAnyAdmin,
       });
     }
 
+    // SuperAdmin can reject any vendor, others must be the one handling it
+    if (!isSuperAdminUser) {
+      if (vendor.approval.lockedBy && vendor.approval.lockedBy._id.toString() !== adminId.toString()) {
+        const lockerName = vendor.approval.lockedBy.profile?.firstName
+          ? `${vendor.approval.lockedBy.profile.firstName} ${vendor.approval.lockedBy.profile.lastName || ''}`
+          : vendor.approval.lockedBy.email || 'another user';
+
+        return res.status(423).json({
+          success: false,
+          message: `This vendor application is currently being handled by ${lockerName}. Please choose a different application.`
+        });
+      }
+    }
+
     // Update vendor approval status
     vendor.approval.status = 'rejected';
     vendor.approval.reviewedAt = new Date();
     vendor.approval.reviewedBy = adminId;
+
+    // Unlock after rejection
+    vendor.approval.lockedBy = null;
+    vendor.approval.lockedAt = null;
     vendor.approval.rejectionReason = rejectionReason;
     vendor.approval.approverName = approverName;
     vendor.approval.verificationChecklist = verificationChecklist;
 
     // Update vendor status
     vendor.status = 'rejected';
+
+    // Add activity log entry
+    vendor.approval.activityLog.push({
+      action: 'rejected',
+      performedBy: adminId,
+      performedAt: new Date(),
+      details: `Vendor application rejected by ${approverName}. Reason: ${rejectionReason}`,
+      notes: rejectionReason
+    });
 
     await vendor.save();
 
@@ -551,7 +933,21 @@ router.post('/vendor-approvals/:vendorId/under-review', isAnyAdmin, asyncHandler
     if (notes) {
       vendor.approval.approvalNotes = notes;
     }
-    
+
+    // Add activity log entry
+    const adminUser = await User.findById(adminId).select('profile email');
+    const adminName = adminUser?.profile?.firstName
+      ? `${adminUser.profile.firstName} ${adminUser.profile.lastName || ''}`
+      : adminUser?.email || 'Unknown';
+
+    vendor.approval.activityLog.push({
+      action: 'marked_under_review',
+      performedBy: adminId,
+      performedAt: new Date(),
+      details: `Marked as under review by ${adminName}`,
+      notes: notes || 'Application under review'
+    });
+
     await vendor.save();
 
     res.json({

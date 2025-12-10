@@ -13,7 +13,10 @@ import {
   MapPin,
   Shield,
   ArrowLeft,
-  Loader2
+  Loader2,
+  UserCheck,
+  ArrowRightLeft,
+  Lock
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from "@/components/ui/input";
@@ -23,6 +26,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -89,6 +99,31 @@ interface VendorApplication {
       };
       email: string;
     };
+    phoneVerifiedBy?: {
+      profile: {
+        firstName: string;
+        lastName: string;
+      };
+      email: string;
+    };
+    assignedTo?: {
+      _id: string;
+      profile: {
+        firstName: string;
+        lastName: string;
+      };
+      email: string;
+    };
+    assignedAt?: string;
+    lockedBy?: {
+      _id: string;
+      profile: {
+        firstName: string;
+        lastName: string;
+      };
+      email: string;
+    };
+    lockedAt?: string;
     approvalNotes?: string;
     rejectionReason?: string;
     approverName?: string;
@@ -110,6 +145,28 @@ interface VendorApplication {
       documentName: string;
       documentType: string;
       documentUrl: string;
+    }>;
+    activityLog?: Array<{
+      action: 'phone_verified' | 'accepted' | 'transferred' | 'approved' | 'rejected' | 'marked_under_review';
+      performedBy: {
+        _id: string;
+        profile?: {
+          firstName: string;
+          lastName: string;
+        };
+        email: string;
+      };
+      performedAt: string;
+      details: string;
+      transferredTo?: {
+        _id: string;
+        profile?: {
+          firstName: string;
+          lastName: string;
+        };
+        email: string;
+      };
+      notes?: string;
     }>;
   };
 }
@@ -133,6 +190,10 @@ const VendorDetails = () => {
   const [approverName, setApproverName] = useState('');
   const [approvalComments, setApprovalComments] = useState('');
   const [rejectionComments, setRejectionComments] = useState('');
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+  const [transferUsers, setTransferUsers] = useState<any[]>([]);
+  const [selectedTransferUser, setSelectedTransferUser] = useState('');
   const [verificationChecklist, setVerificationChecklist] = useState({
     phoneVerified: false,
     emailVerified: false,
@@ -313,7 +374,7 @@ const VendorDetails = () => {
         },
         body: JSON.stringify({
           approvalNotes: approvalComments || 'Application approved',
-          verificationLevel: 'complete',
+          verificationLevel: 'basic',
           approverName: approverName.trim(),
           verificationChecklist
         })
@@ -442,6 +503,128 @@ const VendorDetails = () => {
     }
   };
 
+  const handleAcceptVendor = async () => {
+    if (!vendor) return;
+
+    try {
+      setActionLoading(true);
+      const token = localStorage.getItem('token');
+
+      const response = await fetch(`${API_BASE_URL}/admin/vendor-approvals/${vendor._id}/accept`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Vendor approval accepted. You are now responsible for completing the verification process.",
+        });
+        fetchVendorDetails();
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.message || "Failed to accept vendor approval",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to accept vendor approval",
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const fetchTransferUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/admin/vendor-approvals/transfer-users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Transfer users response:', data);
+        setTransferUsers(data.data.users || []);
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to fetch transfer users:', response.status, errorData);
+        toast({
+          title: "Error",
+          description: errorData.message || "Failed to fetch transfer users",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch transfer users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch transfer users",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTransferVendor = async () => {
+    if (!vendor || !selectedTransferUser) return;
+
+    try {
+      setTransferring(true);
+      const token = localStorage.getItem('token');
+
+      const response = await fetch(`${API_BASE_URL}/admin/vendor-approvals/${vendor._id}/transfer`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          targetUserId: selectedTransferUser
+        })
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Vendor approval transferred successfully",
+        });
+        setTransferDialogOpen(false);
+        setSelectedTransferUser('');
+        fetchVendorDetails();
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.message || "Failed to transfer vendor approval",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to transfer vendor approval",
+        variant: "destructive",
+      });
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  const openTransferDialog = () => {
+    fetchTransferUsers();
+    setTransferDialogOpen(true);
+  };
+
   const openApprovalDialog = (type: 'approve' | 'reject' | 'under_review') => {
     setActionType(type);
     setApprovalComments('');
@@ -537,11 +720,51 @@ const VendorDetails = () => {
         {getStatusBadge(vendor.approval.status)}
       </div>
 
+      {/* Lock Status Alert */}
+      {vendor.approval.lockedBy && vendor.approval.lockedBy._id !== user?.id && user?.role !== 'superadmin' && (
+        <Alert className="bg-yellow-50 border-yellow-200">
+          <Lock className="h-4 w-4 text-yellow-600" />
+          <AlertTitle>Application Locked</AlertTitle>
+          <AlertDescription>
+            This vendor application is currently being handled by{' '}
+            {vendor.approval.lockedBy.profile?.firstName
+              ? `${vendor.approval.lockedBy.profile.firstName} ${vendor.approval.lockedBy.profile.lastName || ''}`
+              : vendor.approval.lockedBy.email}
+            . You cannot make changes to this application.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Action Buttons */}
-      {hasPermission(PERMISSIONS.VENDORS_APPROVE) && 
-       vendor.approval.status !== 'approved' && 
+      {hasPermission(PERMISSIONS.VENDORS_APPROVE) &&
+       vendor.approval.status !== 'approved' &&
        vendor.approval.status !== 'rejected' && (
         <div className="flex flex-wrap gap-2">
+          {/* Accept button - only show if phone verified and not locked by current user */}
+          {vendor.approval.verificationChecklist?.phoneVerified &&
+           (!vendor.approval.lockedBy || vendor.approval.lockedBy._id !== user?.id) &&
+           user?.role !== 'superadmin' && (
+            <Button
+              variant="outline"
+              onClick={handleAcceptVendor}
+              disabled={actionLoading || (vendor.approval.lockedBy && vendor.approval.lockedBy._id !== user?.id)}
+            >
+              <UserCheck className="w-4 h-4 mr-2" />
+              Accept Responsibility
+            </Button>
+          )}
+
+          {/* Transfer button - only show if locked by current user or superadmin */}
+          {((vendor.approval.lockedBy && vendor.approval.lockedBy._id === user?.id) || user?.role === 'superadmin') && (
+            <Button
+              variant="outline"
+              onClick={openTransferDialog}
+            >
+              <ArrowRightLeft className="w-4 h-4 mr-2" />
+              Transfer
+            </Button>
+          )}
+
           {vendor.approval.status === 'pending' && (
             <Button
               variant="secondary"
@@ -555,6 +778,7 @@ const VendorDetails = () => {
             variant="default"
             className="bg-green-600 hover:bg-green-700"
             onClick={() => openApprovalDialog('approve')}
+            disabled={vendor.approval.lockedBy && vendor.approval.lockedBy._id !== user?.id && user?.role !== 'superadmin'}
           >
             <CheckCircle className="w-4 h-4 mr-2" />
             Approve Application
@@ -562,6 +786,7 @@ const VendorDetails = () => {
           <Button
             variant="destructive"
             onClick={() => openApprovalDialog('reject')}
+            disabled={vendor.approval.lockedBy && vendor.approval.lockedBy._id !== user?.id && user?.role !== 'superadmin'}
           >
             <XCircle className="w-4 h-4 mr-2" />
             Reject Application
@@ -770,6 +995,86 @@ const VendorDetails = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Activity Log */}
+        {vendor.approval.activityLog && vendor.approval.activityLog.length > 0 && (
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base">Activity Log</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[...vendor.approval.activityLog].reverse().map((activity, index) => {
+                  const performedByName = activity.performedBy.profile?.firstName
+                    ? `${activity.performedBy.profile.firstName} ${activity.performedBy.profile.lastName || ''}`
+                    : activity.performedBy.email;
+
+                  const getActionIcon = () => {
+                    switch (activity.action) {
+                      case 'phone_verified':
+                        return <Phone className="w-4 h-4 text-blue-600" />;
+                      case 'accepted':
+                        return <UserCheck className="w-4 h-4 text-green-600" />;
+                      case 'transferred':
+                        return <ArrowRightLeft className="w-4 h-4 text-orange-600" />;
+                      case 'approved':
+                        return <CheckCircle className="w-4 h-4 text-green-600" />;
+                      case 'rejected':
+                        return <XCircle className="w-4 h-4 text-red-600" />;
+                      case 'marked_under_review':
+                        return <Shield className="w-4 h-4 text-yellow-600" />;
+                      default:
+                        return <Clock className="w-4 h-4 text-gray-600" />;
+                    }
+                  };
+
+                  const getActionColor = () => {
+                    switch (activity.action) {
+                      case 'phone_verified':
+                        return 'bg-blue-50 border-blue-200';
+                      case 'accepted':
+                        return 'bg-green-50 border-green-200';
+                      case 'transferred':
+                        return 'bg-orange-50 border-orange-200';
+                      case 'approved':
+                        return 'bg-green-50 border-green-200';
+                      case 'rejected':
+                        return 'bg-red-50 border-red-200';
+                      case 'marked_under_review':
+                        return 'bg-yellow-50 border-yellow-200';
+                      default:
+                        return 'bg-gray-50 border-gray-200';
+                    }
+                  };
+
+                  return (
+                    <div key={index} className={`p-3 border rounded-lg ${getActionColor()}`}>
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5">{getActionIcon()}</div>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">{activity.details}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(activity.performedAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            By: {performedByName}
+                          </p>
+                          {activity.notes && (
+                            <p className="text-xs text-muted-foreground italic">
+                              Note: {activity.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Approval/Rejection Dialog */}
@@ -800,6 +1105,34 @@ const VendorDetails = () => {
                 <p className="text-sm text-muted-foreground">
                   {vendor.user.profile.firstName} {vendor.user.profile.lastName} • {vendor.user.email}
                 </p>
+                {/* Show who is currently handling this */}
+                {vendor.approval.lockedBy && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs font-medium text-primary">Currently Handling:</p>
+                    <p className="text-sm text-muted-foreground">
+                      {vendor.approval.lockedBy.profile?.firstName
+                        ? `${vendor.approval.lockedBy.profile.firstName} ${vendor.approval.lockedBy.profile.lastName || ''}`
+                        : vendor.approval.lockedBy.email}
+                      {vendor.approval.lockedBy._id === user?.id && ' (You)'}
+                    </p>
+                    {vendor.approval.lockedAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Since: {new Date(vendor.approval.lockedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {/* Show phone verifier if different from current handler */}
+                {vendor.approval.phoneVerifiedBy && vendor.approval.phoneVerifiedBy._id !== vendor.approval.lockedBy?._id && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs font-medium text-blue-600">Phone Verified By:</p>
+                    <p className="text-sm text-muted-foreground">
+                      {vendor.approval.phoneVerifiedBy.profile?.firstName
+                        ? `${vendor.approval.phoneVerifiedBy.profile.firstName} ${vendor.approval.phoneVerifiedBy.profile.lastName || ''}`
+                        : vendor.approval.phoneVerifiedBy.email}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Approver Name */}
@@ -814,6 +1147,11 @@ const VendorDetails = () => {
                   placeholder="Enter your full name"
                   disabled={verificationChecklist.phoneVerified}
                 />
+                {vendor.approval.lockedBy && vendor.approval.lockedBy._id === user?.id && (
+                  <p className="text-xs text-muted-foreground">
+                    You are currently handling this application. Your name is pre-filled from the initial action.
+                  </p>
+                )}
               </div>
 
               {actionType === 'approve' && (
@@ -1026,6 +1364,81 @@ const VendorDetails = () => {
                 )}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Dialog */}
+      <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transfer Vendor Approval</DialogTitle>
+            <DialogDescription>
+              Transfer this vendor approval to another user. They will take over the verification process.
+            </DialogDescription>
+          </DialogHeader>
+
+          {vendor && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <h3 className="font-semibold mb-1">{vendor.businessInfo.companyName}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {vendor.user.profile.firstName} {vendor.user.profile.lastName}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="transferUser">
+                  Select User <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={selectedTransferUser}
+                  onValueChange={setSelectedTransferUser}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a user to transfer to" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {transferUsers.map((u) => (
+                      <SelectItem key={u._id} value={u._id}>
+                        {u.profile?.firstName
+                          ? `${u.profile.firstName} ${u.profile.lastName || ''} (${u.role})`
+                          : `${u.email} (${u.role})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTransferDialogOpen(false);
+                setSelectedTransferUser('');
+              }}
+              disabled={transferring}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleTransferVendor}
+              disabled={transferring || !selectedTransferUser}
+            >
+              {transferring ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Transferring...
+                </>
+              ) : (
+                <>
+                  <ArrowRightLeft className="w-4 h-4 mr-2" />
+                  Transfer
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

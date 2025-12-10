@@ -294,6 +294,40 @@ class SocketService {
         }
       });
 
+      // Handle notification read/opened
+      socket.on('notification_read', async (data) => {
+        try {
+          const { notificationTimestamp, notificationTitle } = data;
+          const UserNotification = require('../models/UserNotification');
+
+          console.log(`📖 Marking notification as read for user ${userId}:`, notificationTitle);
+
+          // Mark user notification as read in UserNotification collection
+          const updated = await UserNotification.findOneAndUpdate(
+            {
+              user: userId,
+              title: notificationTitle,
+              read: false
+            },
+            {
+              $set: {
+                read: true,
+                readAt: new Date()
+              }
+            },
+            { new: true }
+          );
+
+          if (updated) {
+            console.log(`✅ UserNotification marked as read:`, { user: userId, title: updated.title });
+          } else {
+            console.log(`ℹ️ UserNotification already read or not found for user ${userId}`);
+          }
+        } catch (error) {
+          console.error('❌ Error marking notification as read:', error);
+        }
+      });
+
       // Handle user activity updates
       socket.on('user_activity', async (data) => {
         try {

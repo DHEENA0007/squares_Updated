@@ -116,9 +116,16 @@ const hasPermission = (user, permission) => {
     // Superadmin has all permissions
     if (user.role === 'superadmin') return true;
 
-    // Check if user has the specific permission
+    // Check if user has the specific permission in rolePermissions array (user-specific overrides)
     if (user.rolePermissions && Array.isArray(user.rolePermissions)) {
-        return user.rolePermissions.includes(permission);
+        if (user.rolePermissions.includes(permission)) {
+            return true;
+        }
+    }
+
+    // Check if user's role has the permission (role-based permissions)
+    if (user.roleObject && user.roleObject.permissions && Array.isArray(user.roleObject.permissions)) {
+        return user.roleObject.permissions.includes(permission);
     }
 
     return false;

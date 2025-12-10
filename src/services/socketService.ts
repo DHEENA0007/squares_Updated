@@ -304,6 +304,22 @@ class SocketService {
     this.socket.emit('conversation_read', { conversationId });
   }
 
+  // Mark notification as read/opened
+  markNotificationAsRead(data: {
+    notificationTimestamp: string;
+    notificationTitle: string;
+    notificationType: string;
+    userId?: string;
+  }) {
+    if (!this.socket?.connected) {
+      console.warn('⚠️ Socket not connected, cannot mark notification as read');
+      return;
+    }
+
+    console.log('✓ Marking notification as read:', data);
+    this.socket.emit('notification_read', data);
+  }
+
   // Update online status
   updateOnlineStatus(status: 'online' | 'offline' | 'away') {
     if (!this.socket?.connected) return;

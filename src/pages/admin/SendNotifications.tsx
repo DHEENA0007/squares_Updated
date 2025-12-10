@@ -637,6 +637,7 @@ const SendNotifications = () => {
                       <TableHead>Audience</TableHead>
                       <TableHead>Channels</TableHead>
                       <TableHead>Recipients</TableHead>
+                      <TableHead>Read Rate</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -662,12 +663,38 @@ const SendNotifications = () => {
                           </div>
                         </TableCell>
                         <TableCell>{item.statistics?.totalRecipients || 0}</TableCell>
+                        <TableCell>
+                            {item.status === 'sent' && item.statistics ? (
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium">
+                                            {item.statistics.opened || 0}/{item.statistics.delivered || 0}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">read</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">
+                                            {item.statistics.delivered || 0}/{item.statistics.totalRecipients || 0} delivered
+                                        </span>
+                                    </div>
+                                    {item.statistics.openRate > 0 && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-green-600 font-medium">
+                                                {item.statistics.openRate?.toFixed(1)}% rate
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <span className="text-xs text-muted-foreground">N/A</span>
+                            )}
+                        </TableCell>
                         <TableCell>{getStatusBadge(item.status)}</TableCell>
                         <TableCell className="text-right">
                             {item.status === 'draft' && (
-                                <Button 
-                                    size="sm" 
-                                    variant="ghost" 
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
                                     onClick={() => handleEditDraft(item)}
                                     title="Edit Draft"
                                 >

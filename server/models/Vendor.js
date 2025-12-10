@@ -379,7 +379,30 @@ const vendorSchema = new mongoose.Schema({
     approvalNotes: String,
     rejectionReason: String,
     approverName: String,
-    phoneVerifiedAt: Date, // 5-character unique key generated after phone verification
+    phoneVerifiedAt: Date,
+    phoneVerifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    assignedAt: {
+      type: Date,
+      default: null
+    },
+    lockedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    lockedAt: {
+      type: Date,
+      default: null
+    },
     verificationChecklist: {
       phoneVerified: { type: Boolean, default: false },
       // Personal Information
@@ -425,6 +448,30 @@ const vendorSchema = new mongoose.Schema({
         ref: 'User'
       },
       rejectionReason: String
+    }],
+    activityLog: [{
+      action: {
+        type: String,
+        enum: ['phone_verified', 'accepted', 'transferred', 'approved', 'rejected', 'marked_under_review'],
+        required: true
+      },
+      performedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+      },
+      performedAt: {
+        type: Date,
+        default: Date.now
+      },
+      details: {
+        type: String
+      },
+      transferredTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      notes: String
     }]
   },
 

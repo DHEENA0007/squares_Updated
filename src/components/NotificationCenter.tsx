@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRealTimeNotifications, RealTimeNotification } from '@/hooks/useRealTimeNotifications';
 import { formatDistanceToNow } from 'date-fns';
+import { socketService } from '@/services/socketService';
 
 export const NotificationCenter: React.FC = () => {
   const {
@@ -86,7 +87,15 @@ export const NotificationCenter: React.FC = () => {
 
   const handleNotificationClick = (notification: RealTimeNotification) => {
     markAsRead(notification.timestamp);
-    
+
+    // Emit socket event to track read/opened notification
+    socketService.markNotificationAsRead({
+      notificationTimestamp: notification.timestamp,
+      notificationTitle: notification.title,
+      notificationType: notification.type,
+      userId: notification.userId
+    });
+
     // Handle navigation based on action
     if (notification.data?.action) {
       switch (notification.data.action) {
@@ -108,7 +117,7 @@ export const NotificationCenter: React.FC = () => {
           break;
       }
     }
-    
+
     setOpen(false);
   };
 

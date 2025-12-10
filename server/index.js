@@ -372,6 +372,12 @@ const startServer = async () => {
       console.log(` Client URL: ${process.env.CLIENT_URL || 'http://localhost:8001'}`);
       console.log(` Database connection established`);
       
+      // Set server timeout for large file uploads (2 minutes)
+      server.timeout = 120000; // 120 seconds
+      server.keepAliveTimeout = 65000; // 65 seconds
+      server.headersTimeout = 66000; // 66 seconds
+      console.log(` Server timeout configured: 120s`);
+      
       // Start payment cleanup job (runs every 5 minutes)
       paymentCleanupJob.start(5);
       console.log(` Payment cleanup job started (runs every 5 minutes)`);

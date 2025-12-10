@@ -179,6 +179,8 @@ class NotificationService extends EventEmitter {
   async persistNotification(userIds, notification) {
     const UserNotification = require('../models/UserNotification');
 
+    console.log(`💾 Persisting ${userIds.length} UserNotifications with title: "${notification.title}"`);
+
     const notifications = userIds.map(userId => ({
       user: userId,
       type: notification.type || 'general',
@@ -189,7 +191,13 @@ class NotificationService extends EventEmitter {
       read: false
     }));
 
-    await UserNotification.insertMany(notifications);
+    try {
+      const result = await UserNotification.insertMany(notifications);
+      console.log(`✅ Successfully persisted ${result.length} UserNotifications`);
+    } catch (error) {
+      console.error('❌ Failed to persist UserNotifications:', error.message);
+      throw error;
+    }
   }
 
   /**

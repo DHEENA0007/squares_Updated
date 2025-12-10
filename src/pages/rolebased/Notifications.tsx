@@ -750,6 +750,7 @@ const RoleBasedNotifications = () => {
                                             <TableHead>Audience</TableHead>
                                             <TableHead>Channels</TableHead>
                                             <TableHead>Recipients</TableHead>
+                                            <TableHead>Read Rate</TableHead>
                                             <TableHead>Status</TableHead>
                                             {(canSend || canDelete) && <TableHead className="text-right">Actions</TableHead>}
                                         </TableRow>
@@ -796,6 +797,32 @@ const RoleBasedNotifications = () => {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>{item.statistics?.totalRecipients || 0}</TableCell>
+                                                <TableCell>
+                                                    {item.status === 'sent' && item.statistics ? (
+                                                        <div className="space-y-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-sm font-medium">
+                                                                    {item.statistics.opened || 0}/{item.statistics.delivered || 0}
+                                                                </span>
+                                                                <span className="text-xs text-muted-foreground">read</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {item.statistics.delivered || 0}/{item.statistics.totalRecipients || 0} delivered
+                                                                </span>
+                                                            </div>
+                                                            {item.statistics.openRate > 0 && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-xs text-green-600 font-medium">
+                                                                        {item.statistics.openRate?.toFixed(1)}% rate
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground">N/A</span>
+                                                    )}
+                                                </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col gap-1">
                                                         {getStatusBadge(item.status)}

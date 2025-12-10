@@ -80,6 +80,32 @@ interface VendorApplication {
       };
       email: string;
     };
+    phoneVerifiedBy?: {
+      _id: string;
+      profile: {
+        firstName: string;
+        lastName: string;
+      };
+      email: string;
+    };
+    assignedTo?: {
+      _id: string;
+      profile: {
+        firstName: string;
+        lastName: string;
+      };
+      email: string;
+    };
+    assignedAt?: string;
+    lockedBy?: {
+      _id: string;
+      profile: {
+        firstName: string;
+        lastName: string;
+      };
+      email: string;
+    };
+    lockedAt?: string;
     approvalNotes?: string;
     rejectionReason?: string;
     approverName?: string;
@@ -583,7 +609,7 @@ const VendorApprovals: React.FC = () => {
         approvalNotes: approvalComments,
         approverName: approverName,
         verificationChecklist: verificationChecklist,
-        verificationLevel: 'complete'
+        verificationLevel: 'basic'
       };
 
       const response = await fetchWithAuth(`/admin/vendor-approvals/${selectedApplication._id}/approve`, {
@@ -1111,12 +1137,59 @@ const VendorApprovals: React.FC = () => {
 
           {selectedApplication && (
             <div className="space-y-6">
+              {/* Lock Warning Alert */}
+              {selectedApplication.approval.lockedBy &&
+               String(selectedApplication.approval.lockedBy._id) !== String(user?.id) &&
+               user?.role !== 'superadmin' && (
+                <Alert className="bg-yellow-50 border-yellow-200">
+                  <Shield className="h-4 w-4 text-yellow-600" />
+                  <AlertTitle>Application Locked</AlertTitle>
+                  <AlertDescription>
+                    This vendor application is currently being handled by{' '}
+                    <strong>
+                      {selectedApplication.approval.lockedBy.profile?.firstName
+                        ? `${selectedApplication.approval.lockedBy.profile.firstName} ${selectedApplication.approval.lockedBy.profile.lastName || ''}`
+                        : selectedApplication.approval.lockedBy.email}
+                    </strong>
+                    . You cannot approve or reject this application.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* Application Info */}
               <div className="p-4 bg-muted rounded-lg">
                 <h3 className="font-semibold mb-2">{selectedApplication.businessInfo.companyName}</h3>
                 <p className="text-sm text-muted-foreground">
                   {selectedApplication.user.profile.firstName} {selectedApplication.user.profile.lastName} • {selectedApplication.user.email}
                 </p>
+                {/* Show who is currently handling this */}
+                {selectedApplication.approval.lockedBy && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs font-medium text-primary">Currently Handling:</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedApplication.approval.lockedBy.profile?.firstName
+                        ? `${selectedApplication.approval.lockedBy.profile.firstName} ${selectedApplication.approval.lockedBy.profile.lastName || ''}`
+                        : selectedApplication.approval.lockedBy.email}
+                      {selectedApplication.approval.lockedBy._id === user?.id && ' (You)'}
+                    </p>
+                    {selectedApplication.approval.lockedAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Since: {new Date(selectedApplication.approval.lockedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {/* Show phone verifier if different from current handler */}
+                {selectedApplication.approval.phoneVerifiedBy && selectedApplication.approval.phoneVerifiedBy._id !== selectedApplication.approval.lockedBy?._id && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs font-medium text-blue-600">Phone Verified By:</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedApplication.approval.phoneVerifiedBy.profile?.firstName
+                        ? `${selectedApplication.approval.phoneVerifiedBy.profile.firstName} ${selectedApplication.approval.phoneVerifiedBy.profile.lastName || ''}`
+                        : selectedApplication.approval.phoneVerifiedBy.email}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Approver Name */}
@@ -1131,6 +1204,11 @@ const VendorApprovals: React.FC = () => {
                   placeholder="Enter your full name"
                   disabled={verificationChecklist.phoneVerified}
                 />
+                {selectedApplication.approval.lockedBy && selectedApplication.approval.lockedBy._id === user?.id && (
+                  <p className="text-xs text-muted-foreground">
+                    You are currently handling this application. Your name is pre-filled from the initial action.
+                  </p>
+                )}
               </div>
 
               {actionType === 'approve' && (
@@ -1437,7 +1515,8 @@ const VendorApprovals: React.FC = () => {
                 disabled={
                   actionLoading === 'approve' ||
                   !verificationChecklist.phoneVerified ||
-                  (timeRemaining !== null && timeRemaining > 0)
+                  (timeRemaining !== null && timeRemaining > 0) ||
+                  (selectedApplication?.approval.lockedBy && String(selectedApplication.approval.lockedBy._id) !== String(user?.id) && user?.role !== 'superadmin')
                 }
               >
                 {actionLoading === 'approve' ? (
@@ -1461,7 +1540,10 @@ const VendorApprovals: React.FC = () => {
               <Button
                 variant="destructive"
                 onClick={handleReject}
-                disabled={actionLoading === 'reject'}
+                disabled={
+                  actionLoading === 'reject' ||
+                  (selectedApplication?.approval.lockedBy && String(selectedApplication.approval.lockedBy._id) !== String(user?.id) && user?.role !== 'superadmin')
+                }
               >
                 {actionLoading === 'reject' ? (
                   <>

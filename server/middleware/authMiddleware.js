@@ -34,11 +34,13 @@ const authenticateToken = async (req, res, next) => {
 
     // Fetch role permissions from database for all roles (including default roles)
     let rolePermissions = [];
+    let roleObject = null;
     const Role = require('../models/Role');
     const roleDoc = await Role.findOne({ name: user.role, isActive: true });
 
     if (roleDoc && roleDoc.permissions) {
       rolePermissions = roleDoc.permissions;
+      roleObject = roleDoc;
     }
 
     req.user = {
@@ -47,7 +49,8 @@ const authenticateToken = async (req, res, next) => {
       role: user.role,
       name: user.profile ? `${user.profile.firstName} ${user.profile.lastName}` : user.email,
       profile: user.profile,
-      rolePermissions: rolePermissions
+      rolePermissions: rolePermissions, // For backward compatibility and user-specific overrides
+      roleObject: roleObject // Full role document with permissions
     };
 
     next();

@@ -197,6 +197,42 @@ router.post('/check-phone', asyncHandler(async (req, res) => {
   }
 }));
 
+// @desc    Check email availability
+// @route   GET /api/auth/check-email
+// @access  Public
+router.get('/check-email', asyncHandler(async (req, res) => {
+  console.log('📧 Check email route hit with query:', req.query);
+
+  const { email } = req.query;
+
+  if (!email || email.trim().length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email is required',
+      exists: false
+    });
+  }
+
+  try {
+    // Check if email already exists
+    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
+    console.log('📧 Email check result:', existingUser ? 'Found existing' : 'Available');
+
+    res.json({
+      success: true,
+      exists: !!existingUser,
+      message: existingUser ? 'Email already registered' : 'Email is available'
+    });
+  } catch (error) {
+    console.error('📧 Error checking email availability:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking email availability',
+      exists: false
+    });
+  }
+}));
+
 // @desc    Verify OTP
 // @route   POST /api/auth/verify-otp
 // @access  Public

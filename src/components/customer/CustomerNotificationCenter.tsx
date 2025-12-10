@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/compon
 import { useRealTimeNotifications, RealTimeNotification } from '@/hooks/useRealTimeNotifications';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { socketService } from '@/services/socketService';
 
 interface ExtendedNotification extends RealTimeNotification {
   read?: boolean;
@@ -69,7 +70,15 @@ export const CustomerNotificationCenter: React.FC = () => {
 
   const handleNotificationClick = (notification: RealTimeNotification) => {
     markAsRead(notification.timestamp);
-    
+
+    // Emit socket event to track read/opened notification
+    socketService.markNotificationAsRead({
+      notificationTimestamp: notification.timestamp,
+      notificationTitle: notification.title,
+      notificationType: notification.type,
+      userId: notification.userId
+    });
+
     // Handle customer-specific navigation
     if (notification.data?.action) {
       switch (notification.data.action) {

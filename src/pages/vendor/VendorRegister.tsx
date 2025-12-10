@@ -51,6 +51,16 @@ const VendorRegister = () => {
   }, [currentStep, otpStep]);
 
   // Validation states
+  const [emailValidation, setEmailValidation] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    message: string;
+  }>({
+    checking: false,
+    available: null,
+    message: ""
+  });
+
   const [phoneValidation, setPhoneValidation] = useState<{
     checking: boolean;
     available: boolean | null;
@@ -335,9 +345,51 @@ const VendorRegister = () => {
     { label: "10+ years", value: 10 }
   ];
 
+  // Email availability check
+  const checkEmailAvailability = async (email: string) => {
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailValidation({
+        checking: false,
+        available: null,
+        message: ""
+      });
+      return;
+    }
+
+    setEmailValidation({ checking: true, available: null, message: "" });
+    
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/auth/check-email?email=${encodeURIComponent(email)}`);
+      const data = await response.json();
+      
+      if (data.exists) {
+        setEmailValidation({
+          checking: false,
+          available: false,
+          message: "This email is already registered. Please use a different email or login."
+        });
+      } else {
+        setEmailValidation({
+          checking: false,
+          available: true,
+          message: ""
+        });
+      }
+    } catch (error) {
+      console.error("Email check error:", error);
+      setEmailValidation({
+        checking: false,
+        available: null,
+        message: "Could not verify email availability"
+      });
+    }
+  };
+
   // Phone number availability check
   const checkPhoneAvailability = async (phone: string) => {
-    if (phone.length < 10) {
+    if (phone.length !== 10) {
       setPhoneValidation({ checking: false, available: null, message: "" });
       return;
     }
@@ -392,7 +444,9 @@ const VendorRegister = () => {
     }));
 
     // Trigger validations with debounce
-    if (field === "phone" && typeof value === "string") {
+    if (field === "email" && typeof value === "string") {
+      setTimeout(() => checkEmailAvailability(value), 500);
+    } else if (field === "phone" && typeof value === "string") {
       setTimeout(() => checkPhoneAvailability(value), 500);
     } else if (field === "businessName" && typeof value === "string") {
       setTimeout(() => checkBusinessNameAvailability(value), 500);
@@ -413,7 +467,9 @@ const VendorRegister = () => {
           formData.password === formData.confirmPassword &&
           validatePassword(formData.password).length === 0 &&
           /\S+@\S+\.\S+/.test(formData.email) &&
-          /^[+]?[1-9]\d{1,14}$/.test(formData.phone) &&
+          formData.phone.length === 10 &&
+          /^[6-9]\d{9}$/.test(formData.phone) &&
+          emailValidation.available !== false &&
           phoneValidation.available !== false
         );
       case 2:
@@ -458,8 +514,10 @@ const VendorRegister = () => {
         if (!formData.lastName.trim()) errors.push("Last name is required");
         if (!formData.email.trim()) errors.push("Email is required");
         else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.push("Valid email is required");
+        else if (emailValidation.available === false) errors.push("Email is already registered");
         if (!formData.phone.trim()) errors.push("Phone number is required");
-        else if (!/^[+]?[1-9]\d{1,14}$/.test(formData.phone)) errors.push("Valid phone number is required");
+        else if (formData.phone.length !== 10) errors.push("Phone number must be exactly 10 digits");
+        else if (!/^[6-9]\d{9}$/.test(formData.phone)) errors.push("Phone number must start with 6-9");
         else if (phoneValidation.available === false) errors.push("Phone number is already registered");
         if (!formData.password) errors.push("Password is required");
         else {
@@ -510,15 +568,43 @@ const VendorRegister = () => {
   const handleDocumentUpload = async (documentType: string, file: File) => {
     if (!file) return;
 
+    // Validate file size (10MB max)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast({
+        title: "File Too Large",
+        description: `${file.name} exceeds 10MB. Please choose a smaller file.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Show uploading toast
+    const uploadingToast = toast({
+      title: "Uploading...",
+      description: `Uploading ${file.name}`,
+    });
+
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('folder', 'vendor-documents');
 
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/upload/single`, {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Upload failed with status: ${response.status}`);
+      }
 
       const result = await response.json();
 
@@ -541,9 +627,20 @@ const VendorRegister = () => {
       }
     } catch (error) {
       console.error('Document upload error:', error);
+      
+      let errorMessage = `Failed to upload ${file.name}. Please try again.`;
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = `Upload timed out. ${file.name} may be too large or connection is slow.`;
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Upload Failed",
-        description: `Failed to upload ${file.name}. Please try again.`,
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -872,11 +969,23 @@ const VendorRegister = () => {
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
                   placeholder="Enter your email address"
-                  className="pl-10"
+                  className={`pl-10 ${
+                    emailValidation.available === false ? "border-red-500" :
+                    emailValidation.available === true ? "border-green-500" : ""
+                  }`}
                   required
                 />
               </div>
-              {formData.email && !/\S+@\S+\.\S+/.test(formData.email) && (
+              {emailValidation.checking && (
+                <p className="text-xs text-muted-foreground">Checking availability...</p>
+              )}
+              {emailValidation.available === false && (
+                <p className="text-xs text-red-500">{emailValidation.message}</p>
+              )}
+              {emailValidation.available === true && (
+                <p className="text-xs text-green-600">Email is available</p>
+              )}
+              {formData.email && !/\S+@\S+\.\S+/.test(formData.email) && !emailValidation.checking && emailValidation.available === null && (
                 <p className="text-xs text-red-500">Please enter a valid email address</p>
               )}
             </div>
@@ -889,19 +998,26 @@ const VendorRegister = () => {
                 <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="phone"
+                  type="tel"
                   value={formData.phone}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/[^\d+]/g, ''); // Allow digits and +
-                    if (value.length <= 15) { // Max 15 characters for international numbers
-                      handleInputChange("phone", value);
-                    }
+                    const value = e.target.value.replace(/[^\d]/g, '').substring(0, 10); // Only allow digits, max 10
+                    handleInputChange("phone", value);
                   }}
-                  placeholder="Enter phone number (e.g., +919876543210 or 9876543210)"
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pastedText = e.clipboardData.getData('text');
+                    const digits = pastedText.replace(/[^\d]/g, '').substring(0, 10);
+                    handleInputChange("phone", digits);
+                  }}
+                  placeholder="Enter 10-digit phone number"
                   className={`pl-10 ${
                     phoneValidation.available === false ? "border-red-500" :
                     phoneValidation.available === true ? "border-green-500" : ""
                   }`}
-                  maxLength={15}
+                  maxLength={10}
+                  inputMode="numeric"
+                  pattern="[0-9]{10}"
                   required
                 />
               </div>
@@ -914,8 +1030,8 @@ const VendorRegister = () => {
               {phoneValidation.available === true && (
                 <p className="text-xs text-green-600">Phone number is available</p>
               )}
-              {formData.phone && formData.phone.length > 0 && !/^[+]?[1-9]\d{1,14}$/.test(formData.phone) && (
-                <p className="text-xs text-red-500">Please enter a valid phone number</p>
+              {formData.phone && formData.phone.length > 0 && formData.phone.length < 10 && (
+                <p className="text-xs text-red-500">Phone number must be exactly 10 digits</p>
               )}
             </div>
 
