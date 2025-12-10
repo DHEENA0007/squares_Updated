@@ -37,7 +37,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter basename="/v2">
+          <BrowserRouter basename="/v3">
             <ScrollToTop />
             <Routes>
               {/* Specific routes first - these must come before wildcard routes */}

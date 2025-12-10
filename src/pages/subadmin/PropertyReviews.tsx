@@ -23,7 +23,7 @@ import { VirtualTourViewer } from "@/components/property/VirtualTourViewer";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://app.buildhomemartsquares.com/api";
 
 const getImageUrl = (image: string | { url?: string } | undefined): string => {
   if (!image) return DEFAULT_PROPERTY_IMAGE;

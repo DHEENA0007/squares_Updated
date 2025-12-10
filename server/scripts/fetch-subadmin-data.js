@@ -1,7 +1,7 @@
 require('dotenv').config();
 const axios = require('axios');
 
-const BASE_URL = process.env.API_BASE_URL || 'http://localhost:3001/api';
+const BASE_URL = process.env.API_BASE_URL || 'https://app.buildhomemartsquares.com/api';
 const CREDENTIALS = {
   email: 'admin@buildhomemart.com',
   password: 'Admin@123'

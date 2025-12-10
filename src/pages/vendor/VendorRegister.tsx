@@ -361,7 +361,7 @@ const VendorRegister = () => {
     setEmailValidation({ checking: true, available: null, message: "" });
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/auth/check-email?email=${encodeURIComponent(email)}`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api'}/auth/check-email?email=${encodeURIComponent(email)}`);
       const data = await response.json();
       
       if (data.exists) {
@@ -594,7 +594,7 @@ const VendorRegister = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/upload/single`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api'}/upload/single`, {
         method: 'POST',
         body: formData,
         signal: controller.signal,

@@ -4,13 +4,13 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: '/v2/',
+  base: '/v3/',
   server: {
     host: "::",
     port: 3001,
     proxy: {
       "/api": {
-        target: "http://localhost:3001",
+        target: "https://app.buildhomemartsquares.com",
         changeOrigin: true,
         secure: false,
       },

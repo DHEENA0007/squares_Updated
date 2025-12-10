@@ -318,8 +318,8 @@ router.post('/register', authenticateToken, upload.array('documents', 10), async
       applicationId: `VEN-${vendor._id.toString().slice(-8).toUpperCase()}`,
       submittedDate: new Date().toLocaleString('en-IN'),
       documentCount: submittedDocuments.length,
-      adminReviewLink: `${process.env.FRONTEND_URL || 'https://squares-v2.vercel.app'}/admin/vendor-approvals`,
-      documentsLink: `${process.env.FRONTEND_URL || 'https://squares-v2.vercel.app'}/admin/vendor-approvals/${vendor._id}`
+      adminReviewLink: `${process.env.FRONTEND_URL || 'https://squares-v3.vercel.app'}/admin/vendor-approvals`,
+      documentsLink: `${process.env.FRONTEND_URL || 'https://squares-v3.vercel.app'}/admin/vendor-approvals/${vendor._id}`
     };
 
     // Send emails using new template system

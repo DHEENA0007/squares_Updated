@@ -49,7 +49,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { PERMISSIONS } from '@/config/permissionConfig';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://app.buildhomemartsquares.com/api";
 
 interface VendorApplication {
   _id: string;

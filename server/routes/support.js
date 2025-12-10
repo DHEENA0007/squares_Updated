@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { v2: cloudinary } = require('cloudinary');
+const { v3: cloudinary } = require('cloudinary');
 const SupportTicket = require('../models/SupportTicket');
 const User = require('../models/User');
 const { asyncHandler } = require('../middleware/errorMiddleware');

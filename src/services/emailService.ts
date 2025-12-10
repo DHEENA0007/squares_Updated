@@ -54,7 +54,7 @@ export interface EmailTemplate {
 }
 
 class EmailService {
-  private baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  private baseUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
   private supportEmail = 'support@buildhomemartsquares.com';
   
   private emailTemplates: EmailTemplate = {
@@ -375,7 +375,7 @@ class EmailService {
         data: {
           userName,
           propertyList,
-          dashboardUrl: `${window.location.origin}/v2/customer/dashboard`
+          dashboardUrl: `${window.location.origin}/v3/customer/dashboard`
         }
       });
     } catch (error) {
@@ -397,7 +397,7 @@ class EmailService {
           oldPrice,
           newPrice,
           savings,
-          propertyUrl: `${window.location.origin}/v2/property/${property._id}`
+          propertyUrl: `${window.location.origin}/v3/property/${property._id}`
         }
       });
     } catch (error) {
@@ -415,7 +415,7 @@ class EmailService {
           userName,
           senderName,
           messagePreview: messagePreview.substring(0, 100) + (messagePreview.length > 100 ? '...' : ''),
-          messagesUrl: `${window.location.origin}/v2/customer/messages`
+          messagesUrl: `${window.location.origin}/v3/customer/messages`
         }
       });
     } catch (error) {
@@ -448,7 +448,7 @@ class EmailService {
         template: this.emailTemplates.welcome.template,
         data: {
           userName,
-          dashboardUrl: `${window.location.origin}/v2/customer/dashboard`
+          dashboardUrl: `${window.location.origin}/v3/customer/dashboard`
         }
       });
     } catch (error) {
@@ -464,7 +464,7 @@ class EmailService {
         template: this.emailTemplates.passwordReset.template,
         data: {
           userName,
-          resetUrl: `${window.location.origin}/v2/reset-password?token=${resetToken}`
+          resetUrl: `${window.location.origin}/v3/reset-password?token=${resetToken}`
         }
       });
     } catch (error) {
@@ -480,7 +480,7 @@ class EmailService {
         template: this.emailTemplates.accountVerification.template,
         data: {
           userName,
-          verificationUrl: `${window.location.origin}/v2/verify-email?token=${verificationToken}`
+          verificationUrl: `${window.location.origin}/v3/verify-email?token=${verificationToken}`
         }
       });
     } catch (error) {
@@ -498,7 +498,7 @@ class EmailService {
         template: (this.emailTemplates as any).accountDeactivation.template,
         data: {
           userName: userName || 'User',
-          deactivationUrl: `${window.location.origin}/v2/confirm-deactivation?token=${deactivationToken}`
+          deactivationUrl: `${window.location.origin}/v3/confirm-deactivation?token=${deactivationToken}`
         }
       });
       
@@ -522,7 +522,7 @@ class EmailService {
         template: (this.emailTemplates as any).accountDeletion.template,
         data: {
           userName: userName || 'User',
-          deletionUrl: `${window.location.origin}/v2/confirm-deletion?token=${deletionToken}`
+          deletionUrl: `${window.location.origin}/v3/confirm-deletion?token=${deletionToken}`
         }
       });
       

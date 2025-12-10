@@ -34,7 +34,7 @@ export interface DashboardResponse {
 }
 
 class DashboardService {
-  private baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  private baseUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;

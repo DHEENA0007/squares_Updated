@@ -60,23 +60,23 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   process.env.FRONTEND_URL,
   "https://buildhomemartsquares.com",
-  "https://buildhomemartsquares.com/v2",
+  "https://buildhomemartsquares.com/v3",
   "https://www.buildhomemartsquares.com",
-  "https://www.buildhomemartsquares.com/v2",
-  "https://squares-v2.vercel.app", 
+  "https://www.buildhomemartsquares.com/v3",
+  "https://squares-v3.vercel.app", 
   "https://squares.vercel.app",
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:8001",
-  "http://localhost:3002/v2/",
-  "http://localhost:3002/v2",
+  "http://localhost:3002/v3/",
+  "http://localhost:3002/v3",
 ].filter(Boolean);
 
 // Add additional origins from environment variable
 const additionalOriginsEnv = process.env.ADDITIONAL_ALLOWED_ORIGINS;
 let additionalOrigins = [
-  "https://squares-v2.onrender.com",
-  "http://localhost:3001",
+  "https://squares-v3.onrender.com",
+  "https://app.buildhomemartsquares.com",
 ];
 
 if (additionalOriginsEnv) {

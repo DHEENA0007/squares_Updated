@@ -95,7 +95,7 @@ const ConfirmDeactivation = () => {
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={() => navigate('/v2')} 
+                  onClick={() => navigate('/v3')} 
                   className="w-full"
                 >
                   <Home className="w-4 h-4 mr-2" />

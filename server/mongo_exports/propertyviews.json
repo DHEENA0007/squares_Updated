@@ -6065,7 +6065,7 @@
     "sessionId": "::ffff:127.0.0.1-1762697953517",
     "ipAddress": "::ffff:127.0.0.1",
     "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36",
-    "referrer": "https://squares-v2.vercel.app/",
+    "referrer": "https://squares-v3.vercel.app/",
     "viewedAt": "2025-11-09T14:19:13.517Z",
     "viewDuration": 0,
     "interactions": {
@@ -6086,7 +6086,7 @@
     "sessionId": "::1-1762697967258",
     "ipAddress": "::1",
     "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36",
-    "referrer": "https://squares-v2.vercel.app/",
+    "referrer": "https://squares-v3.vercel.app/",
     "viewedAt": "2025-11-09T14:19:27.258Z",
     "viewDuration": 0,
     "interactions": {
@@ -6191,7 +6191,7 @@
     "sessionId": "::ffff:127.0.0.1-1762754378198",
     "ipAddress": "::ffff:127.0.0.1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
-    "referrer": "https://squares-v2.vercel.app/",
+    "referrer": "https://squares-v3.vercel.app/",
     "viewedAt": "2025-11-10T05:59:38.198Z",
     "viewDuration": 0,
     "interactions": {
@@ -6212,7 +6212,7 @@
     "sessionId": "::1-1762754430782",
     "ipAddress": "::1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
-    "referrer": "https://squares-v2.vercel.app/",
+    "referrer": "https://squares-v3.vercel.app/",
     "viewedAt": "2025-11-10T06:00:30.782Z",
     "viewDuration": 0,
     "interactions": {
@@ -6233,7 +6233,7 @@
     "sessionId": "::1-1762754572453",
     "ipAddress": "::1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
-    "referrer": "https://squares-v2.vercel.app/",
+    "referrer": "https://squares-v3.vercel.app/",
     "viewedAt": "2025-11-10T06:02:52.453Z",
     "viewDuration": 0,
     "interactions": {
@@ -6254,7 +6254,7 @@
     "sessionId": "::1-1762757446472",
     "ipAddress": "::1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
-    "referrer": "https://squares-v2.vercel.app/",
+    "referrer": "https://squares-v3.vercel.app/",
     "viewedAt": "2025-11-10T06:50:46.472Z",
     "viewDuration": 0,
     "interactions": {
@@ -6275,7 +6275,7 @@
     "sessionId": "::ffff:127.0.0.1-1762757470887",
     "ipAddress": "::ffff:127.0.0.1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
-    "referrer": "https://squares-v2.vercel.app/",
+    "referrer": "https://squares-v3.vercel.app/",
     "viewedAt": "2025-11-10T06:51:10.888Z",
     "viewDuration": 0,
     "interactions": {
@@ -6296,7 +6296,7 @@
     "sessionId": "::ffff:127.0.0.1-1762757577052",
     "ipAddress": "::ffff:127.0.0.1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
-    "referrer": "https://squares-v2.vercel.app/",
+    "referrer": "https://squares-v3.vercel.app/",
     "viewedAt": "2025-11-10T06:52:57.052Z",
     "viewDuration": 0,
     "interactions": {
@@ -6317,7 +6317,7 @@
     "sessionId": "::1-1762757616266",
     "ipAddress": "::1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
-    "referrer": "https://squares-v2.vercel.app/",
+    "referrer": "https://squares-v3.vercel.app/",
     "viewedAt": "2025-11-10T06:53:36.266Z",
     "viewDuration": 0,
     "interactions": {
@@ -6380,7 +6380,7 @@
     "sessionId": "::ffff:127.0.0.1-1762764254202",
     "ipAddress": "::ffff:127.0.0.1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
-    "referrer": "https://squares-v2.vercel.app/",
+    "referrer": "https://squares-v3.vercel.app/",
     "viewedAt": "2025-11-10T08:44:14.202Z",
     "viewDuration": 0,
     "interactions": {
@@ -6401,7 +6401,7 @@
     "sessionId": "::ffff:127.0.0.1-1762776638226",
     "ipAddress": "::ffff:127.0.0.1",
     "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36",
-    "referrer": "https://squares-v2.vercel.app/",
+    "referrer": "https://squares-v3.vercel.app/",
     "viewedAt": "2025-11-10T12:10:38.226Z",
     "viewDuration": 0,
     "interactions": {
@@ -6422,7 +6422,7 @@
     "sessionId": "::1-1762776680678",
     "ipAddress": "::1",
     "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36",
-    "referrer": "https://squares-v2.vercel.app/",
+    "referrer": "https://squares-v3.vercel.app/",
     "viewedAt": "2025-11-10T12:11:20.678Z",
     "viewDuration": 0,
     "interactions": {

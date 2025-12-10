@@ -3,7 +3,7 @@ import { userService } from './userService';
 import { socketService } from './socketService';
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
 
 // Create axios instance with auth token
 const api = axios.create({
@@ -168,7 +168,7 @@ class NotificationService {
         pushOptions = {
           title: '📉 Price Drop Alert',
           body: `${data.property?.title} price reduced to ${data.newPrice}`,
-          data: { url: `/v2/property/${data.property?._id}`, type: 'price_drop' }
+          data: { url: `/v3/property/${data.property?._id}`, type: 'price_drop' }
         };
         break;
       case 'new_message':

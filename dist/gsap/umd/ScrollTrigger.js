@@ -168,7 +168,7 @@
   },
       _getVelocityProp = function _getVelocityProp(value, minTimeRefresh, useDelta) {
     var v1 = value,
-        v2 = value,
+        v3 = value,
         t1 = _getTime(),
         t2 = t1,
         min = minTimeRefresh || 50,
@@ -177,23 +177,23 @@
       var t = _getTime();
 
       if (force || t - t1 > min) {
-        v2 = v1;
+        v3 = v1;
         v1 = value;
         t2 = t1;
         t1 = t;
       } else if (useDelta) {
         v1 += value;
       } else {
-        v1 = v2 + (value - v2) / (t - t2) * (t1 - t2);
+        v1 = v3 + (value - v3) / (t - t2) * (t1 - t2);
       }
     },
         reset = function reset() {
-      v2 = v1 = useDelta ? 0 : v1;
+      v3 = v1 = useDelta ? 0 : v1;
       t2 = t1 = 0;
     },
         getVelocity = function getVelocity(latestValue) {
       var tOld = t2,
-          vOld = v2,
+          vOld = v3,
           t = _getTime();
 
       (latestValue || latestValue === 0) && latestValue !== v1 && update(latestValue);

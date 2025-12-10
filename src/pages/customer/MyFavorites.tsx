@@ -504,7 +504,7 @@ const MyFavorites: React.FC = () => {
                               variant="outline"
                               onClick={() => {
                                 // Share functionality with public URL
-                                const publicUrl = `${window.location.origin}/v2/property/${property._id}`;
+                                const publicUrl = `${window.location.origin}/v3/property/${property._id}`;
                                 if (navigator.share) {
                                   navigator.share({
                                     title: property.title,

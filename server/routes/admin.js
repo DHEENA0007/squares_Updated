@@ -754,8 +754,8 @@ router.post('/vendor-approvals/:vendorId/approve', authenticateToken, isAnyAdmin
         companyName: vendor.businessInfo.companyName,
         vendorId: `VEN-${vendor._id.toString().slice(-8).toUpperCase()}`,
         approvedDate: new Date().toLocaleDateString(),
-        vendorDashboardLink: `${process.env.FRONTEND_URL || 'https://squares-v2.vercel.app'}/vendor/dashboard`,
-        setupGuideLink: `${process.env.FRONTEND_URL || 'https://squares-v2.vercel.app'}/vendor/setup-guide`
+        vendorDashboardLink: `${process.env.FRONTEND_URL || 'https://squares-v3.vercel.app'}/vendor/dashboard`,
+        setupGuideLink: `${process.env.FRONTEND_URL || 'https://squares-v3.vercel.app'}/vendor/setup-guide`
       });
     } catch (emailError) {
       console.error('Failed to send approval email:', emailError);
@@ -883,7 +883,7 @@ router.post('/vendor-approvals/:vendorId/reject', authenticateToken, isAnyAdmin,
         applicationId: `VEN-${vendor._id.toString().slice(-8).toUpperCase()}`,
         reviewedDate: new Date().toLocaleDateString(),
         rejectionReason: rejectionReason,
-        reapplyLink: `${process.env.FRONTEND_URL || 'https://squares-v2.vercel.app'}/vendor/register`
+        reapplyLink: `${process.env.FRONTEND_URL || 'https://squares-v3.vercel.app'}/vendor/register`
       });
     } catch (emailError) {
       console.error('Failed to send rejection email:', emailError);
@@ -2216,7 +2216,7 @@ router.post('/properties/:id/reject', authenticateToken, asyncHandler(async (req
           firstName: owner.profile?.firstName || 'User',
           propertyTitle: property.title,
           rejectionReason: reason,
-          resubmitUrl: `${process.env.FRONTEND_URL || 'https://squares-v2.vercel.app'}/vendor/properties/edit/${property._id}`
+          resubmitUrl: `${process.env.FRONTEND_URL || 'https://squares-v3.vercel.app'}/vendor/properties/edit/${property._id}`
         });
       }
     } catch (emailError) {

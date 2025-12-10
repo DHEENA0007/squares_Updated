@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import authService from "@/services/authService";
 import { useToast } from "@/hooks/use-toast";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://app.buildhomemartsquares.com/api";
 
 interface VendorStats {
   total: number;

@@ -256,7 +256,7 @@ export const useRealTimeNotifications = () => {
     if (!token) return;
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
       const response = await fetch(`${apiUrl}/notifications/test`, {
         method: 'POST',
         headers: {
@@ -289,7 +289,7 @@ export const useRealTimeNotifications = () => {
     if (!token) return;
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
       const response = await fetch(`${apiUrl}/notifications/stats`, {
         method: 'GET',
         headers: {

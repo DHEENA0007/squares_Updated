@@ -706,7 +706,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
           data: {
             firstName: user.profile.firstName || 'User',
             lockDuration: '30 minutes',
-            resetPasswordLink: `${process.env.CLIENT_URL}/v2/forgot-password`,
+            resetPasswordLink: `${process.env.CLIENT_URL}/v3/forgot-password`,
             ipAddress: ipAddress
           }
         });
@@ -1594,7 +1594,7 @@ router.post('/request-deactivation', authenticateToken, asyncHandler(async (req,
       template: 'account-deactivation',
       data: {
         firstName: user.profile.firstName || 'User',
-        deactivationUrl: `${process.env.CLIENT_URL}/v2/confirm-deactivation?token=${deactivationToken}`,
+        deactivationUrl: `${process.env.CLIENT_URL}/v3/confirm-deactivation?token=${deactivationToken}`,
         userName: `${user.profile.firstName} ${user.profile.lastName}`.trim()
       }
     });
@@ -1663,7 +1663,7 @@ router.post('/confirm-deactivation', asyncHandler(async (req, res) => {
             hour: '2-digit',
             minute: '2-digit'
           }),
-          reactivationLink: `${process.env.CLIENT_URL}/v2/login`
+          reactivationLink: `${process.env.CLIENT_URL}/v3/login`
         }
       });
     } catch (emailError) {
@@ -1721,7 +1721,7 @@ router.post('/request-deletion', authenticateToken, asyncHandler(async (req, res
       template: 'account-deletion',
       data: {
         firstName: user.profile.firstName || 'User',
-        deletionUrl: `${process.env.CLIENT_URL}/v2/confirm-deletion?token=${deletionToken}`,
+        deletionUrl: `${process.env.CLIENT_URL}/v3/confirm-deletion?token=${deletionToken}`,
         userName: `${user.profile.firstName} ${user.profile.lastName}`.trim()
       }
     });

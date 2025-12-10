@@ -1355,7 +1355,7 @@ export function subdivideSegmentNear(x, y, segment, slices, iterations) {
 }
 /*
 Takes any of the following and converts it to an all Cubic Bezier SVG data string:
-- A <path> data string like "M0,0 L2,4 v20,15 H100"
+- A <path> data string like "M0,0 L2,4 v30,15 H100"
 - A RawPath, like [[x, y, x, y, x, y, x, y][[x, y, x, y, x, y, x, y]]
 - A Segment, like [x, y, x, y, x, y, x, y]
 

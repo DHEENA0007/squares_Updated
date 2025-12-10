@@ -8,7 +8,7 @@ const {
   NavigationItem,
 } = require('../models/Configuration');
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/squares-v2';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/squares-v3';
 
 const propertyTypesData = [
   { name: 'Apartment', value: 'apartment', category: 'residential', displayOrder: 1 },

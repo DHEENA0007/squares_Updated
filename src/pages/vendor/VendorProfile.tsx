@@ -255,7 +255,7 @@ const VendorProfilePage: React.FC = () => {
   const loadSubscription = async () => {
     try {
       setSubscriptionLoading(true);
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/vendors/subscription/current`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api'}/vendors/subscription/current`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

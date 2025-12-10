@@ -13,7 +13,7 @@ NC='\033[0m' # No Color
 # Production server details
 PROD_SERVER="your-production-server.com"  # Replace with your actual server
 PROD_USER="your-username"                  # Replace with your actual username
-PROD_PATH="/var/www/Squares-v2/server"
+PROD_PATH="/var/www/Squares-v3/server"
 
 echo -e "${YELLOW}📋 Pre-Deployment Checklist:${NC}"
 echo "1. Ensure all changes are committed to Git"
