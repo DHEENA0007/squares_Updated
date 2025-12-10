@@ -147,7 +147,13 @@ const CustomerNavbar = ({ onMenuClick }: CustomerNavbarProps) => {
             
             {/* Spacer for logo - Responsive */}
             <div className="ml-[130px] xs:ml-[150px] sm:ml-[170px] md:ml-[190px] lg:ml-[210px]">
-              {/* Customer portal specific content can go here */}
+              {/* Home Button */}
+              <Link to="/">
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <Home className="h-4 w-4" />
+                  <span className="hidden sm:inline">Home</span>
+                </Button>
+              </Link>
             </div>
 
             {/* Search Bar - Hidden on mobile, visible on larger screens */}

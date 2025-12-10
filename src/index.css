@@ -126,7 +126,7 @@ All colors MUST be HSL.
     --destructive-foreground: 0 0% 100%;
 
     --border: 33 29% 70%; /* Darker border for better visibility (#B8A584) */
-    --input: 0 0% 98%; /* Slightly off-white for input background (#FAFAFA) */
+    --input: 33 29% 70%; /* Match border color for visible input borders (#B8A584) */
     --ring: 43 75% 52%; /* Warm Gold (#D4AF37) */
     --ring-light: 240 5.9% 10%;
 

@@ -25,6 +25,7 @@ interface AuthContextType {
   isSubAdmin: boolean;
   isSuperAdmin: boolean;
   isVendor: boolean;
+  isCustomer: boolean;
   loading: boolean;
   login: (email: string, password: string) => Promise<LoginResult>;
   logout: (skipRedirect?: boolean) => void;
@@ -151,6 +152,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const isSuperAdmin = user?.role === 'superadmin';
   const isSubAdmin = user?.role === 'subadmin';
   const isVendor = user?.role === 'agent';
+  const isCustomer = user?.role === 'customer';
 
   return (
     <AuthContext.Provider
@@ -161,6 +163,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isSuperAdmin,
         isSubAdmin,
         isVendor,
+        isCustomer,
         loading,
         login,
         logout,

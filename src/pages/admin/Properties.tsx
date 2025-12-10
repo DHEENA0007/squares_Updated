@@ -90,7 +90,8 @@ const Properties = () => {
   useEffect(() => {
     // Get current user info
     const fetchUserAndProperties = async () => {
-      const user = await authService.getCurrentUser();
+      const response = await authService.getCurrentUser();
+      const user = response?.data?.user || response;
       setCurrentUser(user);
       // Pre-fill approver name from user profile
       if (user?.profile) {
@@ -726,8 +727,8 @@ const Properties = () => {
                 id="approver-name"
                 placeholder="Enter your full name"
                 value={approverName}
-                onChange={(e) => setApproverName(e.target.value)}
-                className="mt-1"
+                readOnly
+                className="mt-1 bg-muted cursor-not-allowed"
               />
             </div>
 
@@ -858,8 +859,8 @@ const Properties = () => {
                 id="approver-name-reject"
                 placeholder="Enter your full name"
                 value={approverName}
-                onChange={(e) => setApproverName(e.target.value)}
-                className="mt-1"
+                readOnly
+                className="mt-1 bg-muted cursor-not-allowed"
               />
             </div>
 

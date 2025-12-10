@@ -33,7 +33,7 @@ import EnterprisePropertyContactDialog from '@/components/EnterprisePropertyCont
 const PublicPropertyDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isCustomer } = useAuth();
   
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
@@ -650,7 +650,7 @@ const PublicPropertyDetails: React.FC = () => {
                     Virtual Tour
                   </Button>
                 )}
-                {isAuthenticated ? (
+                {isAuthenticated && isCustomer ? (
                   <>
                     <Button 
                       variant="outline" 
@@ -669,7 +669,7 @@ const PublicPropertyDetails: React.FC = () => {
                       Compare Property
                     </Button>
                   </>
-                ) : (
+                ) : !isAuthenticated ? (
                   <Button 
                     variant="outline" 
                     className="w-full justify-start"
@@ -678,7 +678,7 @@ const PublicPropertyDetails: React.FC = () => {
                     <LogIn className="w-4 h-4 mr-2" />
                     Login for More Actions
                   </Button>
-                )}
+                ) : null}
                 <Button variant="outline" className="w-full justify-start" onClick={handleShare}>
                   <Share2 className="w-4 h-4 mr-2" />
                   Share Property

@@ -1,4 +1,4 @@
-import { Menu, X, User, ChevronDown, ChevronUp } from "lucide-react";
+import { Menu, X, User, ChevronDown, ChevronUp, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import newBadge from "@/assets/new-badge.gif";
@@ -23,7 +23,7 @@ import {
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [listingTypes, setListingTypes] = useState<Array<{ id: string; name: string; value: string; displayLabel?: string; children?: any[] }>>([]);
+  const [listingTypes, setListingTypes] = useState<Array<{ id: string; name: string; value: string; displayLabel?: string; queryParams?: any; children?: any[] }>>([]);
   const [expandedStates, setExpandedStates] = useState<Record<string, boolean>>({});
   const { theme } = useTheme();
   const { user, isAuthenticated, checkAuth } = useAuth();
@@ -52,12 +52,12 @@ const Navbar = () => {
             name: listingType.name,
             displayLabel: listingType.displayLabel || listingType.name,
             value: listingType.value,
-            queryParams: listingType.queryParams,
+            queryParams: (listingType as any).queryParams,
             children: matchingPropertyTypes.map(propType => ({
               id: propType._id,
               label: propType.displayLabel || propType.name,
               value: propType.value,
-              queryParams: propType.queryParams,
+              queryParams: (propType as any).queryParams,
             })),
           };
         });
@@ -232,6 +232,14 @@ const Navbar = () => {
             {/* Desktop Navigation */}
             <div className="flex items-center gap-4 md:gap-8 flex-1">
               <div className="hidden md:flex items-center gap-4 lg:gap-6 ml-[180px] lg:ml-[220px]">
+                {/* Home Link */}
+                <Link
+                  to="/"
+                  className="text-sm font-medium hover:text-primary transition-colors whitespace-nowrap flex items-center gap-1"
+                >
+                  <Home className="h-3 w-3" /> Home
+                </Link>
+                
                 {/* Dynamic Hierarchical Navigation */}
                 {listingTypes.map((parent: any) => (
                   <DropdownMenu key={parent.id}>
@@ -324,6 +332,15 @@ const Navbar = () => {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-border bg-background">
             <div className="px-4 py-3 sm:py-4 space-y-2 sm:space-y-3">
+              {/* Home Link */}
+              <Link
+                to="/"
+                className="flex items-center gap-2 py-2 text-sm font-medium hover:text-primary transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Home className="h-4 w-4" /> Home
+              </Link>
+              
               {/* Dynamic Listing Type Sections */}
               {listingTypes.map((listingType) => (
                 <div key={listingType.id} className="space-y-1">
@@ -340,43 +357,25 @@ const Navbar = () => {
                     <div className="space-y-1 pl-4">
                       <button
                         onClick={() => {
-                          handlePropertyTypeClick(listingType.value);
+                          handlePropertyTypeClick(listingType.value, undefined, listingType.queryParams);
                           setMobileMenuOpen(false);
                         }}
                         className="block w-full text-left py-2 text-sm hover:text-primary transition-colors"
                       >
-                        All Properties for {listingType.displayLabel || listingType.name}
+                        All {listingType.displayLabel || listingType.name}
                       </button>
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">Residential</p>
-                        {residentialProperties.map((prop) => (
-                          <button
-                            key={prop.value}
-                            onClick={() => {
-                              handlePropertyTypeClick(listingType.value, prop.value, prop.queryParams);
-                              setMobileMenuOpen(false);
-                            }}
-                            className="block w-full text-left py-1 pl-2 text-sm hover:text-primary transition-colors"
-                          >
-                            {prop.label}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">Agricultural</p>
-                        {agriculturalProperties.map((prop) => (
-                          <button
-                            key={prop.value}
-                            onClick={() => {
-                              handlePropertyTypeClick(listingType.value, prop.value, prop.queryParams);
-                              setMobileMenuOpen(false);
-                            }}
-                            className="block w-full text-left py-1 pl-2 text-sm hover:text-primary transition-colors"
-                          >
-                            {prop.label}
-                          </button>
-                        ))}
-                      </div>
+                      {listingType.children && listingType.children.length > 0 && listingType.children.map((child: any) => (
+                        <button
+                          key={child.id}
+                          onClick={() => {
+                            handlePropertyTypeClick(listingType.value, child.value, child.queryParams);
+                            setMobileMenuOpen(false);
+                          }}
+                          className="block w-full text-left py-1 pl-2 text-sm hover:text-primary transition-colors"
+                        >
+                          {child.label}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -390,22 +389,10 @@ const Navbar = () => {
                     handlePostPropertyClick();
                     setMobileMenuOpen(false);
                   }}
-                  className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  className="block w-full text-left py-2 text-sm hover:text-primary transition-colors"
                 >
                   Post Property for Free
                 </button>
-                {shouldShowPostPropertyButton() && (
-                  <button
-                    onClick={() => {
-                      handlePostPropertyClick();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="block py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 px-3 rounded-md text-center w-full"
-                  >
-                    Post Property
-                  </button>
-                )}
-
                 <button
                   onClick={() => {
                     handleMyListedPropertiesClick();
@@ -415,54 +402,6 @@ const Navbar = () => {
                 >
                   My Listed Properties
                 </button>
-              </div>
-
-              {/* Commercial Section */}
-              <div className="space-y-1">
-                <button
-                  onClick={() => setCommercialExpanded(!commercialExpanded)}
-                  className="flex items-center justify-between w-full text-left py-2 text-sm font-medium hover:text-primary transition-colors"
-                >
-                  <span className="text-xs font-semibold text-muted-foreground uppercase">Commercial</span>
-                  {commercialExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </button>
-                {commercialExpanded && (
-                  <div className="space-y-1 pl-4">
-                    <button
-                      onClick={() => {
-                        handlePropertyTypeClick('sale', 'commercial,office');
-                        setMobileMenuOpen(false);
-                      }}
-                      className="block w-full text-left py-2 text-sm hover:text-primary transition-colors"
-                    >
-                      Buy Commercial
-                    </button>
-                    <button
-                      onClick={() => {
-                        handlePropertyTypeClick('rent', 'commercial,office');
-                        setMobileMenuOpen(false);
-                      }}
-                      className="block w-full text-left py-2 text-sm hover:text-primary transition-colors"
-                    >
-                      Rent Commercial
-                    </button>
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">Commercial Types</p>
-                      {commercialProperties.map((prop) => (
-                        <button
-                          key={prop.value}
-                          onClick={() => {
-                            handlePropertyTypeClick('sale', prop.value, prop.queryParams);
-                            setMobileMenuOpen(false);
-                          }}
-                          className="block w-full text-left py-1 pl-2 text-sm hover:text-primary transition-colors"
-                        >
-                          {prop.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
 
               <Link

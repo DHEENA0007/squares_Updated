@@ -20,7 +20,7 @@ interface PropertyCardProps {
 
 const PropertyCard = ({ property }: PropertyCardProps) => {
   const navigate = useNavigate();
-  const { isAuthenticated, user, isVendor } = useAuth();
+  const { isAuthenticated, user, isVendor, isCustomer } = useAuth();
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showContactDialog, setShowContactDialog] = useState(false);
   const [showEnterpriseDialog, setShowEnterpriseDialog] = useState(false);
@@ -62,7 +62,8 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
   // Check if property is favorited
   useEffect(() => {
     const checkFavoriteStatus = async () => {
-      if (isAuthenticated && !isVendor) {
+      // Only check favorite status for authenticated customer users
+      if (isAuthenticated && isCustomer) {
         try {
           const favorited = await favoriteService.isFavorite(property._id);
           setIsFavorited(favorited);
@@ -73,7 +74,7 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
     };
 
     checkFavoriteStatus();
-  }, [isAuthenticated, isVendor, property._id]);
+  }, [isAuthenticated, isCustomer, property._id]);
 
   const handleViewDetails = () => {
     // Check if the current user is the vendor owner of this property
@@ -159,7 +160,7 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
           </Badge>
         )}
         <Badge 
-          className={`absolute top-3 right-12 ${
+          className={`absolute top-3 ${isAuthenticated && isCustomer ? 'right-12' : 'right-3'} ${
             property.status === 'available' ? 'bg-green-500' : 
             property.status === 'sold' ? 'bg-red-500' : 
             property.status === 'rented' ? 'bg-blue-500' : 
@@ -168,15 +169,18 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
         >
           {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
         </Badge>
-        <Button
-          size="icon"
-          variant="ghost"
-          className={`absolute top-3 right-3 bg-background/80 backdrop-blur hover:bg-background ${isFavorited ? 'text-red-500' : ''}`}
-          onClick={handleFavoriteClick}
-          disabled={loadingFavorite}
-        >
-          <Heart className={`h-5 w-5 ${isFavorited ? 'fill-current' : ''}`} />
-        </Button>
+        {/* Only show favorite button for authenticated customer users */}
+        {isAuthenticated && isCustomer && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className={`absolute top-3 right-3 bg-background/80 backdrop-blur hover:bg-background ${isFavorited ? 'text-red-500' : ''}`}
+            onClick={handleFavoriteClick}
+            disabled={loadingFavorite}
+          >
+            <Heart className={`h-5 w-5 ${isFavorited ? 'fill-current' : ''}`} />
+          </Button>
+        )}
       </div>
       
       <CardContent className="p-4">

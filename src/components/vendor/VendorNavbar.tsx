@@ -196,7 +196,13 @@ const VendorNavbar = ({ setSidebarOpen }: VendorNavbarProps) => {
             <div className="flex items-center gap-2 xs:gap-3 sm:gap-4 flex-1">
               {/* Spacer for logo - Responsive */}
               <div className="ml-[130px] xs:ml-[150px] sm:ml-[170px] md:ml-[190px] lg:ml-[210px]">
-                {/* Vendor portal specific content can go here */}
+                {/* Home Button */}
+                <Link to="/">
+                  <Button variant="ghost" size="sm" className="gap-2">
+                    <Home className="h-4 w-4" />
+                    <span className="hidden sm:inline">Home</span>
+                  </Button>
+                </Link>
               </div>
               
               {/* Search - Hidden on mobile */}
