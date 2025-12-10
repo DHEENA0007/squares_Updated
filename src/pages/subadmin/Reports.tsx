@@ -409,7 +409,7 @@ const Reports = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {stats?.analytics && (
+            {stats?.analytics ? (
               <>
                 {stats.analytics.propertyApprovalTrend > 10 && (
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-950">
@@ -425,7 +425,7 @@ const Reports = () => {
                   </div>
                 )}
                 
-                {stats.analytics.avgResponseTimeHours < 24 && (
+                {stats.analytics.avgResponseTimeHours > 0 && stats.analytics.avgResponseTimeHours < 24 && (
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950">
                     <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
                     <div>
@@ -453,7 +453,7 @@ const Reports = () => {
                   </div>
                 )}
 
-                {stats.totalPropertiesApproved === 0 && (
+                {stats.totalPropertiesApproved === 0 && stats.totalSupport === 0 && (
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-950">
                     <FileText className="h-5 w-5 text-gray-600 mt-0.5" />
                     <div>
@@ -466,7 +466,31 @@ const Reports = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Default insights when no specific conditions are met */}
+                {stats.totalPropertiesApproved > 0 && 
+                 stats.analytics.propertyApprovalTrend <= 10 && 
+                 (stats.analytics.avgResponseTimeHours === 0 || stats.analytics.avgResponseTimeHours >= 24) && 
+                 stats.openSupport <= 10 && (
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950">
+                    <Activity className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-blue-900 dark:text-blue-100">
+                        Steady Performance
+                      </p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        You've reviewed {stats.totalPropertiesApproved} properties and handled {stats.totalSupport} support tickets. 
+                        {stats.analytics.propertiesApprovedThisMonth > 0 && ` This month: ${stats.analytics.propertiesApprovedThisMonth} properties approved.`}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No performance data available yet</p>
+              </div>
             )}
           </div>
         </CardContent>

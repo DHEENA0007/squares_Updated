@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Clock, Users, Building, TrendingUp, TrendingDown, BarChart3, Activity, FileText, Timer } from "lucide-react";
 import subAdminService from "@/services/subAdminService";
@@ -314,26 +315,26 @@ const SubAdminDashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <a 
-              href="/subadmin/property-reviews" 
+            <Link 
+              to="/subadmin/property-reviews" 
               className="block p-3 rounded-lg border hover:bg-accent transition-colors"
             >
               <div className="font-medium">Review Properties</div>
               <div className="text-sm text-muted-foreground">
                 {stats?.pendingProperties} properties awaiting approval
               </div>
-            </a>
-            <a 
-              href="/subadmin/support-tickets" 
+            </Link>
+            <Link 
+              to="/subadmin/support-tickets" 
               className="block p-3 rounded-lg border hover:bg-accent transition-colors"
             >
               <div className="font-medium">Handle Support</div>
               <div className="text-sm text-muted-foreground">
                 {stats?.openSupport} open tickets
               </div>
-            </a>
-            <a 
-              href="/subadmin/reports" 
+            </Link>
+            <Link 
+              to="/subadmin/reports" 
               className="block p-3 rounded-lg border hover:bg-accent transition-colors"
             >
               <div className="font-medium flex items-center gap-2">
@@ -343,7 +344,7 @@ const SubAdminDashboard = () => {
               <div className="text-sm text-muted-foreground">
                 Generate detailed analytics reports
               </div>
-            </a>
+            </Link>
           </CardContent>
         </Card>
 

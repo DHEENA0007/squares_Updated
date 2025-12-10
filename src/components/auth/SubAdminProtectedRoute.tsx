@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageLoader } from '@/components/ui/loader/PageLoader';
+import { authService } from '@/services/authService';
 
 interface SubAdminProtectedRouteProps {
   children: React.ReactNode;
@@ -22,7 +23,6 @@ const SubAdminProtectedRoute: React.FC<SubAdminProtectedRouteProps> = ({ childre
     console.log('SubAdminProtectedRoute: User not subadmin, clearing auth and redirecting');
     
     // Clear auth data silently
-    const { authService } = require('@/services/authService');
     authService.clearAuthData();
     
     // If user is a vendor, redirect to vendor portal

@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageLoader } from '@/components/ui/loader/PageLoader';
+import { authService } from '@/services/authService';
 
 interface AdminProtectedRouteProps {
   children: React.ReactNode;
@@ -36,7 +37,6 @@ const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ children }) =
     console.log('AdminProtectedRoute: User not admin and no custom permissions, clearing auth and redirecting');
 
     // Clear auth data silently
-    const { authService } = require('@/services/authService');
     authService.clearAuthData();
 
     // If user is a vendor, redirect to vendor portal

@@ -495,9 +495,9 @@ router.post('/tickets/:ticketNumber/transfer', authenticateToken, asyncHandler(a
     });
   }
 
-  // Verify target user exists and has appropriate role
+  // Verify target user exists and has appropriate role/permissions
   const targetUser = await User.findById(targetUserId);
-  
+
   if (!targetUser) {
     return res.status(404).json({
       success: false,
@@ -509,6 +509,18 @@ router.post('/tickets/:ticketNumber/transfer', authenticateToken, asyncHandler(a
     return res.status(400).json({
       success: false,
       message: 'Cannot transfer ticket to customer, vendor, agent, or superadmin'
+    });
+  }
+
+  // Check if target user's role has supportTickets.reply permission
+  const Role = require('../models/Role');
+  const { PERMISSIONS } = require('../utils/permissions');
+  const targetUserRole = await Role.findOne({ name: targetUser.role, isActive: true });
+
+  if (!targetUserRole || !targetUserRole.permissions || !targetUserRole.permissions.includes(PERMISSIONS.SUPPORT_TICKETS_REPLY)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Target user does not have permission to handle support tickets. Please select a user with supportTickets.reply permission.'
     });
   }
 
@@ -584,14 +596,30 @@ router.get('/transfer-roles', authenticateToken, asyncHandler(async (req, res) =
 // @access  Private (Any authenticated user)
 router.get('/transfer-users', authenticateToken, asyncHandler(async (req, res) => {
   console.log('[Transfer Users] User role:', req.user.role);
-  
-  const { role } = req.query;
 
-  const query = {
+  const { role } = req.query;
+  const Role = require('../models/Role');
+  const { PERMISSIONS } = require('../utils/permissions');
+
+  // Step 1: Query Role model to find roles with supportTickets.reply permission
+  const rolesWithPermission = await Role.find({
+    isActive: true,
+    permissions: PERMISSIONS.SUPPORT_TICKETS_REPLY
+  }).select('name');
+
+  const roleNamesWithPermission = rolesWithPermission.map(r => r.name);
+  console.log('[Transfer Users] Roles with supportTickets.reply:', roleNamesWithPermission);
+
+  // Step 2: Build query to fetch users with these roles (excluding superadmin)
+  let query = {
     status: 'active',
-    role: { $nin: ['customer', 'vendor', 'superadmin', 'agent'] }
+    role: {
+      $in: roleNamesWithPermission,
+      $nin: ['customer', 'vendor', 'superadmin', 'agent']
+    }
   };
 
+  // If specific role filter is provided
   if (role && role !== 'all') {
     query.role = role;
   }
