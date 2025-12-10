@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const { v3: cloudinary } = require('cloudinary');
+const { v2: cloudinary } = require('cloudinary');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const router = express.Router();
 

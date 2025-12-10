@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const mongoosePaginate = require('mongoose-paginate-v3');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const subscriptionSchema = new mongoose.Schema({
   user: {
