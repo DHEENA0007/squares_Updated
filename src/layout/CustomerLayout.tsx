@@ -32,7 +32,7 @@ const CustomerLayout = () => {
           onMobileClose={closeMobileSidebar}
         />
         
-        <main className="flex-1 overflow-y-auto padding-responsive transition-all duration-300 reduce-motion">
+        <main className={cn("flex-1 overflow-y-auto padding-responsive transition-all duration-300 reduce-motion", isSidebarCollapsed ? "lg:pl-16" : "lg:pl-64")}>
           <div className="responsive-container">
             <Outlet />
           </div>

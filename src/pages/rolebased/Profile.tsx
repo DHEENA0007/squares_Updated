@@ -207,21 +207,39 @@ const RoleBasedProfile = () => {
       setSaving(true);
 
       const updateData = {
-        firstName: data.first_name,
-        lastName: data.last_name || undefined,
-        email: data.email,
-        phone: data.phone || undefined,
-        birthday: data.birthday || undefined,
-        bio: data.bio || undefined,
-        department: data.department || undefined,
-        designation: data.designation || undefined,
-        address: {
-          street: data.street || undefined,
-          state: data.state || undefined,
-          district: data.district || undefined,
-          city: data.city || undefined,
-          zipCode: data.zipCode || undefined,
-        },
+        profile: {
+          firstName: data.first_name,
+          lastName: data.last_name || undefined,
+          phone: data.phone || undefined,
+          birthday: data.birthday || undefined,
+          bio: data.bio || undefined,
+          department: data.department || undefined,
+          designation: data.designation || undefined,
+          address: {
+            street: data.street || undefined,
+            state: data.state || undefined,
+            district: data.district || undefined,
+            city: data.city || undefined,
+            zipCode: data.zipCode || undefined,
+          },
+          // Preserve existing preferences to avoid MongoDB cast errors
+          preferences: user?.profile?.preferences || {
+            notifications: {
+              email: true,
+              sms: false,
+              push: true
+            },
+            privacy: {
+              showEmail: false,
+              showPhone: false
+            },
+            security: {
+              twoFactorEnabled: false,
+              loginAlerts: true,
+              sessionTimeout: '30'
+            }
+          }
+        }
       };
 
       // Update via API
@@ -236,7 +254,7 @@ const RoleBasedProfile = () => {
       });
 
       if (!response.ok) throw new Error('Failed to update profile');
-      
+
       await checkAuth();
 
       toast({
@@ -246,10 +264,11 @@ const RoleBasedProfile = () => {
 
       await fetchProfile();
     } catch (error: any) {
+      console.error('Error saving profile:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.response?.data?.message || "Failed to update profile",
+        description: error.response?.data?.message || error.message || "Failed to update profile",
       });
     } finally {
       setSaving(false);

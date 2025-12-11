@@ -2,6 +2,7 @@ import { useState } from "react";
 import SubAdminSidebar from "./SubAdminSidebar";
 import Navbar from "../adminpanel/Navbar";
 import SubAdminFooter from "./SubAdminFooter";
+import { cn } from "@/lib/utils";
 
 interface SubAdminLayoutProps {
   children: React.ReactNode;
@@ -40,7 +41,7 @@ const SubAdminLayout = ({ children }: SubAdminLayoutProps) => {
         />
         
         {/* Main content area with footer */}
-        <main className="flex-1 flex flex-col min-h-[calc(100vh-3.5rem)]">
+        <main className={cn("flex-1 flex flex-col min-h-[calc(100vh-3.5rem)]", isSidebarCollapsed ? "lg:pl-16" : "lg:pl-64")}>
           <div className="flex-1 p-6">
             {children}
           </div>

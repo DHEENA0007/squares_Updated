@@ -6,10 +6,11 @@ import { Link, useLocation } from "react-router-dom";
 interface VendorSidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  isCollapsed: boolean;
+  onToggle: () => void;
 }
 
-const VendorSidebar = ({ sidebarOpen, setSidebarOpen }: VendorSidebarProps) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+const VendorSidebar = ({ sidebarOpen, setSidebarOpen, isCollapsed, onToggle }: VendorSidebarProps) => {
   const location = useLocation();
 
   const menuItems = [
@@ -74,14 +75,13 @@ const VendorSidebar = ({ sidebarOpen, setSidebarOpen }: VendorSidebarProps) => {
       <aside
         className={cn(
           "fixed left-0 top-0 bottom-0 bg-background border-r border-border z-[70] transition-all duration-300 overflow-y-auto",
-          "lg:relative lg:top-0",
           isCollapsed ? "w-16" : "w-64",
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         {/* Toggle button - desktop only */}
         <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={onToggle}
           className="hidden lg:flex absolute right-1 top-2 w-6 h-6 bg-card border border-border rounded-full items-center justify-center hover:bg-secondary transition-colors z-50"
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >

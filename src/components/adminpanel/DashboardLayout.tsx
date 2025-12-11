@@ -63,12 +63,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
         <main
           className={cn(
-            "flex-1 flex flex-col min-h-[calc(100vh-3.5rem)] transition-all duration-300"
+            "flex-1 flex flex-col min-h-[calc(100vh-3.5rem)] transition-all duration-300",
+            isSidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
           )}
         >
-          <div className="flex-1 p-6">
-            {children}
-          </div>
+          <div className="flex-1 p-6">{children}</div>
           {isSuperAdmin ? <AdminFooter /> : <SubAdminFooter />}
         </main>
       </div>

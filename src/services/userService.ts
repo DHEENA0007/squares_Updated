@@ -28,6 +28,11 @@ export interface User {
         showEmail: boolean;
         showPhone: boolean;
       };
+      security?: {
+        twoFactorEnabled: boolean;
+        loginAlerts: boolean;
+        sessionTimeout: string;
+      };
     };
   };
   role: string;
@@ -310,6 +315,11 @@ class UserService {
             privacy: {
               showEmail: false,
               showPhone: false
+            },
+            security: {
+              twoFactorEnabled: false,
+              loginAlerts: true,
+              sessionTimeout: '30'
             }
           };
         } else if (userData.profile.preferences) {
@@ -325,6 +335,13 @@ class UserService {
             userData.profile.preferences.privacy = {
               showEmail: false,
               showPhone: false
+            };
+          }
+          if (!userData.profile.preferences.security) {
+            userData.profile.preferences.security = {
+              twoFactorEnabled: false,
+              loginAlerts: true,
+              sessionTimeout: '30'
             };
           }
         }
