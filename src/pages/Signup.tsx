@@ -10,6 +10,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import SignupIllustration from "@/components/illustrations/SignupIllustration";
 import { authService } from "@/services/authService";
+import { validateEmail, validateIndianPhone, validatePassword } from "@/utils/sanitize";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -65,6 +66,26 @@ const Signup = () => {
       return;
     }
 
+    // Validate email format
+    if (!validateEmail(formData.email)) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate Indian phone number format
+    if (!validateIndianPhone(formData.phone)) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid 10-digit phone number starting with 6-9",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Error",
@@ -74,30 +95,12 @@ const Signup = () => {
       return;
     }
 
-    // Validate password requirements
-    if (formData.password.length < 8) {
+    // Validate password strength
+    const passwordValidation = validatePassword(formData.password);
+    if (!passwordValidation.valid) {
       toast({
         title: "Error",
-        description: "Password must be at least 8 characters",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])/;
-    if (!passwordRegex.test(formData.password)) {
-      toast({
-        title: "Error",
-        description: "Password must contain uppercase, lowercase, number, and special character (!@#$%^&*)",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!/^\d{10}$/.test(formData.phone)) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid 10-digit phone number",
+        description: passwordValidation.message,
         variant: "destructive",
       });
       return;

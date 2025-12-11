@@ -13,6 +13,7 @@ const { isSubAdmin, hasPermission, SUB_ADMIN_PERMISSIONS } = require('../middlew
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const adminRealtimeService = require('../services/adminRealtimeService');
 const { PERMISSIONS } = require('../utils/permissions');
+const { sanitizeSearchQuery, sanitizePagination, sanitizeCSV, validateDate } = require('../utils/sanitize');
 
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
@@ -192,18 +193,19 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
 }));
 
 // Property Review and Approval Routes
-router.get('/properties/pending', 
+router.get('/properties/pending',
   hasPermission(SUB_ADMIN_PERMISSIONS.REVIEW_PROPERTIES),
   asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, search = '' } = req.query;
-    const skip = (page - 1) * limit;
+    const pagination = sanitizePagination(page, limit);
 
     let query = { status: 'pending' };
-    
+
     if (search) {
+      const sanitizedSearch = sanitizeSearchQuery(search);
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { 'address.city': { $regex: search, $options: 'i' } }
+        { title: { $regex: sanitizedSearch, $options: 'i' } },
+        { 'address.city': { $regex: sanitizedSearch, $options: 'i' } }
       ];
     }
 
@@ -211,8 +213,8 @@ router.get('/properties/pending',
       Property.find(query)
         .populate('owner', 'email profile')
         .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit)),
+        .skip(pagination.skip)
+        .limit(pagination.limit),
       Property.countDocuments(query)
     ]);
 
@@ -221,10 +223,10 @@ router.get('/properties/pending',
       data: {
         properties,
         total,
-        totalPages: Math.ceil(total / limit),
-        currentPage: parseInt(page),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1
+        totalPages: Math.ceil(total / pagination.limit),
+        currentPage: pagination.page,
+        hasNext: pagination.page < Math.ceil(total / pagination.limit),
+        hasPrev: pagination.page > 1
       }
     });
   })
@@ -323,6 +325,27 @@ router.post('/properties/:id/reject',
       });
     }
 
+    // Send rejection email to property owner (non-blocking)
+    const owner = property.owner;
+    if (owner && owner.email) {
+      emailService.sendEmail({
+        to: owner.email,
+        subject: 'Property Listing Rejected',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #dc2626;">Property Listing Rejected</h2>
+            <p>Dear ${owner.profile?.firstName || 'User'},</p>
+            <p>We regret to inform you that your property listing "<strong>${property.title}</strong>" has been rejected.</p>
+            <p><strong>Rejection Reason:</strong></p>
+            <p style="padding: 10px; background-color: #fee2e2; border-left: 4px solid #dc2626;">${reason}</p>
+            <p>You can review the rejection details and make necessary corrections before resubmitting your property listing.</p>
+            <p>If you have any questions or need assistance, please contact our support team.</p>
+            <p>Best regards,<br>BuildHomeMartSquares Team</p>
+          </div>
+        `
+      }).catch(err => console.error('Email send error:', err));
+    }
+
     // Emit real-time event for property rejection
     adminRealtimeService.broadcastNotification({
       type: 'property_rejected',
@@ -351,17 +374,17 @@ router.get('/properties/rejected',
   hasPermission(SUB_ADMIN_PERMISSIONS.REVIEW_PROPERTIES),
   asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, search = '' } = req.query;
-    const skip = (page - 1) * limit;
+    const pagination = sanitizePagination(page, limit);
 
     let query = { status: 'rejected' };
 
     if (search) {
+      const sanitizedSearch = sanitizeSearchQuery(search);
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { 'address.city': { $regex: search, $options: 'i' } },
-        { 'address.state': { $regex: search, $options: 'i' } },
-        { 'owner.email': { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { title: { $regex: sanitizedSearch, $options: 'i' } },
+        { 'address.city': { $regex: sanitizedSearch, $options: 'i' } },
+        { 'address.state': { $regex: sanitizedSearch, $options: 'i' } },
+        { description: { $regex: sanitizedSearch, $options: 'i' } }
       ];
     }
 
@@ -370,8 +393,8 @@ router.get('/properties/rejected',
         .populate('owner', 'email profile')
         .populate('rejectedBy', 'email profile')
         .sort({ rejectedAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit)),
+        .skip(pagination.skip)
+        .limit(pagination.limit),
       Property.countDocuments(query)
     ]);
 
@@ -380,10 +403,10 @@ router.get('/properties/rejected',
       data: {
         properties,
         total,
-        totalPages: Math.ceil(total / limit),
-        currentPage: parseInt(page),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1
+        totalPages: Math.ceil(total / pagination.limit),
+        currentPage: pagination.page,
+        hasNext: pagination.page < Math.ceil(total / pagination.limit),
+        hasPrev: pagination.page > 1
       }
     });
   })
@@ -722,10 +745,11 @@ router.get('/vendors/performance',
     try {
       let matchQuery = { role: 'agent' };
       if (search) {
+        const sanitizedSearch = sanitizeSearchQuery(search);
         matchQuery.$or = [
-          { email: { $regex: search, $options: 'i' } },
-          { 'profile.firstName': { $regex: search, $options: 'i' } },
-          { 'profile.lastName': { $regex: search, $options: 'i' } }
+          { email: { $regex: sanitizedSearch, $options: 'i' } },
+          { 'profile.firstName': { $regex: sanitizedSearch, $options: 'i' } },
+          { 'profile.lastName': { $regex: sanitizedSearch, $options: 'i' } }
         ];
       }
 
@@ -1608,9 +1632,12 @@ router.get('/reports/export',
 
           csvContent = 'Property ID,Title,Type,Listing Type,Price,City,State,Status,Views,Created Date,Owner Email,Owner Role\n';
           properties.forEach(prop => {
-            const ownerEmail = prop.owner?.email || 'N/A';
-            const ownerRole = prop.owner?.role || 'N/A';
-            csvContent += `"${prop._id}","${prop.title}","${prop.type}","${prop.listingType}","${prop.price}","${prop.address?.city || 'N/A'}","${prop.address?.state || 'N/A'}","${prop.status}","${prop.views || 0}","${new Date(prop.createdAt).toLocaleDateString()}","${ownerEmail}","${ownerRole}"\n`;
+            const ownerEmail = sanitizeCSV(prop.owner?.email || 'N/A');
+            const ownerRole = sanitizeCSV(prop.owner?.role || 'N/A');
+            const title = sanitizeCSV(prop.title);
+            const city = sanitizeCSV(prop.address?.city || 'N/A');
+            const state = sanitizeCSV(prop.address?.state || 'N/A');
+            csvContent += `"${prop._id}","${title}","${prop.type}","${prop.listingType}","${prop.price}","${city}","${state}","${prop.status}","${prop.views || 0}","${new Date(prop.createdAt).toLocaleDateString()}","${ownerEmail}","${ownerRole}"\n`;
           });
           break;
 

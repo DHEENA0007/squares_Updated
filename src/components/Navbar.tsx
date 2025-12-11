@@ -232,14 +232,6 @@ const Navbar = () => {
             {/* Desktop Navigation */}
             <div className="flex items-center gap-4 md:gap-8 flex-1">
               <div className="hidden md:flex items-center gap-4 lg:gap-6 ml-[180px] lg:ml-[220px]">
-                {/* Home Link */}
-                <Link
-                  to="/"
-                  className="text-sm font-medium hover:text-primary transition-colors whitespace-nowrap flex items-center gap-1"
-                >
-                  <Home className="h-3 w-3" /> Home
-                </Link>
-                
                 {/* Dynamic Hierarchical Navigation */}
                 {listingTypes.map((parent: any) => (
                   <DropdownMenu key={parent.id}>

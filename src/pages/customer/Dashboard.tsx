@@ -377,12 +377,6 @@ const Dashboard = () => {
                 My Owned Properties ({quickStats.propertiesCount})
               </Button>
             </Link>
-            <Link to="/customer/services">
-              <Button variant="outline" className="w-full justify-start">
-                <Calendar className="w-4 h-4 mr-2" />
-                Book Services
-              </Button>
-            </Link>
           </CardContent>
         </Card>
       </div>

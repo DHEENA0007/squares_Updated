@@ -6,6 +6,7 @@ import subAdminService from "@/services/subAdminService";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeEvent } from "@/contexts/RealtimeContext";
 import { Badge } from "@/components/ui/badge";
+import { formatLocalDate, formatLocalDateTime, getRelativeTime } from "@/utils/dateTime";
 
 interface DashboardStats {
   totalPropertiesApproved: number;
@@ -364,7 +365,7 @@ const SubAdminDashboard = () => {
                     <div className="flex-1">
                       <p className="text-sm font-medium">{approval.title}</p>
                       <p className="text-xs text-muted-foreground">
-                        Approved • {new Date(approval.approvedAt).toLocaleDateString()}
+                        Approved • {formatLocalDate(approval.approvedAt)}
                       </p>
                     </div>
                     <Badge variant="outline" className="text-xs">

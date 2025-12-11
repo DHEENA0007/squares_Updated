@@ -37,6 +37,7 @@ import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { configurationService } from "@/services/configurationService";
 import DynamicPropertyFields from "@/components/vendor/DynamicPropertyFields";
+import { sanitizeText, sanitizePrice, sanitizeObject, validateEmail } from "@/utils/sanitize";
 
 // Upload function using server-side endpoint
 const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
@@ -565,42 +566,42 @@ const AddProperty = () => {
         }
       }
 
-      // Prepare property data for submission
+      // Prepare property data for submission with sanitization
       const propertyData: any = {
-        title: formData.title.trim(),
-        description: formData.description.trim(),
+        title: sanitizeText(formData.title.trim()),
+        description: sanitizeText(formData.description.trim()),
         type: formData.propertyType as 'apartment' | 'villa' | 'house' | 'commercial' | 'plot' | 'land' | 'office' | 'pg',
         listingType: formData.listingType as 'sale' | 'rent' | 'lease',
-        price: parseFloat(formData.price),
+        price: sanitizePrice(formData.price),
         address: {
-          street: formData.address.trim(),
-          district: formData.district || '',
-          city: formData.city || '',
-          state: formData.state || '',
+          street: sanitizeText(formData.address.trim()),
+          district: sanitizeText(formData.district || ''),
+          city: sanitizeText(formData.city || ''),
+          state: sanitizeText(formData.state || ''),
           pincode: formData.pincode
         },
-        amenities: formData.amenities || [],
+        amenities: (formData.amenities || []).map((a: string) => sanitizeText(a)),
         images: uploadedImageUrls || [],
         videos: uploadedVideoUrls || []
       };
 
-      // Add pricing optional fields
+      // Add pricing optional fields with validation
       if (formData.priceNegotiable !== undefined) {
         propertyData.priceNegotiable = formData.priceNegotiable;
       }
       if (formData.maintenanceCharges?.trim()) {
-        propertyData.maintenanceCharges = parseFloat(formData.maintenanceCharges);
+        propertyData.maintenanceCharges = sanitizePrice(formData.maintenanceCharges);
       }
       if (formData.securityDeposit?.trim()) {
-        propertyData.securityDeposit = parseFloat(formData.securityDeposit);
+        propertyData.securityDeposit = sanitizePrice(formData.securityDeposit);
       }
       if (formData.virtualTour?.trim()) {
-        propertyData.virtualTour = formData.virtualTour.trim();
+        propertyData.virtualTour = sanitizeText(formData.virtualTour.trim());
       }
 
-      // Add dynamic fields from configuration as customFields
+      // Add dynamic fields from configuration as customFields with sanitization
       if (Object.keys(dynamicFields).length > 0) {
-        propertyData.customFields = dynamicFields;
+        propertyData.customFields = sanitizeObject(dynamicFields);
         
         // Map common fields to top-level for backward compatibility
         if (dynamicFields.builtUpArea) {
@@ -815,6 +816,11 @@ const AddProperty = () => {
   };
 
   const removeImage = (id: number) => {
+    // Find the image to revoke its object URL before removing
+    const imageToRemove = uploadedImages.find(img => img.id === id);
+    if (imageToRemove && imageToRemove.url.startsWith('blob:')) {
+      URL.revokeObjectURL(imageToRemove.url);
+    }
     setUploadedImages(prev => prev.filter(img => img.id !== id));
   };
 
