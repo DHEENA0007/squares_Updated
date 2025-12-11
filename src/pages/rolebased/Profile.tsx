@@ -37,6 +37,7 @@ import { userService } from "@/services/userService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
 import { PasswordChangeDialog } from "@/components/PasswordChangeDialog";
 import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
 import { uploadService } from "@/services/uploadService";
@@ -73,7 +74,9 @@ const RoleBasedProfile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState<any>(null);
+  const [formData, setFormData] = useState<any>(null);
   const [avatarUrl, setAvatarUrl] = useState<string>("");
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
@@ -100,10 +103,11 @@ const RoleBasedProfile = () => {
 
   const fetchProfile = useCallback(async () => {
     if (!user) return;
-    
+
     try {
       setLoading(true);
       setProfileData(user);
+      setFormData(user);
       setAvatarUrl(user?.profile?.avatar || "");
 
       form.reset({
@@ -146,6 +150,30 @@ const RoleBasedProfile = () => {
     });
   };
 
+  // Update form field helper for nested paths
+  const updateFormField = (path: string, value: any) => {
+    if (!formData) return;
+
+    const pathArray = path.split(".");
+    const newFormData = { ...formData };
+    let current: any = newFormData;
+
+    for (let i = 0; i < pathArray.length - 1; i++) {
+      if (!current[pathArray[i]]) {
+        current[pathArray[i]] = {};
+      }
+      current = current[pathArray[i]];
+    }
+    current[pathArray[pathArray.length - 1]] = value;
+
+    setFormData(newFormData);
+  };
+
+  const handleCancel = () => {
+    setFormData(profileData);
+    setIsEditing(false);
+  };
+
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -171,20 +199,21 @@ const RoleBasedProfile = () => {
     try {
       setUploadingAvatar(true);
       const uploadedUrl = await uploadService.uploadAvatar(file);
-      
-      // Update via API
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/users/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ avatar: uploadedUrl })
+
+      // Update via API using userService
+      await userService.updateCurrentUser({
+        profile: {
+          ...user?.profile,
+          avatar: uploadedUrl,
+          // Preserve existing preferences to avoid cast errors
+          preferences: user?.profile?.preferences || {
+            notifications: { email: true, sms: false, push: true },
+            privacy: { showEmail: false, showPhone: false },
+            security: { twoFactorEnabled: false, loginAlerts: true, sessionTimeout: '30' }
+          }
+        }
       });
 
-      if (!response.ok) throw new Error('Failed to update avatar');
-      
       setAvatarUrl(uploadedUrl);
       await checkAuth();
       toast({
@@ -202,28 +231,30 @@ const RoleBasedProfile = () => {
     }
   };
 
-  const onSubmit = async (data: ProfileFormValues) => {
+  const handleSave = async () => {
+    if (!formData) return;
+
     try {
       setSaving(true);
 
       const updateData = {
         profile: {
-          firstName: data.first_name,
-          lastName: data.last_name || undefined,
-          phone: data.phone || undefined,
-          birthday: data.birthday || undefined,
-          bio: data.bio || undefined,
-          department: data.department || undefined,
-          designation: data.designation || undefined,
+          firstName: formData.profile?.firstName,
+          lastName: formData.profile?.lastName,
+          phone: formData.profile?.phone,
+          birthday: formData.profile?.birthday,
+          bio: formData.profile?.bio,
+          department: formData.profile?.department,
+          designation: formData.profile?.designation,
           address: {
-            street: data.street || undefined,
-            state: data.state || undefined,
-            district: data.district || undefined,
-            city: data.city || undefined,
-            zipCode: data.zipCode || undefined,
+            street: formData.profile?.address?.street,
+            state: formData.profile?.address?.state,
+            district: formData.profile?.address?.district,
+            city: formData.profile?.address?.city,
+            zipCode: formData.profile?.address?.zipCode,
           },
           // Preserve existing preferences to avoid MongoDB cast errors
-          preferences: user?.profile?.preferences || {
+          preferences: formData.profile?.preferences || {
             notifications: {
               email: true,
               sms: false,
@@ -242,27 +273,19 @@ const RoleBasedProfile = () => {
         }
       };
 
-      // Update via API
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/users/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(updateData)
-      });
-
-      if (!response.ok) throw new Error('Failed to update profile');
+      // Update via API using userService
+      await userService.updateCurrentUser(updateData);
 
       await checkAuth();
+      await fetchProfile();
+
+      setIsEditing(false);
 
       toast({
         title: "Success",
         description: "Profile updated successfully",
       });
 
-      await fetchProfile();
     } catch (error: any) {
       console.error('Error saving profile:', error);
       toast({
@@ -273,6 +296,35 @@ const RoleBasedProfile = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const onSubmit = async (data: ProfileFormValues) => {
+    // Update formData with form values before saving
+    if (formData) {
+      const updatedFormData = {
+        ...formData,
+        email: data.email,
+        profile: {
+          ...formData.profile,
+          firstName: data.first_name,
+          lastName: data.last_name,
+          phone: data.phone,
+          birthday: data.birthday?.toISOString(),
+          bio: data.bio,
+          department: data.department,
+          designation: data.designation,
+          address: {
+            street: data.street,
+            state: data.state,
+            district: data.district,
+            city: data.city,
+            zipCode: data.zipCode,
+          }
+        }
+      };
+      setFormData(updatedFormData);
+    }
+    await handleSave();
   };
 
   const formatRoleName = (role: string) => {
@@ -303,10 +355,36 @@ const RoleBasedProfile = () => {
           <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
           <p className="text-muted-foreground">Manage your account settings</p>
         </div>
-        <Button onClick={handleRefresh} variant="outline" size="sm" disabled={refreshing}>
-          <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleRefresh} variant="outline" size="sm" disabled={refreshing}>
+            <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
+            Refresh
+          </Button>
+          {isEditing ? (
+            <>
+              <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleSave} disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" onClick={() => setIsEditing(true)}>
+              Edit Profile
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -390,256 +468,188 @@ const RoleBasedProfile = () => {
               </TabsList>
 
               <TabsContent value="profile" className="space-y-4 mt-4">
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="first_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>First Name</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="last_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Last Name</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="email" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Phone</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="department"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Department</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="e.g., Sales, Marketing" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="designation"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Designation</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="e.g., Manager, Executive" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <FormField
-                      control={form.control}
-                      name="birthday"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Birthday</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant="outline"
-                                  className={cn(
-                                    "w-full pl-3 text-left font-normal",
-                                    !field.value && "text-muted-foreground"
-                                  )}
-                                >
-                                  {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={field.value}
-                                onSelect={field.onChange}
-                                disabled={(date) => date > new Date()}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                        </FormItem>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>First Name</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData?.profile?.firstName || ""}
+                          onChange={(e) => updateFormField("profile.firstName", e.target.value)}
+                          placeholder="Enter first name"
+                        />
+                      ) : (
+                        <p className="text-sm py-2">{profileData?.profile?.firstName || "Not set"}</p>
                       )}
-                    />
+                    </div>
 
-                    <FormField
-                      control={form.control}
-                      name="bio"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Bio</FormLabel>
-                          <FormControl>
-                            <Textarea {...field} rows={3} placeholder="Tell us about yourself" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                    <div className="space-y-2">
+                      <Label>Last Name</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData?.profile?.lastName || ""}
+                          onChange={(e) => updateFormField("profile.lastName", e.target.value)}
+                          placeholder="Enter last name"
+                        />
+                      ) : (
+                        <p className="text-sm py-2">{profileData?.profile?.lastName || "Not set"}</p>
                       )}
-                    />
+                    </div>
+                  </div>
 
-                    <Separator />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      {isEditing ? (
+                        <Input
+                          type="email"
+                          value={formData?.email || ""}
+                          onChange={(e) => setFormData(prev => prev ? {...prev, email: e.target.value} : null)}
+                          placeholder="Enter email"
+                        />
+                      ) : (
+                        <p className="text-sm py-2">{profileData?.email || "Not set"}</p>
+                      )}
+                    </div>
 
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-medium flex items-center gap-2">
-                        <MapPin className="h-5 w-5" />
-                        Address Information
-                      </h3>
+                    <div className="space-y-2">
+                      <Label>Phone</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData?.profile?.phone || ""}
+                          onChange={(e) => updateFormField("profile.phone", e.target.value)}
+                          placeholder="Enter phone number"
+                        />
+                      ) : (
+                        <p className="text-sm py-2">{profileData?.profile?.phone || "Not set"}</p>
+                      )}
+                    </div>
+                  </div>
 
-                      <FormField
-                        control={form.control}
-                        name="street"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Street Address</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Department</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData?.profile?.department || ""}
+                          onChange={(e) => updateFormField("profile.department", e.target.value)}
+                          placeholder="e.g., Sales, Marketing"
+                        />
+                      ) : (
+                        <p className="text-sm py-2">{profileData?.profile?.department || "Not set"}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Designation</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData?.profile?.designation || ""}
+                          onChange={(e) => updateFormField("profile.designation", e.target.value)}
+                          placeholder="e.g., Manager, Executive"
+                        />
+                      ) : (
+                        <p className="text-sm py-2">{profileData?.profile?.designation || "Not set"}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Bio</Label>
+                    {isEditing ? (
+                      <Textarea
+                        value={formData?.profile?.bio || ""}
+                        onChange={(e) => updateFormField("profile.bio", e.target.value)}
+                        rows={3}
+                        placeholder="Tell us about yourself"
                       />
+                    ) : (
+                      <p className="text-sm py-2">{profileData?.profile?.bio || "Not set"}</p>
+                    )}
+                  </div>
 
-                      <FormField
-                        control={form.control}
-                        name="zipCode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Pincode</FormLabel>
-                            <FormControl>
-                              <PincodeAutocomplete
-                                value={field.value || ""}
-                                onChange={(pincode, locationData) => {
-                                  field.onChange(pincode);
-                                  if (locationData) {
-                                    form.setValue("state", locationData.state);
-                                    form.setValue("district", locationData.district);
-                                    form.setValue("city", locationData.city);
-                                  }
-                                }}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      Address Information
+                    </h3>
+
+                    <div className="space-y-2">
+                      <Label>Street Address</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData?.profile?.address?.street || ""}
+                          onChange={(e) => updateFormField("profile.address.street", e.target.value)}
+                          placeholder="Enter street address"
+                        />
+                      ) : (
+                        <p className="text-sm py-2">{profileData?.profile?.address?.street || "Not set"}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Pincode</Label>
+                      {isEditing ? (
+                        <PincodeAutocomplete
+                          value={formData?.profile?.address?.zipCode || ""}
+                          onChange={(pincode, locationData) => {
+                            updateFormField("profile.address.zipCode", pincode);
+                            if (locationData) {
+                              updateFormField("profile.address.state", locationData.state);
+                              updateFormField("profile.address.district", locationData.district);
+                              updateFormField("profile.address.city", locationData.city);
+                            }
+                          }}
+                        />
+                      ) : (
+                        <p className="text-sm py-2">{profileData?.profile?.address?.zipCode || "Not set"}</p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>State</Label>
+                        {isEditing ? (
+                          <Input
+                            value={formData?.profile?.address?.state || ""}
+                            onChange={(e) => updateFormField("profile.address.state", e.target.value)}
+                            placeholder="Enter state"
+                          />
+                        ) : (
+                          <p className="text-sm py-2">{profileData?.profile?.address?.state || "Not set"}</p>
                         )}
-                      />
+                      </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="state"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>State</FormLabel>
-                              <FormControl>
-                                <Input {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                      <div className="space-y-2">
+                        <Label>District</Label>
+                        {isEditing ? (
+                          <Input
+                            value={formData?.profile?.address?.district || ""}
+                            onChange={(e) => updateFormField("profile.address.district", e.target.value)}
+                            placeholder="Enter district"
+                          />
+                        ) : (
+                          <p className="text-sm py-2">{profileData?.profile?.address?.district || "Not set"}</p>
+                        )}
+                      </div>
 
-                        <FormField
-                          control={form.control}
-                          name="district"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>District</FormLabel>
-                              <FormControl>
-                                <Input {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="city"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>City</FormLabel>
-                              <FormControl>
-                                <Input {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                      <div className="space-y-2">
+                        <Label>City</Label>
+                        {isEditing ? (
+                          <Input
+                            value={formData?.profile?.address?.city || ""}
+                            onChange={(e) => updateFormField("profile.address.city", e.target.value)}
+                            placeholder="Enter city"
+                          />
+                        ) : (
+                          <p className="text-sm py-2">{profileData?.profile?.address?.city || "Not set"}</p>
+                        )}
                       </div>
                     </div>
-
-                    <div className="flex justify-end">
-                      <Button type="submit" disabled={saving}>
-                        {saving ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="mr-2 h-4 w-4" />
-                            Save Changes
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
+                  </div>
+                </div>
               </TabsContent>
 
               <TabsContent value="security" className="space-y-4 mt-4">
