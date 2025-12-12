@@ -614,10 +614,11 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
   const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
   const userAgent = req.headers['user-agent'] || 'unknown';
 
-  // Get security settings for max login attempts
+  // Get security settings for max login attempts and lockout duration
   const Settings = require('../models/Settings');
   const settings = await Settings.getSettings();
   const maxAttempts = settings.security.maxLoginAttempts || 5;
+  const lockoutDuration = settings.security.lockoutDuration || 30; // minutes
 
   // Check login attempts
   let loginAttempt = await LoginAttempt.findOne({ email, ipAddress });
@@ -634,7 +635,8 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
       message: `Too many failed login attempts. Account is locked for ${remainingMinutes} more minutes. You can reset your password to unlock immediately.`,
       isLocked: true,
       remainingMinutes,
-      canResetPassword: true
+      canResetPassword: true,
+      lockoutDuration: lockoutDuration
     });
   }
 
@@ -649,7 +651,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
     // Lock account if max attempts reached
     if (loginAttempt.attempts >= maxAttempts) {
       loginAttempt.isLocked = true;
-      loginAttempt.lockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+      loginAttempt.lockedUntil = new Date(Date.now() + lockoutDuration * 60 * 1000); // Use dynamic lockout duration
     }
 
     await loginAttempt.save();
@@ -696,7 +698,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
 
     if (loginAttempt.attempts >= maxAttempts) {
       loginAttempt.isLocked = true;
-      loginAttempt.lockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+      loginAttempt.lockedUntil = new Date(Date.now() + lockoutDuration * 60 * 1000); // Use dynamic lockout duration
 
       // Send account locked email
       try {
@@ -705,7 +707,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
           template: 'account-locked',
           data: {
             firstName: user.profile.firstName || 'User',
-            lockDuration: '30 minutes',
+            lockDuration: `${lockoutDuration} minutes`,
             resetPasswordLink: `${process.env.CLIENT_URL}/v3/forgot-password`,
             ipAddress: ipAddress
           }
@@ -843,11 +845,16 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
     }
   }
 
-  // Get user's session timeout preference (in minutes, default 30)
-  const sessionTimeout = user.profile?.preferences?.security?.sessionTimeout || '30';
+  // Get session timeout from system settings (in minutes)
+  const systemSessionTimeout = settings.security.sessionTimeout || 30;
+  // Allow user preference to override if it's more restrictive, otherwise use system setting
+  const userSessionTimeout = user.profile?.preferences?.security?.sessionTimeout;
+  const sessionTimeout = userSessionTimeout && parseInt(userSessionTimeout) < systemSessionTimeout 
+    ? userSessionTimeout 
+    : systemSessionTimeout.toString();
   const timeoutMinutes = sessionTimeout === '0' ? 7 * 24 * 60 : parseInt(sessionTimeout); // 0 = never expire (7 days)
 
-  // Generate JWT token with user's preferred session timeout
+  // Generate JWT token with session timeout (either system or user preference, whichever is more restrictive)
   const token = jwt.sign(
     {
       userId: user._id,

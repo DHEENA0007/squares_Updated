@@ -3344,6 +3344,9 @@ function validateSettingsUpdate(category, updates) {
       if (updates.maxLoginAttempts && (updates.maxLoginAttempts < 3 || updates.maxLoginAttempts > 20)) {
         errors.push('Max login attempts must be between 3 and 20');
       }
+      if (updates.lockoutDuration && (updates.lockoutDuration < 5 || updates.lockoutDuration > 1440)) {
+        errors.push('Lockout duration must be between 5 and 1440 minutes (24 hours)');
+      }
       break;
 
     case 'payment':

@@ -76,15 +76,20 @@ const UsersDetails = () => {
         const now = new Date();
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        const thisMonth = nonAdminUsers.filter((u: User) => 
+        // Filter to only include customers and vendors (agents)
+        const customersAndVendors = nonAdminUsers.filter((u: User) => 
+          u.role === 'customer' || u.role === 'agent'
+        );
+
+        const thisMonth = customersAndVendors.filter((u: User) => 
           new Date(u.createdAt) >= firstDayOfMonth
         ).length;
 
         setStats({
-          totalUsers: nonAdminUsers.length,
+          totalUsers: customersAndVendors.length,
           thisMonthUsers: thisMonth,
-          activeUsers: nonAdminUsers.filter((u: User) => u.status === 'active').length,
-          vendorUsers: nonAdminUsers.filter((u: User) => u.role === 'vendor').length,
+          activeUsers: customersAndVendors.filter((u: User) => u.status === 'active').length,
+          vendorUsers: nonAdminUsers.filter((u: User) => u.role === 'agent').length,
           customerUsers: nonAdminUsers.filter((u: User) => u.role === 'customer').length
         });
       }

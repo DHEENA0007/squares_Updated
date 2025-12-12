@@ -29,6 +29,7 @@ export interface SecuritySettings {
   sessionTimeout: number;
   passwordMinLength: number;
   maxLoginAttempts: number;
+  lockoutDuration: number;
   requireEmailVerification: boolean;
   requirePhoneVerification: boolean;
   allowPasswordReset: boolean;
@@ -395,6 +396,7 @@ class SettingsService {
         sessionTimeout: 30,
         passwordMinLength: 8,
         maxLoginAttempts: 5,
+        lockoutDuration: 30,
         requireEmailVerification: true,
         requirePhoneVerification: false,
         allowPasswordReset: true,

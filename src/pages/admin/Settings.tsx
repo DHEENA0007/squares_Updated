@@ -90,6 +90,7 @@ const AdminSettings = () => {
     sessionTimeout: 30,
     passwordMinLength: 8,
     maxLoginAttempts: 5,
+    lockoutDuration: 30,
     requireEmailVerification: true,
     requirePhoneVerification: false,
     allowPasswordReset: true,
@@ -927,77 +928,56 @@ const AdminSettings = () => {
                   <Input
                     id="sessionTimeout"
                     type="number"
+                    min="5"
+                    max="480"
                     value={securitySettings.sessionTimeout}
                     onChange={(e) => {
                       setSecuritySettings(prev => ({ ...prev, sessionTimeout: parseInt(e.target.value) }));
                       markChanges('security');
                     }}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    JWT token expiration time. Users will be logged out after this duration of inactivity.
+                  </p>
                 </div>
-                {/* Commented out for Super Admin
                 <div className="space-y-2">
-                  <Label htmlFor="passwordMinLength">Minimum Password Length</Label>
+                  <Label htmlFor="maxLoginAttempts">Max Login Attempts</Label>
                   <Input
-                    id="passwordMinLength"
+                    id="maxLoginAttempts"
                     type="number"
-                    value={securitySettings.passwordMinLength}
-                    onChange={(e) => setSecuritySettings(prev => ({ ...prev, passwordMinLength: parseInt(e.target.value) }))}
+                    min="3"
+                    max="20"
+                    value={securitySettings.maxLoginAttempts}
+                    onChange={(e) => {
+                      setSecuritySettings(prev => ({ ...prev, maxLoginAttempts: parseInt(e.target.value) }));
+                      markChanges('security');
+                      syncSettingRealtime('security', 'maxLoginAttempts', parseInt(e.target.value));
+                    }}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Maximum failed login attempts before account lockout.
+                  </p>
                 </div>
-                */}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="maxLoginAttempts">Max Login Attempts</Label>
+                <Label htmlFor="lockoutDuration">Account Lockout Duration (minutes)</Label>
                 <Input
-                  id="maxLoginAttempts"
+                  id="lockoutDuration"
                   type="number"
-                  min="3"
-                  max="10"
-                  value={securitySettings.maxLoginAttempts}
+                  min="5"
+                  max="1440"
+                  value={securitySettings.lockoutDuration}
                   onChange={(e) => {
-                    setSecuritySettings(prev => ({ ...prev, maxLoginAttempts: parseInt(e.target.value) }));
+                    setSecuritySettings(prev => ({ ...prev, lockoutDuration: parseInt(e.target.value) }));
                     markChanges('security');
-                    syncSettingRealtime('security', 'maxLoginAttempts', parseInt(e.target.value));
+                    syncSettingRealtime('security', 'lockoutDuration', parseInt(e.target.value));
                   }}
                 />
                 <p className="text-xs text-muted-foreground">
-                  After {securitySettings.maxLoginAttempts} failed login attempts, users will be locked out for 30 minutes or must reset their password. This setting applies dynamically to all user types.
+                  After {securitySettings.maxLoginAttempts} failed login attempts, users will be locked out for {securitySettings.lockoutDuration} minutes or must reset their password. This setting applies dynamically to all user types.
                 </p>
               </div>
-
-              {/* Commented out Minimum Password Length and Require Email/Phone Verification for Super Admin
-              <div className="space-y-2">
-                <Label htmlFor="maxLoginAttempts">Max Login Attempts</Label>
-                <Input
-                  id="maxLoginAttempts"
-                  type="number"
-                  min="3"
-                  max="10"
-                  value={securitySettings.maxLoginAttempts}
-                  onChange={(e) => {
-                    setSecuritySettings(prev => ({ ...prev, maxLoginAttempts: parseInt(e.target.value) }));
-                    markChanges('security');
-                    syncSettingRealtime('security', 'maxLoginAttempts', parseInt(e.target.value));
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">
-                  After {securitySettings.maxLoginAttempts} failed login attempts, users will be locked out for 30 minutes or must reset their password. This setting applies dynamically to all user types.
-                </p>
-              </div>
-
-              {/* Commented out Minimum Password Length for Super Admin
-              <div className="space-y-2">
-                <Label htmlFor="passwordMinLength">Minimum Password Length</Label>
-                <Input
-                  id="passwordMinLength"
-                  type="number"
-                  value={securitySettings.passwordMinLength}
-                  onChange={(e) => setSecuritySettings(prev => ({ ...prev, passwordMinLength: parseInt(e.target.value) }))}
-                />
-              </div>
-              */}
-              
 
               <Separator />
 
