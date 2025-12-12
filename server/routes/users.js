@@ -43,17 +43,17 @@ router.get('/', asyncHandler(async (req, res) => {
   // Build filter object
   const filter = {};
 
-  // Always exclude superadmin users from the list
-  filter.role = { $ne: 'superadmin' };
-
   // Vendors (agents) can only fetch customers with allowMessages enabled
   if (req.user.role === 'agent') {
     filter.role = 'customer';
     filter.status = 'active'; // Only active customers
     filter['profile.preferences.privacy.allowMessages'] = { $ne: false }; // Only customers who allow messages
-  } else if (role && role !== 'superadmin') {
-    // If role filter is provided, combine it with the superadmin exclusion
+  } else if (role) {
+    // If role filter is provided, use it directly
     filter.role = role;
+  } else {
+    // If no role filter, exclude superadmin users from the list by default
+    filter.role = { $ne: 'superadmin' };
   }
 
   if (search) {
