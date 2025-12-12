@@ -330,6 +330,31 @@ router.get('/vendor-approvals/transfer-users', authenticateToken, async (req, re
   }
 });
 
+// @desc    Export vendor approval report
+// @route   GET /api/admin/vendor-approvals/export
+// @access  Private/Admin & SubAdmin
+router.get('/vendor-approvals/export', authenticateToken, isAnyAdmin, asyncHandler(async (req, res) => {
+  try {
+    // Fetch all vendor applications with user details
+    const vendors = await Vendor.find()
+      .populate('user', 'email profile.firstName profile.lastName profile.phone')
+      .populate('approval.reviewedBy', 'profile.firstName profile.lastName email')
+      .sort({ 'approval.submittedAt': -1 });
+
+    res.json({
+      success: true,
+      data: vendors
+    });
+
+  } catch (error) {
+    console.error('Export vendor approvals error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export vendor approval report'
+    });
+  }
+}));
+
 // @desc    Get vendor approval details
 // @route   GET /api/admin/vendor-approvals/:vendorId
 // @access  Private/Admin & SubAdmin
@@ -1142,31 +1167,6 @@ router.get('/vendor-approval-stats', authenticateToken, asyncHandler(async (req,
     res.status(500).json({
       success: false,
       message: 'Failed to fetch vendor approval statistics'
-    });
-  }
-}));
-
-// @desc    Export vendor approval report
-// @route   GET /api/admin/vendor-approvals/export
-// @access  Private/Admin & SubAdmin
-router.get('/vendor-approvals/export', isAnyAdmin, asyncHandler(async (req, res) => {
-  try {
-    // Fetch all vendor applications with user details
-    const vendors = await Vendor.find()
-      .populate('user', 'email profile.firstName profile.lastName profile.phone')
-      .populate('approval.reviewedBy', 'profile.firstName profile.lastName email')
-      .sort({ 'approval.submittedAt': -1 });
-
-    res.json({
-      success: true,
-      data: vendors
-    });
-
-  } catch (error) {
-    console.error('Export vendor approvals error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to export vendor approval report'
     });
   }
 }));
