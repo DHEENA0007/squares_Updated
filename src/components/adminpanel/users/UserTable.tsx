@@ -52,9 +52,11 @@ import { PERMISSIONS } from "@/config/permissionConfig";
 
 interface UserTableProps {
   searchQuery: string;
+  roleFilter?: string;
+  monthFilter?: string;
 }
 
-const UserTable = ({ searchQuery }: UserTableProps) => {
+const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => {
   const { isSuperAdmin, user } = useAuth();
   const userPermissions = user?.rolePermissions || [];
   const hasPermission = (permission: string) => userPermissions.includes(permission);
@@ -87,7 +89,7 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
     fetchRoles();
   }, []);
 
-  // Fetch users when page or search changes
+  // Fetch users when page, search, or filters change
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
@@ -96,6 +98,8 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
           page: currentPage,
           limit: itemsPerPage,
           search: searchQuery || undefined,
+          role: roleFilter || undefined,
+          month: monthFilter || undefined,
         });
 
         if (response.success) {
@@ -111,7 +115,7 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
     };
 
     fetchUsers();
-  }, [currentPage, searchQuery]);
+  }, [currentPage, searchQuery, roleFilter, monthFilter]);
 
   const handleDeleteUser = async (userId: string) => {
     setDeletingUserId(userId);
@@ -190,6 +194,7 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
         <Table className={isMobile ? 'min-w-[450px]' : ''}>
           <TableHeader>
             <TableRow>
+              <TableHead className={isMobile ? 'text-xs' : ''}>S.No</TableHead>
               <TableHead className={isMobile ? 'text-xs' : ''}>Name</TableHead>
               <TableHead className={isMobile ? 'text-xs' : ''}>Email</TableHead>
               <TableHead className={`hidden md:table-cell ${isMobile ? 'text-xs' : ''}`}>Phone</TableHead>
@@ -202,13 +207,16 @@ const UserTable = ({ searchQuery }: UserTableProps) => {
           <TableBody>
             {users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No users found.
                 </TableCell>
               </TableRow>
             ) : (
-              users.map((user) => (
+              users.map((user, index) => (
                 <TableRow key={user._id}>
+                  <TableCell className={isMobile ? 'text-xs' : ''}>
+                    {(currentPage - 1) * itemsPerPage + index + 1}
+                  </TableCell>
                   <TableCell className={`font-medium ${isMobile ? 'text-xs' : ''}`}>
                     {userService.getFullName(user)}
                   </TableCell>

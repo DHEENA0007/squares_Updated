@@ -32,10 +32,11 @@ router.get('/', asyncHandler(async (req, res) => {
     limit = 10,
     search,
     role,
-    status
+    status,
+    month
   } = req.query;
 
-  console.log(`[Users API] User role: ${req.user.role}, Requested role filter: ${role}`);
+  console.log(`[Users API] User role: ${req.user.role}, Requested role filter: ${role}, Month filter: ${month}`);
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
 
@@ -66,6 +67,20 @@ router.get('/', asyncHandler(async (req, res) => {
 
   if (status && req.user.role !== 'agent') {
     filter.status = status;
+  }
+
+  // Month filter - filter by creation month
+  if (month && req.user.role !== 'agent') {
+    const monthNum = parseInt(month);
+    if (monthNum >= 1 && monthNum <= 12) {
+      const currentYear = new Date().getFullYear();
+      const startDate = new Date(currentYear, monthNum - 1, 1);
+      const endDate = new Date(currentYear, monthNum, 0, 23, 59, 59, 999);
+      filter.createdAt = {
+        $gte: startDate,
+        $lte: endDate
+      };
+    }
   }
 
   // Get total count for pagination

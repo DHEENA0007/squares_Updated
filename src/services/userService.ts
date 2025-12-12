@@ -48,6 +48,7 @@ export interface UserFilters {
   role?: string;
   status?: string;
   search?: string;
+  month?: string;
 }
 
 export interface UserResponse {
