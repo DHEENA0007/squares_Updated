@@ -584,7 +584,7 @@ const Properties = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg md:text-xl">All Properties</CardTitle>
+          <CardTitle className="text-lg md:text-xl">Property Approvals</CardTitle>
           <CardDescription className="text-sm md:text-base">
             {filteredProperties.length} propert{filteredProperties.length !== 1 ? "ies" : "y"} found
           </CardDescription>

@@ -492,6 +492,23 @@ class ConfigurationService {
     } as any;
   }
 
+  // ============= Navigation Categories =============
+
+  async getNavigationCategories(): Promise<Array<{ value: string; label: string; isActive: boolean; displayOrder: number }>> {
+    const { data } = await api.get<{ success: boolean; data: Array<{ value: string; label: string; isActive: boolean; displayOrder: number }> }>(
+      '/navigation-categories'
+    );
+    return data.data;
+  }
+
+  async updateNavigationCategories(categories: Array<{ value: string; label: string; isActive: boolean; displayOrder: number }>): Promise<Array<{ value: string; label: string; isActive: boolean; displayOrder: number }>> {
+    const { data } = await api.post<{ success: boolean; data: Array<{ value: string; label: string; isActive: boolean; displayOrder: number }> }>(
+      '/navigation-categories',
+      { categories }
+    );
+    return data.data;
+  }
+
   // ============= Navigation Items =============
 
   async getAllNavigationItems(includeInactive = false): Promise<NavigationItem[]> {

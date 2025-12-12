@@ -768,6 +768,70 @@ router.delete('/navigation-items/:id', authenticateToken, isSuperAdmin, async (r
   }
 });
 
+// ============= Navigation Categories =============
+
+// Get all navigation categories
+router.get('/navigation-categories', async (req, res) => {
+  try {
+    const categories = await ConfigurationMetadata.findOne({ configKey: 'navigation_categories' });
+    
+    const defaultCategories = [
+      { value: 'residential', label: 'Residential', isActive: true, displayOrder: 1 },
+      { value: 'commercial', label: 'Commercial', isActive: true, displayOrder: 2 },
+      { value: 'agricultural', label: 'Agricultural', isActive: true, displayOrder: 3 },
+    ];
+
+    res.json({
+      success: true,
+      data: categories?.configValue || defaultCategories,
+    });
+  } catch (error) {
+    console.error('Error fetching navigation categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch navigation categories',
+      error: error.message,
+    });
+  }
+});
+
+// Update navigation categories (superadmin only)
+router.post('/navigation-categories', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const { categories } = req.body;
+
+    if (!Array.isArray(categories)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Categories must be an array',
+      });
+    }
+
+    const metadata = await ConfigurationMetadata.findOneAndUpdate(
+      { configKey: 'navigation_categories' },
+      { 
+        configKey: 'navigation_categories', 
+        configValue: categories,
+        description: 'Navigation item categories for property types'
+      },
+      { upsert: true, new: true, runValidators: true }
+    );
+
+    res.json({
+      success: true,
+      data: metadata.configValue,
+      message: 'Navigation categories updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating navigation categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update navigation categories',
+      error: error.message,
+    });
+  }
+});
+
 // ============= Configuration Metadata =============
 
 // Get configuration metadata

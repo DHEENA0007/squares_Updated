@@ -178,7 +178,6 @@ const navigationItemSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['main', 'residential', 'commercial', 'agricultural'],
     required: true,
   },
   parentId: {

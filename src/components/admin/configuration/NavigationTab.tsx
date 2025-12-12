@@ -28,7 +28,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Wand2 } from 'lucide-react';
 import { configurationService } from '@/services/configurationService';
 import type { NavigationItem } from '@/types/configuration';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 const NavigationTab: React.FC = () => {
   const [navItems, setNavItems] = useState<NavigationItem[]>([]);
   const [listingTypes, setListingTypes] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Array<{ value: string; label: string; isActive: boolean }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<NavigationItem | null>(null);
@@ -45,7 +46,7 @@ const NavigationTab: React.FC = () => {
     name: '',
     value: '',
     displayLabel: '',
-    category: 'residential',
+    category: '',
     parentId: '',
     queryParams: '',
     displayOrder: 0,
@@ -55,6 +56,7 @@ const NavigationTab: React.FC = () => {
   useEffect(() => {
     fetchNavigationItems();
     fetchListingTypes();
+    fetchCategories();
   }, []);
 
   const fetchListingTypes = async () => {
@@ -63,6 +65,15 @@ const NavigationTab: React.FC = () => {
       setListingTypes(types);
     } catch (error) {
       console.error('Failed to load listing types:', error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const cats = await configurationService.getNavigationCategories();
+      setCategories(cats.filter(c => c.isActive));
+    } catch (error) {
+      console.error('Failed to load categories:', error);
     }
   };
 
@@ -96,11 +107,12 @@ const NavigationTab: React.FC = () => {
       });
     } else {
       setEditingItem(null);
+      const defaultCategory = categories.length > 0 ? categories[0].value : '';
       setFormData({
         name: '',
         value: '',
         displayLabel: '',
-        category: 'residential',
+        category: defaultCategory,
         parentId: activeTab === 'all' ? '' : activeTab,
         queryParams: '',
         displayOrder: navItems.length,
@@ -112,11 +124,12 @@ const NavigationTab: React.FC = () => {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingItem(null);
+    const defaultCategory = categories.length > 0 ? categories[0].value : '';
     setFormData({
       name: '',
       value: '',
       displayLabel: '',
-      category: 'residential',
+      category: defaultCategory,
       parentId: '',
       queryParams: '',
       displayOrder: 0,
@@ -144,7 +157,7 @@ const NavigationTab: React.FC = () => {
         name: formData.name,
         value: formData.value,
         displayLabel: formData.displayLabel || undefined,
-        category: formData.category as 'main' | 'commercial' | 'residential' | 'agricultural',
+        category: formData.category,
         parentId: formData.parentId || undefined,
         queryParams: parsedQueryParams,
         displayOrder: formData.displayOrder,
@@ -249,6 +262,36 @@ const NavigationTab: React.FC = () => {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleGenerateQueryParams = () => {
+    const queryParams: Record<string, string> = {};
+
+    if (formData.value) {
+      queryParams.propertyType = formData.value;
+    }
+
+    if (formData.parentId) {
+      const parentType = listingTypes.find(lt => lt.value === formData.parentId);
+      if (parentType) {
+        queryParams.listingType = parentType.value;
+      }
+    }
+
+    if (formData.category) {
+      queryParams.category = formData.category;
+    }
+
+    const jsonString = Object.keys(queryParams).length > 0 
+      ? JSON.stringify(queryParams, null, 2) 
+      : '';
+    
+    setFormData({ ...formData, queryParams: jsonString });
+
+    toast({
+      title: 'Success',
+      description: 'Query parameters generated automatically',
+    });
   };
 
   const getItemsByListingType = (listingTypeValue: string) => {
@@ -491,14 +534,23 @@ const NavigationTab: React.FC = () => {
                   onValueChange={(value) => setFormData({ ...formData, category: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select category..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="residential">Residential</SelectItem>
-                    <SelectItem value="commercial">Commercial</SelectItem>
-                    <SelectItem value="agricultural">Agricultural</SelectItem>
+                    {categories.length === 0 ? (
+                      <SelectItem value="" disabled>No categories available</SelectItem>
+                    ) : (
+                      categories.map(cat => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Manage categories in Configuration Management
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -538,7 +590,19 @@ const NavigationTab: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="queryParams">Query Parameters (JSON)</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="queryParams">Query Parameters (JSON)</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateQueryParams}
+                  className="h-8"
+                >
+                  <Wand2 className="h-3.5 w-3.5 mr-1.5" />
+                  Generate
+                </Button>
+              </div>
               <Input
                 id="queryParams"
                 value={formData.queryParams}
@@ -546,7 +610,7 @@ const NavigationTab: React.FC = () => {
                 placeholder='{"listingType": "sale", "propertyType": "apartment"}'
               />
               <p className="text-xs text-muted-foreground">
-                Optional: JSON object for URL query parameters
+                Optional: JSON object for URL query parameters. Click "Generate" to auto-create based on form values.
               </p>
             </div>
           </div>

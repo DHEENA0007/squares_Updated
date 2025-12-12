@@ -64,7 +64,7 @@ export interface NavigationItem {
   name: string;
   value: string;
   displayLabel?: string;
-  category: 'main' | 'residential' | 'commercial' | 'agricultural';
+  category: string; // Allow any category
   parentId?: string;
   queryParams?: Record<string, string>;
   isActive: boolean;
@@ -138,7 +138,7 @@ export interface CreateNavigationItemDTO {
   name: string;
   value: string;
   displayLabel?: string;
-  category: 'main' | 'residential' | 'commercial' | 'agricultural';
+  category: string; // Allow any category
   parentId?: string;
   queryParams?: Record<string, string>;
   displayOrder?: number;

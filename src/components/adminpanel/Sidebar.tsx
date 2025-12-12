@@ -30,6 +30,11 @@ const Sidebar = ({
       icon: Users
     },
     {
+      label: 'Subscribed Users',
+      path: '/admin/clients',
+      icon: Users
+    },
+    {
       label: 'Vendor Approvals',
       path: '/admin/vendor-approvals',
       icon: UserCheck
@@ -45,12 +50,7 @@ const Sidebar = ({
       icon: Shield
     },
     {
-      label: 'Clients',
-      path: '/admin/clients',
-      icon: Building2
-    },
-    {
-      label: 'Properties',
+      label: 'Property Approvals',
       path: '/admin/properties',
       icon: Building2
     },
