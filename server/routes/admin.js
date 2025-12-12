@@ -19,6 +19,7 @@ const { asyncHandler } = require('../middleware/errorMiddleware');
 const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 const adminRealtimeService = require('../services/adminRealtimeService');
 const { sendTemplateEmail, sendEmail } = require('../utils/emailService');
+const { sanitizePagination, sanitizeSearchQuery } = require('../utils/sanitize');
 
 // Mount email routes
 const emailRoutes = require('./admin/email');
@@ -160,10 +161,17 @@ router.get('/vendor-approvals', authenticateToken, asyncHandler(async (req, res)
       status = 'pending',
       search = '',
       sortBy = 'submittedAt',
-      sortOrder = 'desc'
+      sortOrder = 'desc',
+      businessType = '',
+      experienceMin = '',
+      experienceMax = ''
     } = req.query;
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    // Sanitize pagination parameters
+    const { page: sanitizedPage, limit: sanitizedLimit, skip } = sanitizePagination(page, limit);
+    
+    // Sanitize search query
+    const sanitizedSearch = sanitizeSearchQuery(search);
     
     // Build query
     const query = {};
@@ -172,17 +180,36 @@ router.get('/vendor-approvals', authenticateToken, asyncHandler(async (req, res)
       query['approval.status'] = status;
     }
     
-    if (search) {
+    if (sanitizedSearch) {
       query.$or = [
-        { 'businessInfo.companyName': { $regex: search, $options: 'i' } },
-        { 'businessInfo.licenseNumber': { $regex: search, $options: 'i' } },
-        { 'businessInfo.gstNumber': { $regex: search, $options: 'i' } }
+        { 'businessInfo.companyName': { $regex: sanitizedSearch, $options: 'i' } },
+        { 'businessInfo.licenseNumber': { $regex: sanitizedSearch, $options: 'i' } },
+        { 'businessInfo.gstNumber': { $regex: sanitizedSearch, $options: 'i' } },
+        { 'user.email': { $regex: sanitizedSearch, $options: 'i' } }
       ];
+    }
+
+    // Filter by business type
+    if (businessType && businessType !== 'all') {
+      query['businessInfo.businessType'] = businessType;
+    }
+
+    // Filter by experience range
+    if (experienceMin || experienceMax) {
+      query['professionalInfo.experience'] = {};
+      if (experienceMin) {
+        query['professionalInfo.experience'].$gte = parseInt(experienceMin);
+      }
+      if (experienceMax) {
+        query['professionalInfo.experience'].$lte = parseInt(experienceMax);
+      }
     }
 
     // Build sort
     const sort = {};
-    sort[`approval.${sortBy}`] = sortOrder === 'desc' ? -1 : 1;
+    const validSortFields = ['submittedAt', 'reviewedAt', 'phoneVerifiedAt'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'submittedAt';
+    sort[`approval.${sortField}`] = sortOrder === 'desc' ? -1 : 1;
 
     // Get vendors with populated user data
     const [vendors, totalCount] = await Promise.all([
@@ -194,23 +221,23 @@ router.get('/vendor-approvals', authenticateToken, asyncHandler(async (req, res)
         .populate('approval.phoneVerifiedBy', 'profile.firstName profile.lastName email')
         .sort(sort)
         .skip(skip)
-        .limit(parseInt(limit)),
+        .limit(sanitizedLimit),
       Vendor.countDocuments(query)
     ]);
 
-    const totalPages = Math.ceil(totalCount / parseInt(limit));
+    const totalPages = Math.ceil(totalCount / sanitizedLimit);
 
     res.json({
       success: true,
       data: {
         vendors,
         pagination: {
-          currentPage: parseInt(page),
+          currentPage: sanitizedPage,
           totalPages,
           totalCount,
-          hasNext: page < totalPages,
-          hasPrev: page > 1,
-          limit: parseInt(limit)
+          hasNextPage: sanitizedPage < totalPages,
+          hasPrevPage: sanitizedPage > 1,
+          limit: sanitizedLimit
         },
         summary: {
           pending: await Vendor.countDocuments({ 'approval.status': 'pending' }),

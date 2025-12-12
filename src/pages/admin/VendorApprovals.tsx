@@ -15,7 +15,9 @@ import {
   User,
   MapPin,
   Shield,
-  Key
+  Key,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from '../../hooks/use-toast';
 import { Input } from "@/components/ui/input";
@@ -46,6 +48,14 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { useAuth } from '@/contexts/AuthContext';
 
 interface VendorApplication {
@@ -193,6 +203,14 @@ const VendorApprovals: React.FC = () => {
     page: 1,
     limit: 10
   });
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 0,
+    totalCount: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
+    limit: 10
+  });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Auto-populate approver name from logged-in user
@@ -255,8 +273,11 @@ const VendorApprovals: React.FC = () => {
       });
 
       const response = await fetchWithAuth(`/admin/vendor-approvals?${queryParams}`);
-      const data = await handleApiResponse<{ data: { vendors: VendorApplication[] } }>(response);
+      const data = await handleApiResponse<{ data: { vendors: VendorApplication[], pagination: typeof pagination } }>(response);
       setApplications(data.data.vendors || []);
+      if (data.data.pagination) {
+        setPagination(data.data.pagination);
+      }
     } catch (error) {
       console.error('Error fetching applications:', error);
       toast({
@@ -312,7 +333,7 @@ const VendorApprovals: React.FC = () => {
       setLoading(false);
     };
     loadData();
-  }, [filters.status, filters.page, filters.search, filters.businessType, filters.experienceMin, filters.experienceMax]);
+  }, [filters.status, filters.page, filters.search, filters.businessType, filters.experienceMin, filters.experienceMax, filters.limit]);
 
   // Calculate time remaining for verification freeze
   useEffect(() => {
@@ -814,13 +835,13 @@ const VendorApprovals: React.FC = () => {
               <Input
                 placeholder="Search by name or email..."
                 value={filters.search}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
               />
             </div>
 
             <Select
               value={filters.status}
-              onValueChange={(value) => setFilters({ ...filters, status: value })}
+              onValueChange={(value) => setFilters({ ...filters, status: value, page: 1 })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Filter by status" />
@@ -836,7 +857,7 @@ const VendorApprovals: React.FC = () => {
 
             <Select
               value={filters.businessType || "all"}
-              onValueChange={(value) => setFilters({ ...filters, businessType: value === "all" ? "" : value })}
+              onValueChange={(value) => setFilters({ ...filters, businessType: value === "all" ? "" : value, page: 1 })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Filter by business type" />
@@ -855,15 +876,35 @@ const VendorApprovals: React.FC = () => {
                 type="number"
                 placeholder="Min experience"
                 value={filters.experienceMin}
-                onChange={(e) => setFilters({ ...filters, experienceMin: e.target.value })}
+                onChange={(e) => setFilters({ ...filters, experienceMin: e.target.value, page: 1 })}
               />
               <Input
                 type="number"
                 placeholder="Max experience"
                 value={filters.experienceMax}
-                onChange={(e) => setFilters({ ...filters, experienceMax: e.target.value })}
+                onChange={(e) => setFilters({ ...filters, experienceMax: e.target.value, page: 1 })}
               />
             </div>
+          </div>
+
+          <div className="flex items-center gap-2 mt-4">
+            <Label htmlFor="pageSize" className="text-sm text-muted-foreground whitespace-nowrap">
+              Items per page:
+            </Label>
+            <Select
+              value={filters.limit.toString()}
+              onValueChange={(value) => setFilters({ ...filters, limit: parseInt(value), page: 1 })}
+            >
+              <SelectTrigger id="pageSize" className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -953,6 +994,72 @@ const VendorApprovals: React.FC = () => {
               ))
             )}
           </div>
+
+          {/* Pagination */}
+          {applications.length > 0 && pagination.totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to{' '}
+                {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of{' '}
+                {pagination.totalCount} applications
+              </div>
+
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFilters({ ...filters, page: filters.page - 1 })}
+                      disabled={!pagination.hasPrevPage}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                  </PaginationItem>
+
+                  {/* Page numbers */}
+                  {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                    let pageNum: number;
+                    
+                    if (pagination.totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (pagination.currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (pagination.currentPage >= pagination.totalPages - 2) {
+                      pageNum = pagination.totalPages - 4 + i;
+                    } else {
+                      pageNum = pagination.currentPage - 2 + i;
+                    }
+
+                    return (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink
+                          onClick={() => setFilters({ ...filters, page: pageNum })}
+                          isActive={pagination.currentPage === pageNum}
+                          className="cursor-pointer"
+                        >
+                          {pageNum}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+
+                  <PaginationItem>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
+                      disabled={!pagination.hasNextPage}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </CardContent>
       </Card>
 

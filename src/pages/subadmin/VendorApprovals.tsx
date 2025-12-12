@@ -298,7 +298,7 @@ const VendorApprovals: React.FC = () => {
       setLoading(false);
     };
     loadData();
-  }, [filters.status, filters.page, filters.search, filters.businessType, filters.experienceMin, filters.experienceMax]);
+  }, [filters.status, filters.page, filters.search, filters.businessType, filters.experienceMin, filters.experienceMax, filters.limit]);
 
   // Calculate time remaining for verification freeze
   useEffect(() => {
