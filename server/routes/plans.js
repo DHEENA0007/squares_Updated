@@ -168,20 +168,23 @@ router.put('/:id', asyncHandler(async (req, res) => {
     });
   }
 
+  // Use filtered changes to avoid any invalid fields
+  const changesToApply = validation.filteredChanges || req.body;
+
   // Analyze impact of changes
-  const impact = await planChangeService.analyzePlanChangeImpact(req.params.id, req.body);
+  const impact = await planChangeService.analyzePlanChangeImpact(req.params.id, changesToApply);
 
   // Track price changes
-  if (req.body.price && req.body.price !== plan.price) {
-    await plan.updatePrice(req.body.price, req.user.id, req.body.priceChangeReason);
-    delete req.body.price;
-    delete req.body.priceChangeReason;
+  if (changesToApply.price && changesToApply.price !== plan.price) {
+    await plan.updatePrice(changesToApply.price, req.user.id, changesToApply.priceChangeReason);
+    delete changesToApply.price;
+    delete changesToApply.priceChangeReason;
   }
 
   // Track feature changes
-  if (req.body.features) {
+  if (changesToApply.features) {
     const oldFeatures = plan.features || [];
-    const newFeatures = req.body.features || [];
+    const newFeatures = changesToApply.features || [];
     
     newFeatures.forEach(feature => {
       const featureName = typeof feature === 'string' ? feature : feature.name;
@@ -196,9 +199,9 @@ router.put('/:id', asyncHandler(async (req, res) => {
   }
 
   // Update other fields
-  Object.keys(req.body).forEach(key => {
+  Object.keys(changesToApply).forEach(key => {
     if (key !== 'price' && key !== 'priceHistory' && key !== 'featureHistory') {
-      plan[key] = req.body[key];
+      plan[key] = changesToApply[key];
     }
   });
 
