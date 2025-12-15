@@ -3853,12 +3853,15 @@ router.get('/reviews', authenticateToken, async (req, res) => {
     }));
 
     res.json({
-      reviews: formatted,
-      pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) }
+      success: true,
+      data: {
+        reviews: formatted,
+        pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) }
+      }
     });
   } catch (error) {
     console.error('Error fetching reviews:', error);
-    res.status(500).json({ message: 'Failed to fetch reviews' });
+    res.status(500).json({ success: false, message: 'Failed to fetch reviews' });
   }
 });
 
@@ -3880,10 +3883,19 @@ router.get('/reviews/stats', authenticateToken, async (req, res) => {
     ]);
     const avgRating = avgRatingResult[0]?.avg || 0;
 
-    res.json({ total, approved, pending, flagged, avgRating: parseFloat(avgRating.toFixed(1)) });
+    res.json({ 
+      success: true,
+      data: {
+        total, 
+        approved, 
+        pending, 
+        flagged, 
+        avgRating: parseFloat(avgRating.toFixed(1))
+      }
+    });
   } catch (error) {
     console.error('Error fetching review stats:', error);
-    res.status(500).json({ message: 'Failed to fetch stats' });
+    res.status(500).json({ success: false, message: 'Failed to fetch stats' });
   }
 });
 
@@ -3902,27 +3914,30 @@ router.post('/reviews/:id/approve', authenticateToken, async (req, res) => {
      .populate('property', 'name');
 
     if (!review) {
-      return res.status(404).json({ message: 'Review not found' });
+      return res.status(404).json({ success: false, message: 'Review not found' });
     }
 
     res.json({
+      success: true,
       message: 'Review approved',
-      review: {
-        id: review._id,
-        user: review.client ? { name: review.client.name, email: review.client.email } : null,
-        property: review.property ? { name: review.property.name } : null,
-        vendor: review.vendor ? { name: review.vendor.businessName } : null,
-        rating: review.rating,
-        title: review.title,
-        comment: review.comment,
-        isApproved: true,
-        isFlagged: false,
-        createdAt: review.createdAt
+      data: {
+        review: {
+          id: review._id,
+          user: review.client ? { name: review.client.name, email: review.client.email } : null,
+          property: review.property ? { name: review.property.name } : null,
+          vendor: review.vendor ? { name: review.vendor.businessName } : null,
+          rating: review.rating,
+          title: review.title,
+          comment: review.comment,
+          isApproved: true,
+          isFlagged: false,
+          createdAt: review.createdAt
+        }
       }
     });
   } catch (error) {
     console.error('Error approving review:', error);
-    res.status(500).json({ message: 'Failed to approve review' });
+    res.status(500).json({ success: false, message: 'Failed to approve review' });
   }
 });
 
@@ -3941,27 +3956,30 @@ router.post('/reviews/:id/reject', authenticateToken, async (req, res) => {
      .populate('property', 'name');
 
     if (!review) {
-      return res.status(404).json({ message: 'Review not found' });
+      return res.status(404).json({ success: false, message: 'Review not found' });
     }
 
     res.json({
+      success: true,
       message: 'Review rejected',
-      review: {
-        id: review._id,
-        user: review.client ? { name: review.client.name, email: review.client.email } : null,
-        property: review.property ? { name: review.property.name } : null,
-        vendor: review.vendor ? { name: review.vendor.businessName } : null,
-        rating: review.rating,
-        title: review.title,
-        comment: review.comment,
-        isApproved: false,
-        isFlagged: false,
-        createdAt: review.createdAt
+      data: {
+        review: {
+          id: review._id,
+          user: review.client ? { name: review.client.name, email: review.client.email } : null,
+          property: review.property ? { name: review.property.name } : null,
+          vendor: review.vendor ? { name: review.vendor.businessName } : null,
+          rating: review.rating,
+          title: review.title,
+          comment: review.comment,
+          isApproved: false,
+          isFlagged: false,
+          createdAt: review.createdAt
+        }
       }
     });
   } catch (error) {
     console.error('Error rejecting review:', error);
-    res.status(500).json({ message: 'Failed to reject review' });
+    res.status(500).json({ success: false, message: 'Failed to reject review' });
   }
 });
 
@@ -3978,13 +3996,13 @@ router.delete('/reviews/:id', authenticateToken, async (req, res) => {
     );
 
     if (!review) {
-      return res.status(404).json({ message: 'Review not found' });
+      return res.status(404).json({ success: false, message: 'Review not found' });
     }
 
-    res.json({ message: 'Review deleted' });
+    res.json({ success: true, message: 'Review deleted' });
   } catch (error) {
     console.error('Error deleting review:', error);
-    res.status(500).json({ message: 'Failed to delete review' });
+    res.status(500).json({ success: false, message: 'Failed to delete review' });
   }
 });
 
@@ -4003,7 +4021,7 @@ router.post('/reviews/:id/flag', authenticateToken, async (req, res) => {
      .populate('property', 'name');
 
     if (!review) {
-      return res.status(404).json({ message: 'Review not found' });
+      return res.status(404).json({ success: false, message: 'Review not found' });
     }
 
     // Send email notification to customer
@@ -4028,23 +4046,26 @@ router.post('/reviews/:id/flag', authenticateToken, async (req, res) => {
     }
 
     res.json({
+      success: true,
       message: 'Review flagged',
-      review: {
-        id: review._id,
-        user: review.client ? { name: review.client.name, email: review.client.email } : null,
-        property: review.property ? { name: review.property.name } : null,
-        vendor: review.vendor ? { name: review.vendor.businessName } : null,
-        rating: review.rating,
-        title: review.title,
-        comment: review.comment,
-        isApproved: false,
-        isFlagged: true,
-        createdAt: review.createdAt
+      data: {
+        review: {
+          id: review._id,
+          user: review.client ? { name: review.client.name, email: review.client.email } : null,
+          property: review.property ? { name: review.property.name } : null,
+          vendor: review.vendor ? { name: review.vendor.businessName } : null,
+          rating: review.rating,
+          title: review.title,
+          comment: review.comment,
+          isApproved: false,
+          isFlagged: true,
+          createdAt: review.createdAt
+        }
       }
     });
   } catch (error) {
     console.error('Error flagging review:', error);
-    res.status(500).json({ message: 'Failed to flag review' });
+    res.status(500).json({ success: false, message: 'Failed to flag review' });
   }
 });
 
@@ -4079,28 +4100,31 @@ router.post('/reviews/:id/reply', authenticateToken, async (req, res) => {
      .populate('property', 'name');
 
     if (!review) {
-      return res.status(404).json({ message: 'Review not found' });
+      return res.status(404).json({ success: false, message: 'Review not found' });
     }
 
     res.json({
+      success: true,
       message: 'Reply posted successfully',
-      review: {
-        id: review._id,
-        user: review.client ? { name: review.client.name, email: review.client.email } : null,
-        property: review.property ? { name: review.property.name } : null,
-        vendor: review.vendor ? { name: review.vendor.businessName } : null,
-        rating: review.rating,
-        title: review.title,
-        comment: review.comment,
-        isApproved: review.status === 'active',
-        isFlagged: review.status === 'reported',
-        vendorResponse: review.vendorResponse,
-        createdAt: review.createdAt
+      data: {
+        review: {
+          id: review._id,
+          user: review.client ? { name: review.client.name, email: review.client.email } : null,
+          property: review.property ? { name: review.property.name } : null,
+          vendor: review.vendor ? { name: review.vendor.businessName } : null,
+          rating: review.rating,
+          title: review.title,
+          comment: review.comment,
+          isApproved: review.status === 'active',
+          isFlagged: review.status === 'reported',
+          vendorResponse: review.vendorResponse,
+          createdAt: review.createdAt
+        }
       }
     });
   } catch (error) {
     console.error('Error posting reply:', error);
-    res.status(500).json({ message: 'Failed to post reply' });
+    res.status(500).json({ success: false, message: 'Failed to post reply' });
   }
 });
 
