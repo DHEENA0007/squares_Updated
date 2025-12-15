@@ -3829,7 +3829,7 @@ router.get('/reviews', authenticateToken, async (req, res) => {
     const total = await Review.countDocuments(query);
     
     const reviews = await Review.find(query)
-      .populate('client', 'name email')
+      .populate('client', 'name email profile')
       .populate('vendor', 'businessName')
       .populate('property', 'name')
       .sort({ createdAt: -1 })
@@ -3838,7 +3838,11 @@ router.get('/reviews', authenticateToken, async (req, res) => {
 
     const formatted = reviews.map(r => ({
       id: r._id,
-      user: r.client ? { name: r.client.name, email: r.client.email } : null,
+      user: r.client ? { 
+        name: r.client.name, 
+        email: r.client.email,
+        profile: r.client.profile || {}
+      } : null,
       property: r.property ? { name: r.property.name } : null,
       vendor: r.vendor ? { name: r.vendor.businessName } : null,
       rating: r.rating,
@@ -3909,7 +3913,7 @@ router.post('/reviews/:id/approve', authenticateToken, async (req, res) => {
       req.params.id,
       { status: 'active', isPublic: true },
       { new: true }
-    ).populate('client', 'name email')
+    ).populate('client', 'name email profile')
      .populate('vendor', 'businessName')
      .populate('property', 'name');
 
@@ -3923,7 +3927,11 @@ router.post('/reviews/:id/approve', authenticateToken, async (req, res) => {
       data: {
         review: {
           id: review._id,
-          user: review.client ? { name: review.client.name, email: review.client.email } : null,
+          user: review.client ? { 
+            name: review.client.name, 
+            email: review.client.email,
+            profile: review.client.profile || {}
+          } : null,
           property: review.property ? { name: review.property.name } : null,
           vendor: review.vendor ? { name: review.vendor.businessName } : null,
           rating: review.rating,
@@ -3951,7 +3959,7 @@ router.post('/reviews/:id/reject', authenticateToken, async (req, res) => {
       req.params.id,
       { status: 'hidden', isPublic: false },
       { new: true }
-    ).populate('client', 'name email')
+    ).populate('client', 'name email profile')
      .populate('vendor', 'businessName')
      .populate('property', 'name');
 
@@ -3965,7 +3973,11 @@ router.post('/reviews/:id/reject', authenticateToken, async (req, res) => {
       data: {
         review: {
           id: review._id,
-          user: review.client ? { name: review.client.name, email: review.client.email } : null,
+          user: review.client ? { 
+            name: review.client.name, 
+            email: review.client.email,
+            profile: review.client.profile || {}
+          } : null,
           property: review.property ? { name: review.property.name } : null,
           vendor: review.vendor ? { name: review.vendor.businessName } : null,
           rating: review.rating,
@@ -4016,7 +4028,7 @@ router.post('/reviews/:id/flag', authenticateToken, async (req, res) => {
       req.params.id,
       { status: 'reported', isPublic: false },
       { new: true }
-    ).populate('client', 'name email')
+    ).populate('client', 'name email profile')
      .populate('vendor', 'businessName')
      .populate('property', 'name');
 
@@ -4051,7 +4063,11 @@ router.post('/reviews/:id/flag', authenticateToken, async (req, res) => {
       data: {
         review: {
           id: review._id,
-          user: review.client ? { name: review.client.name, email: review.client.email } : null,
+          user: review.client ? { 
+            name: review.client.name, 
+            email: review.client.email,
+            profile: review.client.profile || {}
+          } : null,
           property: review.property ? { name: review.property.name } : null,
           vendor: review.vendor ? { name: review.vendor.businessName } : null,
           rating: review.rating,
@@ -4095,7 +4111,7 @@ router.post('/reviews/:id/reply', authenticateToken, async (req, res) => {
         }
       },
       { new: true }
-    ).populate('client', 'name email')
+    ).populate('client', 'name email profile')
      .populate('vendor', 'businessName')
      .populate('property', 'name');
 
@@ -4109,7 +4125,11 @@ router.post('/reviews/:id/reply', authenticateToken, async (req, res) => {
       data: {
         review: {
           id: review._id,
-          user: review.client ? { name: review.client.name, email: review.client.email } : null,
+          user: review.client ? { 
+            name: review.client.name, 
+            email: review.client.email,
+            profile: review.client.profile || {}
+          } : null,
           property: review.property ? { name: review.property.name } : null,
           vendor: review.vendor ? { name: review.vendor.businessName } : null,
           rating: review.rating,
