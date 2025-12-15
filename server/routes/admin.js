@@ -8,7 +8,6 @@ const Notification = require('../models/Notification');
 const Plan = require('../models/Plan');
 const Role = require('../models/Role');
 const AddonService = require('../models/AddonService');
-const AddonCategory = require('../models/AddonCategory');
 const Settings = require('../models/Settings');
 const Vendor = require('../models/Vendor');
 const Review = require('../models/Review');
@@ -3804,10 +3803,7 @@ router.post('/properties/:id/unarchive', authenticateToken, isSuperAdmin, asyncH
 // Review Management Routes
 router.get('/reviews', authenticateToken, async (req, res) => {
   try {
-    const isSA = req.user.role === 'SuperAdmin';
-    const hasPerm = req.user.rolePermissions?.includes('reviews.view');
-    
-    if (!isSA && !hasPerm) {
+    if (!hasPermission(req.user, PERMISSIONS.REVIEWS_VIEW)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -3868,10 +3864,7 @@ router.get('/reviews', authenticateToken, async (req, res) => {
 
 router.get('/reviews/stats', authenticateToken, async (req, res) => {
   try {
-    const isSA = req.user.role === 'SuperAdmin';
-    const hasPerm = req.user.rolePermissions?.includes('reviews.view');
-    
-    if (!isSA && !hasPerm) {
+    if (!hasPermission(req.user, PERMISSIONS.REVIEWS_VIEW)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -3896,10 +3889,7 @@ router.get('/reviews/stats', authenticateToken, async (req, res) => {
 
 router.post('/reviews/:id/approve', authenticateToken, async (req, res) => {
   try {
-    const isSA = req.user.role === 'SuperAdmin';
-    const hasPerm = req.user.rolePermissions?.includes('reviews.report');
-    
-    if (!isSA && !hasPerm) {
+    if (!hasPermission(req.user, PERMISSIONS.REVIEWS_REPORT)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -3938,10 +3928,7 @@ router.post('/reviews/:id/approve', authenticateToken, async (req, res) => {
 
 router.post('/reviews/:id/reject', authenticateToken, async (req, res) => {
   try {
-    const isSA = req.user.role === 'SuperAdmin';
-    const hasPerm = req.user.rolePermissions?.includes('reviews.report');
-    
-    if (!isSA && !hasPerm) {
+    if (!hasPermission(req.user, PERMISSIONS.REVIEWS_REPORT)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -3980,10 +3967,7 @@ router.post('/reviews/:id/reject', authenticateToken, async (req, res) => {
 
 router.delete('/reviews/:id', authenticateToken, async (req, res) => {
   try {
-    const isSA = req.user.role === 'SuperAdmin';
-    const hasPerm = req.user.rolePermissions?.includes('reviews.delete');
-    
-    if (!isSA && !hasPerm) {
+    if (!hasPermission(req.user, PERMISSIONS.REVIEWS_MANAGE)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -4006,10 +3990,7 @@ router.delete('/reviews/:id', authenticateToken, async (req, res) => {
 
 router.post('/reviews/:id/flag', authenticateToken, async (req, res) => {
   try {
-    const isSA = req.user.role === 'SuperAdmin';
-    const hasPerm = req.user.rolePermissions?.includes('reviews.report');
-    
-    if (!isSA && !hasPerm) {
+    if (!hasPermission(req.user, PERMISSIONS.REVIEWS_REPORT)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 

@@ -33,7 +33,9 @@ const PERMISSIONS = {
 
     // Content & Moderation
     CONTENT_MODERATE: 'content.moderate',
+    REVIEWS_VIEW: 'reviews.view',
     REVIEWS_MANAGE: 'reviews.manage',
+    REVIEWS_REPORT: 'reviews.report',
 
     // Clients Management
     CLIENTS_READ: 'clients.read',
@@ -113,8 +115,8 @@ const PERMISSIONS = {
 const hasPermission = (user, permission) => {
     if (!user) return false;
 
-    // Superadmin has all permissions
-    if (user.role === 'superadmin') return true;
+    // Superadmin and Admin have all permissions by default
+    if (user.role === 'superadmin' || user.role === 'admin') return true;
 
     // Check if user has the specific permission in rolePermissions array (user-specific overrides)
     if (user.rolePermissions && Array.isArray(user.rolePermissions)) {
@@ -140,8 +142,8 @@ const hasPermission = (user, permission) => {
 const hasAnyPermission = (user, permissions) => {
     if (!user) return false;
 
-    // Superadmin has all permissions
-    if (user.role === 'superadmin') return true;
+    // Superadmin and Admin have all permissions
+    if (user.role === 'superadmin' || user.role === 'admin') return true;
 
     // Check if user has any of the permissions
     return permissions.some(permission => hasPermission(user, permission));
@@ -156,8 +158,8 @@ const hasAnyPermission = (user, permissions) => {
 const hasAllPermissions = (user, permissions) => {
     if (!user) return false;
 
-    // Superadmin has all permissions
-    if (user.role === 'superadmin') return true;
+    // Superadmin and Admin have all permissions
+    if (user.role === 'superadmin' || user.role === 'admin') return true;
 
     // Check if user has all permissions
     return permissions.every(permission => hasPermission(user, permission));
