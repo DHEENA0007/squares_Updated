@@ -11,7 +11,7 @@ export interface AdminAddonService {
   billingType: string;
   billingPeriod: string;
   billingCycleMonths: number;
-  category: 'photography' | 'marketing' | 'technology' | 'support' | 'crm';
+  category: string;
   icon?: string;
   isActive: boolean;
   sortOrder: number;
@@ -27,7 +27,7 @@ export interface CreateAddonRequest {
   billingType?: string;
   billingPeriod?: string;
   billingCycleMonths?: number;
-  category: 'photography' | 'marketing' | 'technology' | 'support' | 'crm';
+  category: string;
   icon?: string;
   isActive: boolean;
   sortOrder: number;
@@ -309,6 +309,7 @@ class AdminAddonServiceAPI {
       { value: 'technology', label: 'Technology' },
       { value: 'support', label: 'Support' },
       { value: 'crm', label: 'CRM' },
+      { value: 'other', label: 'Other' },
     ];
   }
 

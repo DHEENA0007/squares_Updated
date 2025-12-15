@@ -1,5 +1,3 @@
-import { toast } from "@/hooks/use-toast";
-
 const API_BASE_URL = import.meta.env.VITE_API_URL || "https://app.buildhomemartsquares.com/api";
 
 export interface FeaturedVendor {
@@ -68,11 +66,7 @@ class FeaturedVendorsService {
       };
     } catch (error) {
       console.error("Failed to fetch featured vendors:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load featured vendors. Please try again.",
-        variant: "destructive",
-      });
+      // Silently return empty data instead of showing error toast
       return {
         vendors: [],
         totalCount: 0,

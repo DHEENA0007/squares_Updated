@@ -81,6 +81,7 @@ const AddonManagement: React.FC = () => {
     sortOrder: 0,
   });
   
+  const [customCategory, setCustomCategory] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Redirect if no view permission
@@ -287,10 +288,12 @@ const AddonManagement: React.FC = () => {
       isActive: true,
       sortOrder: 0,
     });
+    setCustomCategory('');
   };
 
   const openEditDialog = (addon: AdminAddonService) => {
     setSelectedAddon(addon);
+    const isCustomCategory = !adminAddonService.getCategoryOptions().some(opt => opt.value === addon.category);
     setFormData({
       name: addon.name,
       description: addon.description,
@@ -299,11 +302,12 @@ const AddonManagement: React.FC = () => {
       billingType: addon.billingType,
       billingPeriod: addon.billingPeriod || 'monthly',
       billingCycleMonths: addon.billingCycleMonths || 1,
-      category: addon.category,
+      category: isCustomCategory ? 'other' : addon.category,
       icon: addon.icon || '',
       isActive: addon.isActive,
       sortOrder: addon.sortOrder,
     });
+    setCustomCategory(isCustomCategory ? addon.category : '');
     setIsEditDialogOpen(true);
   };
 
@@ -632,8 +636,16 @@ const AddonManagement: React.FC = () => {
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, category: value as any }))}
+                  value={formData.category === 'other' || !adminAddonService.getCategoryOptions().some(opt => opt.value === formData.category) ? 'other' : formData.category}
+                  onValueChange={(value) => {
+                    if (value === 'other') {
+                      setFormData(prev => ({ ...prev, category: 'other' }));
+                      setCustomCategory('');
+                    } else {
+                      setFormData(prev => ({ ...prev, category: value }));
+                      setCustomCategory('');
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -646,6 +658,18 @@ const AddonManagement: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {(formData.category === 'other' || !adminAddonService.getCategoryOptions().some(opt => opt.value === formData.category)) && (
+                  <Input
+                    id="customCategory"
+                    placeholder="Enter custom category"
+                    value={customCategory || (formData.category !== 'other' ? formData.category : '')}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setCustomCategory(value);
+                      setFormData(prev => ({ ...prev, category: value || 'other' }));
+                    }}
+                  />
+                )}
               </div>
             </div>
             <div className="space-y-2">
@@ -779,8 +803,16 @@ const AddonManagement: React.FC = () => {
               <div className="space-y-2">
                 <Label htmlFor="edit-category">Category</Label>
                 <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, category: value as any }))}
+                  value={formData.category === 'other' || !adminAddonService.getCategoryOptions().some(opt => opt.value === formData.category) ? 'other' : formData.category}
+                  onValueChange={(value) => {
+                    if (value === 'other') {
+                      setFormData(prev => ({ ...prev, category: 'other' }));
+                      setCustomCategory('');
+                    } else {
+                      setFormData(prev => ({ ...prev, category: value }));
+                      setCustomCategory('');
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -793,6 +825,18 @@ const AddonManagement: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {(formData.category === 'other' || !adminAddonService.getCategoryOptions().some(opt => opt.value === formData.category)) && (
+                  <Input
+                    id="editCustomCategory"
+                    placeholder="Enter custom category"
+                    value={customCategory || (formData.category !== 'other' ? formData.category : '')}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setCustomCategory(value);
+                      setFormData(prev => ({ ...prev, category: value || 'other' }));
+                    }}
+                  />
+                )}
               </div>
             </div>
             <div className="space-y-2">

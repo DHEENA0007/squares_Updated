@@ -8,6 +8,7 @@ const Notification = require('../models/Notification');
 const Plan = require('../models/Plan');
 const Role = require('../models/Role');
 const AddonService = require('../models/AddonService');
+const AddonCategory = require('../models/AddonCategory');
 const Settings = require('../models/Settings');
 const Vendor = require('../models/Vendor');
 const Review = require('../models/Review');
