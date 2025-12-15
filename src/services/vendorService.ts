@@ -931,6 +931,44 @@ class VendorService {
       };
     }
   }
+
+  async getFeaturedVendors(limit: number = 8): Promise<{
+    success: boolean;
+    data: any[];
+  }> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/properties/featured-vendors?limit=${limit}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || "Failed to fetch featured vendors");
+      }
+
+      return {
+        success: true,
+        data: result.data.vendors || [],
+      };
+    } catch (error) {
+      console.error("Failed to fetch featured vendors:", error);
+      return {
+        success: false,
+        data: [],
+      };
+    }
+  }
 }
 
 export const vendorService = new VendorService();

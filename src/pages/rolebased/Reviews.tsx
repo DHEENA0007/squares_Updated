@@ -264,7 +264,7 @@ const RoleBasedReviews = () => {
                         <ThumbsUp className="h-4 w-4 text-green-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-green-600">{stats.avgRating.toFixed(1)}</div>
+                        <div className="text-2xl font-bold text-green-600">{(stats.avgRating || 0).toFixed(1)}</div>
                         <p className="text-xs text-muted-foreground">Out of 5 stars</p>
                     </CardContent>
                 </Card>

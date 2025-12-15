@@ -491,7 +491,8 @@ class ReviewsService {
       throw new Error("Failed to fetch reviews");
     }
 
-    return response.json();
+    const result = await response.json();
+    return result.data || result;
   }
 
   async getAdminReviewStats() {
@@ -508,7 +509,8 @@ class ReviewsService {
       throw new Error("Failed to fetch review stats");
     }
 
-    return response.json();
+    const result = await response.json();
+    return result.data || result;
   }
 
   async approveReview(reviewId: string) {

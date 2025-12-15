@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
-import { HomePage, UsersPage, AddUserPage, VendorApprovalsPage, MessagesPage, ProfilePage, SettingsPage, RoleListPage,RoleEditPage,AddRolePage,ClientListPage,PlanListPage,PropertyListPage,PropertyEditPage,AddPropertyPage,PlanEditPage,PlanCreatePage,ClientEditPage,AddonManagementPage, ReviewsPage, SendNotificationsPage } from "@/routes/AdminLazyImports";
+import { HomePage, UsersPage, AddUserPage, VendorApprovalsPage, MessagesPage, ProfilePage, SettingsPage, RoleListPage,RoleEditPage,AddRolePage,ClientListPage,PlanListPage,PropertyListPage,PropertyEditPage,AddPropertyPage,PlanEditPage,PlanCreatePage,ClientEditPage,AddonManagementPage, SendNotificationsPage } from "@/routes/AdminLazyImports";
 import DashboardLayout from "@/components/adminpanel/DashboardLayout";
 import AdminProtectedRoute from "@/components/auth/AdminProtectedRoute";
 import { PageLoader } from "@/components/ui/loader/PageLoader";
@@ -47,7 +47,6 @@ const AdminRoutes = () => {
             <Route path="/properties/add" element={<AddPropertyPage/>} />
             <Route path="/properties/edit/:id" element={<PropertyEditPage/>} />
             <Route path="/addons" element={<AddonManagementPage/>} />
-            <Route path="/reviews" element={<ReviewsPage/>} />
             <Route path="/notifications" element={<SendNotificationsPage/>} />
             <Route path="/policy-editor/:policyType" element={<PolicyEditor />} />
             <Route path="/property-management" element={<PropertyManagement />} />

@@ -55,11 +55,6 @@ const Sidebar = ({
       icon: Building2
     },
     {
-      label: 'Reviews',
-      path: '/admin/reviews',
-      icon: Star
-    },
-    {
       label: 'Plans',
       path: '/admin/plans',
       icon: CreditCard
