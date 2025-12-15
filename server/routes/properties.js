@@ -980,4 +980,141 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req, res) => {
   }
 }));
 
+// @desc    Get featured vendors with badges (public endpoint)
+// @route   GET /api/properties/featured-vendors
+// @access  Public
+router.get('/featured-vendors', asyncHandler(async (req, res) => {
+  try {
+    const { limit = 8 } = req.query;
+    const User = require('../models/User');
+    const Vendor = require('../models/Vendor');
+    const Subscription = require('../models/Subscription');
+
+    // Get active subscriptions with plan benefits
+    const activeSubscriptions = await Subscription.find({
+      status: 'active',
+      endDate: { $gt: new Date() }
+    })
+    .populate({
+      path: 'plan',
+      match: { 
+        'benefits.topRated': true,
+        $or: [
+          { 'benefits.verifiedBadge': true },
+          { 'benefits.marketingManager': true },
+          { 'benefits.commissionBased': true }
+        ]
+      }
+    })
+    .populate({
+      path: 'user',
+      select: 'email profile role status',
+      match: { 
+        role: 'agent',
+        status: 'active'
+      }
+    })
+    .limit(parseInt(limit))
+    .sort({ updatedAt: -1 });
+
+    // Filter subscriptions where plan and user exist
+    const validSubscriptions = activeSubscriptions.filter(sub => sub.plan && sub.user);
+
+    // Get vendor profiles for these users
+    const vendorProfiles = await Promise.all(
+      validSubscriptions.map(async (subscription) => {
+        const vendor = await Vendor.findOne({ user: subscription.user._id })
+          .populate('user', 'email profile');
+        
+        if (!vendor || !vendor.user) return null;
+
+        const fullName = `${vendor.user.profile?.firstName || ''} ${vendor.user.profile?.lastName || ''}`.trim();
+
+        return {
+          _id: vendor._id,
+          name: fullName || 'Professional Vendor',
+          email: vendor.user.email,
+          avatar: vendor.user.profile?.avatar || null,
+          phone: vendor.user.profile?.phone || null,
+          bio: vendor.user.profile?.bio || null,
+          companyName: vendor.businessInfo?.companyName || null,
+          specialization: vendor.businessInfo?.specialization || [],
+          location: {
+            city: vendor.user.profile?.address?.city || null,
+            state: vendor.user.profile?.address?.state || null
+          },
+          badges: (() => {
+            // Handle both new array format and legacy object format
+            if (Array.isArray(subscription.plan.benefits)) {
+              // New format: convert to both formats for compatibility
+              const legacyObject = {
+                topRated: false,
+                verifiedBadge: false,
+                marketingManager: false,
+                commissionBased: false
+              };
+              
+              subscription.plan.benefits.forEach(benefit => {
+                if (benefit.enabled && legacyObject.hasOwnProperty(benefit.key)) {
+                  legacyObject[benefit.key] = true;
+                }
+              });
+              
+              return legacyObject;
+            } else {
+              // Legacy format
+              return {
+                topRated: subscription.plan.benefits?.topRated || false,
+                verifiedBadge: subscription.plan.benefits?.verifiedBadge || false,
+                marketingManager: subscription.plan.benefits?.marketingManager || false,
+                commissionBased: subscription.plan.benefits?.commissionBased || false
+              };
+            }
+          })(),
+          rating: {
+            average: vendor.user.profile?.vendorInfo?.rating?.average || 0,
+            count: vendor.user.profile?.vendorInfo?.rating?.count || 0
+          },
+          responseTime: vendor.user.profile?.vendorInfo?.responseTime || null,
+          planName: subscription.plan.name
+        };
+      })
+    );
+
+    // Filter out null results and sort by rating
+    const featuredVendors = vendorProfiles
+      .filter(vendor => vendor !== null)
+      .sort((a, b) => {
+        // Prioritize vendors with more badges
+        const aBadgeCount = Array.isArray(a.badges) 
+          ? a.badges.filter(badge => badge.enabled).length
+          : Object.values(a.badges).filter(Boolean).length;
+        const bBadgeCount = Array.isArray(b.badges)
+          ? b.badges.filter(badge => badge.enabled).length
+          : Object.values(b.badges).filter(Boolean).length;
+        
+        if (aBadgeCount !== bBadgeCount) {
+          return bBadgeCount - aBadgeCount;
+        }
+        
+        // Then by rating
+        return b.rating.average - a.rating.average;
+      });
+
+    res.json({
+      success: true,
+      data: {
+        vendors: featuredVendors,
+        totalCount: featuredVendors.length
+      }
+    });
+  } catch (error) {
+    console.error('Get featured vendors error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch featured vendors'
+    });
+  }
+}));
+
 module.exports = router;

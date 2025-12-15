@@ -52,7 +52,7 @@ const planSchema = new mongoose.Schema({
   limits: {
     properties: {
       type: Number,
-      default: 0 // 0 means unlimited
+      default: -1 // -1 means unlimited (infinity)
     },
     featuredListings: {
       type: Number,
@@ -89,21 +89,29 @@ const planSchema = new mongoose.Schema({
     }
   },
   benefits: {
-    topRated: {
-      type: Boolean,
-      default: false
+    type: mongoose.Schema.Types.Mixed,
+    default: function() {
+      // Default to new array format, but support legacy object format
+      return [];
     },
-    verifiedBadge: {
-      type: Boolean,
-      default: false
-    },
-    marketingManager: {
-      type: Boolean,
-      default: false
-    },
-    commissionBased: {
-      type: Boolean,
-      default: false
+    validate: {
+      validator: function(value) {
+        // Allow both array format and legacy object format
+        if (Array.isArray(value)) {
+          return value.every(benefit => 
+            benefit.key && benefit.name && typeof benefit.enabled === 'boolean'
+          );
+        }
+        // Legacy object format validation
+        if (typeof value === 'object' && value !== null) {
+          const allowedKeys = ['topRated', 'verifiedBadge', 'marketingManager', 'commissionBased'];
+          return Object.keys(value).every(key => 
+            allowedKeys.includes(key) && typeof value[key] === 'boolean'
+          );
+        }
+        return false;
+      },
+      message: 'Benefits must be either an array of benefit objects or legacy object format'
     }
   },
   support: {

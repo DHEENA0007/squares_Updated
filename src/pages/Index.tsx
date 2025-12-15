@@ -1,14 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import PropertyFilters from "@/components/PropertyFilters";
 import PropertyCard from "@/components/PropertyCard";
+import VendorCard from "@/components/VendorCard";
 import { Link } from "react-router-dom";
 import { propertyService, Property, PropertyFilters as PropertyFilterType } from "@/services/propertyService";
-import { Loader2 } from "lucide-react";
+import { featuredVendorsService, FeaturedVendor } from "@/services/featuredVendorsService";
+import { Loader2, Star, Shield, Users } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const Index = () => {
   const [properties, setProperties] = useState<Property[]>([]);
+  const [vendors, setVendors] = useState<FeaturedVendor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [vendorsLoading, setVendorsLoading] = useState(true);
   const [filters, setFilters] = useState<PropertyFilterType>({});
 
   const fetchProperties = useCallback(async (currentFilters: PropertyFilterType = {}) => {
@@ -36,9 +40,23 @@ const Index = () => {
     }
   }, []);
 
+  const fetchFeaturedVendors = useCallback(async () => {
+    try {
+      setVendorsLoading(true);
+      const response = await featuredVendorsService.getFeaturedVendors(8);
+      setVendors(response.vendors);
+    } catch (error) {
+      console.error("Failed to fetch featured vendors:", error);
+      // Toast error is already handled in the service
+    } finally {
+      setVendorsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProperties(filters);
-  }, [fetchProperties, filters]);
+    fetchFeaturedVendors();
+  }, [fetchProperties, fetchFeaturedVendors, filters]);
 
   const handleFilterChange = (newFilters: PropertyFilterType) => {
     setFilters(newFilters);
@@ -86,6 +104,72 @@ const Index = () => {
             {properties.map((property) => (
               <PropertyCard key={property._id} property={property} />
             ))}
+          </div>
+        )}
+      </section>
+
+      {/* Featured Vendors Section */}
+      <section className="mt-16">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-3xl font-bold">Our Vendors</h2>
+            <p className="text-muted-foreground mt-1">
+              Connect with top-rated professional vendors based on their subscription plans
+            </p>
+          </div>
+          {vendors.length > 0 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Users className="w-4 h-4" />
+              <span>{vendors.length} featured vendors</span>
+            </div>
+          )}
+        </div>
+
+        {vendorsLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <span className="ml-2 text-lg">Loading vendors...</span>
+          </div>
+        ) : vendors.length === 0 ? (
+          <div className="text-center py-12 bg-muted/30 rounded-lg">
+            <Shield className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-lg text-muted-foreground mb-2">
+              No featured vendors available
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Check back soon for verified professional vendors
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {vendors.map((vendor) => (
+              <VendorCard key={vendor._id} vendor={vendor} />
+            ))}
+          </div>
+        )}
+
+        {/* Vendor Legend */}
+        {vendors.length > 0 && (
+          <div className="mt-8 p-4 bg-muted/30 rounded-lg">
+            <h4 className="font-semibold mb-3 text-sm">Vendor Badges:</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <Star className="w-3 h-3 text-yellow-500" />
+                <span><strong>Top Rated</strong> - Highly rated professionals</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Shield className="w-3 h-3 text-blue-500" />
+                <span><strong>Verified</strong> - Identity & credentials verified</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                <span><strong>Marketing Pro</strong> - Advanced marketing tools</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                <span><strong>Commission Based</strong> - Performance-based pricing</span>
+              </div>
+            </div>
           </div>
         )}
       </section>

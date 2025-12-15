@@ -133,6 +133,108 @@ router.get('/search/suggestions', asyncHandler(async (req, res) => {
   });
 }));
 
+// @desc    Get featured vendors
+// @route   GET /api/vendors/featured
+// @access  Public
+router.get('/featured', asyncHandler(async (req, res) => {
+  const limit = parseInt(req.query.limit) || 8;
+
+  try {
+    const Subscription = require('../models/Subscription');
+    const Plan = require('../models/Plan');
+
+    // Find active vendors with subscriptions that have badges
+    const subscriptions = await Subscription.find({
+      status: 'active'
+    })
+      .populate('userId', 'email profile')
+      .populate('planId', 'name benefits')
+      .sort({ startDate: -1 })
+      .limit(limit * 2); // Get more to filter
+
+    const featuredVendors = [];
+
+    for (const subscription of subscriptions) {
+      if (!subscription.userId || !subscription.planId) continue;
+
+      const user = subscription.userId;
+      const plan = subscription.planId;
+
+      // Check if plan has any active benefits (badges)
+      const hasBadges = plan.benefits && Object.values(plan.benefits).some(val => val === true);
+      
+      if (!hasBadges) continue;
+
+      // Find vendor profile
+      const vendor = await Vendor.findOne({ user: user._id });
+      if (!vendor || vendor.status !== 'active') continue;
+
+      // Count properties
+      const propertyCount = await Property.countDocuments({ 
+        owner: user._id,
+        status: { $in: ['active', 'sold', 'rented'] }
+      });
+
+      // Only include vendors with properties
+      if (propertyCount === 0) continue;
+
+      // Get active badges
+      const badges = Object.entries(plan.benefits || {})
+        .filter(([_, value]) => value === true)
+        .map(([key]) => key);
+
+      featuredVendors.push({
+        _id: user._id,
+        email: user.email,
+        profile: {
+          firstName: user.profile.firstName || '',
+          lastName: user.profile.lastName || '',
+          avatar: user.profile.avatar || '',
+          bio: user.profile.bio || '',
+          phone: user.profile.phone || '',
+          vendorInfo: {
+            companyName: vendor.businessInfo?.companyName || '',
+            experience: vendor.professionalInfo?.experience || 0,
+            rating: {
+              average: vendor.rating?.average || 0,
+              count: vendor.rating?.count || 0
+            },
+            serviceAreas: vendor.professionalInfo?.serviceAreas || []
+          }
+        },
+        subscription: {
+          plan: {
+            name: plan.name,
+            benefits: plan.benefits
+          }
+        },
+        badges,
+        propertyCount
+      });
+
+      if (featuredVendors.length >= limit) break;
+    }
+
+    // Sort by rating and property count
+    featuredVendors.sort((a, b) => {
+      const ratingDiff = b.profile.vendorInfo.rating.average - a.profile.vendorInfo.rating.average;
+      if (ratingDiff !== 0) return ratingDiff;
+      return b.propertyCount - a.propertyCount;
+    });
+
+    res.json({
+      success: true,
+      data: featuredVendors.slice(0, limit)
+    });
+  } catch (error) {
+    console.error('Error fetching featured vendors:', error);
+    res.json({
+      success: false,
+      data: []
+    });
+  }
+}));
+
 // Apply auth middleware to all routes
 router.use(authenticateToken);
 
@@ -1957,6 +2059,7 @@ router.get('/statistics', requireVendorRole, asyncHandler(async (req, res) => {
     Property.countDocuments({ owner: vendorId, status: 'pending' })
   ]);
 
+ 
   // Calculate total views across all properties
   const viewsAggregation = await Property.aggregate([
     { $match: { owner: new mongoose.Types.ObjectId(vendorId) } },
@@ -2417,109 +2520,6 @@ router.get('/subscriptions', requireVendorRole, asyncHandler(async (req, res) =>
     activeSubscriptions.forEach(subscription => {
       const plan = subscription.planId;
       const expiresAt = subscription.endDate.toISOString();
-
-      if (plan.limits?.featuredListings > 0 || plan.name === 'Enterprise Plan') {
-        subscriptionsMap['featuredListingSubscription'] = { isActive: true, expiresAt };
-      }
-      if (plan.features?.includes('Detailed analytics & insights') ||
-        plan.features?.includes('Advanced analytics & reports') ||
-        plan.name === 'Premium Plan' || plan.name === 'Enterprise Plan') {
-        subscriptionsMap['premiumAnalyticsSubscription'] = { isActive: true, expiresAt };
-      }
-      if (plan.limits?.leadManagement) {
-        subscriptionsMap['leadManagementSubscription'] = { isActive: true, expiresAt };
-      }
-    });
-
-    // Convert to array format
-    const subscriptions = Object.entries(subscriptionsMap).map(([name, data]) => ({
-      name,
-      isActive: data.isActive,
-      expiresAt: data.expiresAt
-    }));
-
-    res.json({
-      success: true,
-      data: {
-        subscriptions: subscriptions
-      }
-    });
-  } catch (error) {
-    console.error('Get subscriptions error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch subscriptions'
-    });
-  }
-}));
-
-// @desc    Activate vendor subscription after payment
-// @route   POST /api/vendors/subscription/activate
-// @access  Private/Agent
-router.post('/subscription/activate', requireVendorRole, asyncHandler(async (req, res) => {
-  const { planId, paymentId } = req.body;
-  const vendorId = req.user.id;
-
-  try {
-    if (!planId || !paymentId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Plan ID and Payment ID are required'
-      });
-    }
-
-    // In a real implementation, you would:
-    // 1. Verify the payment with Razorpay
-    // 2. Get the plan details from Plan model
-    // 3. Create or update the Subscription record
-    // 4. Update user's subscription status
-
-    // For now, we'll simulate successful activation
-    const Plan = require('../models/Plan');
-    const Subscription = require('../models/Subscription');
-
-    // Get plan details
-    const plan = await Plan.findById(planId);
-    if (!plan) {
-      return res.status(404).json({
-        success: false,
-        message: 'Plan not found'
-      });
-    }
-
-    // Create or update subscription
-    const subscription = await Subscription.findOneAndUpdate(
-      { user: vendorId, plan: planId }, // Changed userId to user, planId to plan
-      {
-        user: vendorId, // Changed from userId to user
-        plan: planId, // Changed from planId to plan
-        status: 'active',
-        startDate: new Date(),
-        endDate: new Date(Date.now() + (plan.duration || 30) * 24 * 60 * 60 * 1000), // Add duration in days, default 30 days
-        transactionId: paymentId, // Changed from paymentId to transactionId
-        amount: plan.price
-      },
-      { upsert: true, new: true }
-    );
-
-    res.json({
-      success: true,
-      message: 'Subscription activated successfully',
-      data: {
-        subscription: {
-          id: subscription._id,
-          planName: plan.name,
-          status: subscription.status,
-          startDate: subscription.startDate,
-          endDate: subscription.endDate
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Subscription activation error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to activate subscription'
     });
   }
 }));

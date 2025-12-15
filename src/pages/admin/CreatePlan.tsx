@@ -17,6 +17,7 @@ const CreatePlan = () => {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [newFeature, setNewFeature] = useState({ name: "", description: "" });
+  const [newBenefit, setNewBenefit] = useState({ name: "", description: "", icon: "" });
   
   const [plan, setPlan] = useState({
     identifier: "",
@@ -31,19 +32,14 @@ const CreatePlan = () => {
       properties: 5,
       featuredListings: 0,
       photos: 10,
-      propertyImages: 10,
       videoTours: 0,
       leads: 0,
       videos: 0,
+      posters: 0,
       messages: 0,
       leadManagement: "basic" as "none" | "basic" | "advanced" | "premium" | "enterprise"
     },
-    benefits: {
-      topRated: false,
-      verifiedBadge: false,
-      marketingManager: false,
-      commissionBased: false,
-    },
+    benefits: [] as Array<{key: string; name: string; description?: string; enabled: boolean; icon?: string}>,
     isActive: true,
     isPopular: false,
     sortOrder: 0,
@@ -89,6 +85,35 @@ const CreatePlan = () => {
 
   const removeFeature = (index: number) => {
     setPlan({ ...plan, features: plan.features.filter((_, i) => i !== index) });
+  };
+
+  const addBenefit = () => {
+    if (!newBenefit.name.trim()) return;
+    const benefitKey = newBenefit.name.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+    setPlan({ 
+      ...plan, 
+      benefits: [
+        ...plan.benefits, 
+        { 
+          key: benefitKey,
+          name: newBenefit.name,
+          description: newBenefit.description,
+          enabled: true,
+          icon: newBenefit.icon || 'star'
+        }
+      ] 
+    });
+    setNewBenefit({ name: "", description: "", icon: "" });
+  };
+
+  const removeBenefit = (index: number) => {
+    setPlan({ ...plan, benefits: plan.benefits.filter((_, i) => i !== index) });
+  };
+
+  const toggleBenefit = (index: number) => {
+    const updatedBenefits = [...plan.benefits];
+    updatedBenefits[index] = { ...updatedBenefits[index], enabled: !updatedBenefits[index].enabled };
+    setPlan({ ...plan, benefits: updatedBenefits });
   };
 
   return (
@@ -249,17 +274,35 @@ const CreatePlan = () => {
             <div className="grid gap-6 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="properties">Property Listings</Label>
-                <Input
-                  id="properties"
-                  type="number"
-                  min="0"
-                  value={plan.limits.properties}
-                  onChange={(e) => setPlan({ 
-                    ...plan, 
-                    limits: { ...plan.limits, properties: parseInt(e.target.value) || 0 } 
-                  })}
-                />
-                <p className="text-xs text-muted-foreground">0 = unlimited properties</p>
+                <div className="flex gap-2">
+                  <Input
+                    id="properties"
+                    type="number"
+                    min="1"
+                    value={plan.limits.properties === -1 ? '' : plan.limits.properties}
+                    onChange={(e) => setPlan({ 
+                      ...plan, 
+                      limits: { ...plan.limits, properties: parseInt(e.target.value) || 1 } 
+                    })}
+                    placeholder={plan.limits.properties === -1 ? '∞ Unlimited' : 'Enter number'}
+                    disabled={plan.limits.properties === -1}
+                  />
+                  <Button
+                    type="button"
+                    variant={plan.limits.properties === -1 ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => setPlan({ 
+                      ...plan, 
+                      limits: { ...plan.limits, properties: plan.limits.properties === -1 ? 5 : -1 } 
+                    })}
+                    title={plan.limits.properties === -1 ? "Set limited" : "Set unlimited"}
+                  >
+                    ∞
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {plan.limits.properties === -1 ? 'Unlimited properties' : `Limited to ${plan.limits.properties} properties`}
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -293,19 +336,19 @@ const CreatePlan = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="propertyImages">Property Images</Label>
+                <Label htmlFor="photos">Photos per Property</Label>
                 <Input
-                  id="propertyImages"
+                  id="photos"
                   type="number"
                   min="1"
                   max="100"
-                  value={plan.limits.propertyImages}
+                  value={plan.limits.photos}
                   onChange={(e) => setPlan({
                     ...plan,
-                    limits: { ...plan.limits, propertyImages: parseInt(e.target.value) || 10 }
+                    limits: { ...plan.limits, photos: parseInt(e.target.value) || 10 }
                   })}
                 />
-                <p className="text-xs text-muted-foreground">Max images per property</p>
+                <p className="text-xs text-muted-foreground">Max photos per property</p>
               </div>
 
               {/* <div className="space-y-2">
@@ -332,54 +375,74 @@ const CreatePlan = () => {
             <CardDescription>Special benefits and features for this plan</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="topRated"
-                  checked={plan.benefits.topRated}
-                  onCheckedChange={(checked) => setPlan({ 
-                    ...plan, 
-                    benefits: { ...plan.benefits, topRated: checked as boolean } 
-                  })}
-                />
-                <Label htmlFor="topRated" className="cursor-pointer text-sm">Top Rated Badge</Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="verifiedBadge"
-                  checked={plan.benefits.verifiedBadge}
-                  onCheckedChange={(checked) => setPlan({ 
-                    ...plan, 
-                    benefits: { ...plan.benefits, verifiedBadge: checked as boolean } 
-                  })}
-                />
-                <Label htmlFor="verifiedBadge" className="cursor-pointer text-sm">Verified Owner Badge</Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="marketing"
-                  checked={plan.benefits.marketingManager}
-                  onCheckedChange={(checked) => setPlan({ 
-                    ...plan, 
-                    benefits: { ...plan.benefits, marketingManager: checked as boolean } 
-                  })}
-                />
-                <Label htmlFor="marketing" className="cursor-pointer text-sm">Marketing Manager</Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="commission"
-                  checked={plan.benefits.commissionBased}
-                  onCheckedChange={(checked) => setPlan({ 
-                    ...plan, 
-                    benefits: { ...plan.benefits, commissionBased: checked as boolean } 
-                  })}
-                />
-                <Label htmlFor="commission" className="cursor-pointer text-sm">Commission Based Revenue</Label>
-              </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Benefit name..."
+                value={newBenefit.name}
+                onChange={(e) => setNewBenefit({ ...newBenefit, name: e.target.value })}
+                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
+                className="flex-1"
+              />
+              <Input
+                placeholder="Description (optional)"
+                value={newBenefit.description}
+                onChange={(e) => setNewBenefit({ ...newBenefit, description: e.target.value })}
+                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
+                className="flex-1"
+              />
+              <Input
+                placeholder="Icon name (optional)"
+                value={newBenefit.icon}
+                onChange={(e) => setNewBenefit({ ...newBenefit, icon: e.target.value })}
+                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
+                className="w-32"
+              />
+              <Button type="button" onClick={addBenefit} size="icon">
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {plan.benefits.map((benefit, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                >
+                  <div className="flex items-center space-x-3 flex-1">
+                    <Checkbox
+                      id={`benefit-${index}`}
+                      checked={benefit.enabled}
+                      onCheckedChange={() => toggleBenefit(index)}
+                    />
+                    <div className="flex-1">
+                      <Label htmlFor={`benefit-${index}`} className="cursor-pointer text-sm font-medium">
+                        {benefit.name}
+                      </Label>
+                      {benefit.description && (
+                        <p className="text-xs text-muted-foreground mt-1">{benefit.description}</p>
+                      )}
+                      {benefit.icon && (
+                        <p className="text-xs text-muted-foreground">Icon: {benefit.icon}</p>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeBenefit(index)}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+              {plan.benefits.length === 0 && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No benefits added yet. Add benefits to highlight special features of this plan.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           </CardContent>
         </Card>

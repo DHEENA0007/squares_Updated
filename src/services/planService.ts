@@ -31,7 +31,14 @@ export interface Plan {
     verifiedBadge?: boolean;
     marketingManager?: boolean;
     commissionBased?: boolean;
-  };
+    [key: string]: boolean | undefined;
+  } | Array<{
+    key: string;
+    name: string;
+    description?: string;
+    enabled: boolean;
+    icon?: string;
+  }>;
   support?: 'none' | 'email' | 'priority' | 'phone' | 'dedicated';
   isActive: boolean;
   isPopular: boolean;

@@ -850,6 +850,52 @@ class VendorService {
       return false;
     }
   }
+
+  async getFeaturedVendors(limit: number = 8): Promise<{
+    success: boolean;
+    data: Array<{
+      _id: string;
+      email: string;
+      profile: {
+        firstName: string;
+        lastName: string;
+        avatar?: string;
+        bio?: string;
+        phone?: string;
+        vendorInfo: {
+          companyName?: string;
+          experience: number;
+          rating: {
+            average: number;
+            count: number;
+          };
+          serviceAreas: string[];
+        };
+      };
+      subscription?: {
+        plan: {
+          name: string;
+          benefits: Record<string, boolean>;
+        };
+      };
+      badges: string[];
+    }>;
+  }> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: Array<any>;
+      }>(`/vendors/featured?limit=${limit}`);
+
+      return response;
+    } catch (error) {
+      console.error("Failed to fetch featured vendors:", error);
+      return {
+        success: false,
+        data: []
+      };
+    }
+  }
 }
 
 export const vendorService = new VendorService();
