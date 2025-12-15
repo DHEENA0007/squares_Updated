@@ -87,6 +87,27 @@ export interface VendorProfile {
   updatedAt: string;
 }
 
+export interface VendorBadge {
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  type: 'custom' | 'legacy';
+}
+
+export interface VendorBadgeResponse {
+  hasSubscription: boolean;
+  badges: VendorBadge[];
+  planName: string | null;
+  planLevel: string;
+  profile?: {
+    name: string;
+    email: string;
+    avatar: string | null;
+    companyName?: string | null;
+  };
+}
+
 export interface UpdateVendorData {
   profile?: {
     firstName?: string;
@@ -851,48 +872,62 @@ class VendorService {
     }
   }
 
-  async getFeaturedVendors(limit: number = 8): Promise<{
-    success: boolean;
-    data: Array<{
-      _id: string;
-      email: string;
-      profile: {
-        firstName: string;
-        lastName: string;
-        avatar?: string;
-        bio?: string;
-        phone?: string;
-        vendorInfo: {
-          companyName?: string;
-          experience: number;
-          rating: {
-            average: number;
-            count: number;
-          };
-          serviceAreas: string[];
-        };
-      };
-      subscription?: {
-        plan: {
-          name: string;
-          benefits: Record<string, boolean>;
-        };
-      };
-      badges: string[];
-    }>;
-  }> {
+  // Badge management methods
+  async getMyBadges(): Promise<VendorBadgeResponse> {
     try {
       const response = await this.makeRequest<{
         success: boolean;
-        data: Array<any>;
-      }>(`/vendors/featured?limit=${limit}`);
+        data: VendorBadgeResponse;
+      }>("/vendors/subscription/badges");
 
-      return response;
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      throw new Error("Failed to fetch badges from server");
     } catch (error) {
-      console.error("Failed to fetch featured vendors:", error);
+      console.error("Failed to fetch vendor badges:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load badge information.",
+        variant: "destructive",
+      });
       return {
-        success: false,
-        data: []
+        hasSubscription: false,
+        badges: [],
+        planName: null,
+        planLevel: 'free'
+      };
+    }
+  }
+
+  async getVendorBadges(vendorId: string): Promise<VendorBadgeResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/vendors/${vendorId}/badges`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || "Failed to fetch vendor badges");
+      }
+
+      return result.data;
+    } catch (error) {
+      console.error("Failed to fetch vendor badges:", error);
+      return {
+        hasSubscription: false,
+        badges: [],
+        planName: null,
+        planLevel: 'free'
       };
     }
   }
