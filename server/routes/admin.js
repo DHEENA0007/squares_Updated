@@ -3890,11 +3890,11 @@ router.get('/reviews/stats', authenticateToken, async (req, res) => {
     res.json({ 
       success: true,
       data: {
-        total, 
-        approved, 
-        pending, 
-        flagged, 
-        avgRating: parseFloat(avgRating.toFixed(1))
+        total: total || 0, 
+        approved: approved || 0, 
+        pending: pending || 0, 
+        flagged: flagged || 0, 
+        avgRating: avgRating ? parseFloat(avgRating.toFixed(1)) : 0
       }
     });
   } catch (error) {
