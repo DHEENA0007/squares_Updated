@@ -3473,10 +3473,11 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
 
     planName = planData.name;
 
-    // Get property limit from plan (0 = unlimited)
+    // Get property limit from plan (null = unlimited infinity, as configured in admin portal)
     const propertyLimit = planData.limits.properties;
-    maxProperties = propertyLimit === 0 ? 999999 : propertyLimit;
-
+    // Check for unlimited: null (standard), -1 (legacy), 0 (legacy)
+    const isUnlimited = propertyLimit === null || propertyLimit === -1 || propertyLimit === 0;
+    
     // Extract features from plan
     features = (planData.features || []).map(f => {
       if (typeof f === 'string') return f;
@@ -3485,10 +3486,11 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
     }).filter(Boolean);
 
     if (features.length === 0) {
-      features = [`${maxProperties === 999999 ? 'Unlimited' : maxProperties} Property Listings`];
+      features = [`${isUnlimited ? 'Unlimited' : propertyLimit} Property Listings`];
     }
 
-    const canAddMore = currentProperties < maxProperties;
+    // For unlimited plans, canAddMore is always true
+    const canAddMore = isUnlimited ? true : currentProperties < propertyLimit;
 
     // Get property images limit from plan (default to 10 if not set)
     const maxPropertyImages = planData.limits.propertyImages || 10;
@@ -3496,12 +3498,13 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
     res.json({
       success: true,
       data: {
-        maxProperties,
+        maxProperties: isUnlimited ? null : propertyLimit,
         currentProperties,
         canAddMore,
         planName,
         features,
-        maxPropertyImages
+        maxPropertyImages,
+        isUnlimited
       }
     });
   } catch (error) {
@@ -3895,6 +3898,14 @@ router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) =>
       limits = freePlan.limits;
     }
 
+    // Helper function to handle unlimited limits (0, -1, or null = unlimited)
+    const getLimit = (limitValue) => {
+      if (limitValue === 0 || limitValue === -1 || limitValue === null || limitValue === undefined) {
+        return -1; // Return -1 to indicate unlimited
+      }
+      return limitValue;
+    };
+
     const stats = {
       totalRevenue: totalRevenue,
       monthlyRevenue: monthlyRevenue,
@@ -3912,15 +3923,15 @@ router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) =>
       usageStats: {
         properties: {
           used: propertyCount,
-          limit: limits.properties || 999999
+          limit: getLimit(limits.properties)
         },
         leads: {
           used: leadCount,
-          limit: limits.leads || 999999
+          limit: getLimit(limits.leads)
         },
         messages: {
           used: messageCount,
-          limit: limits.messages || 999999
+          limit: getLimit(limits.messages)
         }
       }
     };

@@ -29,7 +29,7 @@ const CreatePlan = () => {
     billingCycleMonths: 1,
     features: [] as Array<{name: string; description?: string; enabled: boolean}>,
     limits: {
-      properties: 5,
+      properties: 5 as number | null,
       featuredListings: 0,
       photos: 10,
       videoTours: 0,
@@ -279,29 +279,29 @@ const CreatePlan = () => {
                     id="properties"
                     type="number"
                     min="1"
-                    value={plan.limits.properties === -1 ? '' : plan.limits.properties}
+                    value={plan.limits.properties === null ? '' : plan.limits.properties}
                     onChange={(e) => setPlan({ 
                       ...plan, 
                       limits: { ...plan.limits, properties: parseInt(e.target.value) || 1 } 
                     })}
-                    placeholder={plan.limits.properties === -1 ? '∞ Unlimited' : 'Enter number'}
-                    disabled={plan.limits.properties === -1}
+                    placeholder={plan.limits.properties === null ? '∞ Unlimited' : 'Enter number'}
+                    disabled={plan.limits.properties === null}
                   />
                   <Button
                     type="button"
-                    variant={plan.limits.properties === -1 ? "default" : "outline"}
+                    variant={plan.limits.properties === null ? "default" : "outline"}
                     size="icon"
                     onClick={() => setPlan({ 
                       ...plan, 
-                      limits: { ...plan.limits, properties: plan.limits.properties === -1 ? 5 : -1 } 
+                      limits: { ...plan.limits, properties: plan.limits.properties === null ? 5 : null } 
                     })}
-                    title={plan.limits.properties === -1 ? "Set limited" : "Set unlimited"}
+                    title={plan.limits.properties === null ? "Set limited" : "Set unlimited (infinity)"}
                   >
                     ∞
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {plan.limits.properties === -1 ? 'Unlimited properties' : `Limited to ${plan.limits.properties} properties`}
+                  {plan.limits.properties === null ? 'Unlimited properties (∞)' : `Limited to ${plan.limits.properties} properties`}
                 </p>
               </div>
 

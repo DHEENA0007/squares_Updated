@@ -400,29 +400,29 @@ const EditPlan = () => {
                     id="properties"
                     type="number"
                     min="1"
-                    value={plan.limits.properties === -1 ? '' : plan.limits.properties}
+                    value={(plan.limits.properties === null || plan.limits.properties === -1) ? '' : plan.limits.properties}
                     onChange={(e) => setPlan({ 
                       ...plan, 
                       limits: { ...plan.limits, properties: parseInt(e.target.value) || 1 } 
                     })}
-                    placeholder={plan.limits.properties === -1 ? '∞ Unlimited' : 'Enter number'}
-                    disabled={plan.limits.properties === -1}
+                    placeholder={(plan.limits.properties === null || plan.limits.properties === -1) ? '∞ Unlimited' : 'Enter number'}
+                    disabled={plan.limits.properties === null || plan.limits.properties === -1}
                   />
                   <Button
                     type="button"
-                    variant={plan.limits.properties === -1 ? "default" : "outline"}
+                    variant={(plan.limits.properties === null || plan.limits.properties === -1) ? "default" : "outline"}
                     size="icon"
                     onClick={() => setPlan({ 
                       ...plan, 
-                      limits: { ...plan.limits, properties: plan.limits.properties === -1 ? 5 : -1 } 
+                      limits: { ...plan.limits, properties: (plan.limits.properties === null || plan.limits.properties === -1) ? 5 : null } 
                     })}
-                    title={plan.limits.properties === -1 ? "Set limited" : "Set unlimited"}
+                    title={(plan.limits.properties === null || plan.limits.properties === -1) ? "Set limited" : "Set unlimited (infinity)"}
                   >
                     ∞
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {plan.limits.properties === -1 ? 'Unlimited properties' : `Limited to ${plan.limits.properties} properties`}
+                  {(plan.limits.properties === null || plan.limits.properties === -1) ? 'Unlimited properties (∞)' : `Limited to ${plan.limits.properties} properties`}
                 </p>
               </div>
 

@@ -75,13 +75,22 @@ const AddProperty = () => {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [hasAddPropertySubscription, setHasAddPropertySubscription] = useState(false);
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
-  const [subscriptionLimits, setSubscriptionLimits] = useState({
+  const [subscriptionLimits, setSubscriptionLimits] = useState<{
+    maxProperties: number | null;
+    currentProperties: number;
+    canAddMore: boolean;
+    planName: string;
+    features: string[];
+    maxPropertyImages: number;
+    isUnlimited?: boolean;
+  }>({
     maxProperties: 0,
     currentProperties: 0,
     canAddMore: false,
     planName: '',
     features: [],
-    maxPropertyImages: 10
+    maxPropertyImages: 10,
+    isUnlimited: false
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -381,35 +390,34 @@ const AddProperty = () => {
     }
   }, [selectedLocationNames, formData.pincode]);
 
-  // Check subscription limits and property count
+  // Check subscription limits and property count - rely on API response only
   const checkSubscriptionLimits = useCallback(async () => {
     setIsCheckingSubscription(true);
     try {
       const limits = await vendorService.getSubscriptionLimits();
       setSubscriptionLimits(limits);
+      
+      // Trust the backend canAddMore flag completely - no frontend validation
       setHasAddPropertySubscription(limits.canAddMore);
 
+      // Only show error if backend says cannot add more
       if (!limits.canAddMore) {
-        if (limits.maxProperties === 0) {
-          toast({
-            title: "Subscription Required",
-            description: "You need an active subscription to add properties. Please upgrade your plan.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Property Limit Reached",
-            description: `You have reached your plan limit of ${limits.maxProperties} properties. Please upgrade to add more.`,
-            variant: "destructive",
-          });
-        }
+        const limitText = (limits.isUnlimited || limits.maxProperties === null || limits.maxProperties === -1) 
+          ? '∞ (unlimited)' 
+          : limits.maxProperties;
+        
+        toast({
+          title: "Property Limit Reached",
+          description: `You have reached your ${limits.planName} plan limit of ${limitText} properties. Please upgrade to add more.`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Subscription check error:", error);
       setHasAddPropertySubscription(false);
       toast({
         title: "Configuration Error",
-        description: "Subscription plan not configured. Please contact administrator.",
+        description: "Unable to verify subscription limits. Please contact administrator.",
         variant: "destructive",
       });
     } finally {
@@ -460,27 +468,25 @@ const AddProperty = () => {
   const handleSubmit = async () => {
     if (isSubmitting) return;
     
-    // Re-check subscription before submission
+    // Re-check subscription before submission - trust backend canAddMore flag
     setIsCheckingSubscription(true);
     try {
       const limits = await vendorService.getSubscriptionLimits();
       setSubscriptionLimits(limits);
+      
+      // Trust backend canAddMore flag - no frontend validation
       setHasAddPropertySubscription(limits.canAddMore);
 
       if (!limits.canAddMore) {
-        if (limits.maxProperties === 0) {
-          toast({
-            title: "Subscription Required",
-            description: "You need an active subscription to add properties. Please upgrade your plan.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Property Limit Reached",
-            description: `You have reached your plan limit of ${limits.maxProperties} properties. Please upgrade to add more.`,
-            variant: "destructive",
-          });
-        }
+        const limitText = (limits.isUnlimited || limits.maxProperties === null || limits.maxProperties === -1) 
+          ? '∞ (unlimited)' 
+          : limits.maxProperties;
+        
+        toast({
+          title: "Property Limit Reached",
+          description: `You have reached your ${limits.planName} plan limit of ${limitText} properties. Please upgrade to add more.`,
+          variant: "destructive",
+        });
         setIsCheckingSubscription(false);
         return;
       }
@@ -488,7 +494,7 @@ const AddProperty = () => {
       console.error("Subscription verification error:", error);
       toast({
         title: "Configuration Error",
-        description: "Subscription plan not configured. Please contact administrator.",
+        description: "Unable to verify subscription limits. Please contact administrator.",
         variant: "destructive",
       });
       setIsCheckingSubscription(false);
@@ -1943,10 +1949,10 @@ const AddProperty = () => {
                       Property Limit Reached
                     </h2>
                     <p className="text-amber-700 mb-4">
-                      You have reached your {subscriptionLimits.planName} plan limit of {subscriptionLimits.maxProperties} properties.
+                      You have reached your {subscriptionLimits.planName} plan limit of {(subscriptionLimits.isUnlimited || subscriptionLimits.maxProperties === null || subscriptionLimits.maxProperties === -1) ? '∞ (unlimited)' : subscriptionLimits.maxProperties} properties.
                     </p>
                     <p className="text-sm text-amber-600 mb-2">
-                      Current: {subscriptionLimits.currentProperties}/{subscriptionLimits.maxProperties} properties used
+                      Current: {subscriptionLimits.currentProperties}/{(subscriptionLimits.isUnlimited || subscriptionLimits.maxProperties === null || subscriptionLimits.maxProperties === -1) ? '∞' : subscriptionLimits.maxProperties} properties used
                     </p>
                   </>
                 )}

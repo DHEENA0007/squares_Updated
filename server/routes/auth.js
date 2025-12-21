@@ -350,6 +350,16 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
     }
   }
 
+  // For vendors, validate business description length
+  if (role === 'agent' && businessInfo?.businessDescription) {
+    if (businessInfo.businessDescription.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Business description must be at least 10 characters long.'
+      });
+    }
+  }
+
   // Create user profile with business info for vendors
   const profile = {
     firstName,

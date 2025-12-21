@@ -78,7 +78,27 @@ const Roles = () => {
         pages: role.pages || []
       }));
 
-      setRoles(rolesWithPages);
+      // Sort roles by priority order
+      const roleOrder = ['superadmin', 'subadmin', 'agent', 'vendor', 'customer'];
+      const sortedRoles = rolesWithPages.sort((a, b) => {
+        const aName = a.name.toLowerCase();
+        const bName = b.name.toLowerCase();
+        const aIndex = roleOrder.indexOf(aName);
+        const bIndex = roleOrder.indexOf(bName);
+        
+        // If both roles are in the priority list, sort by their order
+        if (aIndex !== -1 && bIndex !== -1) {
+          return aIndex - bIndex;
+        }
+        // If only a is in the priority list, it comes first
+        if (aIndex !== -1) return -1;
+        // If only b is in the priority list, it comes first
+        if (bIndex !== -1) return 1;
+        // Otherwise, sort alphabetically
+        return aName.localeCompare(bName);
+      });
+
+      setRoles(sortedRoles);
       setTotalPages(response.data.pagination.totalPages);
       setTotalRoles(response.data.pagination.totalRoles);
 
@@ -247,7 +267,7 @@ const Roles = () => {
       render: (role) => (
         <div>
           <div className="font-medium flex items-center gap-2">
-            {role.name}
+            {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
             {getRoleTypeBadge(role)}
           </div>
           <div className="text-sm text-muted-foreground">
@@ -308,68 +328,79 @@ const Roles = () => {
     {
       key: "actions",
       label: "Actions",
-      render: (role) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-            >
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {/* Edit option - check permission */}
-            {hasPermission(PERMISSIONS.ROLES_EDIT) && (
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/admin/roles/edit/${role._id}`);
-                }}
-                className="cursor-pointer"
+      render: (role) => {
+        const roleName = role.name.toLowerCase();
+        const isProtectedRole = roleName === 'superadmin' || roleName === 'customer' || roleName === 'subadmin' || roleName === 'agent';
+        
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                disabled={isProtectedRole}
               >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Role
-              </DropdownMenuItem>
-            )}
-            {/* Toggle status - check permission */}
-            {hasPermission(PERMISSIONS.ROLES_EDIT) && (
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleStatus(role);
-                }}
-                className="cursor-pointer"
-              >
-                {role.isActive ? (
-                  <ToggleLeft className="w-4 h-4 mr-2" />
-                ) : (
-                  <ToggleRight className="w-4 h-4 mr-2" />
-                )}
-                {role.isActive ? 'Deactivate' : 'Activate'}
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            {/* Delete option - check permission */}
-            {hasPermission(PERMISSIONS.ROLES_DELETE) && (
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openDeleteDialog(role);
-                }}
-                className="text-destructive focus:text-destructive cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Role
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {/* Edit option - check permission and not protected role */}
+              {hasPermission(PERMISSIONS.ROLES_EDIT) && !isProtectedRole && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/admin/roles/edit/${role._id}`);
+                  }}
+                  className="cursor-pointer"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Role
+                </DropdownMenuItem>
+              )}
+              {/* Toggle status - check permission and not protected role */}
+              {hasPermission(PERMISSIONS.ROLES_EDIT) && !isProtectedRole && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleStatus(role);
+                  }}
+                  className="cursor-pointer"
+                >
+                  {role.isActive ? (
+                    <ToggleLeft className="w-4 h-4 mr-2" />
+                  ) : (
+                    <ToggleRight className="w-4 h-4 mr-2" />
+                  )}
+                  {role.isActive ? 'Deactivate' : 'Activate'}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              {/* Delete option - check permission and not protected role */}
+              {hasPermission(PERMISSIONS.ROLES_DELETE) && !isProtectedRole && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDeleteDialog(role);
+                  }}
+                  className="text-destructive focus:text-destructive cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Role
+                </DropdownMenuItem>
+              )}
+              {isProtectedRole && (
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                  Protected system role
+                </div>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 

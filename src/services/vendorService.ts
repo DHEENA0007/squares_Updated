@@ -519,23 +519,25 @@ class VendorService {
   }
 
   async getSubscriptionLimits(): Promise<{
-    maxProperties: number;
+    maxProperties: number | null;
     currentProperties: number;
     canAddMore: boolean;
     planName: string;
     features: string[];
     maxPropertyImages: number;
+    isUnlimited?: boolean;
   }> {
     try {
       const response = await this.makeRequest<{
         success: boolean;
         data: {
-          maxProperties: number;
+          maxProperties: number | null;
           currentProperties: number;
           canAddMore: boolean;
           planName: string;
           features: string[];
           maxPropertyImages: number;
+          isUnlimited?: boolean;
         };
       }>("/vendors/subscription-limits");
 

@@ -74,7 +74,7 @@ const VendorSidebar = ({ sidebarOpen, setSidebarOpen, isCollapsed, onToggle }: V
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 bottom-0 bg-background border-r border-border z-[70] transition-all duration-300 overflow-y-auto",
+          "fixed left-0 top-16 bottom-0 bg-background border-r border-border z-[70] transition-all duration-300 overflow-y-auto",
           isCollapsed ? "w-16" : "w-64",
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}

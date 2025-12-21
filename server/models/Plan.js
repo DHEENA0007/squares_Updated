@@ -52,7 +52,7 @@ const planSchema = new mongoose.Schema({
   limits: {
     properties: {
       type: Number,
-      default: -1 // -1 means unlimited (infinity)
+      default: null // null means unlimited (infinity), -1 and 0 supported for legacy
     },
     featuredListings: {
       type: Number,

@@ -534,7 +534,7 @@ const VendorRegister = () => {
         else if (businessNameValidation.available === false) errors.push("Business name is already registered");
         if (!formData.businessType) errors.push("Business type is required");
         if (!formData.businessDescription.trim()) errors.push("Business description is required");
-        else if (formData.businessDescription.trim().length < 50) errors.push("Business description must be at least 50 characters");
+        else if (formData.businessDescription.trim().length < 10) errors.push("Business description must be at least 10 characters");
         if (!formData.experience) errors.push("Experience is required");
         break;
       case 3:
@@ -670,6 +670,14 @@ const VendorRegister = () => {
   const handlePrevious = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleStepClick = (stepId: number) => {
+    // Allow navigation to any step that has been completed or is the current step
+    // Don't allow jumping forward to incomplete steps
+    if (stepId <= currentStep) {
+      setCurrentStep(stepId);
     }
   };
 
@@ -1219,7 +1227,7 @@ const VendorRegister = () => {
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Minimum 50 characters ({formData.businessDescription.length}/50)
+                Minimum 10 characters ({formData.businessDescription.length}/10)
               </p>
             </div>
           </div>
@@ -1474,160 +1482,7 @@ const VendorRegister = () => {
           </div>
         );
 
-      case 2:
-        return (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="businessName">Business Name</Label>
-              <div className="relative">
-                <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="businessName"
-                  value={formData.businessName}
-                  onChange={(e) => handleInputChange("businessName", e.target.value)}
-                  placeholder="Your Business Name"
-                  className={`pl-10 ${
-                    businessNameValidation.available === false ? "border-red-500" :
-                    businessNameValidation.available === true ? "border-green-500" : ""
-                  }`}
-                  required
-                />
-              </div>
-              {businessNameValidation.checking && (
-                <p className="text-xs text-muted-foreground">Checking availability...</p>
-              )}
-              {businessNameValidation.available === false && (
-                <p className="text-xs text-red-500">{businessNameValidation.message}</p>
-              )}
-              {businessNameValidation.available === true && (
-                <p className="text-xs text-green-600">Business name is available</p>
-              )}
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="businessType">Business Type</Label>
-              <Select 
-                value={formData.businessType} 
-                onValueChange={(value) => handleInputChange("businessType", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select business type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {businessTypes.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="experience">Years of Experience</Label>
-              <Select 
-                value={formData.experience} 
-                onValueChange={(value) => handleInputChange("experience", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select experience" />
-                </SelectTrigger>
-                <SelectContent>
-                  {experienceOptions.map((option) => (
-                    <SelectItem key={option.value} value={String(option.value)}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="businessDescription">Business Description</Label>
-              <Textarea
-                id="businessDescription"
-                value={formData.businessDescription}
-                onChange={(e) => handleInputChange("businessDescription", e.target.value)}
-                placeholder="Describe your business, services, and expertise..."
-                rows={4}
-                required
-              />
-            </div>
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="address">Street Address</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                <Textarea
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => handleInputChange("address", e.target.value)}
-                  placeholder="Complete business address (building, street, area)"
-                  className="pl-10"
-                  rows={3}
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium">Location Details</Label>
-              <p className="text-xs text-muted-foreground mb-2">
-                Select your business location from the dropdown menus
-              </p>
-              <EnhancedLocationSelector
-                value={{
-                  country: formData.country,
-                  countryCode: formData.countryCode,
-                  state: formData.state,
-                  stateCode: formData.stateCode,
-                  district: formData.district,
-                  districtCode: formData.districtCode,
-                  city: formData.city,
-                  cityCode: formData.cityCode
-                }}
-                onChange={(locationData) => {
-                  setFormData(prev => ({
-                    ...prev,
-                    country: locationData.country || "India",
-                    countryCode: locationData.countryCode || "IN",
-                    state: locationData.state || "",
-                    stateCode: locationData.stateCode || "",
-                    district: locationData.district || "",
-                    districtCode: locationData.districtCode || "",
-                    city: locationData.city || "",
-                    cityCode: locationData.cityCode || ""
-                  }));
-                }}
-                showLabels={true}
-                placeholder={{
-                  state: "Select your state...",
-                  district: "Select your district...",
-                  city: "Select your city..."
-                }}
-                showValidation={true}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="pincode">PIN Code</Label>
-              <Input
-                id="pincode"
-                value={formData.pincode}
-                onChange={(e) => handleInputChange("pincode", e.target.value)}
-                placeholder="Enter 6-digit PIN code (e.g., 400001)"
-                maxLength={6}
-                pattern="[0-9]{6}"
-                required
-              />
-            </div>
-          </div>
-        );
 
       case 4:
         return (
@@ -2076,176 +1931,209 @@ const VendorRegister = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
       <Navbar />
-      
-      <main className="container mx-auto px-4 py-12">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <Badge className="mb-4 bg-primary/10 text-primary border-primary/20">
-              <Store className="w-4 h-4 mr-2" />
-              Vendor Registration
-            </Badge>
-            <h1 className="text-3xl lg:text-4xl font-bold mb-4">
-              Join Our Vendor Network
-            </h1>
-            <p className="text-xl text-muted-foreground">
-              Complete the registration process to become a verified vendor partner
-            </p>
-          </div>
+      <div className="container mx-auto px-4 py-4">
+        <div className="max-w-2xl mx-auto space-y-4">
+        <div className="text-center">
+          <Badge className="mb-2 bg-primary/10 text-primary border-primary/20">
+            <Store className="w-4 h-4 mr-2" />
+            Vendor Registration
+          </Badge>
+          <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+            Join Our Vendor Network
+          </h1>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Complete the registration process to become a verified vendor partner
+          </p>
+        </div>
 
-          {/* Progress Steps */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              {steps.map((step, index) => (
-                <div key={step.id} className="flex flex-col items-center flex-1">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 mb-2 ${
-                    currentStep >= step.id 
-                      ? 'bg-primary border-primary text-primary-foreground' 
-                      : 'border-muted-foreground text-muted-foreground'
-                  }`}>
-                    {currentStep > step.id ? (
-                      <CheckCircle className="w-6 h-6" />
-                    ) : (
-                      <span className="text-sm font-medium">{step.id}</span>
-                    )}
+        {/* Progress Steps - Step-by-Step Indicator */}
+        <div className="bg-card border rounded-lg p-4 shadow-sm">
+          <div className="relative">
+            {/* Connecting Lines */}
+            <div className="absolute top-6 left-0 right-0 h-0.5 bg-muted -z-10">
+              <div
+                className="h-full bg-primary transition-all duration-700 ease-out"
+                style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
+              />
+            </div>
+
+            <div className="flex items-start justify-between">
+              {steps.map((step, index) => {
+                const stepNumber = index + 1;
+                const isCompleted = stepNumber < currentStep;
+                const isCurrent = stepNumber === currentStep;
+                const isClickable = stepNumber <= currentStep;
+
+                return (
+                  <div key={step.id} className="flex flex-col items-center flex-1 max-w-[120px]">
+                    <button
+                      onClick={() => isClickable && handleStepClick(stepNumber)}
+                      disabled={!isClickable}
+                      className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all duration-200 ${
+                        isCompleted
+                          ? 'bg-green-500 border-green-500 text-white hover:bg-green-600 cursor-pointer shadow-md'
+                          : isCurrent
+                          ? 'bg-primary border-primary text-primary-foreground cursor-pointer shadow-lg scale-110'
+                          : 'bg-background border-muted text-muted-foreground cursor-not-allowed'
+                      }`}
+                    >
+                      {isCompleted ? <span className="text-white font-bold">{stepNumber}</span> : stepNumber}
+                    </button>
+                    <div className="text-center mt-2 px-1">
+                      <p className={`text-xs font-semibold ${
+                        isCurrent ? 'text-primary' : isCompleted ? 'text-green-600' : 'text-muted-foreground'
+                      }`}>
+                        {step.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 leading-tight">
+                        {step.description}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <p className="text-sm font-medium">{step.title}</p>
-                    <p className="text-xs text-muted-foreground">{step.description}</p>
-                  </div>
-                  {index < steps.length - 1 && (
-                    <div className={`hidden md:block w-full h-0.5 mt-5 ${
-                      currentStep > step.id ? 'bg-primary' : 'bg-muted'
-                    }`} />
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          {/* Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                Step {currentStep}: {steps[currentStep - 1].title}
-              </CardTitle>
-              <CardDescription>
-                {steps[currentStep - 1].description}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit}>
-                {renderStepContent()}
-
-                <div className="flex justify-between mt-8">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handlePrevious}
-                    disabled={currentStep === 1 || (currentStep === 6 && profileSubmitted)}
-                  >
-                    Previous
-                  </Button>
-
-                  {currentStep < 5 ? (
-                    <Button 
-                      type="button" 
-                      onClick={handleNext} 
-                      disabled={isLoading || !validateStep(currentStep)}
-                      className={validateStep(currentStep) ? "" : "opacity-50"}
-                    >
-                      Next
-                      {!validateStep(currentStep) && (
-                        <AlertCircle className="w-4 h-4 ml-2" />
-                      )}
-                    </Button>
-                  ) : currentStep === 5 ? (
-                    <Button 
-                      type="button" 
-                      onClick={handleNext}
-                      disabled={isLoading || !validateStep(currentStep)}
-                      className={validateStep(currentStep) ? "" : "opacity-50"}
-                    >
-                      {isLoading ? "Sending OTP..." : "Proceed to Email Verification"}
-                      {!validateStep(currentStep) && (
-                        <AlertCircle className="w-4 h-4 ml-2" />
-                      )}
-                    </Button>
-                  ) : currentStep === 6 ? (
-                    null // OTP step has its own submit button
-                  ) : null}
-                </div>
-
-                {/* Step validation indicators */}
-                {!validateStep(currentStep) && currentStep < 6 && (
-                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-amber-800">Please complete the following:</p>
-                        <ul className="text-sm text-amber-700 mt-1 list-disc list-inside">
-                          {getValidationErrors(currentStep).map((error, index) => (
-                            <li key={index}>{error}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* Info Section */}
-          <div className="mt-8 grid md:grid-cols-3 gap-6">
-            <Card>
-              <CardContent className="p-6 text-center">
-                <Clock className="w-8 h-8 text-primary mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">Quick Review</h3>
-                <p className="text-sm text-muted-foreground">
-                  We'll review your application within 24-48 hours
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6 text-center">
-                <Shield className="w-8 h-8 text-primary mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">Secure Process</h3>
-                <p className="text-sm text-muted-foreground">
-                  Your data is encrypted and handled securely
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6 text-center">
-                <CheckCircle className="w-8 h-8 text-primary mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">Easy Setup</h3>
-                <p className="text-sm text-muted-foreground">
-                  Once approved, you'll get instant access to your dashboard
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Already have account */}
-          <div className="mt-8 text-center">
-            <p className="text-muted-foreground">
-              Already have a vendor account?{" "}
-              <Link to="/vendor/login" className="text-primary hover:underline">
-                Sign in here
-              </Link>
+          {/* Progress Text */}
+            <div className="text-center mt-4">
+            <p className="text-sm text-muted-foreground">
+              Step {currentStep} of {steps.length}: {steps[currentStep - 1].title}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {Math.round((currentStep / steps.length) * 100)}% Complete
             </p>
           </div>
         </div>
-      </main>
 
-      <Footer />
+        {/* Form */}
+        <Card className="shadow-lg">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl">
+              Step {currentStep}: {steps[currentStep - 1].title}
+            </CardTitle>
+            <CardDescription className="text-base">
+              {steps[currentStep - 1].description}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {renderStepContent()}
+
+              <div className="flex justify-between pt-4 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handlePrevious}
+                  disabled={currentStep === 1 || (currentStep === 6 && profileSubmitted)}
+                  size="lg"
+                >
+                  Previous
+                </Button>
+
+                {currentStep < 5 ? (
+                  <Button
+                    type="button"
+                    onClick={handleNext}
+                    disabled={isLoading || !validateStep(currentStep)}
+                    className={validateStep(currentStep) ? "shadow-md" : "opacity-50"}
+                    size="lg"
+                  >
+                    Next
+                    {!validateStep(currentStep) && (
+                      <AlertCircle className="w-4 h-4 ml-2" />
+                    )}
+                  </Button>
+                ) : currentStep === 5 ? (
+                  <Button
+                    type="button"
+                    onClick={handleNext}
+                    disabled={isLoading || !validateStep(currentStep)}
+                    className={validateStep(currentStep) ? "shadow-md" : "opacity-50"}
+                    size="lg"
+                  >
+                    {isLoading ? "Sending OTP..." : "Proceed to Email Verification"}
+                    {!validateStep(currentStep) && (
+                      <AlertCircle className="w-4 h-4 ml-2" />
+                    )}
+                  </Button>
+                ) : currentStep === 6 ? (
+                  null // OTP step has its own submit button
+                ) : null}
+              </div>
+
+              {/* Step validation indicators */}
+              {!validateStep(currentStep) && currentStep < 6 && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-800">Please complete the following:</p>
+                      <ul className="text-sm text-amber-700 mt-2 space-y-1">
+                        {getValidationErrors(currentStep).map((error, index) => (
+                          <li key={index} className="flex items-start gap-2">
+                            <span className="text-amber-500 mt-0.5">•</span>
+                            {error}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Info Section */}
+        <div className="grid md:grid-cols-3 gap-4">
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4 text-center">
+              <Clock className="w-6 h-6 text-primary mx-auto mb-2" />
+              <h3 className="font-semibold mb-1 text-sm">Quick Review</h3>
+              <p className="text-xs text-muted-foreground">
+                We'll review your application within 24-48 hours
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4 text-center">
+              <Shield className="w-6 h-6 text-primary mx-auto mb-2" />
+              <h3 className="font-semibold mb-1 text-sm">Secure Process</h3>
+              <p className="text-xs text-muted-foreground">
+                Your data is encrypted and handled securely
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4 text-center">
+              <CheckCircle className="w-6 h-6 text-primary mx-auto mb-2" />
+              <h3 className="font-semibold mb-1 text-sm">Easy Setup</h3>
+              <p className="text-xs text-muted-foreground">
+                Once approved, you'll get instant access to your dashboard
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Already have account */}
+        <div className="text-center py-2">
+          <p className="text-muted-foreground">
+            Already have a vendor account?{" "}
+            <Link to="/vendor/login" className="text-primary hover:underline font-medium">
+              Sign in here
+            </Link>
+          </p>
+        </div>
+      </div>
     </div>
-  );
+    <Footer />
+  </>
+);
 };
 
 export default VendorRegister;
