@@ -231,21 +231,12 @@ router.post('/', asyncHandler(async (req, res) => {
   }
 
   // Verify user is part of this conversation
+  // All authenticated users can send messages in conversations they're part of
   const userIds = conversationId.split('_');
   if (userIds.length !== 2 || !userIds.includes(req.user.id.toString())) {
     return res.status(403).json({
       success: false,
       message: 'Not authorized to send messages in this conversation'
-    });
-  }
-
-  // Allow users to send messages in their own conversations
-  // Check permission only for sending messages to conversations they're not part of
-  const isPartOfConversation = userIds.includes(req.user.id.toString());
-  if (!isPartOfConversation && !hasPermission(req.user, PERMISSIONS.MESSAGES_SEND)) {
-    return res.status(403).json({
-      success: false,
-      message: 'Insufficient permissions to send messages'
     });
   }
 
