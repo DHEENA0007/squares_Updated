@@ -384,6 +384,32 @@ class AnalyticsService {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   }
+
+  async getOverview(dateRange: string = '30') {
+    return this.makeRequest<any>(`/analytics/overview?dateRange=${dateRange}`);
+  }
+
+  async getPropertyViews(dateRange: string = '30', propertyId?: string) {
+    const params = new URLSearchParams({ dateRange });
+    if (propertyId) params.append('propertyId', propertyId);
+    return this.makeRequest<any>(`/analytics/property-views?${params.toString()}`);
+  }
+
+  async getUserConversion(dateRange: string = '30') {
+    return this.makeRequest<any>(`/analytics/user-conversion?dateRange=${dateRange}`);
+  }
+
+  async getTrafficAnalytics(dateRange: string = '30') {
+    return this.makeRequest<any>(`/analytics/traffic?dateRange=${dateRange}`);
+  }
+
+  async getEngagementAnalytics(dateRange: string = '30') {
+    return this.makeRequest<any>(`/analytics/engagement?dateRange=${dateRange}`);
+  }
+
+  async getPropertyViewDetails(propertyId: string, dateRange: string = '30') {
+    return this.makeRequest<any>(`/analytics/property-views/${propertyId}?dateRange=${dateRange}`);
+  }
 }
 
 export const analyticsService = new AnalyticsService();

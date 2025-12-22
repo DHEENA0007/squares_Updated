@@ -4754,7 +4754,7 @@ router.post('/subscription/cleanup', requireVendorRole, asyncHandler(async (req,
   }
 }));
 
-// @desc    Check if vendor has enterprise plan
+// @desc    Check if vendor has WhatsApp support enabled in their plan
 // @route   GET /api/vendors/:vendorId/enterprise-check
 // @access  Public (for customer property viewing)
 router.get('/:vendorId/enterprise-check', asyncHandler(async (req, res) => {
@@ -4763,7 +4763,7 @@ router.get('/:vendorId/enterprise-check', asyncHandler(async (req, res) => {
   try {
     const Subscription = require('../models/Subscription');
 
-    // Check if vendor has active enterprise subscription
+    // Check if vendor has active subscription with WhatsApp support
     const activeSubscription = await Subscription.findOne({
       user: vendorId,
       status: 'active',
@@ -4771,22 +4771,30 @@ router.get('/:vendorId/enterprise-check', asyncHandler(async (req, res) => {
     }).populate('plan').sort({ createdAt: -1 });
 
     let isEnterprise = false;
+    let whatsappNumber = null;
 
     if (activeSubscription && activeSubscription.plan) {
-      // Check if plan identifier is 'enterprise' or plan name contains 'enterprise'
-      isEnterprise = activeSubscription.plan.identifier === 'enterprise' ||
-        activeSubscription.plan.name.toLowerCase().includes('enterprise');
+      // Check if plan has WhatsApp support enabled
+      const plan = activeSubscription.plan;
+      isEnterprise = plan.whatsappSupport?.enabled === true;
+      whatsappNumber = plan.whatsappSupport?.number || null;
     }
 
     res.json({
       success: true,
-      data: { isEnterprise }
+      data: { 
+        isEnterprise,
+        whatsappNumber
+      }
     });
   } catch (error) {
-    console.error('Enterprise check error:', error);
+    console.error('WhatsApp support check error:', error);
     res.json({
       success: true,
-      data: { isEnterprise: false } // Default to false on error
+      data: { 
+        isEnterprise: false,
+        whatsappNumber: null
+      } // Default to false on error
     });
   }
 }));

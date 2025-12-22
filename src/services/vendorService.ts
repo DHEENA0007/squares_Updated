@@ -856,21 +856,24 @@ class VendorService {
     }
   }
 
-  async isVendorEnterpriseProperty(vendorId: string): Promise<boolean> {
+  async isVendorEnterpriseProperty(vendorId: string): Promise<{ isEnterprise: boolean; whatsappNumber: string | null }> {
     try {
       const response = await this.makeRequest<{
         success: boolean;
-        data: { isEnterprise: boolean };
+        data: { isEnterprise: boolean; whatsappNumber: string | null };
       }>(`/vendors/${vendorId}/enterprise-check`);
 
       if (response.success && response.data) {
-        return response.data.isEnterprise;
+        return {
+          isEnterprise: response.data.isEnterprise,
+          whatsappNumber: response.data.whatsappNumber
+        };
       }
 
-      return false;
+      return { isEnterprise: false, whatsappNumber: null };
     } catch (error) {
-      console.error("Failed to check vendor enterprise status:", error);
-      return false;
+      console.error("Failed to check vendor WhatsApp support:", error);
+      return { isEnterprise: false, whatsappNumber: null };
     }
   }
 

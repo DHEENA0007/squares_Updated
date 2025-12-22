@@ -54,6 +54,7 @@ const PropertyDetails: React.FC = () => {
   const [showContactDialog, setShowContactDialog] = useState(false);
   const [showEnterpriseDialog, setShowEnterpriseDialog] = useState(false);
   const [isEnterpriseProperty, setIsEnterpriseProperty] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
   const [checkingEnterprise, setCheckingEnterprise] = useState(false);
 
   const loadProperty = useCallback(async () => {
@@ -74,16 +75,18 @@ const PropertyDetails: React.FC = () => {
         const favoriteStatus = await favoriteService.isFavorite(id);
         setIsFavorited(favoriteStatus);
         
-        // Check if property is from enterprise vendor
+        // Check if property is from vendor with WhatsApp support
         if (response.data.property.vendor?._id || response.data.property.owner?._id) {
           try {
             setCheckingEnterprise(true);
             const vendorId = response.data.property.vendor?._id || response.data.property.owner?._id;
-            const isEnterprise = await vendorService.isVendorEnterpriseProperty(vendorId);
-            setIsEnterpriseProperty(isEnterprise);
+            const whatsappData = await vendorService.isVendorEnterpriseProperty(vendorId);
+            setIsEnterpriseProperty(whatsappData.isEnterprise);
+            setWhatsappNumber(whatsappData.whatsappNumber);
           } catch (error) {
-            console.error("Failed to check enterprise status:", error);
+            console.error("Failed to check WhatsApp support:", error);
             setIsEnterpriseProperty(false);
+            setWhatsappNumber(null);
           } finally {
             setCheckingEnterprise(false);
           }
@@ -764,6 +767,7 @@ const PropertyDetails: React.FC = () => {
         open={showEnterpriseDialog}
         onOpenChange={setShowEnterpriseDialog}
         property={property}
+        whatsappNumber={whatsappNumber}
       />
     </div>
   );

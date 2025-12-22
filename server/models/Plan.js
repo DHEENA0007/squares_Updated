@@ -119,6 +119,17 @@ const planSchema = new mongoose.Schema({
     enum: ['none', 'email', 'priority', 'phone', 'dedicated'],
     default: 'email'
   },
+  whatsappSupport: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    number: {
+      type: String,
+      trim: true,
+      default: null
+    }
+  },
   isActive: {
     type: Boolean,
     default: true

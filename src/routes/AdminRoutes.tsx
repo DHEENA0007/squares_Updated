@@ -13,6 +13,7 @@ const EngagementDetails = lazy(() => import("@/pages/admin/EngagementDetails"));
 const PropertyManagement = lazy(() => import("@/pages/admin/PropertyManagement"));
 const FilterManagement = lazy(() => import("@/pages/admin/FilterManagement"));
 const NavigationManagement = lazy(() => import("@/pages/admin/NavigationManagement"));
+const Analytics = lazy(() => import("@/pages/admin/Analytics"));
 
 
 const AdminRoutes = () => {
@@ -48,6 +49,7 @@ const AdminRoutes = () => {
             <Route path="/properties/edit/:id" element={<PropertyEditPage/>} />
             <Route path="/addons" element={<AddonManagementPage/>} />
             <Route path="/notifications" element={<SendNotificationsPage/>} />
+            <Route path="/analytics" element={<Analytics />} />
             <Route path="/policy-editor/:policyType" element={<PolicyEditor />} />
             <Route path="/property-management" element={<PropertyManagement />} />
             <Route path="/filter-management" element={<FilterManagement />} />

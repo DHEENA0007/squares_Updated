@@ -25,6 +25,7 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
   const [showContactDialog, setShowContactDialog] = useState(false);
   const [showEnterpriseDialog, setShowEnterpriseDialog] = useState(false);
   const [isEnterpriseProperty, setIsEnterpriseProperty] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
   const [checkingEnterprise, setCheckingEnterprise] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false);
   const [loadingFavorite, setLoadingFavorite] = useState(false);
@@ -43,11 +44,13 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
         try {
           setCheckingEnterprise(true);
           const vendorId = property.vendor?._id || property.owner?._id;
-          const isEnterprise = await vendorService.isVendorEnterpriseProperty(vendorId);
-          setIsEnterpriseProperty(isEnterprise);
+          const whatsappData = await vendorService.isVendorEnterpriseProperty(vendorId);
+          setIsEnterpriseProperty(whatsappData.isEnterprise);
+          setWhatsappNumber(whatsappData.whatsappNumber);
         } catch (error) {
           console.error("Failed to check enterprise status:", error);
           setIsEnterpriseProperty(false);
+          setWhatsappNumber(null);
         } finally {
           setCheckingEnterprise(false);
         }
@@ -139,28 +142,28 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
   };
 
   return (
-    <Card className="group overflow-hidden hover:shadow-[var(--shadow-large)] transition-all duration-300">
-      <div className="relative h-48 overflow-hidden">
+    <Card className="group overflow-hidden hover:shadow-[var(--shadow-large)] transition-all duration-300 flex flex-col h-full">
+      <div className="relative h-44 md:h-48 overflow-hidden">
         <img 
           src={primaryImage} 
           alt={property.title}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           onError={(e) => {
             (e.target as HTMLImageElement).src = DEFAULT_PROPERTY_IMAGE;
           }}
         />
         {property.featured && (
-          <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground">
+          <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground text-xs py-1 px-2">
             Featured
           </Badge>
         )}
         {property.verified && (
-          <Badge className="absolute top-3 left-3 mt-8 bg-green-500 text-white">
+          <Badge className="absolute top-12 left-3 bg-green-500 text-white text-xs py-1 px-2">
             Verified
           </Badge>
         )}
         <Badge 
-          className={`absolute top-3 ${isAuthenticated && isCustomer ? 'right-12' : 'right-3'} ${
+          className={`absolute top-3 ${isAuthenticated && isCustomer ? 'right-12' : 'right-3'} text-xs py-1 px-2 ${
             property.status === 'available' ? 'bg-green-500' : 
             property.status === 'sold' ? 'bg-red-500' : 
             property.status === 'rented' ? 'bg-blue-500' : 
@@ -183,10 +186,10 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
         )}
       </div>
       
-      <CardContent className="p-4">
+      <CardContent className="p-3 flex-1">
         <div className="flex items-start justify-between mb-2">
-          <h3 className="font-semibold text-lg line-clamp-1">{property.title}</h3>
-          <Badge variant="secondary">
+          <h3 className="font-semibold text-base md:text-lg line-clamp-2">{property.title}</h3>
+          <Badge variant="secondary" className="text-sm">
             {property.listingType === 'sale' ? 'For Sale' : 
              property.listingType === 'rent' ? 'For Rent' : 'For Lease'}
           </Badge>
@@ -197,11 +200,11 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
           <span className="text-sm line-clamp-1">{location}</span>
         </div>
 
-        <div className="text-xs text-muted-foreground mb-3 capitalize">
+        <div className="text-sm text-muted-foreground mb-2 capitalize">
           {property.type ? property.type.replace('_', ' ') : 'property'}
         </div>
 
-        <div className="text-xs text-muted-foreground mb-3">
+        <div className="text-sm text-muted-foreground mb-2">
           {getPropertyListingLabel(property)}
         </div>
         
@@ -224,7 +227,7 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
           </div>
         </div>
         
-        <div className="text-2xl font-bold text-primary">{formattedPrice}</div>
+        <div className="text-xl md:text-2xl font-bold text-primary">{formattedPrice}</div>
         
         {property.amenities.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
@@ -242,12 +245,12 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
         )}
       </CardContent>
       
-      <CardFooter className="p-4 pt-0 flex gap-2">
+      <CardFooter className="p-3 pt-0 flex gap-2 text-sm">
         {!checkingEnterprise && !isEnterpriseProperty && (
           <>
             <Button 
               variant="outline" 
-              className="flex-1"
+              className="flex-1 py-2"
               onClick={handleMessageClick}
             >
               <MessageSquare className="w-4 h-4 mr-2" />
@@ -255,7 +258,7 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
             </Button>
             <Button 
               variant="outline" 
-              className="flex-1"
+              className="flex-1 py-2"
               onClick={handleContactClick}
             >
               <Phone className="w-4 h-4 mr-2" />
@@ -267,7 +270,7 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
         {!checkingEnterprise && isEnterpriseProperty && (
           <Button 
             variant="outline" 
-            className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+            className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 py-2"
             onClick={() => setShowEnterpriseDialog(true)}
           >
             <MessageSquare className="w-4 h-4 mr-2" />
@@ -276,7 +279,7 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
         )}
         
         <Button 
-          className="flex-1"
+          className="flex-1 py-2"
           onClick={handleViewDetails}
         >
           View Details
@@ -305,6 +308,7 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
         open={showEnterpriseDialog}
         onOpenChange={setShowEnterpriseDialog}
         property={property}
+        whatsappNumber={whatsappNumber}
       />
     </Card>
   );

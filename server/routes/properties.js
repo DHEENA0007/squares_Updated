@@ -1039,7 +1039,7 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
 
     console.log(`Found ${activeSubscriptions.length} active subscriptions`);
 
-    // Filter subscriptions where plan and user exist, and plan has benefits
+    // Filter subscriptions where plan and user exist, and plan has any enabled badges
     const validSubscriptions = activeSubscriptions.filter(sub => {
       if (!sub.plan || !sub.user) {
         console.log('Filtered out subscription: missing plan or user');
@@ -1048,26 +1048,20 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
       
       const plan = sub.plan;
       
-      // Check if plan has any beneficial badges
+      // Check if plan has any enabled badges
       if (Array.isArray(plan.benefits)) {
-        // New format: check if any beneficial benefits are enabled
-        const hasBenefits = plan.benefits.some(benefit => 
-          benefit.enabled && 
-          ['topRated', 'verifiedBadge', 'marketingManager', 'commissionBased'].includes(benefit.key)
-        );
-        console.log(`Plan ${plan.name} (array format) has benefits:`, hasBenefits);
-        return hasBenefits;
+        // New format: check if any badges are enabled
+        const hasBadges = plan.benefits.some(benefit => benefit.enabled);
+        console.log(`Plan ${plan.name} (array format) has ${plan.benefits.filter(b => b.enabled).length} enabled badges`);
+        return hasBadges;
       } else if (plan.benefits && typeof plan.benefits === 'object') {
-        // Legacy format: check if any beneficial benefits are true
-        const hasBenefits = plan.benefits.topRated || 
-               plan.benefits.verifiedBadge || 
-               plan.benefits.marketingManager || 
-               plan.benefits.commissionBased;
-        console.log(`Plan ${plan.name} (object format) has benefits:`, hasBenefits);
-        return hasBenefits;
+        // Legacy format: check if any benefits are true
+        const hasBadges = Object.values(plan.benefits).some(value => value === true);
+        console.log(`Plan ${plan.name} (object format) has badges:`, hasBadges);
+        return hasBadges;
       }
       
-      console.log(`Plan ${plan.name} has no benefits structure`);
+      console.log(`Plan ${plan.name} has no benefits/badges`);
       return false;
     });
 
@@ -1097,32 +1091,39 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
             state: vendor.user.profile?.address?.state || null
           },
           badges: (() => {
-            // Handle both new array format and legacy object format
+            // Return badges in the new array format for frontend
             if (Array.isArray(subscription.plan.benefits)) {
-              // New format: convert to legacy format for frontend compatibility
-              const legacyObject = {
-                topRated: false,
-                verifiedBadge: false,
-                marketingManager: false,
-                commissionBased: false
+              // New format: return all enabled badges
+              return subscription.plan.benefits
+                .filter(benefit => benefit.enabled)
+                .map(benefit => ({
+                  key: benefit.key,
+                  name: benefit.name,
+                  description: benefit.description || '',
+                  enabled: true,
+                  icon: benefit.icon || 'star'
+                }));
+            } else if (subscription.plan.benefits && typeof subscription.plan.benefits === 'object') {
+              // Legacy format: convert to new array format
+              const legacyBadgeMap = {
+                topRated: { name: 'Top Rated', icon: 'star', description: 'Highly rated professional' },
+                verifiedBadge: { name: 'Verified', icon: 'shield-check', description: 'Identity verified' },
+                marketingManager: { name: 'Marketing Pro', icon: 'trending-up', description: 'Advanced marketing tools' },
+                commissionBased: { name: 'Commission Based', icon: 'dollar-sign', description: 'Performance-based pricing' }
               };
               
-              subscription.plan.benefits.forEach(benefit => {
-                if (benefit.enabled && legacyObject.hasOwnProperty(benefit.key)) {
-                  legacyObject[benefit.key] = true;
-                }
-              });
-              
-              return legacyObject;
-            } else {
-              // Legacy format
-              return {
-                topRated: subscription.plan.benefits?.topRated || false,
-                verifiedBadge: subscription.plan.benefits?.verifiedBadge || false,
-                marketingManager: subscription.plan.benefits?.marketingManager || false,
-                commissionBased: subscription.plan.benefits?.commissionBased || false
-              };
+              return Object.entries(subscription.plan.benefits)
+                .filter(([_, isActive]) => isActive === true)
+                .map(([badgeKey, _]) => ({
+                  key: badgeKey,
+                  name: legacyBadgeMap[badgeKey]?.name || badgeKey,
+                  description: legacyBadgeMap[badgeKey]?.description || '',
+                  enabled: true,
+                  icon: legacyBadgeMap[badgeKey]?.icon || 'star'
+                }));
             }
+            
+            return [];
           })(),
           rating: {
             average: vendor.user.profile?.vendorInfo?.rating?.average || 0,
@@ -1134,17 +1135,13 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
       })
     );
 
-    // Filter out null results and sort by rating
+    // Filter out null results and sort by badge count, then rating
     const featuredVendors = vendorProfiles
       .filter(vendor => vendor !== null)
       .sort((a, b) => {
         // Prioritize vendors with more badges
-        const aBadgeCount = Array.isArray(a.badges) 
-          ? a.badges.filter(badge => badge.enabled).length
-          : Object.values(a.badges).filter(Boolean).length;
-        const bBadgeCount = Array.isArray(b.badges)
-          ? b.badges.filter(badge => badge.enabled).length
-          : Object.values(b.badges).filter(Boolean).length;
+        const aBadgeCount = Array.isArray(a.badges) ? a.badges.length : 0;
+        const bBadgeCount = Array.isArray(b.badges) ? b.badges.length : 0;
         
         if (aBadgeCount !== bBadgeCount) {
           return bBadgeCount - aBadgeCount;
@@ -1158,7 +1155,10 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
       success: true,
       data: {
         vendors: featuredVendors,
-        totalCount: featuredVendors.length
+        totalCount: featuredVendors.length,
+        message: featuredVendors.length > 0 
+          ? `Showing ${featuredVendors.length} premium vendors with active subscriptions and badges`
+          : 'No premium vendors with badges available yet'
       }
     });
   } catch (error) {

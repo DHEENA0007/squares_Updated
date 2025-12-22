@@ -268,5 +268,13 @@ export const PERMISSION_GROUPS = [
             { id: PERMISSIONS.MESSAGES_REPLY, label: 'Reply to Messages' },
             { id: PERMISSIONS.MESSAGES_DELETE, label: 'Delete Messages' },
         ]
+    },
+    {
+        id: 'analytics',
+        label: 'Analytics & Reports',
+        permissions: [
+            { id: PERMISSIONS.ANALYTICS_VIEW, label: 'View Analytics Dashboard' },
+            { id: PERMISSIONS.DASHBOARD_VIEW, label: 'View Dashboard' },
+        ]
     }
 ];

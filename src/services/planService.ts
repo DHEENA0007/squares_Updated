@@ -40,6 +40,10 @@ export interface Plan {
     icon?: string;
   }>;
   support?: 'none' | 'email' | 'priority' | 'phone' | 'dedicated';
+  whatsappSupport?: {
+    enabled: boolean;
+    number: string;
+  };
   isActive: boolean;
   isPopular: boolean;
   sortOrder: number;

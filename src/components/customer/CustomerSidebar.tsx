@@ -78,7 +78,7 @@ const CustomerSidebar = ({
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-16 bottom-0 bg-background border-r border-border z-40 transition-all duration-300 overflow-y-auto",
+          "fixed left-0 top-16 bottom-0 bg-background border-r border-border z-50 transition-all duration-300 overflow-y-auto",
           isCollapsed ? "w-16" : "w-64",
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}

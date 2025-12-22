@@ -39,6 +39,7 @@ const configurationRoutes = require('./routes/configuration');
 const contentRoutes = require('./routes/content');
 const reviewRoutes = require('./routes/reviews');
 const userActivityRoutes = require('./routes/userActivity');
+const analyticsRoutes = require('./routes/analytics');
 
 // Import middleware
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
@@ -290,6 +291,7 @@ app.use('/api/configuration', configurationRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/user-activity', userActivityRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 
 // Import services

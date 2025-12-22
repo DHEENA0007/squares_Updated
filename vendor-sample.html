@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Badged Vendor Display Sample</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/lucide-static/0.263.1/lucide.min.css" rel="stylesheet">
+    <style>
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-right: 0.25rem;
+            margin-bottom: 0.25rem;
+        }
+        .badge-top-rated { background-color: #fef3c7; color: #92400e; }
+        .badge-verified { background-color: #dbeafe; color: #1e40af; }
+        .badge-marketing { background-color: #faf5ff; color: #7c3aed; border: 1px solid #d8b4fe; }
+        .badge-commission { background-color: #fed7aa; color: #9a3412; }
+        
+        .reel-container {
+            overflow: hidden;
+            position: relative;
+            width: 100%;
+            padding: 40px 0;
+        }
+        
+        .reel-track {
+            display: flex;
+            gap: 24px;
+            animation: scroll 40s linear infinite;
+            will-change: transform;
+        }
+        
+        .reel-track:hover {
+            animation-play-state: paused;
+        }
+        
+        @keyframes scroll {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(calc(-50% - 12px));
+            }
+        }
+        
+        .vendor-card {
+            flex-shrink: 0;
+            width: 500px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .vendor-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-full mx-auto">
+        <h1 class="text-4xl font-bold text-center mb-8 text-gray-800">Featured Vendors - Badged Display Sample</h1>
+
+        <div class="reel-container">
+            <div class="reel-track">
+
+            <!-- Vendor Card 1 - Left Position -->
+            <div class="vendor-card bg-white rounded-lg shadow-md hover:shadow-xl border-2 hover:border-blue-200 p-6">
+                <div class="flex items-center gap-6">
+                    <!-- Left side - Avatar and basic info -->
+                    <div class="flex-shrink-0">
+                        <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                            <span class="text-blue-600 font-bold text-xl">JS</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="flex items-center justify-center gap-1 mb-2">
+                                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                                <span class="text-sm font-medium">4.8</span>
+                            </div>
+                            <span class="text-xs text-gray-500">(24 reviews)</span>
+                        </div>
+                    </div>
+
+                    <!-- Right side - Details -->
+                    <div class="flex-1">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-xl text-gray-900">John Smith</h3>
+                                <p class="text-sm text-gray-600">Real Estate Pro LLC</p>
+                            </div>
+                            <!-- Badges -->
+                            <div class="flex flex-wrap gap-1">
+                                <span class="badge badge-top-rated">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                    Top Rated
+                                </span>
+                                <span class="badge badge-verified">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    Verified
+                                </span>
+                                <span class="badge badge-marketing">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                                        <polyline points="17 6 23 6 23 12"/>
+                                    </svg>
+                                    Marketing Pro
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                        <circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    <span>New York, NY</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12,6 12,12 16,14"/>
+                                    </svg>
+                                    <span>2 hours response</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Residential</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Commercial</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Luxury</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            Experienced real estate professional with over 10 years in the industry, specializing in luxury properties and commercial spaces.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vendor Card 2 - Center Position (Slightly Up) -->
+            <div class="vendor-card bg-white rounded-lg shadow-md hover:shadow-xl border-2 hover:border-blue-200 p-6">
+                <div class="flex items-center gap-6">
+                    <!-- Left side - Avatar and basic info -->
+                    <div class="flex-shrink-0">
+                        <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-3">
+                            <span class="text-green-600 font-bold text-xl">SA</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="flex items-center justify-center gap-1 mb-2">
+                                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                                <span class="text-sm font-medium">4.9</span>
+                            </div>
+                            <span class="text-xs text-gray-500">(31 reviews)</span>
+                        </div>
+                    </div>
+
+                    <!-- Right side - Details -->
+                    <div class="flex-1">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-xl text-gray-900">Sarah Anderson</h3>
+                                <p class="text-sm text-gray-600">Anderson Realty</p>
+                            </div>
+                            <!-- Badges -->
+                            <div class="flex flex-wrap gap-1">
+                                <span class="badge badge-verified">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    Verified
+                                </span>
+                                <span class="badge badge-commission">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="1" x2="12" y2="23"/>
+                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                    </svg>
+                                    Commission Based
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                        <circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    <span>Los Angeles, CA</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12,6 12,12 16,14"/>
+                                    </svg>
+                                    <span>1 hour response</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Residential</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">First-time Buyers</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            Dedicated to helping first-time homebuyers navigate their journey with personalized service and expert guidance.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vendor Card 3 - Right Position -->
+            <div class="vendor-card bg-white rounded-lg shadow-md hover:shadow-xl border-2 hover:border-blue-200 p-6">
+                <div class="flex items-center gap-6">
+                    <!-- Left side - Avatar and basic info -->
+                    <div class="flex-shrink-0">
+                        <div class="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mb-3">
+                            <span class="text-purple-600 font-bold text-xl">MR</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="flex items-center justify-center gap-1 mb-2">
+                                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                                <span class="text-sm font-medium">4.7</span>
+                            </div>
+                            <span class="text-xs text-gray-500">(18 reviews)</span>
+                        </div>
+                    </div>
+
+                    <!-- Right side - Details -->
+                    <div class="flex-1">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-xl text-gray-900">Mike Rodriguez</h3>
+                                <p class="text-sm text-gray-600">Rodriguez Commercial</p>
+                            </div>
+                            <!-- Badges -->
+                            <div class="flex flex-wrap gap-1">
+                                <span class="badge badge-top-rated">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                    Top Rated
+                                </span>
+                                <span class="badge badge-marketing">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                                        <polyline points="17 6 23 6 23 12"/>
+                                    </svg>
+                                    Marketing Pro
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                        <circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    <span>Chicago, IL</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12,6 12,12 16,14"/>
+                                    </svg>
+                                    <span>3 hours response</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Commercial</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Industrial</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Office</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            Commercial real estate specialist focusing on office spaces and industrial properties with extensive market knowledge.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vendor Card 4 -->
+            <div class="vendor-card bg-white rounded-lg shadow-md hover:shadow-xl border-2 hover:border-blue-200 p-6">
+                <div class="flex items-center gap-6">
+                    <div class="flex-shrink-0">
+                        <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-3">
+                            <span class="text-red-600 font-bold text-xl">EJ</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="flex items-center justify-center gap-1 mb-2">
+                                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                                <span class="text-sm font-medium">4.6</span>
+                            </div>
+                            <span class="text-xs text-gray-500">(15 reviews)</span>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-xl text-gray-900">Emily Johnson</h3>
+                                <p class="text-sm text-gray-600">Johnson Properties</p>
+                            </div>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="badge badge-verified">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    Verified
+                                </span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                        <circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    <span>Miami, FL</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12,6 12,12 16,14"/>
+                                    </svg>
+                                    <span>4 hours response</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Residential</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Vacation</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            Specializing in vacation and beachfront properties with a focus on South Florida real estate market.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vendor Card 5 -->
+            <div class="vendor-card bg-white rounded-lg shadow-md hover:shadow-xl border-2 hover:border-blue-200 p-6">
+                <div class="flex items-center gap-6">
+                    <div class="flex-shrink-0">
+                        <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mb-3">
+                            <span class="text-indigo-600 font-bold text-xl">DW</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="flex items-center justify-center gap-1 mb-2">
+                                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                                <span class="text-sm font-medium">5.0</span>
+                            </div>
+                            <span class="text-xs text-gray-500">(42 reviews)</span>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-xl text-gray-900">David Williams</h3>
+                                <p class="text-sm text-gray-600">Williams Estates</p>
+                            </div>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="badge badge-top-rated">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                    Top Rated
+                                </span>
+                                <span class="badge badge-verified">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    Verified
+                                </span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                        <circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    <span>Boston, MA</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12,6 12,12 16,14"/>
+                                    </svg>
+                                    <span>30 min response</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Luxury</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Historic</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Urban</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            Premier luxury real estate agent focusing on historic properties and high-end urban developments.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vendor Card 6 -->
+            <div class="vendor-card bg-white rounded-lg shadow-md hover:shadow-xl border-2 hover:border-blue-200 p-6">
+                <div class="flex items-center gap-6">
+                    <div class="flex-shrink-0">
+                        <div class="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mb-3">
+                            <span class="text-pink-600 font-bold text-xl">LM</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="flex items-center justify-center gap-1 mb-2">
+                                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                                <span class="text-sm font-medium">4.5</span>
+                            </div>
+                            <span class="text-xs text-gray-500">(28 reviews)</span>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-xl text-gray-900">Lisa Martinez</h3>
+                                <p class="text-sm text-gray-600">Martinez Realty Group</p>
+                            </div>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="badge badge-commission">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="1" x2="12" y2="23"/>
+                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                    </svg>
+                                    Commission Based
+                                </span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                        <circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    <span>Austin, TX</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12,6 12,12 16,14"/>
+                                    </svg>
+                                    <span>2 hours response</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">New Construction</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Modern</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            Specialist in new construction and modern homes in the rapidly growing Austin market.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vendor Card 7 -->
+            <div class="vendor-card bg-white rounded-lg shadow-md hover:shadow-xl border-2 hover:border-blue-200 p-6">
+                <div class="flex items-center gap-6">
+                    <div class="flex-shrink-0">
+                        <div class="w-20 h-20 bg-teal-100 rounded-full flex items-center justify-center mb-3">
+                            <span class="text-teal-600 font-bold text-xl">RT</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="flex items-center justify-center gap-1 mb-2">
+                                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                                <span class="text-sm font-medium">4.9</span>
+                            </div>
+                            <span class="text-xs text-gray-500">(36 reviews)</span>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-xl text-gray-900">Robert Taylor</h3>
+                                <p class="text-sm text-gray-600">Taylor Commercial RE</p>
+                            </div>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="badge badge-marketing">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                                        <polyline points="17 6 23 6 23 12"/>
+                                    </svg>
+                                    Marketing Pro
+                                </span>
+                                <span class="badge badge-verified">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    Verified
+                                </span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                        <circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    <span>Seattle, WA</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12,6 12,12 16,14"/>
+                                    </svg>
+                                    <span>1 hour response</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Commercial</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Retail</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            Commercial real estate expert with focus on retail spaces and mixed-use developments.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vendor Card 8 -->
+            <div class="vendor-card bg-white rounded-lg shadow-md hover:shadow-xl border-2 hover:border-blue-200 p-6">
+                <div class="flex items-center gap-6">
+                    <div class="flex-shrink-0">
+                        <div class="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mb-3">
+                            <span class="text-orange-600 font-bold text-xl">JD</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="flex items-center justify-center gap-1 mb-2">
+                                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                                <span class="text-sm font-medium">4.7</span>
+                            </div>
+                            <span class="text-xs text-gray-500">(22 reviews)</span>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-xl text-gray-900">Jennifer Davis</h3>
+                                <p class="text-sm text-gray-600">Davis Home Solutions</p>
+                            </div>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="badge badge-verified">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    Verified
+                                </span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                        <circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    <span>Denver, CO</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12,6 12,12 16,14"/>
+                                    </svg>
+                                    <span>3 hours response</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Mountain</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Suburban</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            Mountain and suburban property specialist helping families find their dream homes.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vendor Card 9 -->
+            <div class="vendor-card bg-white rounded-lg shadow-md hover:shadow-xl border-2 hover:border-blue-200 p-6">
+                <div class="flex items-center gap-6">
+                    <div class="flex-shrink-0">
+                        <div class="w-20 h-20 bg-cyan-100 rounded-full flex items-center justify-center mb-3">
+                            <span class="text-cyan-600 font-bold text-xl">KL</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="flex items-center justify-center gap-1 mb-2">
+                                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                                <span class="text-sm font-medium">4.8</span>
+                            </div>
+                            <span class="text-xs text-gray-500">(33 reviews)</span>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-xl text-gray-900">Kevin Lee</h3>
+                                <p class="text-sm text-gray-600">Lee Investment Properties</p>
+                            </div>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="badge badge-top-rated">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                    Top Rated
+                                </span>
+                                <span class="badge badge-commission">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="1" x2="12" y2="23"/>
+                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                    </svg>
+                                    Commission Based
+                                </span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                        <circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    <span>Phoenix, AZ</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12,6 12,12 16,14"/>
+                                    </svg>
+                                    <span>45 min response</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Investment</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Multi-family</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            Investment property expert specializing in multi-family and rental properties for investors.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vendor Card 10 -->
+            <div class="vendor-card bg-white rounded-lg shadow-md hover:shadow-xl border-2 hover:border-blue-200 p-6">
+                <div class="flex items-center gap-6">
+                    <div class="flex-shrink-0">
+                        <div class="w-20 h-20 bg-lime-100 rounded-full flex items-center justify-center mb-3">
+                            <span class="text-lime-600 font-bold text-xl">AB</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="flex items-center justify-center gap-1 mb-2">
+                                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                                <span class="text-sm font-medium">4.6</span>
+                            </div>
+                            <span class="text-xs text-gray-500">(19 reviews)</span>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-xl text-gray-900">Amanda Brown</h3>
+                                <p class="text-sm text-gray-600">Brown Property Partners</p>
+                            </div>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="badge badge-marketing">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                                        <polyline points="17 6 23 6 23 12"/>
+                                    </svg>
+                                    Marketing Pro
+                                </span>
+                                <span class="badge badge-verified">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    Verified
+                                </span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                        <circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    <span>Portland, OR</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12,6 12,12 16,14"/>
+                                    </svg>
+                                    <span>2 hours response</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Eco-Friendly</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Green Homes</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            Green building specialist focused on sustainable and eco-friendly properties in the Pacific Northwest.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Duplicate cards for seamless infinite scroll -->
+            
+            <!-- Duplicate Card 1 -->
+            <div class="vendor-card bg-white rounded-lg shadow-md hover:shadow-xl border-2 hover:border-blue-200 p-6">
+                <div class="flex items-center gap-6">
+                    <div class="flex-shrink-0">
+                        <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                            <span class="text-blue-600 font-bold text-xl">JS</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="flex items-center justify-center gap-1 mb-2">
+                                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                                <span class="text-sm font-medium">4.8</span>
+                            </div>
+                            <span class="text-xs text-gray-500">(24 reviews)</span>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-xl text-gray-900">John Smith</h3>
+                                <p class="text-sm text-gray-600">Real Estate Pro LLC</p>
+                            </div>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="badge badge-top-rated">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                    Top Rated
+                                </span>
+                                <span class="badge badge-verified">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    Verified
+                                </span>
+                                <span class="badge badge-marketing">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                                        <polyline points="17 6 23 6 23 12"/>
+                                    </svg>
+                                    Marketing Pro
+                                </span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                        <circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    <span>New York, NY</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12,6 12,12 16,14"/>
+                                    </svg>
+                                    <span>2 hours response</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Residential</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Commercial</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Luxury</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            Experienced real estate professional with over 10 years in the industry, specializing in luxury properties and commercial spaces.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Duplicate Card 2 -->
+            <div class="vendor-card bg-white rounded-lg shadow-md hover:shadow-xl border-2 hover:border-blue-200 p-6">
+                <div class="flex items-center gap-6">
+                    <div class="flex-shrink-0">
+                        <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-3">
+                            <span class="text-green-600 font-bold text-xl">SA</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="flex items-center justify-center gap-1 mb-2">
+                                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                                <span class="text-sm font-medium">4.9</span>
+                            </div>
+                            <span class="text-xs text-gray-500">(31 reviews)</span>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-xl text-gray-900">Sarah Anderson</h3>
+                                <p class="text-sm text-gray-600">Anderson Realty</p>
+                            </div>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="badge badge-verified">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    Verified
+                                </span>
+                                <span class="badge badge-commission">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="1" x2="12" y2="23"/>
+                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                    </svg>
+                                    Commission Based
+                                </span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                        <circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    <span>Los Angeles, CA</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12,6 12,12 16,14"/>
+                                    </svg>
+                                    <span>1 hour response</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Residential</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">First-time Buyers</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            Dedicated to helping first-time homebuyers navigate their journey with personalized service and expert guidance.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Duplicate Card 3 -->
+            <div class="vendor-card bg-white rounded-lg shadow-md hover:shadow-xl border-2 hover:border-blue-200 p-6">
+                <div class="flex items-center gap-6">
+                    <div class="flex-shrink-0">
+                        <div class="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mb-3">
+                            <span class="text-purple-600 font-bold text-xl">MR</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="flex items-center justify-center gap-1 mb-2">
+                                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                                <span class="text-sm font-medium">4.7</span>
+                            </div>
+                            <span class="text-xs text-gray-500">(18 reviews)</span>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="font-semibold text-xl text-gray-900">Mike Rodriguez</h3>
+                                <p class="text-sm text-gray-600">Rodriguez Commercial</p>
+                            </div>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="badge badge-top-rated">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                    Top Rated
+                                </span>
+                                <span class="badge badge-marketing">
+                                    <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                                        <polyline points="17 6 23 6 23 12"/>
+                                    </svg>
+                                    Marketing Pro
+                                </span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-3">
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                        <circle cx="12" cy="10" r="3"/>
+                                    </svg>
+                                    <span>Chicago, IL</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12,6 12,12 16,14"/>
+                                    </svg>
+                                    <span>3 hours response</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Commercial</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Industrial</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-xs rounded">Office</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            Commercial real estate specialist focusing on office spaces and industrial properties with extensive market knowledge.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        </div>
+
+        <!-- Badge Legend -->
+        <div class="mt-12 p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+            <div class="flex items-center gap-2 mb-4">
+                <svg class="w-5 h-5 text-yellow-500" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <h4 class="font-bold text-lg text-gray-800">Vendor Badges Legend</h4>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm">
+                    <svg class="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    <div>
+                        <p class="font-semibold text-sm text-gray-900">Top Rated</p>
+                        <p class="text-xs text-gray-600">Highly rated vendors</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm">
+                    <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    <div>
+                        <p class="font-semibold text-sm text-gray-900">Verified</p>
+                        <p class="text-xs text-gray-600">Identity verified</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm">
+                    <svg class="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                        <polyline points="17 6 23 6 23 12"/>
+                    </svg>
+                    <div>
+                        <p class="font-semibold text-sm text-gray-900">Marketing Pro</p>
+                        <p class="text-xs text-gray-600">Advanced marketing tools</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm">
+                    <div class="w-5 h-5 bg-orange-500 rounded-full flex-shrink-0 mt-0.5"></div>
+                    <div>
+                        <p class="font-semibold text-sm text-gray-900">Commission Based</p>
+                        <p class="text-xs text-gray-600">Performance pricing</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

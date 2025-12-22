@@ -91,6 +91,10 @@ const EditPlan = () => {
             messages: fetchedPlan.limits?.messages || 0,
             leadManagement: fetchedPlan.limits?.leadManagement || 'basic'
           },
+          whatsappSupport: {
+            enabled: fetchedPlan.whatsappSupport?.enabled || false,
+            number: fetchedPlan.whatsappSupport?.number || ''
+          }
         });
 
         // Set impact info
@@ -492,27 +496,27 @@ const EditPlan = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Premium Benefits</CardTitle>
-            <CardDescription>Special benefits and features for this plan</CardDescription>
+            <CardTitle>Plan Badges</CardTitle>
+            <CardDescription>Badges displayed on vendor profiles and home page for users who purchase this plan</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex gap-2">
               <Input
-                placeholder="Benefit name..."
+                placeholder="Badge name (e.g., Top Rated, Verified)..."
                 value={newBenefit.name}
                 onChange={(e) => setNewBenefit({ ...newBenefit, name: e.target.value })}
                 onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
                 className="flex-1"
               />
               <Input
-                placeholder="Description (optional)"
+                placeholder="Description (e.g., Highly rated professional)..."
                 value={newBenefit.description}
                 onChange={(e) => setNewBenefit({ ...newBenefit, description: e.target.value })}
                 onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
                 className="flex-1"
               />
               <Input
-                placeholder="Icon name (optional)"
+                placeholder="Icon (star, shield, etc)..."
                 value={newBenefit.icon}
                 onChange={(e) => setNewBenefit({ ...newBenefit, icon: e.target.value })}
                 onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
@@ -560,11 +564,69 @@ const EditPlan = () => {
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    No benefits added yet. Add benefits to highlight special features of this plan.
+                    No badges added yet. Add badges to highlight this plan on vendor profiles and the home page. Example badges: "Top Rated", "Verified", "Marketing Pro"
                   </AlertDescription>
                 </Alert>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* WhatsApp Support Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>WhatsApp Support</CardTitle>
+            <CardDescription>Configure WhatsApp contact for properties under this plan</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="whatsappEnabled"
+                checked={plan.whatsappSupport?.enabled || false}
+                onCheckedChange={(checked) => setPlan({
+                  ...plan,
+                  whatsappSupport: {
+                    ...plan.whatsappSupport,
+                    enabled: checked as boolean
+                  }
+                })}
+              />
+              <Label htmlFor="whatsappEnabled" className="cursor-pointer">
+                Enable WhatsApp Contact Button for Properties
+              </Label>
+            </div>
+
+            {plan.whatsappSupport?.enabled && (
+              <div className="space-y-2 pl-6">
+                <Label htmlFor="whatsappNumber">WhatsApp Number *</Label>
+                <Input
+                  id="whatsappNumber"
+                  type="text"
+                  placeholder="+91 90807 20215"
+                  value={plan.whatsappSupport?.number || ''}
+                  onChange={(e) => setPlan({
+                    ...plan,
+                    whatsappSupport: {
+                      ...plan.whatsappSupport,
+                      enabled: true,
+                      number: e.target.value
+                    }
+                  })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Include country code (e.g., +91 for India). This number will be shown to customers for properties under this plan.
+                </p>
+              </div>
+            )}
+
+            {!plan.whatsappSupport?.enabled && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  When enabled, customers will see a WhatsApp contact button instead of regular phone/message buttons for properties under this plan.
+                </AlertDescription>
+              </Alert>
+            )}
           </CardContent>
         </Card>
 

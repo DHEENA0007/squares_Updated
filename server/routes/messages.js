@@ -506,17 +506,27 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
   }
 
   // Check if the recipient has permission to receive messages
-  // If the property was posted by a user with custom role, check their permissions
   const recipient = await User.findById(recipientId);
 
+  if (!recipient) {
+    return res.status(404).json({
+      success: false,
+      message: 'Property owner not found'
+    });
+  }
+
+  // Standard roles can always receive messages
+  const allowedRecipientRoles = ['superadmin', 'admin', 'subadmin', 'agent', 'vendor', 'customer'];
+  const isStandardRole = allowedRecipientRoles.includes(recipient.role);
+  
   // Check if recipient has message view and reply permissions
-  const canReceiveMessages = hasPermission(recipient, PERMISSIONS.MESSAGES_VIEW) && 
-                             hasPermission(recipient, PERMISSIONS.MESSAGES_REPLY);
+  const canReceiveMessages = isStandardRole || 
+    (hasPermission(recipient, PERMISSIONS.MESSAGES_VIEW) && 
+     hasPermission(recipient, PERMISSIONS.MESSAGES_REPLY));
 
   // If recipient doesn't have message permissions, route to superadmin
-  if (!canReceiveMessages && recipient.role !== 'superadmin' && recipient.role !== 'admin' && 
-      recipient.role !== 'subadmin' && recipient.role !== 'agent' && recipient.role !== 'vendor') {
-    console.log(`User ${recipientId} doesn't have message permissions, routing to superadmin`);
+  if (!canReceiveMessages) {
+    console.log(`User ${recipientId} (${recipient.role}) doesn't have message permissions, routing to superadmin`);
     
     // Find superadmin
     const superadmin = await User.findOne({ role: 'superadmin' }).sort({ createdAt: 1 });
@@ -529,6 +539,7 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
     }
     
     recipientId = superadmin._id;
+    console.log(`Message routed to superadmin: ${superadmin._id}`);
   }
 
   // Don't allow users to message themselves
