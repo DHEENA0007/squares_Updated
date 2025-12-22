@@ -257,7 +257,7 @@ router.post('/', asyncHandler(async (req, res) => {
   }
 
   // Check if recipient exists
-  const recipient = await User.findById(recipientId).populate('roleObject', 'permissions');
+  const recipient = await User.findById(recipientId);
   if (!recipient) {
     return res.status(404).json({
       success: false,
@@ -507,8 +507,7 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
 
   // Check if the recipient has permission to receive messages
   // If the property was posted by a user with custom role, check their permissions
-  const recipient = await User.findById(recipientId)
-    .populate('roleObject', 'permissions');
+  const recipient = await User.findById(recipientId);
 
   // Check if recipient has message view and reply permissions
   const canReceiveMessages = hasPermission(recipient, PERMISSIONS.MESSAGES_VIEW) && 
