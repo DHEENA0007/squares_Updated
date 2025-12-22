@@ -104,6 +104,12 @@ const PERMISSIONS = {
     // Dashboard
     DASHBOARD_VIEW: 'dashboard.view',
     ANALYTICS_VIEW: 'analytics.view',
+
+    // Messages
+    MESSAGES_VIEW: 'messages.view',
+    MESSAGES_SEND: 'messages.send',
+    MESSAGES_DELETE: 'messages.delete',
+    MESSAGES_MARK_READ: 'messages.markRead',
 };
 
 /**

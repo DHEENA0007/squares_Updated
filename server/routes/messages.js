@@ -221,14 +221,6 @@ router.get('/conversations', asyncHandler(async (req, res) => {
 // @route   POST /api/messages
 // @access  Private
 router.post('/', asyncHandler(async (req, res) => {
-  // Check permission for sending messages
-  if (!hasPermission(req.user, PERMISSIONS.MESSAGES_SEND)) {
-    return res.status(403).json({
-      success: false,
-      message: 'Insufficient permissions to send messages'
-    });
-  }
-
   const { conversationId, recipientId, content, attachments } = req.body;
 
   if (!conversationId || !recipientId || !content) {
@@ -244,6 +236,16 @@ router.post('/', asyncHandler(async (req, res) => {
     return res.status(403).json({
       success: false,
       message: 'Not authorized to send messages in this conversation'
+    });
+  }
+
+  // Allow users to send messages in their own conversations
+  // Check permission only for sending messages to conversations they're not part of
+  const isPartOfConversation = userIds.includes(req.user.id.toString());
+  if (!isPartOfConversation && !hasPermission(req.user, PERMISSIONS.MESSAGES_SEND)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to send messages'
     });
   }
 

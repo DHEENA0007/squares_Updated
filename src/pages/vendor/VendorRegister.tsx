@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
@@ -37,6 +40,7 @@ import EnhancedLocationSelector from "../../components/vendor/EnhancedLocationSe
 const VendorRegister = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
+  const [maxReachedStep, setMaxReachedStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -75,11 +79,58 @@ const VendorRegister = () => {
     checking: boolean;
     available: boolean | null;
     message: string;
+    lastChecked?: string;
+    retryCount: number;
   }>({
     checking: false,
     available: null,
+    message: "",
+    retryCount: 0
+  });
+
+  const [gstValidation, setGstValidation] = useState<{
+    valid: boolean | null;
+    message: string;
+  }>({
+    valid: null,
     message: ""
   });
+
+  const [uploadedDocuments, setUploadedDocuments] = useState({
+    businessRegistration: null,
+    professionalLicense: null,
+    identityProof: null
+  });
+
+  // Location service states
+  const [states, setStates] = useState<string[]>([]);
+  const [districts, setDistricts] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  
+  // Loading states for location fields
+  const [locationLoading, setLocationLoading] = useState({
+    states: false,
+    districts: false,
+    cities: false,
+    pincode: false
+  });
+  
+  // Store selected location names for display
+  const [selectedLocationNames, setSelectedLocationNames] = useState({
+    country: 'India',
+    state: '',
+    district: '',
+    city: ''
+  });
+  
+  const steps = [
+    { id: 1, title: "Personal Info", description: "Basic details" },
+    { id: 2, title: "Business Info", description: "Company details" },
+    { id: 3, title: "Address", description: "Location details" },
+    { id: 4, title: "Documents", description: "Verification" },
+    { id: 5, title: "Review & Submit", description: "Review profile" },
+    { id: 6, title: "Verify Email", description: "Email verification" }
+  ];
 
   const [formData, setFormData] = useState({
     // Personal Information
@@ -121,40 +172,7 @@ const VendorRegister = () => {
     marketingConsent: false
   });
 
-  const [uploadedDocuments, setUploadedDocuments] = useState({
-    businessRegistration: null,
-    professionalLicense: null,
-    identityProof: null
-  });
 
-  // Location service states
-  const [states, setStates] = useState<string[]>([]);
-  const [districts, setDistricts] = useState<string[]>([]);
-  const [cities, setCities] = useState<string[]>([]);
-  
-  // Loading states for location fields
-  const [locationLoading, setLocationLoading] = useState({
-    states: false,
-    districts: false,
-    cities: false,
-    pincode: false
-  });
-  
-  // Store selected location names for display
-  const [selectedLocationNames, setSelectedLocationNames] = useState({
-    country: 'India',
-    state: '',
-    district: '',
-    city: ''
-  });
-  const steps = [
-    { id: 1, title: "Personal Info", description: "Basic details" },
-    { id: 2, title: "Business Info", description: "Company details" },
-    { id: 3, title: "Address", description: "Location details" },
-    { id: 4, title: "Documents", description: "Verification" },
-    { id: 5, title: "Review & Submit", description: "Review profile" },
-    { id: 6, title: "Verify Email", description: "Email verification" }
-  ];
 
   // Initialize locaService on component mount
   useEffect(() => {
@@ -412,29 +430,107 @@ const VendorRegister = () => {
     }
   };
 
-  // Business name availability check
+  // Enhanced business name validation with fallback strategies
+  const validateBusinessNameFormat = (businessName: string): { isValid: boolean; message: string } => {
+    const trimmed = businessName.trim();
+    
+    if (!trimmed) {
+      return { isValid: false, message: "Business name is required" };
+    }
+    
+    if (trimmed.length < 3) {
+      return { isValid: false, message: "Business name must be at least 3 characters long" };
+    }
+    
+    if (trimmed.length > 100) {
+      return { isValid: false, message: "Business name must not exceed 100 characters" };
+    }
+    
+    // Check for valid characters (allow letters, numbers, spaces, basic punctuation)
+    const validPattern = /^[a-zA-Z0-9\s\-\&\,\.\(\)]+$/;
+    if (!validPattern.test(trimmed)) {
+      return { isValid: false, message: "Business name contains invalid characters. Only letters, numbers, spaces, and basic punctuation are allowed" };
+    }
+    
+    return { isValid: true, message: "" };
+  };
+
+  // Business name availability check with fallback
   const checkBusinessNameAvailability = async (businessName: string) => {
     if (businessName.trim().length < 3) {
-      setBusinessNameValidation({ checking: false, available: null, message: "" });
+      setBusinessNameValidation({ checking: false, available: null, message: "", retryCount: 0 });
       return;
     }
 
-    setBusinessNameValidation({ checking: true, available: null, message: "" });
-    
+    setBusinessNameValidation({ checking: true, available: null, message: "", retryCount: 0 });
+
     try {
       const result = await authService.checkBusinessNameAvailability(businessName.trim());
       setBusinessNameValidation({
         checking: false,
         available: result.available,
-        message: result.message
+        message: result.message,
+        retryCount: 0
       });
     } catch (error) {
-      setBusinessNameValidation({
-        checking: false,
-        available: false,
-        message: "Unable to validate business name"
-      });
+      console.warn("Business name API validation failed:", error);
+      
+      // Fallback: Use format validation when API is unavailable
+      const formatValidation = validateBusinessNameFormat(businessName);
+      
+      if (formatValidation.isValid) {
+        // API failed but format is valid - allow progression with warning
+        setBusinessNameValidation({
+          checking: false,
+          available: null, // null means "validation pending/unavailable"
+          message: "Business name format is valid. Availability check unavailable - will be verified during review.",
+          retryCount: 0
+        });
+      } else {
+        // API failed and format is invalid
+        setBusinessNameValidation({
+          checking: false,
+          available: false,
+          message: formatValidation.message,
+          retryCount: 0
+        });
+      }
     }
+  };
+
+  // Retry mechanism for business name validation
+  const retryBusinessNameValidation = () => {
+    const currentRetryCount = businessNameValidation.retryCount || 0;
+    if (currentRetryCount < 3) {
+      setBusinessNameValidation(prev => ({
+        ...prev,
+        retryCount: currentRetryCount + 1,
+        checking: true,
+        message: ""
+      }));
+      checkBusinessNameAvailability(formData.businessName);
+    }
+  };
+
+  // GST Number validation
+  const validateGST = (gst: string): { valid: boolean; message: string } => {
+    if (!gst.trim()) {
+      return { valid: true, message: "" }; // Optional field, so empty is valid
+    }
+
+    // GST format: 15 characters
+    // 2 digits (state code) + 10 characters (PAN) + 1 digit (entity number) + 1 digit (Z by default) + 1 alphanumeric (checksum)
+    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+
+    if (gst.length !== 15) {
+      return { valid: false, message: "GST number must be exactly 15 characters" };
+    }
+
+    if (!gstRegex.test(gst.toUpperCase())) {
+      return { valid: false, message: "Invalid GST format. Format: 22AAAAA0000A1Z5" };
+    }
+
+    return { valid: true, message: "" };
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -450,10 +546,18 @@ const VendorRegister = () => {
       setTimeout(() => checkPhoneAvailability(value), 500);
     } else if (field === "businessName" && typeof value === "string") {
       setTimeout(() => checkBusinessNameAvailability(value), 500);
+    } else if (field === "gstNumber" && typeof value === "string") {
+      setTimeout(() => {
+        const validation = validateGST(value);
+        setGstValidation({
+          valid: validation.valid,
+          message: validation.message
+        });
+      }, 300);
     }
   };
 
-  // Validation functions
+  // Validation functions with multi-layer strategy
   const validateStep = (step: number): boolean => {
     switch (step) {
       case 1:
@@ -473,14 +577,28 @@ const VendorRegister = () => {
           phoneValidation.available !== false
         );
       case 2:
-        return !!(
+        // Enhanced validation with fallback strategies
+        const businessNameValid = !!(
           formData.businessName.trim() &&
+          validateBusinessNameFormat(formData.businessName).isValid
+        );
+        
+        const otherFieldsValid = !!(
           formData.businessType &&
           formData.businessDescription.trim() &&
-          formData.businessDescription.trim().length >= 50 &&
-          formData.experience &&
-          businessNameValidation.available !== false
+          formData.businessDescription.trim().length >= 10 &&
+          formData.experience
         );
+        
+        // Allow progression if:
+        // 1. Business name format is valid (primary validation)
+        // 2. Business name availability is either confirmed available OR unavailable (null) but format is valid
+        // 3. Only block if business name is confirmed unavailable (available === false)
+        const businessNameAvailabilityValid = 
+          businessNameValidation.available === true || 
+          businessNameValidation.available === null; // null means validation unavailable but format is valid
+        
+        return businessNameValid && otherFieldsValid && businessNameAvailabilityValid;
       case 3:
         return !!(
           formData.address.trim() &&
@@ -494,7 +612,8 @@ const VendorRegister = () => {
         return !!(
           formData.panNumber.trim() &&
           uploadedDocuments.businessRegistration &&
-          uploadedDocuments.identityProof
+          uploadedDocuments.identityProof &&
+          (gstValidation.valid !== false || !formData.gstNumber.trim())
         );
       case 5:
         return formData.termsAccepted;
@@ -530,8 +649,20 @@ const VendorRegister = () => {
         else if (formData.password !== formData.confirmPassword) errors.push("Passwords do not match");
         break;
       case 2:
-        if (!formData.businessName.trim()) errors.push("Business name is required");
-        else if (businessNameValidation.available === false) errors.push("Business name is already registered");
+        // Enhanced validation error messages
+        const businessNameFormatValidation = validateBusinessNameFormat(formData.businessName);
+        
+        if (!formData.businessName.trim()) {
+          errors.push("Business name is required");
+        } else if (!businessNameFormatValidation.isValid) {
+          errors.push(businessNameFormatValidation.message);
+        } else if (businessNameValidation.available === false) {
+          errors.push(businessNameValidation.message || "This business name is already registered");
+        } else if (businessNameValidation.available === null && businessNameFormatValidation.isValid) {
+          // Format is valid but availability check is unavailable - this should not block progression
+          // No error added - this allows progression
+        }
+        
         if (!formData.businessType) errors.push("Business type is required");
         if (!formData.businessDescription.trim()) errors.push("Business description is required");
         else if (formData.businessDescription.trim().length < 10) errors.push("Business description must be at least 10 characters");
@@ -553,6 +684,9 @@ const VendorRegister = () => {
         }
         if (!uploadedDocuments.businessRegistration) errors.push("Business registration certificate is required");
         if (!uploadedDocuments.identityProof) errors.push("Identity proof is required");
+        if (formData.gstNumber.trim() && gstValidation.valid === false) {
+          errors.push(gstValidation.message || "Invalid GST number format");
+        }
         break;
       case 5:
         if (!formData.termsAccepted) errors.push("Please accept the terms and conditions");
@@ -663,7 +797,12 @@ const VendorRegister = () => {
       // Submit profile to admin and then send OTP
       await handleProfileSubmission();
     } else if (currentStep < 6) {
-      setCurrentStep(currentStep + 1);
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      // Update max reached step
+      if (nextStep > maxReachedStep) {
+        setMaxReachedStep(nextStep);
+      }
     }
   };
 
@@ -673,10 +812,17 @@ const VendorRegister = () => {
     }
   };
 
+  // Update maxReachedStep when OTP is sent (step 5 to 6 transition)
+  useEffect(() => {
+    if (otpStep === "sent" && currentStep === 6 && maxReachedStep < 6) {
+      setMaxReachedStep(6);
+    }
+  }, [otpStep, currentStep, maxReachedStep]);
+
   const handleStepClick = (stepId: number) => {
-    // Allow navigation to any step that has been completed or is the current step
-    // Don't allow jumping forward to incomplete steps
-    if (stepId <= currentStep) {
+    // Allow navigation to any step that has been reached or is the current step
+    // Don't allow jumping forward to unreached steps
+    if (stepId <= maxReachedStep) {
       setCurrentStep(stepId);
     }
   };
@@ -1166,10 +1312,71 @@ const VendorRegister = () => {
                   value={formData.businessName}
                   onChange={(e) => handleInputChange("businessName", e.target.value)}
                   placeholder="Enter your business name"
-                  className="pl-10"
+                  className={`pl-10 ${
+                    businessNameValidation.available === false ? "border-red-500" :
+                    businessNameValidation.available === true ? "border-green-500" :
+                    businessNameValidation.available === null ? "border-amber-500" : ""
+                  }`}
                   required
                 />
+                {/* Status indicator */}
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  {businessNameValidation.checking ? (
+                    <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                  ) : businessNameValidation.available === true ? (
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  ) : businessNameValidation.available === false ? (
+                    <AlertCircle className="h-4 w-4 text-red-500" />
+                  ) : businessNameValidation.available === null && formData.businessName.trim().length >= 3 ? (
+                    <Clock className="h-4 w-4 text-amber-500" />
+                  ) : null}
+                </div>
               </div>
+              
+              {/* Enhanced validation feedback */}
+              {businessNameValidation.checking && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  Checking availability...
+                </p>
+              )}
+              
+              {businessNameValidation.available === true && (
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" />
+                  Business name is available
+                </p>
+              )}
+              
+              {businessNameValidation.available === false && (
+                <p className="text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {businessNameValidation.message || "Business name is already registered"}
+                </p>
+              )}
+              
+              {businessNameValidation.available === null && formData.businessName.trim().length >= 3 && (
+                <p className="text-xs text-amber-600 flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  Format is valid. Availability check unavailable - will be verified during review.
+                </p>
+              )}
+              
+              {/* Format validation feedback */}
+              {formData.businessName && !businessNameValidation.checking && (
+                (() => {
+                  const formatValidation = validateBusinessNameFormat(formData.businessName);
+                  if (!formatValidation.isValid) {
+                    return (
+                      <p className="text-xs text-red-500 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {formatValidation.message}
+                      </p>
+                    );
+                  }
+                  return null;
+                })()
+              )}
             </div>
 
             <div className="space-y-2">
@@ -1271,33 +1478,52 @@ const VendorRegister = () => {
                   <Label htmlFor="state" className="flex items-center gap-1">
                     State <span className="text-red-500">*</span>
                   </Label>
-                  <Select 
-                    value={formData.state} 
-                    onValueChange={(value) => {
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        state: value, 
-                        stateCode: value,
-                        district: '',
-                        districtCode: '',
-                        city: '',
-                        cityCode: '',
-                        pincode: ''
-                      }));
-                    }}
-                    disabled={locationLoading.states}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={locationLoading.states ? "Loading states..." : "Select state"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {states.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between"
+                        disabled={locationLoading.states}
+                      >
+                        {locationLoading.states ? "Loading states..." : (formData.state || "Select state")}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Search states..." />
+                        <CommandEmpty>No states found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandList>
+                            {states.map((state) => (
+                              <CommandItem
+                                key={state}
+                                value={state}
+                                onSelect={(value) => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    state: value,
+                                    stateCode: value,
+                                    district: '',
+                                    districtCode: '',
+                                    city: '',
+                                    cityCode: '',
+                                    pincode: ''
+                                  }));
+                                }}
+                              >
+                                <Check
+                                  className={`mr-2 h-4 w-4 ${formData.state === state ? "opacity-100" : "opacity-0"}`}
+                                />
+                                {state}
+                              </CommandItem>
+                            ))}
+                          </CommandList>
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 {/* District Selection */}
@@ -1305,37 +1531,54 @@ const VendorRegister = () => {
                   <Label htmlFor="district" className="flex items-center gap-1">
                     District <span className="text-red-500">*</span>
                   </Label>
-                  <Select 
-                    value={formData.district} 
-                    onValueChange={(value) => {
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        district: value, 
-                        districtCode: value,
-                        city: '',
-                        cityCode: '',
-                        pincode: ''
-                      }));
-                    }}
-                    disabled={!formData.state || locationLoading.districts}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={
-                        !formData.state 
-                          ? "Select state first" 
-                          : locationLoading.districts 
-                            ? "Loading districts..." 
-                            : "Select district"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {districts.map((district) => (
-                        <SelectItem key={district} value={district}>
-                          {district}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between"
+                        disabled={!formData.state || locationLoading.districts}
+                      >
+                        {locationLoading.districts
+                          ? "Loading districts..."
+                          : !formData.state
+                            ? "Select state first"
+                            : (formData.district || "Select district")}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Search districts..." />
+                        <CommandEmpty>No districts found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandList>
+                            {districts.map((district) => (
+                              <CommandItem
+                                key={district}
+                                value={district}
+                                onSelect={(value) => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    district: value,
+                                    districtCode: value,
+                                    city: '',
+                                    cityCode: '',
+                                    pincode: ''
+                                  }));
+                                }}
+                              >
+                                <Check
+                                  className={`mr-2 h-4 w-4 ${formData.district === district ? "opacity-100" : "opacity-0"}`}
+                                />
+                                {district}
+                              </CommandItem>
+                            ))}
+                          </CommandList>
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 {/* City Selection */}
@@ -1343,34 +1586,51 @@ const VendorRegister = () => {
                   <Label htmlFor="city" className="flex items-center gap-1">
                     City <span className="text-red-500">*</span>
                   </Label>
-                  <Select 
-                    value={formData.city} 
-                    onValueChange={(value) => {
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        city: value, 
-                        cityCode: value
-                      }));
-                    }}
-                    disabled={!formData.district || locationLoading.cities}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={
-                        !formData.district 
-                          ? "Select district first" 
-                          : locationLoading.cities 
-                            ? "Loading cities..." 
-                            : "Select city"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cities.map((city) => (
-                        <SelectItem key={city} value={city}>
-                          {city}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between"
+                        disabled={!formData.district || locationLoading.cities}
+                      >
+                        {locationLoading.cities
+                          ? "Loading cities..."
+                          : !formData.district
+                            ? "Select district first"
+                            : (formData.city || "Select city")}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Search cities..." />
+                        <CommandEmpty>No cities found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandList>
+                            {cities.map((city) => (
+                              <CommandItem
+                                key={city}
+                                value={city}
+                                onSelect={(value) => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    city: value,
+                                    cityCode: value
+                                  }));
+                                }}
+                              >
+                                <Check
+                                  className={`mr-2 h-4 w-4 ${formData.city === city ? "opacity-100" : "opacity-0"}`}
+                                />
+                                {city}
+                              </CommandItem>
+                            ))}
+                          </CommandList>
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             </div>
@@ -1515,9 +1775,28 @@ const VendorRegister = () => {
                   <Input
                     id="gstNumber"
                     value={formData.gstNumber}
-                    onChange={(e) => handleInputChange("gstNumber", e.target.value)}
-                    placeholder="GST Registration Number"
+                    onChange={(e) => {
+                      // Only allow alphanumeric characters and convert to uppercase
+                      const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                      if (value.length <= 15) {
+                        handleInputChange("gstNumber", value);
+                      }
+                    }}
+                    placeholder="22AAAAA0000A1Z5"
+                    maxLength={15}
+                    className={formData.gstNumber && gstValidation.valid === false ? 'border-red-500' : formData.gstNumber && gstValidation.valid === true ? 'border-green-500' : ''}
                   />
+                  {formData.gstNumber && (
+                    <div className="text-xs">
+                      {gstValidation.valid === false ? (
+                        <p className="text-red-500">{gstValidation.message}</p>
+                      ) : gstValidation.valid === true ? (
+                        <p className="text-green-600 flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" /> Valid GST format
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -2003,7 +2282,7 @@ const VendorRegister = () => {
               Step {currentStep} of {steps.length}: {steps[currentStep - 1].title}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {Math.round((currentStep / steps.length) * 100)}% Complete
+              {Math.round(((currentStep - 1) / steps.length) * 100)}% Complete
             </p>
           </div>
         </div>
