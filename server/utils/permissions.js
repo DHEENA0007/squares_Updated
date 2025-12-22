@@ -122,8 +122,8 @@ const PERMISSIONS = {
 const hasPermission = (user, permission) => {
     if (!user) return false;
 
-    // Superadmin and Admin have all permissions by default
-    if (user.role === 'superadmin' || user.role === 'admin') return true;
+    // Superadmin, Admin, and SubAdmin have all permissions by default
+    if (user.role === 'superadmin' || user.role === 'admin' || user.role === 'subadmin') return true;
 
     // Check if user has the specific permission in rolePermissions array (user-specific overrides)
     if (user.rolePermissions && Array.isArray(user.rolePermissions)) {

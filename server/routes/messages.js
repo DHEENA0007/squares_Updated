@@ -241,11 +241,13 @@ router.post('/', asyncHandler(async (req, res) => {
     });
   }
 
-  // Check if user has permission to reply to messages (for custom roles)
-  // Vendors, customers, and agents can always reply
-  if (req.user.role !== 'superadmin' && req.user.role !== 'agent' && 
-      req.user.role !== 'vendor' && req.user.role !== 'customer') {
-    // Check permission for custom roles
+  // Check if user has permission to reply to messages
+  // Allow standard roles: superadmin, admin, subadmin, agent, vendor, customer
+  const allowedRoles = ['superadmin', 'admin', 'subadmin', 'agent', 'vendor', 'customer'];
+  const isAllowedRole = allowedRoles.includes(req.user.role);
+  
+  if (!isAllowedRole) {
+    // For custom roles, check MESSAGES_REPLY permission
     if (!hasPermission(req.user, PERMISSIONS.MESSAGES_REPLY)) {
       return res.status(403).json({
         success: false,
@@ -264,13 +266,16 @@ router.post('/', asyncHandler(async (req, res) => {
   }
 
   // Check if recipient can receive messages
-  // If recipient doesn't have view/reply permissions and isn't a standard role, route to superadmin
+  // Standard roles can always receive messages
   let finalRecipientId = recipientId;
-  const canReceiveMessages = hasPermission(recipient, PERMISSIONS.MESSAGES_VIEW) && 
-                             hasPermission(recipient, PERMISSIONS.MESSAGES_REPLY);
+  const allowedRecipientRoles = ['superadmin', 'admin', 'subadmin', 'agent', 'vendor', 'customer'];
+  const isStandardRole = allowedRecipientRoles.includes(recipient.role);
   
-  if (!canReceiveMessages && recipient.role !== 'superadmin' && recipient.role !== 'agent' && 
-      recipient.role !== 'vendor' && recipient.role !== 'customer') {
+  const canReceiveMessages = isStandardRole || 
+    (hasPermission(recipient, PERMISSIONS.MESSAGES_VIEW) && 
+     hasPermission(recipient, PERMISSIONS.MESSAGES_REPLY));
+  
+  if (!canReceiveMessages) {
     console.log(`Recipient ${recipientId} doesn't have message permissions, routing to superadmin`);
     
     // Find superadmin
@@ -510,7 +515,8 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
                              hasPermission(recipient, PERMISSIONS.MESSAGES_REPLY);
 
   // If recipient doesn't have message permissions, route to superadmin
-  if (!canReceiveMessages && recipient.role !== 'superadmin' && recipient.role !== 'agent' && recipient.role !== 'vendor') {
+  if (!canReceiveMessages && recipient.role !== 'superadmin' && recipient.role !== 'admin' && 
+      recipient.role !== 'subadmin' && recipient.role !== 'agent' && recipient.role !== 'vendor') {
     console.log(`User ${recipientId} doesn't have message permissions, routing to superadmin`);
     
     // Find superadmin

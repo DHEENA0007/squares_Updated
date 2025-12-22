@@ -605,14 +605,6 @@ const VendorAnalytics = () => {
           description: "Property page views"
         },
         {
-          title: "Leads Generated", 
-          value: "Coming Soon",
-          change: "",
-          changeType: "neutral" as "neutral" | "increase" | "decrease", 
-          icon: Clock,
-          description: "Feature in development"
-        },
-        {
           title: "Phone Calls",
           value: "0",
           change: "0%",
@@ -676,14 +668,6 @@ const VendorAnalytics = () => {
       changeType: viewsChange.changeType,
       icon: Eye,
       description: "Property page views"
-    },
-    {
-      title: "Leads Generated",
-      value: "Coming Soon",
-      change: "",
-      changeType: "neutral" as "neutral" | "increase" | "decrease",
-      icon: Clock,
-      description: "Feature in development"
     },
     {
       title: "Phone Calls",
