@@ -15,7 +15,7 @@ import {
   Reports,
   Promotions
 } from "@/routes/SubAdminLazyImports";
-import { ProfilePage, SettingsPage } from "@/routes/AdminLazyImports";
+import { ProfilePage, SettingsPage, MessagesPage } from "@/routes/AdminLazyImports";
 import PolicyEditor from "@/pages/subadmin/PolicyEditor";
 
 const SubAdminRoutes = () => {
@@ -33,6 +33,7 @@ const SubAdminRoutes = () => {
             <Route path="/vendor-performance" element={<VendorPerformance />} />
             <Route path="/addon-services" element={<AddonServices />} />
             <Route path="/promotions" element={<Promotions />} />
+            <Route path="/messages" element={<MessagesPage />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/profile" element={<ProfilePage />} />

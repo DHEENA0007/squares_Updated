@@ -663,9 +663,10 @@ const VendorAnalytics = () => {
     const leadsChange = formatChange(stats.trends?.leads?.growth);
     const propertiesChange = formatChange(stats.trends?.properties?.growth);
     const revenueChange = formatChange(stats.trends?.revenue?.growth);
-    const soldRevenueChange = formatChange(stats.trends?.soldRevenue?.growth);
-    const leasedRevenueChange = formatChange(stats.trends?.leasedRevenue?.growth);
-    const rentedRevenueChange = formatChange(stats.trends?.rentedRevenue?.growth);
+    // Note: Sold/Leased/Rented revenue trends not available in stats
+    const soldRevenueChange = { change: "0%", changeType: "neutral" as "neutral" };
+    const leasedRevenueChange = { change: "0%", changeType: "neutral" as "neutral" };
+    const rentedRevenueChange = { change: "0%", changeType: "neutral" as "neutral" };
 
     return [
     {
@@ -806,7 +807,7 @@ const VendorAnalytics = () => {
   const topProperties = performanceMetrics?.propertyPerformance.slice(0, 3) || [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mt-6">
       {/* Header */}
       <div className={`flex ${isMobile ? 'flex-col space-y-4' : 'justify-between items-center'}`}>
         <div>
@@ -1290,93 +1291,49 @@ const VendorAnalytics = () => {
                   <Area
                     type="monotone"
                     dataKey="views"
-                    fill="url(#colorViews)"
                     stroke="#3b82f6"
                     strokeWidth={2}
-                    name="Views"
+                    fillOpacity={1}
+                    fill="url(#colorViews)"
                   />
                 </AreaChart>
               </ResponsiveContainer>
-
-              {/* Top Properties Table */}
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Property Title
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Views
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Favorites
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Conv. Rate
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Revenue
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Rank
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {[...propertyPerformance].sort((a, b) => (b.revenue || 0) - (a.revenue || 0)).map((property, index) => (
-                      <tr key={property.propertyId}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {property.title || 'Untitled Property'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`text-xs font-semibold inline-block py-1 px-2 rounded-full ${propertyService.getStatusColor(property.status || 'pending')} text-white`}>
-                            {(property.status || 'pending').charAt(0).toUpperCase() + (property.status || 'pending').slice(1)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {analyticsService.formatNumber(property.views || 0)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {analyticsService.formatNumber(property.favorites || 0)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {property.conversionRate ? `${property.conversionRate.toFixed(1)}%` : 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {`₹${analyticsService.formatNumber(property.revenue || 0)}`}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="flex items-center">
-                            <Badge variant="secondary" className="bg-purple-100 text-purple-700">
-                              #{index + 1}
-                            </Badge>
-                          </div>
-                        </td>
+              
+              {/* Property Performance Table */}
+              <div className="mt-6">
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left p-3 text-sm font-semibold">Property</th>
+                        <th className="text-right p-3 text-sm font-semibold">Views</th>
+                        <th className="text-right p-3 text-sm font-semibold">Favorites</th>
+                        <th className="text-right p-3 text-sm font-semibold">Conv. Rate</th>
+                        <th className="text-right p-3 text-sm font-semibold">Revenue</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {propertyPerformance.map((property, index) => (
+                        <tr key={index} className="border-b hover:bg-muted/30 transition-colors">
+                          <td className="p-3 text-sm font-medium">{property.title}</td>
+                          <td className="p-3 text-sm text-right">{analyticsService.formatNumber(property.views || 0)}</td>
+                          <td className="p-3 text-sm text-right">{analyticsService.formatNumber(property.favorites || 0)}</td>
+                          <td className="p-3 text-sm text-right">{property.conversionRate || 0}%</td>
+                          <td className="p-3 text-sm text-right font-semibold">₹{analyticsService.formatNumber(property.revenue || 0)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-[400px] text-center">
-              <Home className="w-16 h-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Performance Data Found</h3>
-              <p className="text-muted-foreground max-w-md mb-4">
-                Performance data will be available once your properties start receiving views and interactions.
+              <BarChart3 className="w-16 h-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Performance Data</h3>
+              <p className="text-muted-foreground max-w-md">
+                Performance data for your properties will appear here once they receive views and interactions.
               </p>
-              <Button 
-                onClick={() => navigate('/vendor/properties/add')} 
-                className="mt-2"
-              >
-                Add Your First Property
-              </Button>
             </div>
           )}
         </CardContent>
@@ -1386,3 +1343,4 @@ const VendorAnalytics = () => {
 };
 
 export default VendorAnalytics;
+       

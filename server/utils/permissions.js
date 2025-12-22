@@ -108,6 +108,7 @@ const PERMISSIONS = {
     // Messages
     MESSAGES_VIEW: 'messages.view',
     MESSAGES_SEND: 'messages.send',
+    MESSAGES_REPLY: 'messages.reply',
     MESSAGES_DELETE: 'messages.delete',
     MESSAGES_MARK_READ: 'messages.markRead',
 };

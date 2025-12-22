@@ -235,7 +235,7 @@ const VendorProperties = () => {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 mt-16 px-4 md:px-0">
+    <div className="space-y-4 md:space-y-6 mt-6 px-4 md:px-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>

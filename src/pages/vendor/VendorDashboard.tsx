@@ -182,7 +182,7 @@ const VendorDashboard = () => {
 
 
   return (
-    <div className="space-y-4 md:space-y-6 mt-16 px-4 md:px-0">
+    <div className="space-y-4 md:space-y-6 mt-6 px-4 md:px-0">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
         <div>

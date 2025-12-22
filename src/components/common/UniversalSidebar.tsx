@@ -15,7 +15,8 @@ import {
     Headphones,
     Package,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
@@ -146,6 +147,12 @@ const UniversalSidebar = ({
             path: `${roleBasePath}/addon-services`,
             icon: Package,
             show: hasPermission(PERMISSIONS.ADDON_SERVICES_READ)
+        },
+        {
+            label: 'Messages',
+            path: `${roleBasePath}/messages`,
+            icon: MessageSquare,
+            show: hasPermission(PERMISSIONS.MESSAGES_VIEW)
         },
         {
             label: 'Policies',

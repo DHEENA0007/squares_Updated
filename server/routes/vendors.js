@@ -2947,22 +2947,19 @@ router.get('/analytics/overview', requireVendorRole, asyncHandler(async (req, re
       })
     ]);
 
-    // Calculate separate revenue from different property types
+    // Calculate separate revenue from different property types (lifetime revenue)
     const [soldProperties, leasedProperties, rentedProperties] = await Promise.all([
       Property.find({
         owner: vendorObjectId,
-        status: 'sold',
-        updatedAt: { $gte: currentStartDate, $lte: currentEndDate }
+        status: 'sold'
       }).select('price'),
       Property.find({
         owner: vendorObjectId,
-        status: { $in: ['leased'] },
-        updatedAt: { $gte: currentStartDate, $lte: currentEndDate }
+        status: { $in: ['leased'] }
       }).select('price'),
       Property.find({
         owner: vendorObjectId,
-        status: 'rented',
-        updatedAt: { $gte: currentStartDate, $lte: currentEndDate }
+        status: 'rented'
       }).select('price')
     ]);
 

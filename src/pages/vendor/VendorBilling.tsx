@@ -234,9 +234,24 @@ const VendorBilling: React.FC = () => {
       const usageData = [];
       if (stats.usageStats) {
         usageData.push(
-          { 'Resource': 'Properties', 'Used': stats.usageStats.properties.used, 'Limit': stats.usageStats.properties.limit, 'Usage %': `${Math.round((stats.usageStats.properties.used / stats.usageStats.properties.limit) * 100)}%` },
-          { 'Resource': 'Leads', 'Used': stats.usageStats.leads.used, 'Limit': stats.usageStats.leads.limit, 'Usage %': `${Math.round((stats.usageStats.leads.used / stats.usageStats.leads.limit) * 100)}%` },
-          { 'Resource': 'Messages', 'Used': stats.usageStats.messages.used, 'Limit': stats.usageStats.messages.limit, 'Usage %': `${Math.round((stats.usageStats.messages.used / stats.usageStats.messages.limit) * 100)}%` }
+          { 
+            'Resource': 'Properties', 
+            'Used': stats.usageStats.properties.used, 
+            'Limit': (stats.usageStats.properties.limit === -1 || stats.usageStats.properties.limit === null) ? '∞' : stats.usageStats.properties.limit, 
+            'Usage %': (stats.usageStats.properties.limit === -1 || stats.usageStats.properties.limit === null) ? 'Unlimited' : `${Math.round((stats.usageStats.properties.used / stats.usageStats.properties.limit) * 100)}%` 
+          },
+          { 
+            'Resource': 'Leads', 
+            'Used': stats.usageStats.leads.used, 
+            'Limit': (stats.usageStats.leads.limit === -1 || stats.usageStats.leads.limit === null) ? '∞' : stats.usageStats.leads.limit, 
+            'Usage %': (stats.usageStats.leads.limit === -1 || stats.usageStats.leads.limit === null) ? 'Unlimited' : `${Math.round((stats.usageStats.leads.used / stats.usageStats.leads.limit) * 100)}%` 
+          },
+          { 
+            'Resource': 'Messages', 
+            'Used': stats.usageStats.messages.used, 
+            'Limit': (stats.usageStats.messages.limit === -1 || stats.usageStats.messages.limit === null) ? '∞' : stats.usageStats.messages.limit, 
+            'Usage %': (stats.usageStats.messages.limit === -1 || stats.usageStats.messages.limit === null) ? 'Unlimited' : `${Math.round((stats.usageStats.messages.used / stats.usageStats.messages.limit) * 100)}%` 
+          }
         );
       }
 
@@ -961,14 +976,14 @@ const VendorBilling: React.FC = () => {
                       <div className="flex items-center justify-between mb-2">
                         <p className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium`}>Properties</p>
                         <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
-                          {billingStats?.usageStats?.properties?.used || 0} / {billingStats?.usageStats?.properties?.limit || 0}
+                          {billingStats?.usageStats?.properties?.used || 0} / {(billingStats?.usageStats?.properties?.limit === -1 || billingStats?.usageStats?.properties?.limit === null) ? '∞' : (billingStats?.usageStats?.properties?.limit || 0)}
                         </p>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-blue-600 h-2 rounded-full"
                           style={{
-                            width: `${Math.min(((billingStats?.usageStats?.properties?.used || 0) / (billingStats?.usageStats?.properties?.limit || 1)) * 100, 100)}%`
+                            width: `${(billingStats?.usageStats?.properties?.limit === -1 || billingStats?.usageStats?.properties?.limit === null) ? 100 : Math.min(((billingStats?.usageStats?.properties?.used || 0) / (billingStats?.usageStats?.properties?.limit || 1)) * 100, 100)}%`
                           }}
                         ></div>
                       </div>
@@ -978,14 +993,14 @@ const VendorBilling: React.FC = () => {
                       <div className="flex items-center justify-between mb-2">
                         <p className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium`}>Leads</p>
                         <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
-                          {billingStats?.usageStats?.leads?.used || 0} / {billingStats?.usageStats?.leads?.limit || 0}
+                          {billingStats?.usageStats?.leads?.used || 0} / {(billingStats?.usageStats?.leads?.limit === -1 || billingStats?.usageStats?.leads?.limit === null) ? '∞' : (billingStats?.usageStats?.leads?.limit || 0)}
                         </p>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-green-600 h-2 rounded-full"
                           style={{
-                            width: `${Math.min(((billingStats?.usageStats?.leads?.used || 0) / (billingStats?.usageStats?.leads?.limit || 1)) * 100, 100)}%`
+                            width: `${(billingStats?.usageStats?.leads?.limit === -1 || billingStats?.usageStats?.leads?.limit === null) ? 100 : Math.min(((billingStats?.usageStats?.leads?.used || 0) / (billingStats?.usageStats?.leads?.limit || 1)) * 100, 100)}%`
                           }}
                         ></div>
                       </div>
@@ -995,14 +1010,14 @@ const VendorBilling: React.FC = () => {
                       <div className="flex items-center justify-between mb-2">
                         <p className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium`}>Messages</p>
                         <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
-                          {billingStats?.usageStats?.messages?.used || 0} / {billingStats?.usageStats?.messages?.limit || 0}
+                          {billingStats?.usageStats?.messages?.used || 0} / {(billingStats?.usageStats?.messages?.limit === -1 || billingStats?.usageStats?.messages?.limit === null) ? '∞' : (billingStats?.usageStats?.messages?.limit || 0)}
                         </p>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-purple-600 h-2 rounded-full"
                           style={{
-                            width: `${Math.min(((billingStats?.usageStats?.messages?.used || 0) / (billingStats?.usageStats?.messages?.limit || 1)) * 100, 100)}%`
+                            width: `${(billingStats?.usageStats?.messages?.limit === -1 || billingStats?.usageStats?.messages?.limit === null) ? 100 : Math.min(((billingStats?.usageStats?.messages?.used || 0) / (billingStats?.usageStats?.messages?.limit || 1)) * 100, 100)}%`
                           }}
                         ></div>
                       </div>

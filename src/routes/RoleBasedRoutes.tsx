@@ -24,6 +24,7 @@ const FilterManagement = lazy(() => import("@/pages/admin/FilterManagement"));
 const SupportTickets = lazy(() => import("@/pages/rolebased/SupportTickets"));
 const AddonServices = lazy(() => import("@/pages/rolebased/AddonServices"));
 const PolicyEditor = lazy(() => import("@/pages/rolebased/PolicyEditor"));
+const Messages = lazy(() => import("@/pages/admin/Messages"));
 const Vendors = lazy(() => import("@/pages/rolebased/Vendors"));
 const VendorDetails = lazy(() => import("@/pages/rolebased/VendorDetails"));
 const Reviews = lazy(() => import("@/pages/rolebased/Reviews"));
@@ -62,6 +63,7 @@ const RoleBasedRoutes = () => {
                         <Route path="addons" element={<Addons />} />
                         <Route path="property-management" element={<PropertyManagement />} />
                         <Route path="filter-management" element={<FilterManagement />} />
+                        <Route path="messages" element={<Messages />} />
                         <Route path="support-tickets" element={<SupportTickets />} />
                         <Route path="addon-services" element={<AddonServices />} />
                         <Route path="policies/:policyType" element={<PolicyEditor />} />

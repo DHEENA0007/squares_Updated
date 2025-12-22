@@ -95,6 +95,11 @@ export const PERMISSIONS = {
     NOTIFICATIONS_SEND: 'notifications.send',
     NOTIFICATIONS_DELETE: 'notifications.delete',
 
+    // Messages
+    MESSAGES_VIEW: 'messages.view',
+    MESSAGES_REPLY: 'messages.reply',
+    MESSAGES_DELETE: 'messages.delete',
+
     // Dashboard
     DASHBOARD_VIEW: 'dashboard.view',
     ANALYTICS_VIEW: 'analytics.view',
@@ -253,6 +258,15 @@ export const PERMISSION_GROUPS = [
             { id: PERMISSIONS.NOTIFICATIONS_VIEW, label: 'View Notifications' },
             { id: PERMISSIONS.NOTIFICATIONS_SEND, label: 'Send Notifications' },
             { id: PERMISSIONS.NOTIFICATIONS_DELETE, label: 'Delete Notifications' },
+        ]
+    },
+    {
+        id: 'messages',
+        label: 'Messages Management',
+        permissions: [
+            { id: PERMISSIONS.MESSAGES_VIEW, label: 'View Messages' },
+            { id: PERMISSIONS.MESSAGES_REPLY, label: 'Reply to Messages' },
+            { id: PERMISSIONS.MESSAGES_DELETE, label: 'Delete Messages' },
         ]
     }
 ];

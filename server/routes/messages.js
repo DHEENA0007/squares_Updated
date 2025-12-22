@@ -221,7 +221,8 @@ router.get('/conversations', asyncHandler(async (req, res) => {
 // @route   POST /api/messages
 // @access  Private
 router.post('/', asyncHandler(async (req, res) => {
-  const { conversationId, recipientId, content, attachments } = req.body;
+  let { conversationId } = req.body;
+  const { recipientId, content, attachments } = req.body;
 
   if (!conversationId || !recipientId || !content) {
     return res.status(400).json({
@@ -240,13 +241,48 @@ router.post('/', asyncHandler(async (req, res) => {
     });
   }
 
+  // Check if user has permission to reply to messages (for custom roles)
+  // Vendors, customers, and agents can always reply
+  if (req.user.role !== 'superadmin' && req.user.role !== 'agent' && 
+      req.user.role !== 'vendor' && req.user.role !== 'customer') {
+    // Check permission for custom roles
+    if (!hasPermission(req.user, PERMISSIONS.MESSAGES_REPLY)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Insufficient permissions to reply to messages'
+      });
+    }
+  }
+
   // Check if recipient exists
-  const recipient = await User.findById(recipientId);
+  const recipient = await User.findById(recipientId).populate('roleObject', 'permissions');
   if (!recipient) {
     return res.status(404).json({
       success: false,
       message: 'Recipient not found'
     });
+  }
+
+  // Check if recipient can receive messages
+  // If recipient doesn't have view/reply permissions and isn't a standard role, route to superadmin
+  let finalRecipientId = recipientId;
+  const canReceiveMessages = hasPermission(recipient, PERMISSIONS.MESSAGES_VIEW) && 
+                             hasPermission(recipient, PERMISSIONS.MESSAGES_REPLY);
+  
+  if (!canReceiveMessages && recipient.role !== 'superadmin' && recipient.role !== 'agent' && 
+      recipient.role !== 'vendor' && recipient.role !== 'customer') {
+    console.log(`Recipient ${recipientId} doesn't have message permissions, routing to superadmin`);
+    
+    // Find superadmin
+    const superadmin = await User.findOne({ role: 'superadmin' }).sort({ createdAt: 1 });
+    
+    if (superadmin) {
+      finalRecipientId = superadmin._id.toString();
+      
+      // Update conversation ID to include superadmin instead
+      const newUserIds = [req.user.id.toString(), finalRecipientId].sort();
+      conversationId = newUserIds.join('_');
+    }
   }
 
   // Find an existing message to get property reference (if any)
@@ -256,7 +292,7 @@ router.post('/', asyncHandler(async (req, res) => {
   const messageData = {
     conversationId,
     sender: req.user.id,
-    recipient: recipientId,
+    recipient: finalRecipientId,
     message: content.trim(),
     read: false
   };
@@ -300,7 +336,7 @@ router.post('/', asyncHandler(async (req, res) => {
   try {
     const senderName = `${newMessage.sender.profile?.firstName || ''} ${newMessage.sender.profile?.lastName || ''}`.trim() || 'Someone';
 
-    notificationService.sendMessageNotification(recipientId, {
+    notificationService.sendMessageNotification(finalRecipientId, {
       conversationId: conversationId,
       senderId: req.user.id,
       senderName: senderName,
@@ -312,11 +348,11 @@ router.post('/', asyncHandler(async (req, res) => {
 
   // Check if recipient has auto-response enabled (for vendors)
   try {
-    const recipient = await User.findById(recipientId);
-    if (recipient &&
-      recipient.role === 'agent' &&
-      recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseEnabled &&
-      recipient.profile?.vendorInfo?.vendorPreferences?.autoResponseMessage) {
+    const finalRecipient = await User.findById(finalRecipientId);
+    if (finalRecipient &&
+      finalRecipient.role === 'agent' &&
+      finalRecipient.profile?.vendorInfo?.vendorPreferences?.autoResponseEnabled &&
+      finalRecipient.profile?.vendorInfo?.vendorPreferences?.autoResponseMessage) {
 
       // Check if this is the first message in the conversation from this sender
       const existingMessages = await Message.countDocuments({
@@ -328,9 +364,9 @@ router.post('/', asyncHandler(async (req, res) => {
       if (existingMessages === 1) {
         const autoResponseData = {
           conversationId,
-          sender: recipientId,
+          sender: finalRecipientId,
           recipient: req.user.id,
-          message: recipient.profile.vendorInfo.vendorPreferences.autoResponseMessage,
+          message: finalRecipient.profile.vendorInfo.vendorPreferences.autoResponseMessage,
           read: false
         };
 
@@ -462,6 +498,32 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
       success: false,
       message: 'Unable to determine property owner'
     });
+  }
+
+  // Check if the recipient has permission to receive messages
+  // If the property was posted by a user with custom role, check their permissions
+  const recipient = await User.findById(recipientId)
+    .populate('roleObject', 'permissions');
+
+  // Check if recipient has message view and reply permissions
+  const canReceiveMessages = hasPermission(recipient, PERMISSIONS.MESSAGES_VIEW) && 
+                             hasPermission(recipient, PERMISSIONS.MESSAGES_REPLY);
+
+  // If recipient doesn't have message permissions, route to superadmin
+  if (!canReceiveMessages && recipient.role !== 'superadmin' && recipient.role !== 'agent' && recipient.role !== 'vendor') {
+    console.log(`User ${recipientId} doesn't have message permissions, routing to superadmin`);
+    
+    // Find superadmin
+    const superadmin = await User.findOne({ role: 'superadmin' }).sort({ createdAt: 1 });
+    
+    if (!superadmin) {
+      return res.status(500).json({
+        success: false,
+        message: 'Unable to route message: No superadmin found'
+      });
+    }
+    
+    recipientId = superadmin._id;
   }
 
   // Don't allow users to message themselves
