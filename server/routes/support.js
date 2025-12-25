@@ -24,7 +24,7 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    
+
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -55,13 +55,13 @@ router.post('/tickets', optionalAuth, upload.array('attachments', 5), asyncHandl
   } else {
     // For guest users, try to find or create a guest user record
     let guestUser = await User.findOne({ email: email.toLowerCase() });
-    
+
     if (!guestUser) {
       // Create a guest user record for tracking
       const nameParts = (name || 'Guest User').split(' ');
       const firstName = nameParts[0] || 'Guest';
       const lastName = nameParts.slice(1).join(' ') || 'User';
-      
+
       guestUser = await User.create({
         email: email.toLowerCase(),
         phone: phone || '',
@@ -76,7 +76,7 @@ router.post('/tickets', optionalAuth, upload.array('attachments', 5), asyncHandl
         }
       });
     }
-    
+
     userId = guestUser._id;
   }
 
@@ -85,7 +85,7 @@ router.post('/tickets', optionalAuth, upload.array('attachments', 5), asyncHandl
   if (req.files && req.files.length > 0) {
     try {
       console.log(`Processing ${req.files.length} file(s) for support ticket...`);
-      
+
       for (const file of req.files) {
         try {
           // Set a timeout for each file upload (30 seconds)
@@ -105,26 +105,26 @@ router.post('/tickets', optionalAuth, upload.array('attachments', 5), asyncHandl
             uploadStream.end(file.buffer);
           });
 
-          const timeoutPromise = new Promise((_, reject) => 
+          const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Upload timeout - file too large or slow connection')), 35000)
           );
 
           const result = await Promise.race([uploadPromise, timeoutPromise]);
-          
+
           // Create attachment object matching the schema
           attachmentObjects.push({
             filename: file.originalname,
             url: result.secure_url,
             uploadedAt: new Date()
           });
-          
+
           console.log(`File uploaded successfully: ${file.originalname}`);
         } catch (fileError) {
           console.error(`Failed to upload file ${file.originalname}:`, fileError.message);
           // Continue with other files instead of failing completely
         }
       }
-      
+
       if (attachmentObjects.length === 0 && req.files.length > 0) {
         console.warn('All file uploads failed, creating ticket without attachments');
       }
@@ -219,7 +219,7 @@ router.get('/tickets/my', authenticateToken, asyncHandler(async (req, res) => {
   const { status, page = 1, limit = 10 } = req.query;
 
   const query = { user: req.user.id };
-  
+
   if (status) {
     if (status === 'in-progress') query.status = 'in_progress';
     else query.status = status;
@@ -315,9 +315,9 @@ router.post('/tickets/:ticketNumber/responses', authenticateToken, asyncHandler(
   const isAdmin = req.user.role === 'superadmin' || req.user.role === 'subadmin' || req.user.role === 'admin';
   const ticketUserId = ticket.user._id.toString();
   const currentUserId = req.user.id.toString();
-  
+
   console.log(`[Support Response] Ticket User ID: ${ticketUserId}, Current User ID: ${currentUserId}, Is Admin: ${isAdmin}`);
-  
+
   if (ticketUserId !== currentUserId && !isAdmin) {
     console.log(`[Support Response] Access denied - User ${currentUserId} trying to access ticket owned by ${ticketUserId}`);
     return res.status(403).json({
@@ -329,10 +329,10 @@ router.post('/tickets/:ticketNumber/responses', authenticateToken, asyncHandler(
   // Check if ticket is locked by another admin
   if (isAdmin && ticket.lockedBy && ticket.lockedBy.toString() !== currentUserId) {
     const lockedByUser = await User.findById(ticket.lockedBy).select('name email profile');
-    const lockerName = lockedByUser?.profile?.firstName 
+    const lockerName = lockedByUser?.profile?.firstName
       ? `${lockedByUser.profile.firstName} ${lockedByUser.profile.lastName || ''}`
       : lockedByUser?.email || 'another user';
-    
+
     return res.status(423).json({
       success: false,
       message: `This ticket is currently being handled by ${lockerName}. Please choose a different ticket.`
@@ -486,7 +486,7 @@ router.post('/tickets/:ticketNumber/transfer', authenticateToken, asyncHandler(a
 
   // Check if current user is handling this ticket (either assigned to them or locked by them)
   const isHandlingTicket = (ticket.lockedBy && ticket.lockedBy.toString() === req.user.id.toString()) ||
-                           (ticket.assignedTo && ticket.assignedTo.toString() === req.user.id.toString());
+    (ticket.assignedTo && ticket.assignedTo.toString() === req.user.id.toString());
 
   if (!isHandlingTicket) {
     return res.status(403).json({
@@ -513,15 +513,18 @@ router.post('/tickets/:ticketNumber/transfer', authenticateToken, asyncHandler(a
   }
 
   // Check if target user's role has supportTickets.reply permission
-  const Role = require('../models/Role');
-  const { PERMISSIONS } = require('../utils/permissions');
-  const targetUserRole = await Role.findOne({ name: targetUser.role, isActive: true });
+  // Admins and Subadmins have implicit permission
+  if (targetUser.role !== 'admin' && targetUser.role !== 'subadmin') {
+    const Role = require('../models/Role');
+    const { PERMISSIONS } = require('../utils/permissions');
+    const targetUserRole = await Role.findOne({ name: targetUser.role, isActive: true });
 
-  if (!targetUserRole || !targetUserRole.permissions || !targetUserRole.permissions.includes(PERMISSIONS.SUPPORT_TICKETS_REPLY)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Target user does not have permission to handle support tickets. Please select a user with supportTickets.reply permission.'
-    });
+    if (!targetUserRole || !targetUserRole.permissions || !targetUserRole.permissions.includes(PERMISSIONS.SUPPORT_TICKETS_REPLY)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Target user does not have permission to handle support tickets. Please select a user with supportTickets.reply permission.'
+      });
+    }
   }
 
   // Transfer ticket
@@ -570,11 +573,11 @@ router.post('/tickets/:ticketNumber/transfer', authenticateToken, asyncHandler(a
 // @access  Private (Any authenticated user)
 router.get('/transfer-roles', authenticateToken, asyncHandler(async (req, res) => {
   console.log('[Transfer Roles] User role:', req.user.role);
-  
+
   const Role = require('../models/Role');
-  
+
   console.log('[Transfer Roles] Fetching available roles...');
-  
+
   const roles = await Role.find({
     isActive: true,
     name: { $nin: ['customer', 'vendor', 'superadmin', 'agent'] }
@@ -608,7 +611,12 @@ router.get('/transfer-users', authenticateToken, asyncHandler(async (req, res) =
   }).select('name');
 
   const roleNamesWithPermission = rolesWithPermission.map(r => r.name);
-  console.log('[Transfer Users] Roles with supportTickets.reply:', roleNamesWithPermission);
+
+  // Explicitly add admin and subadmin as they have implicit permissions
+  if (!roleNamesWithPermission.includes('admin')) roleNamesWithPermission.push('admin');
+  if (!roleNamesWithPermission.includes('subadmin')) roleNamesWithPermission.push('subadmin');
+
+  console.log('[Transfer Users] Roles with supportTickets.reply (including implicit):', roleNamesWithPermission);
 
   // Step 2: Build query to fetch users with these roles (excluding superadmin)
   let query = {
