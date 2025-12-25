@@ -13,6 +13,7 @@ import { PERMISSIONS } from '@/config/permissionConfig';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContainer, LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart as RechartsBar, Bar, PieChart as RechartsPie, Pie, Cell } from 'recharts';
+import PropertyViewDetails from '@/components/analytics/PropertyViewDetails';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
@@ -27,6 +28,7 @@ const Analytics = () => {
   const [conversion, setConversion] = useState<any>(null);
   const [traffic, setTraffic] = useState<any>(null);
   const [engagement, setEngagement] = useState<any>(null);
+  const [selectedProperty, setSelectedProperty] = useState<string>('');
 
   const hasPermission = (permission: string) => {
     if (user?.role === 'superadmin') return true;
@@ -284,7 +286,11 @@ const Analytics = () => {
               <CardContent>
                 <div className="space-y-3">
                   {(propertyViews?.viewsByProperty || []).slice(0, 10).map((prop: any, idx: number) => (
-                    <div key={prop.propertyId} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div 
+                      key={prop.propertyId} 
+                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors"
+                      onClick={() => setSelectedProperty(prop.propertyId)}
+                    >
                       <div className="flex items-center gap-3">
                         <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold">
                           {idx + 1}
@@ -306,38 +312,12 @@ const Analytics = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MousePointer className="h-5 w-5" />
-                  User Interactions
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div className="text-center p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                    <p className="text-2xl font-bold">{propertyViews?.interactions?.phoneClicks || 0}</p>
-                    <p className="text-sm text-muted-foreground mt-1">Phone Clicks</p>
-                  </div>
-                  <div className="text-center p-4 bg-green-50 dark:bg-green-950 rounded-lg">
-                    <p className="text-2xl font-bold">{propertyViews?.interactions?.emailClicks || 0}</p>
-                    <p className="text-sm text-muted-foreground mt-1">Email Clicks</p>
-                  </div>
-                  <div className="text-center p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
-                    <p className="text-2xl font-bold">{propertyViews?.interactions?.whatsappClicks || 0}</p>
-                    <p className="text-sm text-muted-foreground mt-1">WhatsApp</p>
-                  </div>
-                  <div className="text-center p-4 bg-orange-50 dark:bg-orange-950 rounded-lg">
-                    <p className="text-2xl font-bold">{propertyViews?.interactions?.galleryViews || 0}</p>
-                    <p className="text-sm text-muted-foreground mt-1">Gallery Views</p>
-                  </div>
-                  <div className="text-center p-4 bg-pink-50 dark:bg-pink-950 rounded-lg">
-                    <p className="text-2xl font-bold">{propertyViews?.interactions?.shares || 0}</p>
-                    <p className="text-sm text-muted-foreground mt-1">Shares</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {selectedProperty && (
+              <PropertyViewDetails 
+                propertyId={selectedProperty} 
+                dateRange={dateRange}
+              />
+            )}
           </div>
         </TabsContent>
 

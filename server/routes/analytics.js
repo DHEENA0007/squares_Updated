@@ -477,9 +477,9 @@ router.get('/property-views/:propertyId', asyncHandler(async (req, res) => {
     property: propertyId,
     viewedAt: { $gte: startDate }
   })
-    .populate('viewer', 'email profile.firstName profile.lastName role')
+    .populate('viewer', 'email profile.firstName profile.lastName profile.phone profile.location role status')
     .sort({ viewedAt: -1 })
-    .limit(100);
+    .limit(200);
 
   const aggregateData = await PropertyView.aggregate([
     {
@@ -519,6 +519,146 @@ router.get('/property-views/:propertyId', asyncHandler(async (req, res) => {
     data: {
       views,
       aggregateData: aggregateData[0]
+    }
+  });
+}));
+
+// Get all property viewers with detailed information
+router.get('/all-property-viewers', asyncHandler(async (req, res) => {
+  const isSuperAdmin = req.user.role === 'superadmin';
+  const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
+  
+  if (!isSuperAdmin && !hasAnalyticsPermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view analytics'
+    });
+  }
+
+  const { dateRange = '30', propertyId } = req.query;
+  const days = parseInt(dateRange);
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+
+  const matchCondition = {
+    viewedAt: { $gte: startDate }
+  };
+
+  if (propertyId) {
+    matchCondition.property = new mongoose.Types.ObjectId(propertyId);
+  }
+
+  const viewers = await PropertyView.aggregate([
+    { $match: matchCondition },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'viewer',
+        foreignField: '_id',
+        as: 'viewerDetails'
+      }
+    },
+    {
+      $lookup: {
+        from: 'properties',
+        localField: 'property',
+        foreignField: '_id',
+        as: 'propertyDetails'
+      }
+    },
+    {
+      $unwind: {
+        path: '$propertyDetails',
+        preserveNullAndEmptyArrays: true
+      }
+    },
+    {
+      $unwind: {
+        path: '$viewerDetails',
+        preserveNullAndEmptyArrays: true
+      }
+    },
+    {
+      $project: {
+        viewedAt: 1,
+        viewDuration: 1,
+        interactions: 1,
+        ipAddress: 1,
+        userAgent: 1,
+        referrer: 1,
+        sessionId: 1,
+        property: {
+          _id: '$propertyDetails._id',
+          title: '$propertyDetails.title',
+          location: '$propertyDetails.location',
+          price: '$propertyDetails.price'
+        },
+        viewer: {
+          _id: '$viewerDetails._id',
+          email: '$viewerDetails.email',
+          role: '$viewerDetails.role',
+          status: '$viewerDetails.status',
+          firstName: '$viewerDetails.profile.firstName',
+          lastName: '$viewerDetails.profile.lastName',
+          phone: '$viewerDetails.profile.phone',
+          location: '$viewerDetails.profile.location',
+          registeredAt: '$viewerDetails.createdAt'
+        }
+      }
+    },
+    { $sort: { viewedAt: -1 } },
+    { $limit: 500 }
+  ]);
+
+  const summary = await PropertyView.aggregate([
+    { $match: matchCondition },
+    {
+      $group: {
+        _id: null,
+        totalViews: { $sum: 1 },
+        uniqueViewers: { $addToSet: '$viewer' },
+        registeredViewers: {
+          $sum: { $cond: [{ $ne: ['$viewer', null] }, 1, 0] }
+        },
+        guestViewers: {
+          $sum: { $cond: [{ $eq: ['$viewer', null] }, 1, 0] }
+        },
+        totalInteractions: {
+          $sum: {
+            $add: [
+              { $cond: ['$interactions.clickedPhone', 1, 0] },
+              { $cond: ['$interactions.clickedEmail', 1, 0] },
+              { $cond: ['$interactions.clickedWhatsApp', 1, 0] }
+            ]
+          }
+        },
+        avgDuration: { $avg: '$viewDuration' }
+      }
+    },
+    {
+      $project: {
+        totalViews: 1,
+        uniqueViewers: { $size: '$uniqueViewers' },
+        registeredViewers: 1,
+        guestViewers: 1,
+        totalInteractions: 1,
+        avgDuration: { $round: ['$avgDuration', 0] }
+      }
+    }
+  ]);
+
+  res.json({
+    success: true,
+    data: {
+      viewers,
+      summary: summary[0] || {
+        totalViews: 0,
+        uniqueViewers: 0,
+        registeredViewers: 0,
+        guestViewers: 0,
+        totalInteractions: 0,
+        avgDuration: 0
+      }
     }
   });
 }));

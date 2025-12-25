@@ -111,9 +111,9 @@ All colors MUST be HSL.
     --popover-foreground: 0 0% 20%; /* Charcoal (#333333) */
 
     --primary: 43 75% 52%; /* Warm Gold (#D4AF37) */
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 0 0% 20%; /* Charcoal for better contrast on gold */
 
-    --secondary: 50 100% 96%; /* Cream background for secondary */
+    --secondary: 43 30% 90%; /* Darker Cream/Beige for visibility against background */
     --secondary-foreground: 0 0% 20%; /* Charcoal (#333333) */
 
     --muted: 33 29% 83%; /* Light Taupe (#E0D7C6) */

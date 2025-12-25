@@ -49,7 +49,7 @@ const Dashboard = () => {
     {
       title: "Total Revenue",
       value: dashboardService.formatRevenue(stats.totalRevenue),
-      change: `${stats.revenueGrowth > 0 ? '+' : ''}${stats.revenueGrowth}% from last month`,
+      change: `+${dashboardService.formatRevenue(stats.revenueThisMonth)} this month`,
       icon: IndianRupee,
       color: "text-emerald-500 dark:text-emerald-400",
       bgColor: "bg-emerald-500/10",
@@ -86,79 +86,78 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-muted-foreground mt-1">
-            Welcome back! Here's an overview of your metrics.
-          </p>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {statsCards.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <Card 
-                key={stat.title} 
-                className={`hover:shadow-lg transition-all ${stat.onClick ? 'cursor-pointer hover:scale-105' : ''}`}
-                onClick={stat.onClick}
-              >
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium">
-                    {stat.title}
-                  </CardTitle>
-                  <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                    <Icon className={`h-4 w-4 ${stat.color}`} />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stat.change}
-                  </p>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest platform activities</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {activities.length === 0 ? (
-                <p className="text-center text-muted-foreground py-4">No recent activities</p>
-              ) : (
-                activities.map((activity) => (
-                  <div key={activity._id} className="flex items-center gap-4 pb-4 border-b last:border-0 last:pb-0">
-                    <div className={`w-2 h-2 rounded-full ${
-                      activity.type === 'user_registered' ? 'bg-blue-500' :
-                      activity.type === 'property_listed' ? 'bg-green-500' :
-                      activity.type === 'property_sold' ? 'bg-emerald-500' :
-                      activity.type === 'property_rented' ? 'bg-purple-500' :
-                      activity.type === 'subscription_purchased' ? 'bg-yellow-500' :
-                      'bg-primary'
-                    }`} />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">
-                        {dashboardService.formatActivityDescription(activity)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {dashboardService.formatTimestamp(activity.timestamp)}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Header */}
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+        <p className="text-muted-foreground mt-1">
+          Welcome back! Here's an overview of your metrics.
+        </p>
       </div>
+
+      {/* Stats Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {statsCards.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <Card
+              key={stat.title}
+              className={`hover:shadow-lg transition-all ${stat.onClick ? 'cursor-pointer hover:scale-105' : ''}`}
+              onClick={stat.onClick}
+            >
+              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <CardTitle className="text-sm font-medium">
+                  {stat.title}
+                </CardTitle>
+                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                  <Icon className={`h-4 w-4 ${stat.color}`} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stat.value}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stat.change}
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Recent Activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>Latest platform activities</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {activities.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">No recent activities</p>
+            ) : (
+              activities.map((activity) => (
+                <div key={activity._id} className="flex items-center gap-4 pb-4 border-b last:border-0 last:pb-0">
+                  <div className={`w-2 h-2 rounded-full ${activity.type === 'user_registered' ? 'bg-blue-500' :
+                      activity.type === 'property_listed' ? 'bg-green-500' :
+                        activity.type === 'property_sold' ? 'bg-emerald-500' :
+                          activity.type === 'property_rented' ? 'bg-purple-500' :
+                            activity.type === 'subscription_purchased' ? 'bg-yellow-500' :
+                              'bg-primary'
+                    }`} />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">
+                      {dashboardService.formatActivityDescription(activity)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {dashboardService.formatTimestamp(activity.timestamp)}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

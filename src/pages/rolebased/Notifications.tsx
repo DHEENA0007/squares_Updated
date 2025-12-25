@@ -14,32 +14,33 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
+import roleService, { Role } from "@/services/roleService";
 
 interface NotificationTemplate {
-  _id: string;
-  name: string;
-  subject: string;
-  content: string;
-  type: 'promotional' | 'informational' | 'alert';
-  channels: string[];
+    _id: string;
+    name: string;
+    subject: string;
+    content: string;
+    type: 'promotional' | 'informational' | 'alert';
+    channels: string[];
 }
 
 interface NotificationHistoryItem {
-  _id: string;
-  subject: string;
-  message: string;
-  type: string;
-  targetAudience: string;
-  channels: string[];
-  status: string;
-  createdAt: string;
-  sentAt?: string;
-  isScheduled?: boolean;
-  scheduledDate?: string;
-  statistics?: {
-    totalRecipients: number;
-    delivered: number;
-  };
+    _id: string;
+    subject: string;
+    message: string;
+    type: string;
+    targetAudience: string;
+    channels: string[];
+    status: string;
+    createdAt: string;
+    sentAt?: string;
+    isScheduled?: boolean;
+    scheduledDate?: string;
+    statistics?: {
+        totalRecipients: number;
+        delivered: number;
+    };
 }
 
 const RoleBasedNotifications = () => {
@@ -61,7 +62,7 @@ const RoleBasedNotifications = () => {
     const [selectedChannels, setSelectedChannels] = useState<string[]>(['push']);
     const [sending, setSending] = useState(false);
     const [currentNotificationId, setCurrentNotificationId] = useState<string | null>(null);
-    
+
     const [audienceCounts, setAudienceCounts] = useState({
         all_users: 0,
         customers: 0,
@@ -72,12 +73,25 @@ const RoleBasedNotifications = () => {
 
     const [history, setHistory] = useState<NotificationHistoryItem[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [roles, setRoles] = useState<Role[]>([]);
 
     useEffect(() => {
         if (!hasPermission(PERMISSIONS.NOTIFICATIONS_VIEW)) {
             navigate('/rolebased');
             return;
         }
+
+        const fetchRoles = async () => {
+            try {
+                const response = await roleService.getRoles({ limit: 100, isActive: true });
+                if (response.success) {
+                    setRoles(response.data.roles.filter(role => role.name.toLowerCase() !== 'superadmin'));
+                }
+            } catch (error) {
+                console.error('Failed to fetch roles:', error);
+            }
+        };
+        fetchRoles();
 
         // Fetch audience counts
         const fetchCounts = async () => {
@@ -169,10 +183,11 @@ const RoleBasedNotifications = () => {
 
     const audienceOptions = [
         { value: 'all_users', label: 'All Users', count: audienceCounts.all_users },
-        { value: 'customers', label: 'Customers Only', count: audienceCounts.customers },
-        { value: 'vendors', label: 'Vendors/Builders', count: audienceCounts.vendors },
-        { value: 'active_users', label: 'Active Users (Last 30 days)', count: audienceCounts.active_users },
-        { value: 'premium_users', label: 'Premium Subscribers', count: audienceCounts.premium_users },
+        ...roles.map(role => ({
+            value: role.name, // Assuming backend handles role name
+            label: role.name.charAt(0).toUpperCase() + role.name.slice(1), // Capitalize
+            count: role.userCount || 0
+        }))
     ];
 
     const notificationChannels = [
@@ -235,7 +250,7 @@ const RoleBasedNotifications = () => {
         setTargetAudience(item.targetAudience);
         setSelectedChannels(item.channels);
         setCurrentNotificationId(item._id);
-        
+
         if (item.isScheduled && item.scheduledDate) {
             setIsScheduled(true);
             const dateObj = new Date(item.scheduledDate);
@@ -293,7 +308,7 @@ const RoleBasedNotifications = () => {
             alert('Please enter a subject to save as draft');
             return;
         }
-    
+
         setSending(true);
         try {
             const payload = {
@@ -306,7 +321,7 @@ const RoleBasedNotifications = () => {
                 saveAsDraft: true,
                 notificationId: currentNotificationId
             };
-            
+
             const response = await fetch('/api/admin/notifications/send', {
                 method: 'POST',
                 headers: {
@@ -315,9 +330,9 @@ const RoleBasedNotifications = () => {
                 },
                 body: JSON.stringify(payload)
             });
-    
+
             const data = await response.json();
-            
+
             if (response.ok && data.success) {
                 alert('Draft saved successfully');
                 if (data.notification) {
@@ -332,14 +347,14 @@ const RoleBasedNotifications = () => {
         } finally {
             setSending(false);
         }
-      };
+    };
 
     const handleSendNotification = async () => {
         if (!canSend) {
             alert('You do not have permission to send notifications.');
             return;
         }
-        
+
         if (!subject.trim() || !message.trim() || selectedChannels.length === 0) {
             alert('Please fill in all required fields and select at least one channel');
             return;
@@ -371,7 +386,7 @@ const RoleBasedNotifications = () => {
             if (response.ok && data.success) {
                 let msg = 'Notification processed successfully!';
                 if (data.detailedStatus) {
-                   msg += ` (Email: ${data.detailedStatus.email?.sent || 0} sent, Push: ${data.detailedStatus.push?.sent || 0} sent)`;
+                    msg += ` (Email: ${data.detailedStatus.email?.sent || 0} sent, Push: ${data.detailedStatus.push?.sent || 0} sent)`;
                 }
                 alert(msg);
                 // Reset form
@@ -382,7 +397,7 @@ const RoleBasedNotifications = () => {
                 setScheduledDate('');
                 setScheduledTime('');
                 setCurrentNotificationId(null);
-                
+
                 if (activeTab === 'history') fetchHistory();
             } else {
                 alert(data.message || 'Failed to send notification');
@@ -401,19 +416,19 @@ const RoleBasedNotifications = () => {
     };
 
     const getStatusBadge = (status: string) => {
-        switch(status) {
-          case 'sent':
-            return <Badge className="bg-green-500 hover:bg-green-600"><CheckCircle className="w-3 h-3 mr-1" /> Sent</Badge>;
-          case 'sending':
-            return <Badge className="bg-blue-500 hover:bg-blue-600"><RotateCcw className="w-3 h-3 mr-1 animate-spin" /> Sending</Badge>;
-          case 'scheduled':
-            return <Badge className="bg-yellow-500 hover:bg-yellow-600"><Clock className="w-3 h-3 mr-1" /> Scheduled</Badge>;
-          case 'draft':
-            return <Badge variant="secondary"><Edit className="w-3 h-3 mr-1" /> Draft</Badge>;
-          case 'failed':
-            return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Failed</Badge>;
-          default:
-            return <Badge variant="secondary">{status}</Badge>;
+        switch (status) {
+            case 'sent':
+                return <Badge className="bg-green-500 hover:bg-green-600"><CheckCircle className="w-3 h-3 mr-1" /> Sent</Badge>;
+            case 'sending':
+                return <Badge className="bg-blue-500 hover:bg-blue-600"><RotateCcw className="w-3 h-3 mr-1 animate-spin" /> Sending</Badge>;
+            case 'scheduled':
+                return <Badge className="bg-yellow-500 hover:bg-yellow-600"><Clock className="w-3 h-3 mr-1" /> Scheduled</Badge>;
+            case 'draft':
+                return <Badge variant="secondary"><Edit className="w-3 h-3 mr-1" /> Draft</Badge>;
+            case 'failed':
+                return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Failed</Badge>;
+            default:
+                return <Badge variant="secondary">{status}</Badge>;
         }
     };
 
@@ -489,7 +504,7 @@ const RoleBasedNotifications = () => {
                                             disabled={!canSend}
                                         />
                                     </div>
-                                    
+
                                     <div>
                                         <label className="block text-sm font-medium mb-2">Message Content *</label>
                                         <Textarea
@@ -551,7 +566,7 @@ const RoleBasedNotifications = () => {
                                             Schedule for later
                                         </label>
                                     </div>
-                                    
+
                                     {isScheduled && (
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
@@ -606,7 +621,7 @@ const RoleBasedNotifications = () => {
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    
+
                                     <div className="p-3 bg-blue-50 rounded-lg">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Users className="w-4 h-4 text-blue-600" />
@@ -713,7 +728,7 @@ const RoleBasedNotifications = () => {
                                                 </div>
                                             )}
                                         </Button>
-                                        
+
                                         {canSend && (
                                             <Button
                                                 onClick={handleSaveDraft}
@@ -732,7 +747,7 @@ const RoleBasedNotifications = () => {
                 </TabsContent>
 
                 <TabsContent value="history">
-                     <Card>
+                    <Card>
                         <CardHeader>
                             <CardTitle>Notification History</CardTitle>
                         </CardHeader>
@@ -750,7 +765,7 @@ const RoleBasedNotifications = () => {
                                             <TableHead>Audience</TableHead>
                                             <TableHead>Channels</TableHead>
                                             <TableHead>Recipients</TableHead>
-                                            <TableHead>Read Rate</TableHead>
+                                            <TableHead>Delivery</TableHead>
                                             <TableHead>Status</TableHead>
                                             {(canSend || canDelete) && <TableHead className="text-right">Actions</TableHead>}
                                         </TableRow>
@@ -762,13 +777,13 @@ const RoleBasedNotifications = () => {
                                             if (item.status === 'scheduled' && item.scheduledDate) {
                                                 const scheduled = new Date(item.scheduledDate);
                                                 const diff = scheduled.getTime() - now.getTime();
-                                                
+
                                                 if (diff > 0) {
                                                     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
                                                     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                                                     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                                                     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                                                    
+
                                                     if (days > 0) timeRemaining = `${days}d ${hours}h`;
                                                     else if (hours > 0) timeRemaining = `${hours}h ${minutes}m`;
                                                     else timeRemaining = `${minutes}m ${seconds}s`;
@@ -778,89 +793,77 @@ const RoleBasedNotifications = () => {
                                             }
 
                                             return (
-                                            <TableRow key={item._id}>
-                                                <TableCell className="font-medium text-xs text-muted-foreground">
-                                                    {format(new Date(item.createdAt), 'MMM d, yyyy HH:mm')}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="font-medium">{item.subject}</div>
-                                                    <div className="text-xs text-muted-foreground line-clamp-1">{item.message}</div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="capitalize">{item.targetAudience.replace('_', ' ')}</Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex gap-1">
-                                                        {item.channels.includes('push') && <Bell className="w-4 h-4 text-blue-500" />}
-                                                        {item.channels.includes('email') && <Mail className="w-4 h-4 text-purple-500" />}
-                                                        {item.channels.includes('sms') && <MessageSquare className="w-4 h-4 text-green-500" />}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>{item.statistics?.totalRecipients || 0}</TableCell>
-                                                <TableCell>
-                                                    {item.status === 'sent' && item.statistics ? (
-                                                        <div className="space-y-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-sm font-medium">
-                                                                    {item.statistics.opened || 0}/{item.statistics.delivered || 0}
-                                                                </span>
-                                                                <span className="text-xs text-muted-foreground">read</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    {item.statistics.delivered || 0}/{item.statistics.totalRecipients || 0} delivered
-                                                                </span>
-                                                            </div>
-                                                            {item.statistics.openRate > 0 && (
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-xs text-green-600 font-medium">
-                                                                        {item.statistics.openRate?.toFixed(1)}% rate
-                                                                    </span>
-                                                                </div>
-                                                            )}
+                                                <TableRow key={item._id}>
+                                                    <TableCell className="font-medium text-xs text-muted-foreground">
+                                                        {format(new Date(item.createdAt), 'MMM d, yyyy HH:mm')}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="font-medium">{item.subject}</div>
+                                                        <div className="text-xs text-muted-foreground line-clamp-1">{item.message}</div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="outline" className="capitalize">{item.targetAudience.replace('_', ' ')}</Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex gap-1">
+                                                            {item.channels.includes('push') && <Bell className="w-4 h-4 text-blue-500" />}
+                                                            {item.channels.includes('email') && <Mail className="w-4 h-4 text-purple-500" />}
+                                                            {item.channels.includes('sms') && <MessageSquare className="w-4 h-4 text-green-500" />}
                                                         </div>
-                                                    ) : (
-                                                        <span className="text-xs text-muted-foreground">N/A</span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex flex-col gap-1">
-                                                        {getStatusBadge(item.status)}
-                                                        {timeRemaining && (
-                                                            <span className="text-xs font-mono text-blue-600 bg-blue-50 px-1 py-0.5 rounded w-fit">
-                                                                in {timeRemaining}
-                                                            </span>
+                                                    </TableCell>
+                                                    <TableCell>{item.statistics?.totalRecipients || 0}</TableCell>
+                                                    <TableCell>
+                                                        {item.status === 'sent' && item.statistics ? (
+                                                            <div className="space-y-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-sm font-medium">
+                                                                        {item.statistics.delivered || 0}/{item.statistics.totalRecipients || 0}
+                                                                    </span>
+                                                                    <span className="text-xs text-muted-foreground">delivered</span>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-muted-foreground">N/A</span>
                                                         )}
-                                                    </div>
-                                                </TableCell>
-                                                {(canSend || canDelete) && (
-                                                    <TableCell className="text-right">
-                                                        <div className="flex justify-end gap-2">
-                                                            {canSend && item.status === 'draft' && (
-                                                                <Button 
-                                                                    size="sm" 
-                                                                    variant="ghost" 
-                                                                    onClick={() => handleEditDraft(item)}
-                                                                    title="Edit Draft"
-                                                                >
-                                                                    <Edit className="w-4 h-4" />
-                                                                </Button>
-                                                            )}
-                                                            {canDelete && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="ghost"
-                                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                                    onClick={() => handleDeleteNotification(item._id)}
-                                                                    title="Delete Notification"
-                                                                >
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </Button>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex flex-col gap-1">
+                                                            {getStatusBadge(item.status)}
+                                                            {timeRemaining && (
+                                                                <span className="text-xs font-mono text-blue-600 bg-blue-50 px-1 py-0.5 rounded w-fit">
+                                                                    in {timeRemaining}
+                                                                </span>
                                                             )}
                                                         </div>
                                                     </TableCell>
-                                                )}
-                                            </TableRow>
+                                                    {(canSend || canDelete) && (
+                                                        <TableCell className="text-right">
+                                                            <div className="flex justify-end gap-2">
+                                                                {canSend && item.status === 'draft' && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        onClick={() => handleEditDraft(item)}
+                                                                        title="Edit Draft"
+                                                                    >
+                                                                        <Edit className="w-4 h-4" />
+                                                                    </Button>
+                                                                )}
+                                                                {canDelete && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                                        onClick={() => handleDeleteNotification(item._id)}
+                                                                        title="Delete Notification"
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                    )}
+                                                </TableRow>
                                             );
                                         })}
                                     </TableBody>

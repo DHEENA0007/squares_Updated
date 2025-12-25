@@ -410,6 +410,13 @@ class AnalyticsService {
   async getPropertyViewDetails(propertyId: string, dateRange: string = '30') {
     return this.makeRequest<any>(`/analytics/property-views/${propertyId}?dateRange=${dateRange}`);
   }
+
+  async getAllPropertyViewers(dateRange: string = '30', propertyId?: string) {
+    const query = propertyId 
+      ? `/analytics/all-property-viewers?dateRange=${dateRange}&propertyId=${propertyId}`
+      : `/analytics/all-property-viewers?dateRange=${dateRange}`;
+    return this.makeRequest<any>(query);
+  }
 }
 
 export const analyticsService = new AnalyticsService();

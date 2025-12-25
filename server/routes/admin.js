@@ -83,7 +83,7 @@ router.post('/vendor-applications', asyncHandler(async (req, res) => {
 
     // Get admin emails for notification
     const adminUsers = await User.find({ role: 'admin' }).select('email profile.firstName profile.lastName');
-    
+
     // Send notification emails to all admins
     const emailPromises = adminUsers.map(admin => {
       return sendTemplateEmail(admin.email, 'vendor-profile-submitted', {
@@ -114,7 +114,7 @@ router.post('/vendor-applications', asyncHandler(async (req, res) => {
 
     // Store the application data temporarily (you might want to create a VendorApplication model)
     // For now, we'll just send the emails and return success
-    
+
     res.json({
       success: true,
       message: 'Vendor application submitted successfully. Admin has been notified.',
@@ -146,7 +146,7 @@ router.get('/vendor-approvals', authenticateToken, asyncHandler(async (req, res)
   // Check permission: Allow if user is SuperAdmin OR has vendors.view permission
   const isSuperAdminUser = req.user.role === 'superadmin';
   const hasViewPermission = hasPermission(req.user, PERMISSIONS.VENDORS_VIEW);
-  
+
   if (!isSuperAdminUser && !hasViewPermission) {
     return res.status(403).json({
       success: false,
@@ -155,31 +155,33 @@ router.get('/vendor-approvals', authenticateToken, asyncHandler(async (req, res)
   }
 
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
+    const {
+      page = 1,
+      limit = 10,
       status = 'pending',
       search = '',
       sortBy = 'submittedAt',
       sortOrder = 'desc',
       businessType = '',
       experienceMin = '',
-      experienceMax = ''
+      experienceMax = '',
+      startDate = '',
+      endDate = ''
     } = req.query;
 
     // Sanitize pagination parameters
     const { page: sanitizedPage, limit: sanitizedLimit, skip } = sanitizePagination(page, limit);
-    
+
     // Sanitize search query
     const sanitizedSearch = sanitizeSearchQuery(search);
-    
+
     // Build query
     const query = {};
-    
+
     if (status !== 'all') {
       query['approval.status'] = status;
     }
-    
+
     if (sanitizedSearch) {
       query.$or = [
         { 'businessInfo.companyName': { $regex: sanitizedSearch, $options: 'i' } },
@@ -202,6 +204,23 @@ router.get('/vendor-approvals', authenticateToken, asyncHandler(async (req, res)
       }
       if (experienceMax) {
         query['professionalInfo.experience'].$lte = parseInt(experienceMax);
+      }
+    }
+
+    // Filter by date range (submittedAt)
+    if (startDate || endDate) {
+      query['approval.submittedAt'] = {};
+      if (startDate) {
+        // Start of day for startDate
+        const startDateTime = new Date(startDate);
+        startDateTime.setHours(0, 0, 0, 0);
+        query['approval.submittedAt'].$gte = startDateTime;
+      }
+      if (endDate) {
+        // End of day for endDate
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        query['approval.submittedAt'].$lte = endDateTime;
       }
     }
 
@@ -362,7 +381,7 @@ router.get('/vendor-approvals/:vendorId', authenticateToken, asyncHandler(async 
   // Check permission: Allow if user is SuperAdmin OR has vendors.view permission
   const isSuperAdminUser = req.user.role === 'superadmin';
   const hasViewPermission = hasPermission(req.user, PERMISSIONS.VENDORS_VIEW);
-  
+
   if (!isSuperAdminUser && !hasViewPermission) {
     return res.status(403).json({
       success: false,
@@ -600,7 +619,7 @@ router.post('/vendor-approvals/:vendorId/transfer', authenticateToken, asyncHand
     // SuperAdmin can transfer any vendor, others can only transfer if they're handling it
     if (!isSuperAdminUser) {
       const isHandlingVendor = (vendor.approval.lockedBy && vendor.approval.lockedBy.toString() === req.user.id.toString()) ||
-                               (vendor.approval.assignedTo && vendor.approval.assignedTo.toString() === req.user.id.toString());
+        (vendor.approval.assignedTo && vendor.approval.assignedTo.toString() === req.user.id.toString());
 
       if (!isHandlingVendor) {
         return res.status(403).json({
@@ -707,7 +726,7 @@ router.post('/vendor-approvals/:vendorId/approve', authenticateToken, isAnyAdmin
   // Check permission: Allow if user is SuperAdmin OR has vendors.approve permission
   const isSuperAdminUser = req.user.role === 'superadmin';
   const hasApprovePermission = hasPermission(req.user, PERMISSIONS.VENDORS_APPROVE);
-  
+
   if (!isSuperAdminUser && !hasApprovePermission) {
     return res.status(403).json({
       success: false,
@@ -840,7 +859,7 @@ router.post('/vendor-approvals/:vendorId/reject', authenticateToken, isAnyAdmin,
   // Check permission: Allow if user is SuperAdmin OR has vendors.approve permission
   const isSuperAdminUser = req.user.role === 'superadmin';
   const hasApprovePermission = hasPermission(req.user, PERMISSIONS.VENDORS_APPROVE);
-  
+
   if (!isSuperAdminUser && !hasApprovePermission) {
     return res.status(403).json({
       success: false,
@@ -1050,7 +1069,7 @@ router.post('/vendor-approvals/:vendorId/verify-document', isAnyAdmin, asyncHand
     document.verified = verified;
     document.verifiedAt = new Date();
     document.verifiedBy = adminId;
-    
+
     if (!verified && rejectionReason) {
       document.rejectionReason = rejectionReason;
     }
@@ -1084,7 +1103,7 @@ router.get('/vendor-approval-stats', authenticateToken, asyncHandler(async (req,
   // Check permission: Allow if user is SuperAdmin OR has vendors.view permission
   const isSuperAdminUser = req.user.role === 'superadmin';
   const hasViewPermission = hasPermission(req.user, PERMISSIONS.VENDORS_VIEW);
-  
+
   if (!isSuperAdminUser && !hasViewPermission) {
     return res.status(403).json({
       success: false,
@@ -1114,8 +1133,8 @@ router.get('/vendor-approval-stats', authenticateToken, asyncHandler(async (req,
       Vendor.countDocuments({ 'approval.status': 'rejected' }),
       Vendor.countDocuments({ 'approval.status': 'under_review' }),
       Vendor.countDocuments({ 'approval.submittedAt': { $gte: thisMonth } }),
-      Vendor.countDocuments({ 
-        'approval.submittedAt': { $gte: lastMonth, $lt: lastMonthEnd } 
+      Vendor.countDocuments({
+        'approval.submittedAt': { $gte: lastMonth, $lt: lastMonthEnd }
       }),
       Vendor.find({ 'approval.status': 'pending' })
         .populate('user', 'email profile.firstName profile.lastName')
@@ -1126,11 +1145,11 @@ router.get('/vendor-approval-stats', authenticateToken, asyncHandler(async (req,
 
     // Calculate approval rate
     const totalProcessed = approvedApplications + rejectedApplications;
-    const approvalRate = totalProcessed > 0 ? 
+    const approvalRate = totalProcessed > 0 ?
       Math.round((approvedApplications / totalProcessed) * 100) : 0;
 
     // Calculate growth
-    const growth = lastMonthApplications > 0 ? 
+    const growth = lastMonthApplications > 0 ?
       Math.round(((thisMonthApplications - lastMonthApplications) / lastMonthApplications) * 100) : 0;
 
     res.json({
@@ -1154,7 +1173,7 @@ router.get('/vendor-approval-stats', authenticateToken, asyncHandler(async (req,
         recentApplications: recentApplications.map(vendor => ({
           id: vendor._id,
           companyName: vendor.businessInfo.companyName,
-          applicantName: vendor.user ? 
+          applicantName: vendor.user ?
             `${vendor.user.profile.firstName} ${vendor.user.profile.lastName}` : 'Unknown',
           submittedAt: vendor.approval.submittedAt,
           status: vendor.approval.status
@@ -1199,7 +1218,7 @@ router.post('/reports/generate', authenticateToken, isAnyAdmin, asyncHandler(asy
 
     // Gather data based on report type
     let reportData = {};
-    
+
     switch (reportType) {
       case 'property_performance':
         const [totalProperties, propertiesByType, avgViews, propertyApprovalRate] = await Promise.all([
@@ -1214,19 +1233,21 @@ router.post('/reports/generate', authenticateToken, isAnyAdmin, asyncHandler(asy
           ]),
           Property.aggregate([
             { $match: dateFilter },
-            { $group: {
-              _id: null,
-              total: { $sum: 1 },
-              approved: { $sum: { $cond: [{ $eq: ['$status', 'approved'] }, 1, 0] } }
-            }}
+            {
+              $group: {
+                _id: null,
+                total: { $sum: 1 },
+                approved: { $sum: { $cond: [{ $eq: ['$status', 'approved'] }, 1, 0] } }
+              }
+            }
           ])
         ]);
-        
+
         reportData = {
           totalProperties,
           propertiesByType,
           averageViews: avgViews[0]?.avgViews || 0,
-          approvalRate: propertyApprovalRate[0] ? 
+          approvalRate: propertyApprovalRate[0] ?
             (propertyApprovalRate[0].approved / propertyApprovalRate[0].total * 100).toFixed(2) : 0
         };
         break;
@@ -1236,15 +1257,17 @@ router.post('/reports/generate', authenticateToken, isAnyAdmin, asyncHandler(asy
           User.countDocuments({ role: 'vendor', status: 'active', ...dateFilter }),
           Property.aggregate([
             { $match: { ...dateFilter, ...cityFilter } },
-            { $group: {
-              _id: '$vendor',
-              propertyCount: { $sum: 1 },
-              avgViews: { $avg: '$views' }
-            }},
+            {
+              $group: {
+                _id: '$vendor',
+                propertyCount: { $sum: 1 },
+                avgViews: { $avg: '$views' }
+              }
+            },
             { $limit: 20 }
           ])
         ]);
-        
+
         reportData = {
           activeVendors,
           vendorPerformance
@@ -1254,18 +1277,22 @@ router.post('/reports/generate', authenticateToken, isAnyAdmin, asyncHandler(asy
       case 'user_engagement':
         const [totalUsers, newUsers, userActivity] = await Promise.all([
           User.countDocuments({ ...dateFilter }),
-          User.countDocuments({ ...dateFilter, createdAt: { 
-            $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) 
-          }}),
+          User.countDocuments({
+            ...dateFilter, createdAt: {
+              $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+            }
+          }),
           User.aggregate([
             { $match: dateFilter },
-            { $group: {
-              _id: '$role',
-              count: { $sum: 1 }
-            }}
+            {
+              $group: {
+                _id: '$role',
+                count: { $sum: 1 }
+              }
+            }
           ])
         ]);
-        
+
         reportData = {
           totalUsers,
           newUsers,
@@ -1281,7 +1308,7 @@ router.post('/reports/generate', authenticateToken, isAnyAdmin, asyncHandler(asy
           ]),
           Subscription.countDocuments({ status: 'active', ...dateFilter })
         ]);
-        
+
         reportData = {
           totalRevenue: totalRevenue[0]?.total || 0,
           activeSubscriptions
@@ -1303,7 +1330,7 @@ router.post('/reports/generate', authenticateToken, isAnyAdmin, asyncHandler(asy
             { $limit: 20 }
           ])
         ]);
-        
+
         reportData = {
           propertiesByCity,
           usersByCity
@@ -1377,18 +1404,18 @@ router.get('/dashboard', async (req, res) => {
       User.countDocuments(),
       Property.countDocuments(),
       Subscription.countDocuments(),
-      
+
       // Revenue calculation
       Subscription.aggregate([
         { $group: { _id: null, total: { $sum: '$amount' } } }
       ]).then(result => result[0]?.total || 0),
-      
+
       // Time-based user stats
       User.countDocuments({ createdAt: { $gte: firstDayOfMonth } }),
       Property.countDocuments({ createdAt: { $gte: firstDayOfMonth } }),
       User.countDocuments({ createdAt: { $gte: firstDayOfWeek } }),
       User.countDocuments({ createdAt: { $gte: yesterday } }),
-      
+
       // Status-based counts
       Subscription.countDocuments({ status: 'active' }),
       User.countDocuments({ status: 'pending' }),
@@ -1474,13 +1501,13 @@ router.get('/dashboard', async (req, res) => {
 
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-    
+
     const [lastMonthUsers, lastMonthProperties] = await Promise.all([
-      User.countDocuments({ 
-        createdAt: { $gte: lastMonth, $lt: endOfLastMonth } 
+      User.countDocuments({
+        createdAt: { $gte: lastMonth, $lt: endOfLastMonth }
       }),
-      Property.countDocuments({ 
-        createdAt: { $gte: lastMonth, $lt: endOfLastMonth } 
+      Property.countDocuments({
+        createdAt: { $gte: lastMonth, $lt: endOfLastMonth }
       })
     ]);
 
@@ -1490,7 +1517,7 @@ router.get('/dashboard', async (req, res) => {
       totalProperties,
       totalSubscriptions,
       totalRevenue,
-      
+
       // Growth metrics
       newUsersThisMonth,
       newPropertiesThisMonth,
@@ -1498,19 +1525,19 @@ router.get('/dashboard', async (req, res) => {
       newUsersToday,
       userGrowthPercent: calculateGrowth(newUsersThisMonth, lastMonthUsers),
       propertyGrowthPercent: calculateGrowth(newPropertiesThisMonth, lastMonthProperties),
-      
+
       // Status metrics
       activeSubscriptions,
       pendingUsers,
       suspendedUsers,
       totalMessages,
       unreadMessages,
-      
+
       // Chart data
       userGrowthData,
       revenueData,
       usersByRole,
-      
+
       // Recent activities
       recentActivities: [
         ...recentUsers.map(user => ({
@@ -1552,7 +1579,7 @@ router.get('/dashboard', async (req, res) => {
           }
         }))
       ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 15),
-      
+
       // Real-time metrics
       lastUpdated: new Date(),
       systemHealth: {
@@ -1623,7 +1650,7 @@ router.get('/users', authenticateToken, async (req, res) => {
   // Check permission: Allow if user is SuperAdmin OR has users.view permission
   const isSuperAdminUser = req.user.role === 'superadmin';
   const hasViewPermission = hasPermission(req.user, PERMISSIONS.USERS_VIEW);
-  
+
   if (!isSuperAdminUser && !hasViewPermission) {
     return res.status(403).json({
       success: false,
@@ -1632,11 +1659,11 @@ router.get('/users', authenticateToken, async (req, res) => {
   }
 
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      search = '', 
-      role = '', 
+    const {
+      page = 1,
+      limit = 10,
+      search = '',
+      role = '',
       status = '',
       sortBy = 'createdAt',
       sortOrder = 'desc'
@@ -1715,8 +1742,8 @@ router.get('/users/:userId', async (req, res) => {
     const [properties, subscriptions, messages] = await Promise.all([
       Property.find({ owner: userId }).select('title status createdAt'),
       Subscription.find({ user: userId }).populate('plan').select('plan status amount createdAt'),
-      Message.countDocuments({ 
-        $or: [{ sender: userId }, { recipient: userId }] 
+      Message.countDocuments({
+        $or: [{ sender: userId }, { recipient: userId }]
       })
     ]);
 
@@ -1758,7 +1785,7 @@ router.patch('/users/:userId/status', async (req, res) => {
 
     const user = await User.findByIdAndUpdate(
       userId,
-      { 
+      {
         status,
         ...(status === 'suspended' && { suspendedAt: new Date(), suspensionReason: reason }),
         ...(status === 'active' && { $unset: { suspendedAt: 1, suspensionReason: 1 } })
@@ -1793,7 +1820,7 @@ router.delete('/users/:userId', async (req, res) => {
     const { userId } = req.params;
 
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -1833,7 +1860,7 @@ router.delete('/users/:userId', async (req, res) => {
     }
 
     // Clean up other related data (messages, notifications, etc.)
-    
+
     await Promise.all([
       // Remove user's messages
       Message.deleteMany({ sender: userId }),
@@ -1847,7 +1874,7 @@ router.delete('/users/:userId', async (req, res) => {
     // Send deletion notification email
     try {
       const { sendTemplateEmail } = require('../utils/emailService');
-      
+
       await sendTemplateEmail(
         userData.email,
         'account-deleted',
@@ -1895,7 +1922,7 @@ router.get('/properties', authenticateToken, async (req, res) => {
   // Check permission: Allow if user is SuperAdmin OR has properties.view permission
   const isSuperAdminUser = req.user.role === 'superadmin';
   const hasViewPermission = hasPermission(req.user, PERMISSIONS.PROPERTIES_VIEW);
-  
+
   if (!isSuperAdminUser && !hasViewPermission) {
     return res.status(403).json({
       success: false,
@@ -1904,10 +1931,10 @@ router.get('/properties', authenticateToken, async (req, res) => {
   }
 
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      search = '', 
+    const {
+      page = 1,
+      limit = 10,
+      search = '',
       status = '',
       listingType = '',
       sortBy = 'createdAt',
@@ -2006,7 +2033,7 @@ router.post('/properties', authenticateToken, async (req, res) => {
   // Check permission: Allow if user is SuperAdmin OR has properties.create permission
   const isSuperAdminUser = req.user.role === 'superadmin';
   const hasCreatePermission = hasPermission(req.user, PERMISSIONS.PROPERTIES_CREATE);
-  
+
   if (!isSuperAdminUser && !hasCreatePermission) {
     return res.status(403).json({
       success: false,
@@ -2025,7 +2052,7 @@ router.post('/properties', authenticateToken, async (req, res) => {
     };
 
     const property = await Property.create(propertyData);
-    
+
     res.status(201).json({
       success: true,
       message: 'Property created successfully',
@@ -2075,7 +2102,7 @@ router.patch('/properties/:id/status', asyncHandler(async (req, res) => {
 
   // Update property status
   property.status = status;
-  
+
   // Add rejection reason if rejecting
   if (status === 'rejected' && reason) {
     property.rejectionReason = reason;
@@ -2097,7 +2124,7 @@ router.patch('/properties/:id/status', asyncHandler(async (req, res) => {
   if (owner && owner.email) {
     let emailSubject = 'Property Status Updated';
     let emailBody = '';
-    
+
     if (status === 'available') {
       emailSubject = 'Property Approved';
       emailBody = `Dear ${owner.profile?.firstName || 'User'},\n\nYour property "${property.title}" has been approved and is now live on our platform.\n\nBest regards,\nBuildHomeMartSquares Team`;
@@ -2107,7 +2134,7 @@ router.patch('/properties/:id/status', asyncHandler(async (req, res) => {
     } else {
       emailBody = `Dear ${owner.profile?.firstName || 'User'},\n\nYour property "${property.title}" status has been updated to: ${status}\n\nBest regards,\nBuildHomeMartSquares Team`;
     }
-    
+
     sendEmail(owner.email, emailSubject, emailBody).catch(err => console.error('Email send error:', err));
   }
 
@@ -2125,7 +2152,7 @@ router.post('/properties/:id/approve', authenticateToken, asyncHandler(async (re
   // Check permission: Allow if user is SuperAdmin OR has properties.approve permission
   const isSuperAdminUser = req.user.role === 'superadmin';
   const hasApprovePermission = hasPermission(req.user, PERMISSIONS.PROPERTIES_APPROVE);
-  
+
   if (!isSuperAdminUser && !hasApprovePermission) {
     return res.status(403).json({
       success: false,
@@ -2191,7 +2218,7 @@ router.post('/properties/:id/reject', authenticateToken, asyncHandler(async (req
   // Check permission: Allow if user is SuperAdmin OR has properties.approve permission
   const isSuperAdminUser = req.user.role === 'superadmin';
   const hasApprovePermission = hasPermission(req.user, PERMISSIONS.PROPERTIES_APPROVE);
-  
+
   if (!isSuperAdminUser && !hasApprovePermission) {
     return res.status(403).json({
       success: false,
@@ -2272,29 +2299,29 @@ router.post('/properties/:id/reject', authenticateToken, asyncHandler(async (req
 router.get('/addons', asyncHandler(async (req, res) => {
   const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
   const hasReadPermission = hasPermission(req.user, PERMISSIONS.ADDONS_READ);
-  
+
   if (!hasAdminRole && !hasReadPermission) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required or ADDONS_READ permission needed'
     });
   }
-  
-  const { 
-    category, 
-    isActive, 
+
+  const {
+    category,
+    isActive,
     search,
     minPrice,
     maxPrice,
     billingCycleMonths,
-    page = 1, 
-    limit = 10 
+    page = 1,
+    limit = 10
   } = req.query;
-  
+
   const pageNum = parseInt(page);
   const limitNum = parseInt(limit);
   const skip = (pageNum - 1) * limitNum;
-  
+
   const filter = {};
   if (category) filter.category = category;
   if (isActive !== undefined && isActive !== 'all') filter.isActive = isActive === 'true';
@@ -2304,7 +2331,7 @@ router.get('/addons', asyncHandler(async (req, res) => {
       { description: { $regex: search, $options: 'i' } }
     ];
   }
-  
+
   // Price filters
   if (minPrice) {
     filter.price = { $gte: parseFloat(minPrice) };
@@ -2369,14 +2396,14 @@ router.get('/addons/:id', asyncHandler(async (req, res) => {
 router.post('/addons', asyncHandler(async (req, res) => {
   const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
   const hasCreatePermission = hasPermission(req.user, PERMISSIONS.ADDONS_CREATE);
-  
+
   if (!hasAdminRole && !hasCreatePermission) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required or ADDONS_CREATE permission needed'
     });
   }
-  
+
   const {
     name,
     description,
@@ -2394,7 +2421,7 @@ router.post('/addons', asyncHandler(async (req, res) => {
   // Auto-calculate billingPeriod and billingCycleMonths based on months input
   let finalBillingPeriod = billingPeriod;
   let finalBillingCycleMonths = billingCycleMonths;
-  
+
   // If billingCycleMonths is provided, auto-determine billing period
   if (finalBillingCycleMonths !== undefined) {
     if (finalBillingCycleMonths === 1) {
@@ -2438,14 +2465,14 @@ router.post('/addons', asyncHandler(async (req, res) => {
 router.put('/addons/:id', asyncHandler(async (req, res) => {
   const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
   const hasEditPermission = hasPermission(req.user, PERMISSIONS.ADDONS_EDIT);
-  
+
   if (!hasAdminRole && !hasEditPermission) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required or ADDONS_EDIT permission needed'
     });
   }
-  
+
   const addon = await AddonService.findById(req.params.id);
 
   if (!addon) {
@@ -2482,7 +2509,7 @@ router.put('/addons/:id', asyncHandler(async (req, res) => {
     }
     addon.billingCycleMonths = billingCycleMonths;
   }
-  
+
   // Override with explicit billingPeriod if provided
   if (billingPeriod !== undefined) addon.billingPeriod = billingPeriod;
 
@@ -2510,14 +2537,14 @@ router.put('/addons/:id', asyncHandler(async (req, res) => {
 router.delete('/addons/:id', asyncHandler(async (req, res) => {
   const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
   const hasDeletePermission = hasPermission(req.user, PERMISSIONS.ADDONS_DELETE);
-  
+
   if (!hasAdminRole && !hasDeletePermission) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required or ADDONS_DELETE permission needed'
     });
   }
-  
+
   const addon = await AddonService.findById(req.params.id);
 
   if (!addon) {
@@ -2541,14 +2568,14 @@ router.delete('/addons/:id', asyncHandler(async (req, res) => {
 router.patch('/addons/:id/toggle-status', asyncHandler(async (req, res) => {
   const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
   const hasTogglePermission = hasPermission(req.user, PERMISSIONS.ADDONS_DEACTIVATE);
-  
+
   if (!hasAdminRole && !hasTogglePermission) {
     return res.status(403).json({
       success: false,
       message: 'Admin access required or ADDONS_DEACTIVATE permission needed'
     });
   }
-  
+
   const addon = await AddonService.findById(req.params.id);
 
   if (!addon) {
@@ -2607,7 +2634,7 @@ router.get('/addons/stats', asyncHandler(async (req, res) => {
     AddonService.countDocuments(),
     AddonService.countDocuments({ isActive: true }),
     AddonService.countDocuments({ isActive: false }),
-    
+
     // Category distribution
     AddonService.aggregate([
       {
@@ -2620,7 +2647,7 @@ router.get('/addons/stats', asyncHandler(async (req, res) => {
       },
       { $sort: { count: -1 } }
     ]),
-    
+
     // Billing type distribution
     AddonService.aggregate([
       {
@@ -2632,7 +2659,7 @@ router.get('/addons/stats', asyncHandler(async (req, res) => {
       },
       { $sort: { count: -1 } }
     ]),
-    
+
     // Usage in subscriptions
     Subscription.aggregate([
       { $unwind: '$addons' },
@@ -2660,8 +2687,8 @@ router.get('/addons/stats', asyncHandler(async (req, res) => {
 
   // Calculate average price
   const allAddons = await AddonService.find({}, 'price');
-  const avgPrice = allAddons.length > 0 
-    ? allAddons.reduce((sum, addon) => sum + addon.price, 0) / allAddons.length 
+  const avgPrice = allAddons.length > 0
+    ? allAddons.reduce((sum, addon) => sum + addon.price, 0) / allAddons.length
     : 0;
 
   res.json({
@@ -2686,13 +2713,13 @@ router.get('/addons/stats', asyncHandler(async (req, res) => {
 // @access  Private/Admin
 router.get('/messages', asyncHandler(async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      status, 
-      type, 
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      type,
       priority,
-      search 
+      search
     } = req.query;
 
     const pageNum = parseInt(page);
@@ -2780,7 +2807,7 @@ router.get('/messages/stats', asyncHandler(async (req, res) => {
       Message.countDocuments({ recipient: req.user.id, createdAt: { $gte: today } }),
       Message.countDocuments({ recipient: req.user.id, createdAt: { $gte: last7Days } }),
       Message.countDocuments({ recipient: req.user.id, createdAt: { $gte: last30Days } }),
-      
+
       // Messages by type
       Message.aggregate([
         { $match: { recipient: req.user.id } },
@@ -2792,7 +2819,7 @@ router.get('/messages/stats', asyncHandler(async (req, res) => {
         },
         { $sort: { count: -1 } }
       ]),
-      
+
       // Messages by priority
       Message.aggregate([
         { $match: { recipient: req.user.id } },
@@ -2836,12 +2863,12 @@ router.get('/messages/stats', asyncHandler(async (req, res) => {
     ]);
 
     // Calculate response rate
-    const responseRate = totalMessages > 0 
-      ? Math.round((repliedMessages / totalMessages) * 100) 
+    const responseRate = totalMessages > 0
+      ? Math.round((repliedMessages / totalMessages) * 100)
       : 0;
 
     // Format average response time
-    const avgResponseTime = responseTimeData.length > 0 
+    const avgResponseTime = responseTimeData.length > 0
       ? `${Math.round(responseTimeData[0].avgResponseTime * 10) / 10} hours`
       : 'N/A';
 
@@ -2898,7 +2925,7 @@ router.patch('/messages/:messageId/status', asyncHandler(async (req, res) => {
       updateData,
       { new: true }
     ).populate('sender', 'email profile.firstName profile.lastName')
-     .populate('recipient', 'email profile.firstName profile.lastName');
+      .populate('recipient', 'email profile.firstName profile.lastName');
 
     if (!message) {
       return res.status(404).json({
@@ -3022,7 +3049,7 @@ router.post('/messages/:messageId/reply', asyncHandler(async (req, res) => {
 router.get('/settings', asyncHandler(async (req, res) => {
   try {
     const settings = await Settings.getSettings();
-    
+
     res.json({
       success: true,
       data: {
@@ -3058,7 +3085,7 @@ router.patch('/settings/:category', asyncHandler(async (req, res) => {
     const updates = req.body;
 
     const validCategories = ['general', 'notifications', 'security', 'payment', 'system', 'integrations', 'location'];
-    
+
     if (!validCategories.includes(category)) {
       return res.status(400).json({
         success: false,
@@ -3077,7 +3104,7 @@ router.patch('/settings/:category', asyncHandler(async (req, res) => {
     }
 
     const settings = await Settings.updateCategory(category, updates, req.user.id);
-    
+
     res.json({
       success: true,
       data: {
@@ -3105,7 +3132,7 @@ router.post('/settings/:category/reset', asyncHandler(async (req, res) => {
     const { category } = req.params;
 
     const validCategories = ['general', 'notifications', 'security', 'payment', 'system', 'integrations', 'location'];
-    
+
     if (!validCategories.includes(category)) {
       return res.status(400).json({
         success: false,
@@ -3114,7 +3141,7 @@ router.post('/settings/:category/reset', asyncHandler(async (req, res) => {
     }
 
     const settings = await Settings.resetCategory(category, req.user.id);
-    
+
     res.json({
       success: true,
       data: {
@@ -3282,7 +3309,7 @@ router.get('/settings/export', asyncHandler(async (req, res) => {
 
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="app-settings-${new Date().toISOString().split('T')[0]}.json"`);
-    
+
     res.json({
       exportedAt: new Date().toISOString(),
       version: settings.version,
@@ -3428,7 +3455,7 @@ router.get('/properties/review', isAnyAdmin, asyncHandler(async (req, res) => {
   if (status && status !== 'all') {
     query.status = status;
   }
-  
+
   if (search) {
     query.$or = [
       { title: { $regex: search, $options: 'i' } },
@@ -3523,7 +3550,7 @@ router.post('/support/tickets/:id/respond', isAnyAdmin, asyncHandler(async (req,
   }
 
   const ticket = await SupportTicket.findById(req.params.id);
-  
+
   if (!ticket) {
     return res.status(404).json({
       success: false,
@@ -3535,10 +3562,10 @@ router.post('/support/tickets/:id/respond', isAnyAdmin, asyncHandler(async (req,
   if (ticket.lockedBy && ticket.lockedBy.toString() !== req.user.id.toString()) {
     const User = require('../models/User');
     const lockedByUser = await User.findById(ticket.lockedBy).select('name email profile');
-    const lockerName = lockedByUser?.profile?.firstName 
+    const lockerName = lockedByUser?.profile?.firstName
       ? `${lockedByUser.profile.firstName} ${lockedByUser.profile.lastName || ''}`
       : lockedByUser?.email || 'another user';
-    
+
     return res.status(423).json({
       success: false,
       message: `This ticket is currently being handled by ${lockerName}. Please choose a different ticket.`
@@ -3547,7 +3574,7 @@ router.post('/support/tickets/:id/respond', isAnyAdmin, asyncHandler(async (req,
 
   ticket.responses.push({
     message,
-    author: req.user.profile?.firstName 
+    author: req.user.profile?.firstName
       ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`
       : req.user.email,
     authorId: req.user.id,
@@ -3558,13 +3585,13 @@ router.post('/support/tickets/:id/respond', isAnyAdmin, asyncHandler(async (req,
     ticket.assignedTo = req.user.id;
     ticket.assignedAt = new Date();
   }
-  
+
   // Lock the ticket to this admin
   if (!ticket.lockedBy) {
     ticket.lockedBy = req.user.id;
     ticket.lockedAt = new Date();
   }
-  
+
   if (ticket.status === 'open') {
     ticket.status = 'in_progress';
   }
@@ -3592,7 +3619,7 @@ router.put('/support/tickets/:id/status', isAnyAdmin, asyncHandler(async (req, r
   }
 
   const ticket = await SupportTicket.findById(req.params.id);
-  
+
   if (!ticket) {
     return res.status(404).json({
       success: false,
@@ -3604,10 +3631,10 @@ router.put('/support/tickets/:id/status', isAnyAdmin, asyncHandler(async (req, r
   if (ticket.lockedBy && ticket.lockedBy.toString() !== req.user.id.toString() && status !== 'resolved' && status !== 'closed') {
     const User = require('../models/User');
     const lockedByUser = await User.findById(ticket.lockedBy).select('name email profile');
-    const lockerName = lockedByUser?.profile?.firstName 
+    const lockerName = lockedByUser?.profile?.firstName
       ? `${lockedByUser.profile.firstName} ${lockedByUser.profile.lastName || ''}`
       : lockedByUser?.email || 'another user';
-    
+
     return res.status(423).json({
       success: false,
       message: `This ticket is currently being handled by ${lockerName}. Please choose a different ticket.`
@@ -3708,19 +3735,19 @@ router.get('/properties/expired-free-listings', authenticateToken, isSuperAdmin,
       { archived: false }
     ]
   })
-  .populate('owner', 'email profile.firstName profile.lastName profile.phone')
-  .populate('vendor', 'businessName')
-  .sort({ freeListingExpiresAt: -1 });
+    .populate('owner', 'email profile.firstName profile.lastName profile.phone')
+    .populate('vendor', 'businessName')
+    .sort({ freeListingExpiresAt: -1 });
 
   // Also get already archived properties
   const archivedProperties = await Property.find({
     isFreeListing: true,
     archived: true
   })
-  .populate('owner', 'email profile.firstName profile.lastName profile.phone')
-  .populate('vendor', 'businessName')
-  .sort({ archivedAt: -1 })
-  .limit(50);
+    .populate('owner', 'email profile.firstName profile.lastName profile.phone')
+    .populate('vendor', 'businessName')
+    .sort({ archivedAt: -1 })
+    .limit(50);
 
   res.json({
     success: true,
@@ -3809,25 +3836,25 @@ router.get('/reviews', authenticateToken, async (req, res) => {
 
     const { page = 1, limit = 10, search = '', status = '', rating = '', flagged = '' } = req.query;
     const query = {};
-    
+
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
         { comment: { $regex: search, $options: 'i' } }
       ];
     }
-    
+
     if (status === 'approved') query.status = 'active';
     else if (status === 'pending') query.status = { $in: ['reported', 'hidden'] };
     else if (status === 'rejected') query.status = 'deleted';
     else if (status) query.status = status;
-    
+
     if (rating) query.rating = parseInt(rating);
     if (flagged === 'true') query.status = 'reported';
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const total = await Review.countDocuments(query);
-    
+
     const reviews = await Review.find(query)
       .populate('client', 'name email profile')
       .populate('vendor', 'businessName')
@@ -3838,8 +3865,8 @@ router.get('/reviews', authenticateToken, async (req, res) => {
 
     const formatted = reviews.map(r => ({
       id: r._id,
-      user: r.client ? { 
-        name: r.client.name, 
+      user: r.client ? {
+        name: r.client.name,
         email: r.client.email,
         profile: r.client.profile || {}
       } : null,
@@ -3887,13 +3914,13 @@ router.get('/reviews/stats', authenticateToken, async (req, res) => {
     ]);
     const avgRating = avgRatingResult[0]?.avg || 0;
 
-    res.json({ 
+    res.json({
       success: true,
       data: {
-        total: total || 0, 
-        approved: approved || 0, 
-        pending: pending || 0, 
-        flagged: flagged || 0, 
+        total: total || 0,
+        approved: approved || 0,
+        pending: pending || 0,
+        flagged: flagged || 0,
         avgRating: avgRating ? parseFloat(avgRating.toFixed(1)) : 0
       }
     });
@@ -3914,8 +3941,8 @@ router.post('/reviews/:id/approve', authenticateToken, async (req, res) => {
       { status: 'active', isPublic: true },
       { new: true }
     ).populate('client', 'name email profile')
-     .populate('vendor', 'businessName')
-     .populate('property', 'name');
+      .populate('vendor', 'businessName')
+      .populate('property', 'name');
 
     if (!review) {
       return res.status(404).json({ success: false, message: 'Review not found' });
@@ -3927,8 +3954,8 @@ router.post('/reviews/:id/approve', authenticateToken, async (req, res) => {
       data: {
         review: {
           id: review._id,
-          user: review.client ? { 
-            name: review.client.name, 
+          user: review.client ? {
+            name: review.client.name,
             email: review.client.email,
             profile: review.client.profile || {}
           } : null,
@@ -3960,8 +3987,8 @@ router.post('/reviews/:id/reject', authenticateToken, async (req, res) => {
       { status: 'hidden', isPublic: false },
       { new: true }
     ).populate('client', 'name email profile')
-     .populate('vendor', 'businessName')
-     .populate('property', 'name');
+      .populate('vendor', 'businessName')
+      .populate('property', 'name');
 
     if (!review) {
       return res.status(404).json({ success: false, message: 'Review not found' });
@@ -3973,8 +4000,8 @@ router.post('/reviews/:id/reject', authenticateToken, async (req, res) => {
       data: {
         review: {
           id: review._id,
-          user: review.client ? { 
-            name: review.client.name, 
+          user: review.client ? {
+            name: review.client.name,
             email: review.client.email,
             profile: review.client.profile || {}
           } : null,
@@ -4029,8 +4056,8 @@ router.post('/reviews/:id/flag', authenticateToken, async (req, res) => {
       { status: 'reported', isPublic: false },
       { new: true }
     ).populate('client', 'name email profile')
-     .populate('vendor', 'businessName')
-     .populate('property', 'name');
+      .populate('vendor', 'businessName')
+      .populate('property', 'name');
 
     if (!review) {
       return res.status(404).json({ success: false, message: 'Review not found' });
@@ -4063,8 +4090,8 @@ router.post('/reviews/:id/flag', authenticateToken, async (req, res) => {
       data: {
         review: {
           id: review._id,
-          user: review.client ? { 
-            name: review.client.name, 
+          user: review.client ? {
+            name: review.client.name,
             email: review.client.email,
             profile: review.client.profile || {}
           } : null,
@@ -4089,13 +4116,13 @@ router.post('/reviews/:id/reply', authenticateToken, async (req, res) => {
   try {
     const isSA = req.user.role === 'SuperAdmin';
     const hasPerm = req.user.rolePermissions?.includes('reviews.respond');
-    
+
     if (!isSA && !hasPerm) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
     const { message } = req.body;
-    
+
     if (!message || !message.trim()) {
       return res.status(400).json({ message: 'Reply message is required' });
     }
@@ -4112,8 +4139,8 @@ router.post('/reviews/:id/reply', authenticateToken, async (req, res) => {
       },
       { new: true }
     ).populate('client', 'name email profile')
-     .populate('vendor', 'businessName')
-     .populate('property', 'name');
+      .populate('vendor', 'businessName')
+      .populate('property', 'name');
 
     if (!review) {
       return res.status(404).json({ success: false, message: 'Review not found' });
@@ -4125,8 +4152,8 @@ router.post('/reviews/:id/reply', authenticateToken, async (req, res) => {
       data: {
         review: {
           id: review._id,
-          user: review.client ? { 
-            name: review.client.name, 
+          user: review.client ? {
+            name: review.client.name,
             email: review.client.email,
             profile: review.client.profile || {}
           } : null,
@@ -4170,7 +4197,7 @@ router.get('/notifications/audience-counts', authenticateToken, isAnyAdmin, asyn
       User.countDocuments({ lastLogin: { $gte: thirtyDaysAgo } }),
       User.countDocuments({ 'profile.isPremium': true })
     ]);
-    
+
     const premiumSubs = await Subscription.countDocuments({ status: 'active' });
 
     res.json({
@@ -4266,51 +4293,51 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
     let notification;
 
     if (notificationId) {
-       // Update existing draft
-       notification = await Notification.findById(notificationId);
-       if (!notification) {
-          return res.status(404).json({ success: false, message: 'Notification not found' });
-       }
-       
-       notification.title = subject;
-       notification.subject = subject;
-       notification.message = message;
-       notification.targetAudience = targetAudience;
-       notification.channels = channels;
-       notification.recipients = users.map(u => ({ user: u._id }));
-       notification.status = saveAsDraft ? 'draft' : 'sending'; // Update status
-       notification.isScheduled = isScheduled || false;
-       notification.scheduledDate = isScheduled ? scheduledDate : null;
-       notification.sentAt = (saveAsDraft || isScheduled) ? null : new Date();
-       
-       await notification.save();
+      // Update existing draft
+      notification = await Notification.findById(notificationId);
+      if (!notification) {
+        return res.status(404).json({ success: false, message: 'Notification not found' });
+      }
+
+      notification.title = subject;
+      notification.subject = subject;
+      notification.message = message;
+      notification.targetAudience = targetAudience;
+      notification.channels = channels;
+      notification.recipients = users.map(u => ({ user: u._id }));
+      notification.status = saveAsDraft ? 'draft' : 'sending'; // Update status
+      notification.isScheduled = isScheduled || false;
+      notification.scheduledDate = isScheduled ? scheduledDate : null;
+      notification.sentAt = (saveAsDraft || isScheduled) ? null : new Date();
+
+      await notification.save();
     } else {
-       // Create New Notification
-        notification = new Notification({
-          title: subject,
-          subject: subject,
-          message: message,
-          type: 'informational',
-          targetAudience: targetAudience,
-          channels: channels,
-          recipients: users.map(u => ({ user: u._id })),
-          status: saveAsDraft ? 'draft' : 'sending',
-          sentBy: req.user.id,
-          isScheduled: isScheduled || false,
-          scheduledDate: isScheduled ? scheduledDate : null,
-          sentAt: (saveAsDraft || isScheduled) ? null : new Date()
-        });
-    
-        await notification.save();
+      // Create New Notification
+      notification = new Notification({
+        title: subject,
+        subject: subject,
+        message: message,
+        type: 'informational',
+        targetAudience: targetAudience,
+        channels: channels,
+        recipients: users.map(u => ({ user: u._id })),
+        status: saveAsDraft ? 'draft' : 'sending',
+        sentBy: req.user.id,
+        isScheduled: isScheduled || false,
+        scheduledDate: isScheduled ? scheduledDate : null,
+        sentAt: (saveAsDraft || isScheduled) ? null : new Date()
+      });
+
+      await notification.save();
     }
 
     // If saving as draft, return early
     if (saveAsDraft) {
-        return res.json({
-            success: true,
-            message: 'Notification draft saved successfully',
-            notification
-        });
+      return res.json({
+        success: true,
+        message: 'Notification draft saved successfully',
+        notification
+      });
     }
 
     const results = {
@@ -4322,19 +4349,19 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
     // Process Emails
     if (channels.includes('email') && !isScheduled) {
       const emailPromises = users.map(user => {
-          if (!user.email) return Promise.resolve();
-          return sendTemplateEmail(user.email, 'general-notification', {
-              subject,
-              message,
-              firstName: user.profile?.firstName || 'User',
-              actionLink: process.env.CLIENT_URL,
-              actionText: 'Go to Dashboard'
-          }).then(res => {
-              if(res.success) results.email.sent++;
-              else results.email.failed++;
-          });
+        if (!user.email) return Promise.resolve();
+        return sendTemplateEmail(user.email, 'general-notification', {
+          subject,
+          message,
+          firstName: user.profile?.firstName || 'User',
+          actionLink: process.env.CLIENT_URL,
+          actionText: 'Go to Dashboard'
+        }).then(res => {
+          if (res.success) results.email.sent++;
+          else results.email.failed++;
+        });
       });
-      
+
       await Promise.all(emailPromises);
     }
 
@@ -4342,15 +4369,15 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
     if (channels.includes('push') && !isScheduled) {
       const userIds = users.map(u => u._id.toString());
       const notificationData = {
-          type: 'admin_broadcast',
-          title: subject,
-          message: message,
-          data: {
-            timestamp: new Date().toISOString(),
-            notificationId: notification._id 
-          }
+        type: 'admin_broadcast',
+        title: subject,
+        message: message,
+        data: {
+          timestamp: new Date().toISOString(),
+          notificationId: notification._id
+        }
       };
-      
+
       const notificationService = require('../services/notificationService');
       notificationService.sendNotification(userIds, notificationData);
       results.push.sent = userIds.length;
@@ -4358,21 +4385,21 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
 
     // Update notification status and stats
     if (!isScheduled) {
-        notification.status = 'sent';
-        
-        // Mark all recipients as delivered for accurate stats in pre-save hook
-        if (notification.recipients && notification.recipients.length > 0) {
-            notification.recipients.forEach(r => {
-                r.delivered = true;
-                r.deliveredAt = new Date();
-            });
-        }
+      notification.status = 'sent';
 
-        notification.statistics = {
-          totalRecipients: users.length,
-          delivered: results.push.sent + results.email.sent,
-        };
-        await notification.save();
+      // Mark all recipients as delivered for accurate stats in pre-save hook
+      if (notification.recipients && notification.recipients.length > 0) {
+        notification.recipients.forEach(r => {
+          r.delivered = true;
+          r.deliveredAt = new Date();
+        });
+      }
+
+      notification.statistics = {
+        totalRecipients: users.length,
+        delivered: results.push.sent + results.email.sent,
+      };
+      await notification.save();
     }
 
     res.json({
@@ -4391,38 +4418,38 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
 // @route   PUT /api/admin/notifications/:id
 // @access  Private/Admin
 router.put('/notifications/:id', authenticateToken, isAnyAdmin, asyncHandler(async (req, res) => {
-    try {
-        const notification = await Notification.findById(req.params.id);
-        
-        if (!notification) {
-            return res.status(404).json({ success: false, message: 'Notification not found' });
-        }
+  try {
+    const notification = await Notification.findById(req.params.id);
 
-        if (notification.status !== 'draft') {
-            return res.status(400).json({ success: false, message: 'Only drafts can be edited' });
-        }
-
-        const { subject, message, targetAudience, channels, isScheduled, scheduledDate } = req.body;
-
-        if (subject) notification.subject = subject;
-        if (subject) notification.title = subject;
-        if (message) notification.message = message;
-        if (targetAudience) notification.targetAudience = targetAudience;
-        if (channels) notification.channels = channels;
-        if (isScheduled !== undefined) notification.isScheduled = isScheduled;
-        if (scheduledDate) notification.scheduledDate = scheduledDate;
-
-        await notification.save();
-
-        res.json({
-            success: true,
-            message: 'Draft updated successfully',
-            notification
-        });
-    } catch (error) {
-        console.error('Update notification error:', error);
-        res.status(500).json({ success: false, message: 'Failed to update notification' });
+    if (!notification) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
     }
+
+    if (notification.status !== 'draft') {
+      return res.status(400).json({ success: false, message: 'Only drafts can be edited' });
+    }
+
+    const { subject, message, targetAudience, channels, isScheduled, scheduledDate } = req.body;
+
+    if (subject) notification.subject = subject;
+    if (subject) notification.title = subject;
+    if (message) notification.message = message;
+    if (targetAudience) notification.targetAudience = targetAudience;
+    if (channels) notification.channels = channels;
+    if (isScheduled !== undefined) notification.isScheduled = isScheduled;
+    if (scheduledDate) notification.scheduledDate = scheduledDate;
+
+    await notification.save();
+
+    res.json({
+      success: true,
+      message: 'Draft updated successfully',
+      notification
+    });
+  } catch (error) {
+    console.error('Update notification error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update notification' });
+  }
 }));
 
 
@@ -4431,27 +4458,27 @@ router.put('/notifications/:id', authenticateToken, isAnyAdmin, asyncHandler(asy
 // @route   DELETE /api/admin/notifications/:id
 // @access  Private/Admin
 router.delete('/notifications/:id', authenticateToken, isAnyAdmin, asyncHandler(async (req, res) => {
-    try {
-        if (!hasPermission(req.user, PERMISSIONS.NOTIFICATIONS_DELETE)) {
-            return res.status(403).json({ success: false, message: 'Insufficient permissions to delete notifications' });
-        }
-
-        const notification = await Notification.findById(req.params.id);
-        
-        if (!notification) {
-            return res.status(404).json({ success: false, message: 'Notification not found' });
-        }
-
-        await notification.deleteOne();
-
-        res.json({
-            success: true,
-            message: 'Notification deleted successfully'
-        });
-    } catch (error) {
-        console.error('Delete notification error:', error);
-        res.status(500).json({ success: false, message: 'Failed to delete notification' });
+  try {
+    if (!hasPermission(req.user, PERMISSIONS.NOTIFICATIONS_DELETE)) {
+      return res.status(403).json({ success: false, message: 'Insufficient permissions to delete notifications' });
     }
+
+    const notification = await Notification.findById(req.params.id);
+
+    if (!notification) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
+    }
+
+    await notification.deleteOne();
+
+    res.json({
+      success: true,
+      message: 'Notification deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete notification error:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete notification' });
+  }
 }));
 
 module.exports = router;

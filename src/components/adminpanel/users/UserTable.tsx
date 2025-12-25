@@ -64,7 +64,8 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => 
   const isMobile = useIsMobile();
   const [currentPage, setCurrentPage] = useState(1);
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isTableLoading, setIsTableLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -92,7 +93,11 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => 
   // Fetch users when page, search, or filters change
   useEffect(() => {
     const fetchUsers = async () => {
-      setLoading(true);
+      if (isInitialLoading) {
+        // Keep initial loading true
+      } else {
+        setIsTableLoading(true);
+      }
       try {
         const response = await userService.getUsers({
           page: currentPage,
@@ -110,7 +115,8 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => 
       } catch (error) {
         console.error("Failed to fetch users:", error);
       } finally {
-        setLoading(false);
+        setIsInitialLoading(false);
+        setIsTableLoading(false);
       }
     };
 
@@ -179,7 +185,7 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => 
 
 
 
-  if (loading) {
+  if (isInitialLoading) {
     return (
       <div className="flex justify-center items-center py-12">
         <Loader2 className="h-8 w-8 animate-spin" />

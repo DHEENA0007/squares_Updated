@@ -13,11 +13,13 @@ import UserTable from "@/components/adminpanel/users/UserTable";
 import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import roleService, { Role } from "@/services/roleService";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const Users = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
   const [roles, setRoles] = useState<Role[]>([]);
@@ -136,8 +138,8 @@ const Users = () => {
           )}
         </div>
 
-        <UserTable 
-          searchQuery={searchQuery} 
+        <UserTable
+          searchQuery={debouncedSearchQuery}
           roleFilter={roleFilter === "all" ? "" : roleFilter}
           monthFilter={monthFilter === "all" ? "" : monthFilter}
         />

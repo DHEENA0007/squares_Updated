@@ -37,6 +37,7 @@ import roleService, { Role } from "@/services/roleService";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { PERMISSIONS } from "@/config/permissionConfig";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const Roles = () => {
   const navigate = useNavigate();
@@ -45,7 +46,8 @@ const Roles = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [roles, setRoles] = useState<Role[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isTableLoading, setIsTableLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -59,15 +61,20 @@ const Roles = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
   const fetchRoles = useCallback(async () => {
     try {
-      setLoading(true);
+      if (isInitialLoading) {
+        // Keep initial loading true
+      } else {
+        setIsTableLoading(true);
+      }
       const filters = {
         page: currentPage,
         limit: 10,
-        search: searchTerm || undefined,
+        search: debouncedSearchTerm || undefined,
         isActive: statusFilter === "all" ? undefined : statusFilter === "active",
       };
 
@@ -85,7 +92,7 @@ const Roles = () => {
         const bName = b.name.toLowerCase();
         const aIndex = roleOrder.indexOf(aName);
         const bIndex = roleOrder.indexOf(bName);
-        
+
         // If both roles are in the priority list, sort by their order
         if (aIndex !== -1 && bIndex !== -1) {
           return aIndex - bIndex;
@@ -111,22 +118,16 @@ const Roles = () => {
     } catch (error) {
       console.error("Failed to fetch roles:", error);
     } finally {
-      setLoading(false);
+      setIsInitialLoading(false);
+      setIsTableLoading(false);
     }
-  }, [currentPage, searchTerm, statusFilter]);
+  }, [currentPage, debouncedSearchTerm, statusFilter]);
 
   useEffect(() => {
     fetchRoles();
   }, [fetchRoles]);
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, []);
+
 
   // Handle manual permission refresh
   const handleRefreshPermissions = async () => {
@@ -149,18 +150,10 @@ const Roles = () => {
     }
   };
 
-  const handleSearch = useCallback((value: string) => {
-    // Clear existing timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    // Set new timeout for debounced search
-    searchTimeoutRef.current = setTimeout(() => {
-      setSearchTerm(value);
-      setCurrentPage(1);
-    }, 300);
-  }, []);
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
 
   const handleStatusFilter = useCallback((value: string) => {
     setStatusFilter(value);
@@ -331,7 +324,7 @@ const Roles = () => {
       render: (role) => {
         const roleName = role.name.toLowerCase();
         const isProtectedRole = roleName === 'superadmin' || roleName === 'customer' || roleName === 'subadmin' || roleName === 'agent';
-        
+
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -404,7 +397,7 @@ const Roles = () => {
     },
   ];
 
-  if (loading) {
+  if (isInitialLoading) {
     return (
       <div className="flex justify-center items-center py-12">
         <Loader2 className="h-8 w-8 animate-spin" />

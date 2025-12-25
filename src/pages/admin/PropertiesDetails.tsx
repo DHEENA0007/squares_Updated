@@ -39,6 +39,7 @@ const PropertiesDetails = () => {
     thisMonthProperties: 0,
     activeProperties: 0,
     pendingProperties: 0,
+    rejectedProperties: 0,
     soldProperties: 0
   });
 
@@ -48,11 +49,11 @@ const PropertiesDetails = () => {
 
   useEffect(() => {
     if (searchQuery) {
-      const filtered = properties.filter(prop => 
-        prop.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        prop.propertyType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        prop.address.city?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        prop.status.toLowerCase().includes(searchQuery.toLowerCase())
+      const filtered = properties.filter(prop =>
+        (prop.title?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (prop.propertyType?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (prop.address?.city?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (prop.status?.toLowerCase() || '').includes(searchQuery.toLowerCase())
       );
       setFilteredProperties(filtered);
     } else {
@@ -81,7 +82,7 @@ const PropertiesDetails = () => {
         const now = new Date();
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        const thisMonth = props.filter((p: Property) => 
+        const thisMonth = props.filter((p: Property) =>
           new Date(p.createdAt) >= firstDayOfMonth
         ).length;
 
@@ -90,6 +91,7 @@ const PropertiesDetails = () => {
           thisMonthProperties: thisMonth,
           activeProperties: props.filter((p: Property) => p.status === 'available').length,
           pendingProperties: props.filter((p: Property) => p.status === 'pending').length,
+          rejectedProperties: props.filter((p: Property) => p.status === 'rejected').length,
           soldProperties: props.filter((p: Property) => ['sold', 'rented', 'leased'].includes(p.status)).length
         });
       }
@@ -155,7 +157,7 @@ const PropertiesDetails = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Properties</CardTitle>
@@ -186,6 +188,14 @@ const PropertiesDetails = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">{stats.pendingProperties}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Rejected</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats.rejectedProperties}</div>
           </CardContent>
         </Card>
         <Card>

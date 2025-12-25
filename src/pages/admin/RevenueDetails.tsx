@@ -35,6 +35,7 @@ const RevenueDetails = () => {
   const [stats, setStats] = useState({
     totalRevenue: 0,
     thisMonthRevenue: 0,
+    todayRevenue: 0,
     activeSubscriptions: 0,
     expiredSubscriptions: 0,
     averageRevenue: 0
@@ -62,6 +63,8 @@ const RevenueDetails = () => {
         setSubscriptions(subs);
 
         const now = new Date();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
         const totalRev = subs
@@ -69,19 +72,43 @@ const RevenueDetails = () => {
           .reduce((sum: number, s: Subscription) => sum + s.amount, 0);
 
         const thisMonthRev = subs
-          .filter((s: Subscription) => 
-            ['active', 'expired'].includes(s.status) && 
-            s.lastPaymentDate && 
+          .filter((s: Subscription) =>
+            ['active', 'expired'].includes(s.status) &&
+            s.lastPaymentDate &&
             new Date(s.lastPaymentDate) >= firstDayOfMonth
           )
           .reduce((sum: number, s: Subscription) => sum + s.amount, 0);
 
+        const todayRev = subs
+          .filter((s: Subscription) =>
+            ['active', 'expired'].includes(s.status) &&
+            s.lastPaymentDate &&
+            new Date(s.lastPaymentDate) >= today
+          )
+          .reduce((sum: number, s: Subscription) => sum + s.amount, 0);
+
+        // Robust check for active/expired based on dates
+        const activeCount = subs.filter((s: Subscription) => {
+          if (s.status !== 'active') return false;
+          if (!s.endDate) return true; // Assume active if no end date
+          return new Date(s.endDate) > now;
+        }).length;
+
+        const expiredCount = subs.filter((s: Subscription) => {
+          if (s.status === 'expired') return true;
+          if (s.status === 'active' && s.endDate && new Date(s.endDate) <= now) return true;
+          return false;
+        }).length;
+
+        const paidSubsCount = subs.filter((s: Subscription) => ['active', 'expired'].includes(s.status) && s.lastPaymentDate).length;
+
         setStats({
           totalRevenue: totalRev,
           thisMonthRevenue: thisMonthRev,
-          activeSubscriptions: subs.filter((s: Subscription) => s.status === 'active').length,
-          expiredSubscriptions: subs.filter((s: Subscription) => s.status === 'expired').length,
-          averageRevenue: subs.length > 0 ? totalRev / subs.length : 0
+          todayRevenue: todayRev,
+          activeSubscriptions: activeCount,
+          expiredSubscriptions: expiredCount,
+          averageRevenue: paidSubsCount > 0 ? totalRev / paidSubsCount : 0
         });
       }
     } catch (error) {
@@ -143,7 +170,7 @@ const RevenueDetails = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
@@ -158,6 +185,14 @@ const RevenueDetails = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">{formatCurrency(stats.thisMonthRevenue)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Today</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-indigo-600">{formatCurrency(stats.todayRevenue)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -178,10 +213,21 @@ const RevenueDetails = () => {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Average Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              Average Revenue
+              <div className="group relative">
+                <Clock className="w-3 h-3 text-muted-foreground cursor-help" />
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-popover text-popover-foreground text-xs rounded shadow-lg border z-50">
+                  Total Revenue / Total Paid Subscriptions
+                </div>
+              </div>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">{formatCurrency(Math.round(stats.averageRevenue))}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatCurrency(stats.totalRevenue)} / {subscriptions.filter(s => ['active', 'expired'].includes(s.status) && s.lastPaymentDate).length} subscriptions
+            </p>
           </CardContent>
         </Card>
       </div>

@@ -27,6 +27,7 @@ const RoleBasedDashboard = lazy(() => import("@/pages/rolebased/Dashboard"));
 
 import DashboardLayout from "@/components/adminpanel/DashboardLayout";
 import AdminProtectedRoute from "@/components/auth/AdminProtectedRoute";
+import SessionManager from "@/components/auth/SessionManager";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter basename="/v3">
+            <SessionManager />
             <ScrollToTop />
             <Routes>
               {/* Specific routes first - these must come before wildcard routes */}

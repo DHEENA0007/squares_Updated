@@ -9,8 +9,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Bell, Send, Users, Mail, Eye, RotateCcw, Calendar, CheckCircle, XCircle, Clock, MessageSquare, Edit } from "lucide-react";
+import { Bell, Send, Users, Mail, Eye, RotateCcw, Calendar, CheckCircle, XCircle, Clock, MessageSquare, Edit, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import roleService, { Role } from "@/services/roleService";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface NotificationTemplate {
   _id: string;
@@ -36,10 +38,13 @@ interface NotificationHistoryItem {
   statistics?: {
     totalRecipients: number;
     delivered: number;
+    opened?: number;
+    openRate?: number;
   };
 }
 
 const SendNotifications = () => {
+  const { isSuperAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('compose');
   const [targetAudience, setTargetAudience] = useState('all_users');
   const [subject, setSubject] = useState('');
@@ -50,7 +55,8 @@ const SendNotifications = () => {
   const [selectedChannels, setSelectedChannels] = useState<string[]>(['push']);
   const [sending, setSending] = useState(false);
   const [currentNotificationId, setCurrentNotificationId] = useState<string | null>(null);
-  
+  const [roles, setRoles] = useState<Role[]>([]);
+
   const [audienceCounts, setAudienceCounts] = useState({
     all_users: 0,
     customers: 0,
@@ -86,6 +92,20 @@ const SendNotifications = () => {
   }, []);
 
   useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const response = await roleService.getRoles({ limit: 100, isActive: true });
+        if (response.success) {
+          setRoles(response.data.roles.filter(role => role.name.toLowerCase() !== 'superadmin'));
+        }
+      } catch (error) {
+        console.error('Failed to fetch roles:', error);
+      }
+    };
+    fetchRoles();
+  }, []);
+
+  useEffect(() => {
     if (activeTab === 'history') {
       fetchHistory();
     }
@@ -112,12 +132,16 @@ const SendNotifications = () => {
     }
   };
 
+
+
   const audienceOptions = [
     { value: 'all_users', label: 'All Users', count: audienceCounts.all_users },
-    { value: 'customers', label: 'Customers Only', count: audienceCounts.customers },
-    { value: 'vendors', label: 'Vendors/Builders', count: audienceCounts.vendors },
-    { value: 'active_users', label: 'Active Users (Last 30 days)', count: audienceCounts.active_users },
-    { value: 'premium_users', label: 'Premium Subscribers', count: audienceCounts.premium_users },
+
+    ...roles.map(role => ({
+      value: role.name, // Assuming backend handles role name
+      label: role.name.charAt(0).toUpperCase() + role.name.slice(1), // Capitalize
+      count: role.userCount || 0
+    }))
   ];
 
   const notificationChannels = [
@@ -170,69 +194,69 @@ const SendNotifications = () => {
   };
 
   const handleEditDraft = (item: NotificationHistoryItem) => {
-      setSubject(item.subject);
-      setMessage(item.message);
-      setTargetAudience(item.targetAudience);
-      setSelectedChannels(item.channels);
-      setCurrentNotificationId(item._id);
-      
-      if (item.isScheduled && item.scheduledDate) {
-          setIsScheduled(true);
-          const dateObj = new Date(item.scheduledDate);
-          setScheduledDate(dateObj.toISOString().split('T')[0]);
-          setScheduledTime(dateObj.toTimeString().slice(0, 5));
-      } else {
-          setIsScheduled(false);
-          setScheduledDate('');
-          setScheduledTime('');
-      }
+    setSubject(item.subject);
+    setMessage(item.message);
+    setTargetAudience(item.targetAudience);
+    setSelectedChannels(item.channels);
+    setCurrentNotificationId(item._id);
 
-      setActiveTab('compose');
+    if (item.isScheduled && item.scheduledDate) {
+      setIsScheduled(true);
+      const dateObj = new Date(item.scheduledDate);
+      setScheduledDate(dateObj.toISOString().split('T')[0]);
+      setScheduledTime(dateObj.toTimeString().slice(0, 5));
+    } else {
+      setIsScheduled(false);
+      setScheduledDate('');
+      setScheduledTime('');
+    }
+
+    setActiveTab('compose');
   };
 
   const handleSaveDraft = async () => {
     if (!subject.trim()) {
-        alert('Please enter a subject to save as draft');
-        return;
+      alert('Please enter a subject to save as draft');
+      return;
     }
 
     setSending(true);
     try {
-        const payload = {
-            subject,
-            message,
-            targetAudience,
-            channels: selectedChannels,
-            isScheduled,
-            scheduledDate: isScheduled ? `${scheduledDate}T${scheduledTime}` : null,
-            saveAsDraft: true,
-            notificationId: currentNotificationId
-        };
-        
-        const response = await fetch('/api/admin/notifications/send', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
+      const payload = {
+        subject,
+        message,
+        targetAudience,
+        channels: selectedChannels,
+        isScheduled,
+        scheduledDate: isScheduled ? `${scheduledDate}T${scheduledTime}` : null,
+        saveAsDraft: true,
+        notificationId: currentNotificationId
+      };
 
-        const data = await response.json();
-        
-        if (response.ok && data.success) {
-            alert('Draft saved successfully');
-            if (data.notification) {
-                setCurrentNotificationId(data.notification._id);
-            }
-        } else {
-            alert(data.message || 'Failed to save draft');
+      const response = await fetch('/api/admin/notifications/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        alert('Draft saved successfully');
+        if (data.notification) {
+          setCurrentNotificationId(data.notification._id);
         }
+      } else {
+        alert(data.message || 'Failed to save draft');
+      }
     } catch (error) {
-        console.error('Failed to save draft:', error);
-        alert('Failed to save draft');
+      console.error('Failed to save draft:', error);
+      alert('Failed to save draft');
     } finally {
-        setSending(false);
+      setSending(false);
     }
   };
 
@@ -268,7 +292,7 @@ const SendNotifications = () => {
       if (response.ok && data.success) {
         let msg = 'Notification processed successfully!';
         if (data.detailedStatus) {
-           msg += ` (Email: ${data.detailedStatus.email?.sent || 0} sent, Push: ${data.detailedStatus.push?.sent || 0} sent)`;
+          msg += ` (Email: ${data.detailedStatus.email?.sent || 0} sent, Push: ${data.detailedStatus.push?.sent || 0} sent)`;
         }
         alert(msg);
         // Reset form
@@ -278,8 +302,8 @@ const SendNotifications = () => {
         setIsScheduled(false);
         setScheduledDate('');
         setScheduledTime('');
-        setCurrentNotificationId(null); 
-        
+        setCurrentNotificationId(null);
+
         // Refresh history if on that tab, or just invalidate cache
         if (activeTab === 'history') fetchHistory();
       } else {
@@ -299,7 +323,7 @@ const SendNotifications = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    switch(status) {
+    switch (status) {
       case 'sent':
         return <Badge className="bg-green-500 hover:bg-green-600"><CheckCircle className="w-3 h-3 mr-1" /> Sent</Badge>;
       case 'sending':
@@ -312,6 +336,32 @@ const SendNotifications = () => {
         return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Failed</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const handleDeleteNotification = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this notification record?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/notifications/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          alert('Notification deleted successfully');
+          fetchHistory();
+        } else {
+          alert(data.message || 'Failed to delete notification');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+      alert('Failed to delete notification');
     }
   };
 
@@ -381,7 +431,7 @@ const SendNotifications = () => {
                       onChange={(e) => setSubject(e.target.value)}
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium mb-2">Message Content *</label>
                     <Textarea
@@ -440,7 +490,7 @@ const SendNotifications = () => {
                       Schedule for later
                     </label>
                   </div>
-                  
+
                   {isScheduled && (
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -493,7 +543,7 @@ const SendNotifications = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  
+
                   <div className="p-3 bg-blue-50 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
                       <Users className="w-4 h-4 text-blue-600" />
@@ -561,7 +611,7 @@ const SendNotifications = () => {
                       </DialogContent>
                     </Dialog>
 
-                <div className="text-xs text-muted-foreground space-y-2">
+                    <div className="text-xs text-muted-foreground space-y-2">
                       <div className="flex justify-between">
                         <span>Channels:</span>
                         <span>{selectedChannels.length}</span>
@@ -586,30 +636,30 @@ const SendNotifications = () => {
                 <CardContent className="pt-6">
                   <div className="flex flex-col gap-3">
                     <Button
-                        onClick={handleSendNotification}
-                        disabled={sending || !subject.trim() || !message.trim() || selectedChannels.length === 0}
-                        className="w-full"
+                      onClick={handleSendNotification}
+                      disabled={sending || !subject.trim() || !message.trim() || selectedChannels.length === 0}
+                      className="w-full"
                     >
-                        {sending ? (
+                      {sending ? (
                         <div className="flex items-center gap-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            Sending...
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Sending...
                         </div>
-                        ) : (
+                      ) : (
                         <div className="flex items-center gap-2">
-                            <Send className="w-4 h-4" />
-                            {isScheduled ? 'Schedule Notification' : 'Send Now'}
+                          <Send className="w-4 h-4" />
+                          {isScheduled ? 'Schedule Notification' : 'Send Now'}
                         </div>
-                        )}
+                      )}
                     </Button>
-                    
+
                     <Button
-                        onClick={handleSaveDraft}
-                        disabled={sending || !subject.trim()}
-                        variant="outline"
-                        className="w-full"
+                      onClick={handleSaveDraft}
+                      disabled={sending || !subject.trim()}
+                      variant="outline"
+                      className="w-full"
                     >
-                        Save as Draft
+                      Save as Draft
                     </Button>
                   </div>
                 </CardContent>
@@ -637,7 +687,7 @@ const SendNotifications = () => {
                       <TableHead>Audience</TableHead>
                       <TableHead>Channels</TableHead>
                       <TableHead>Recipients</TableHead>
-                      <TableHead>Read Rate</TableHead>
+                      <TableHead>Delivery</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -653,7 +703,7 @@ const SendNotifications = () => {
                           <div className="text-xs text-muted-foreground line-clamp-1">{item.message}</div>
                         </TableCell>
                         <TableCell>
-                           <Badge variant="outline" className="capitalize">{item.targetAudience.replace('_', ' ')}</Badge>
+                          <Badge variant="outline" className="capitalize">{item.targetAudience.replace('_', ' ')}</Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
@@ -664,43 +714,42 @@ const SendNotifications = () => {
                         </TableCell>
                         <TableCell>{item.statistics?.totalRecipients || 0}</TableCell>
                         <TableCell>
-                            {item.status === 'sent' && item.statistics ? (
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm font-medium">
-                                            {item.statistics.opened || 0}/{item.statistics.delivered || 0}
-                                        </span>
-                                        <span className="text-xs text-muted-foreground">read</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs text-muted-foreground">
-                                            {item.statistics.delivered || 0}/{item.statistics.totalRecipients || 0} delivered
-                                        </span>
-                                    </div>
-                                    {item.statistics.openRate > 0 && (
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-green-600 font-medium">
-                                                {item.statistics.openRate?.toFixed(1)}% rate
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <span className="text-xs text-muted-foreground">N/A</span>
-                            )}
+                          {item.status === 'sent' && item.statistics ? (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">
+                                  {item.statistics.delivered || 0}/{item.statistics.totalRecipients || 0}
+                                </span>
+                                <span className="text-xs text-muted-foreground">delivered</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">N/A</span>
+                          )}
                         </TableCell>
                         <TableCell>{getStatusBadge(item.status)}</TableCell>
                         <TableCell className="text-right">
-                            {item.status === 'draft' && (
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleEditDraft(item)}
-                                    title="Edit Draft"
-                                >
-                                    <Edit className="w-4 h-4" />
-                                </Button>
-                            )}
+                          {item.status === 'draft' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleEditDraft(item)}
+                              title="Edit Draft"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {isSuperAdmin && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeleteNotification(item._id)}
+                              title="Delete Notification"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

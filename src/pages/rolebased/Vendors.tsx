@@ -8,35 +8,53 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import authService from "@/services/authService";
 import { useToast } from "@/hooks/use-toast";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { useDebounce } from "@/hooks/use-debounce";
+import { Search } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "https://app.buildhomemartsquares.com/api";
 
 interface VendorStats {
-  total: number;
-  pending: number;
-  approved: number;
-  rejected: number;
-  underReview: number;
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+    underReview: number;
 }
 
 interface Vendor {
-  _id: string;
-  user: {
     _id: string;
-    email: string;
-    profile: {
-      firstName: string;
-      lastName: string;
-      phone: string;
+    user: {
+        _id: string;
+        email: string;
+        profile: {
+            firstName: string;
+            lastName: string;
+            phone: string;
+        };
     };
-  };
-  businessInfo: {
-    companyName: string;
-  };
-  approval: {
-    status: string;
-    submittedAt: string;
-  };
+    businessInfo: {
+        companyName: string;
+    };
+    approval: {
+        status: string;
+        submittedAt: string;
+    };
 }
 
 const RoleBasedVendors = () => {
@@ -45,14 +63,17 @@ const RoleBasedVendors = () => {
     const { toast } = useToast();
     const permissions = user?.rolePermissions || [];
     const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState<VendorStats>({ 
-        total: 0, 
-        pending: 0, 
-        approved: 0, 
+    const [stats, setStats] = useState<VendorStats>({
+        total: 0,
+        pending: 0,
+        approved: 0,
         rejected: 0,
-        underReview: 0 
+        underReview: 0
     });
     const [vendors, setVendors] = useState<Vendor[]>([]);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+    const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
     const hasPermission = (permission: string) => permissions.includes(permission);
 
@@ -63,14 +84,14 @@ const RoleBasedVendors = () => {
         } else {
             fetchVendorData();
         }
-    }, [permissions]);
+    }, [permissions, debouncedSearchTerm, statusFilter]);
 
     const fetchVendorData = async () => {
         try {
             setLoading(true);
             const currentUser = await authService.getCurrentUser();
             const token = localStorage.getItem('token');
-            
+
             // Fetch vendor stats
             const statsResponse = await fetch(`${API_BASE_URL}/admin/vendor-approval-stats`, {
                 headers: {
@@ -93,7 +114,13 @@ const RoleBasedVendors = () => {
             }
 
             // Fetch vendor list
-            const vendorsResponse = await fetch(`${API_BASE_URL}/admin/vendor-approvals?limit=50&status=all`, {
+            const queryParams = new URLSearchParams({
+                limit: '50',
+                status: statusFilter,
+                search: debouncedSearchTerm
+            });
+
+            const vendorsResponse = await fetch(`${API_BASE_URL}/admin/vendor-approvals?${queryParams}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -230,6 +257,30 @@ const RoleBasedVendors = () => {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <div className="flex flex-col md:flex-row gap-4 mb-6">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search vendors..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-8"
+                            />
+                        </div>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Filter by status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Status</SelectItem>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="approved">Approved</SelectItem>
+                                <SelectItem value="rejected">Rejected</SelectItem>
+                                <SelectItem value="under_review">Under Review</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
                     {vendors.length === 0 ? (
                         <div className="text-center py-12">
                             <ShoppingBag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -242,33 +293,33 @@ const RoleBasedVendors = () => {
                             </p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="border-b">
-                                        <th className="text-left p-4 font-medium">Business Name</th>
-                                        <th className="text-left p-4 font-medium">Contact Person</th>
-                                        <th className="text-left p-4 font-medium">Email</th>
-                                        <th className="text-left p-4 font-medium">Phone</th>
-                                        <th className="text-left p-4 font-medium">Status</th>
-                                        <th className="text-left p-4 font-medium">Submitted</th>
-                                        <th className="text-left p-4 font-medium">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Business Name</TableHead>
+                                        <TableHead>Contact Person</TableHead>
+                                        <TableHead>Email</TableHead>
+                                        <TableHead>Phone</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead>Submitted</TableHead>
+                                        <TableHead>Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
                                     {vendors.map((vendor) => (
-                                        <tr key={vendor._id} className="border-b hover:bg-muted/50">
-                                            <td className="p-4">{vendor.businessInfo?.companyName || 'N/A'}</td>
-                                            <td className="p-4">
+                                        <TableRow key={vendor._id}>
+                                            <TableCell className="font-medium">{vendor.businessInfo?.companyName || 'N/A'}</TableCell>
+                                            <TableCell>
                                                 {vendor.user?.profile?.firstName} {vendor.user?.profile?.lastName}
-                                            </td>
-                                            <td className="p-4">{vendor.user?.email}</td>
-                                            <td className="p-4">{vendor.user?.profile?.phone || 'N/A'}</td>
-                                            <td className="p-4">{getStatusBadge(vendor.approval?.status)}</td>
-                                            <td className="p-4">
+                                            </TableCell>
+                                            <TableCell>{vendor.user?.email}</TableCell>
+                                            <TableCell>{vendor.user?.profile?.phone || 'N/A'}</TableCell>
+                                            <TableCell>{getStatusBadge(vendor.approval?.status)}</TableCell>
+                                            <TableCell>
                                                 {new Date(vendor.approval?.submittedAt).toLocaleDateString()}
-                                            </td>
-                                            <td className="p-4">
+                                            </TableCell>
+                                            <TableCell>
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
@@ -277,11 +328,11 @@ const RoleBasedVendors = () => {
                                                     <Eye className="w-4 h-4 mr-2" />
                                                     View Details
                                                 </Button>
-                                            </td>
-                                        </tr>
+                                            </TableCell>
+                                        </TableRow>
                                     ))}
-                                </tbody>
-                            </table>
+                                </TableBody>
+                            </Table>
                         </div>
                     )}
                 </CardContent>

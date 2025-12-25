@@ -13,6 +13,7 @@ import { PERMISSIONS } from '@/config/permissionConfig';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContainer, LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart as RechartsBar, Bar, PieChart as RechartsPie, Pie, Cell } from 'recharts';
+import PropertyViewDetails from '@/components/analytics/PropertyViewDetails';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
@@ -27,6 +28,7 @@ const RoleBasedAnalytics = () => {
   const [conversion, setConversion] = useState<any>(null);
   const [traffic, setTraffic] = useState<any>(null);
   const [engagement, setEngagement] = useState<any>(null);
+  const [selectedProperty, setSelectedProperty] = useState<string>('');
 
   const hasPermission = (permission: string) => {
     if (user?.role === 'superadmin') return true;
@@ -198,12 +200,71 @@ const RoleBasedAnalytics = () => {
         </TabsContent>
 
         <TabsContent value="properties" className="space-y-4">
-          <div className="text-center py-12">
-            <Eye className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">Property Analytics</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Track property views, interactions, and top-performing listings
-            </p>
+          <div className="grid grid-cols-1 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <LineChart className="h-5 w-5" />
+                  Property Views Over Time
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <RechartsLine data={propertyViews?.viewsByDate || []}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="_id" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="views" stroke="#8884d8" strokeWidth={2} />
+                  </RechartsLine>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Eye className="h-5 w-5" />
+                  Top Viewed Properties
+                </CardTitle>
+                <CardDescription>Click on a property to see detailed visitor information</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {(propertyViews?.viewsByProperty || []).slice(0, 10).map((prop: any, idx: number) => (
+                    <div 
+                      key={prop.propertyId} 
+                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors"
+                      onClick={() => setSelectedProperty(prop.propertyId)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold">
+                          {idx + 1}
+                        </div>
+                        <div>
+                          <p className="font-medium">{prop.propertyTitle}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {prop.uniqueViewers} unique viewers
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold">{prop.totalViews}</p>
+                        <p className="text-xs text-muted-foreground">views</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {selectedProperty && (
+              <PropertyViewDetails 
+                propertyId={selectedProperty} 
+                dateRange={dateRange}
+              />
+            )}
           </div>
         </TabsContent>
 
