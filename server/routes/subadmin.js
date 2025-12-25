@@ -235,6 +235,20 @@ router.get('/properties/pending',
       }
     }
 
+    // Status filter (Approval Status)
+    if (req.query.status) {
+      if (req.query.status === 'all') {
+        delete query.status;
+      } else {
+        query.status = req.query.status;
+      }
+    }
+
+    // Availability/Status filter
+    if (req.query.propertyStatus && req.query.propertyStatus !== 'all') {
+      query.availability = req.query.propertyStatus;
+    }
+
     const [properties, total] = await Promise.all([
       Property.find(query)
         .populate('owner', 'email profile')
@@ -412,6 +426,45 @@ router.get('/properties/rejected',
         { 'address.state': { $regex: sanitizedSearch, $options: 'i' } },
         { description: { $regex: sanitizedSearch, $options: 'i' } }
       ];
+    }
+
+    // Property type filter
+    if (req.query.type && req.query.type !== 'all') {
+      query.type = req.query.type;
+    }
+
+    // Listing type filter
+    if (req.query.listingType && req.query.listingType !== 'all') {
+      query.listingType = req.query.listingType;
+    }
+
+    // Status filter (Approval Status)
+    if (req.query.status) {
+      if (req.query.status === 'all') {
+        delete query.status;
+      } else {
+        query.status = req.query.status;
+      }
+    }
+
+    // Availability filter
+    if (req.query.propertyStatus && req.query.propertyStatus !== 'all') {
+      query.availability = req.query.propertyStatus;
+    }
+
+    // Date range filters
+    if (req.query.startDate || req.query.endDate) {
+      query.rejectedAt = {};
+      if (req.query.startDate) {
+        const start = new Date(req.query.startDate);
+        start.setHours(0, 0, 0, 0);
+        query.rejectedAt.$gte = start;
+      }
+      if (req.query.endDate) {
+        const end = new Date(req.query.endDate);
+        end.setHours(23, 59, 59, 999);
+        query.rejectedAt.$lte = end;
+      }
     }
 
     const [properties, total] = await Promise.all([

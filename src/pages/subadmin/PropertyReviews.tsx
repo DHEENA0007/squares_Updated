@@ -121,6 +121,7 @@ const PropertyReviews = () => {
   // Filter states
   const [propertyType, setPropertyType] = useState("all");
   const [listingType, setListingType] = useState("all");
+  const [approvalStatus, setApprovalStatus] = useState("pending");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -128,16 +129,19 @@ const PropertyReviews = () => {
   // Dynamic filter options
   const [propertyTypeOptions, setPropertyTypeOptions] = useState<PropertyType[]>([]);
   const [listingTypeOptions, setListingTypeOptions] = useState<FilterConfiguration[]>([]);
+  const [statusOptions, setStatusOptions] = useState<FilterConfiguration[]>([]);
 
   useEffect(() => {
     const fetchFilterOptions = async () => {
       try {
-        const [types, listingTypes] = await Promise.all([
+        const [types, listingTypes, statuses] = await Promise.all([
           configurationService.getAllPropertyTypes(),
-          configurationService.getFilterConfigurationsByType('listing_type')
+          configurationService.getFilterConfigurationsByType('listing_type'),
+          configurationService.getFilterConfigurationsByType('property_status')
         ]);
         setPropertyTypeOptions(types);
         setListingTypeOptions(listingTypes);
+        setStatusOptions(statuses);
       } catch (error) {
         console.error('Error fetching filter options:', error);
       }
@@ -179,7 +183,7 @@ const PropertyReviews = () => {
 
   useEffect(() => {
     fetchProperties();
-  }, [currentPage, searchTerm, propertyType, listingType, startDate, endDate]);
+  }, [currentPage, searchTerm, propertyType, listingType, approvalStatus, startDate, endDate]);
 
   const fetchProperties = async () => {
     try {
@@ -189,6 +193,7 @@ const PropertyReviews = () => {
       if (searchTerm) params.append('search', searchTerm);
       if (propertyType && propertyType !== 'all') params.append('type', propertyType);
       if (listingType && listingType !== 'all') params.append('listingType', listingType);
+      if (approvalStatus && approvalStatus !== 'all') params.append('status', approvalStatus);
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
 
@@ -397,9 +402,9 @@ const PropertyReviews = () => {
               >
                 <Filter className="h-4 w-4" />
                 Filters
-                {(propertyType !== 'all' || listingType !== 'all' || startDate || endDate) && (
+                {(propertyType !== 'all' || listingType !== 'all' || approvalStatus !== 'all' || startDate || endDate) && (
                   <Badge variant="secondary" className="ml-1">
-                    {[propertyType !== 'all', listingType !== 'all', startDate, endDate].filter(Boolean).length}
+                    {[propertyType !== 'all', listingType !== 'all', approvalStatus !== 'all', startDate, endDate].filter(Boolean).length}
                   </Badge>
                 )}
               </Button>
@@ -452,6 +457,24 @@ const PropertyReviews = () => {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <Select value={approvalStatus} onValueChange={setApprovalStatus}>
+                    <SelectTrigger className="w-full sm:w-[150px]">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="available">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="sold">Sold</SelectItem>
+                      <SelectItem value="rented">Rented</SelectItem>
+                      <SelectItem value="leased">Leased</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
                   <Label className="text-xs text-muted-foreground">From Date</Label>
                   <Input
                     type="date"
@@ -471,7 +494,7 @@ const PropertyReviews = () => {
                   />
                 </div>
 
-                {(propertyType !== 'all' || listingType !== 'all' || startDate || endDate) && (
+                {(propertyType !== 'all' || listingType !== 'all' || approvalStatus !== 'all' || startDate || endDate) && (
                   <div className="flex items-end">
                     <Button
                       variant="ghost"
@@ -479,6 +502,7 @@ const PropertyReviews = () => {
                       onClick={() => {
                         setPropertyType('all');
                         setListingType('all');
+                        setApprovalStatus('pending');
                         setStartDate('');
                         setEndDate('');
                       }}
