@@ -683,8 +683,6 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
       conversationId
     }
   });
-}
-  });
 }));
 
 // @desc    Update conversation status (archive/unarchive)
