@@ -146,7 +146,7 @@ router.get('/:vendorId/badges', asyncHandler(async (req, res) => {
 
     // Get vendor and user information
     const vendor = await Vendor.findById(vendorId).populate('user', 'profile email role status');
-    
+
     if (!vendor || !vendor.user || vendor.user.status !== 'active' || vendor.user.role !== 'agent') {
       return res.status(404).json({
         success: false,
@@ -168,8 +168,8 @@ router.get('/:vendorId/badges', asyncHandler(async (req, res) => {
       planName: null,
       planLevel: 'free',
       profile: {
-        name: vendor.user.profile ? 
-          `${vendor.user.profile.firstName || ''} ${vendor.user.profile.lastName || ''}`.trim() : 
+        name: vendor.user.profile ?
+          `${vendor.user.profile.firstName || ''} ${vendor.user.profile.lastName || ''}`.trim() :
           'Vendor',
         email: vendor.user.email,
         avatar: vendor.user.profile?.avatar || null,
@@ -203,26 +203,26 @@ router.get('/:vendorId/badges', asyncHandler(async (req, res) => {
     } else if (plan.benefits && typeof plan.benefits === 'object') {
       // Legacy format - convert to new format
       const benefitMapping = {
-        topRated: { 
-          name: 'Top Rated', 
+        topRated: {
+          name: 'Top Rated',
           description: 'Highly rated professional',
           icon: 'star',
           type: 'legacy'
         },
-        verifiedBadge: { 
-          name: 'Verified', 
+        verifiedBadge: {
+          name: 'Verified',
           description: 'Identity and credentials verified',
           icon: 'shield-check',
           type: 'legacy'
         },
-        marketingManager: { 
-          name: 'Marketing Pro', 
+        marketingManager: {
+          name: 'Marketing Pro',
           description: 'Advanced marketing tools access',
           icon: 'trending-up',
           type: 'legacy'
         },
-        commissionBased: { 
-          name: 'Commission Based', 
+        commissionBased: {
+          name: 'Commission Based',
           description: 'Performance-based pricing model',
           icon: 'dollar-sign',
           type: 'legacy'
@@ -560,7 +560,7 @@ router.get('/profile', requireVendorRole, asyncHandler(async (req, res) => {
 
     if (activeSubscription && activeSubscription.plan) {
       const plan = activeSubscription.plan;
-      
+
       // Handle both new array format and legacy object format for benefits
       if (Array.isArray(plan.benefits)) {
         // New dynamic format
@@ -576,26 +576,26 @@ router.get('/profile', requireVendorRole, asyncHandler(async (req, res) => {
       } else if (plan.benefits && typeof plan.benefits === 'object') {
         // Legacy format
         const benefitMapping = {
-          topRated: { 
-            name: 'Top Rated', 
+          topRated: {
+            name: 'Top Rated',
             description: 'Highly rated professional',
             icon: 'star',
             type: 'legacy'
           },
-          verifiedBadge: { 
-            name: 'Verified', 
+          verifiedBadge: {
+            name: 'Verified',
             description: 'Identity and credentials verified',
             icon: 'shield-check',
             type: 'legacy'
           },
-          marketingManager: { 
-            name: 'Marketing Pro', 
+          marketingManager: {
+            name: 'Marketing Pro',
             description: 'Advanced marketing tools access',
             icon: 'trending-up',
             type: 'legacy'
           },
-          commissionBased: { 
-            name: 'Commission Based', 
+          commissionBased: {
+            name: 'Commission Based',
             description: 'Performance-based pricing model',
             icon: 'dollar-sign',
             type: 'legacy'
@@ -640,11 +640,11 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
   // Helper to deeply clean undefined values from objects
   const cleanUndefined = (obj) => {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
-    
+
     const cleaned = {};
     for (const [key, value] of Object.entries(obj)) {
       if (value === undefined) continue;
-      
+
       if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
         const cleanedNested = cleanUndefined(value);
         // Only add if nested object has properties
@@ -1501,7 +1501,7 @@ router.get('/activities/recent', requireVendorRole, asyncHandler(async (req, res
     })));
 
     // Recent property updates
-    const recentUpdates = await Property.find({ 
+    const recentUpdates = await Property.find({
       owner: vendorId,
       updatedAt: { $ne: '$createdAt' }
     })
@@ -2286,6 +2286,7 @@ router.get('/properties', requireVendorRole, asyncHandler(async (req, res) => {
     limit = 10,
     status,
     type,
+    propertyType,
     search,
     sort = '-createdAt'
   } = req.query;
@@ -2299,8 +2300,10 @@ router.get('/properties', requireVendorRole, asyncHandler(async (req, res) => {
     filter.status = status;
   }
 
-  if (type) {
-    filter.type = type;
+  // Accept both 'type' and 'propertyType' (frontend sends 'propertyType')
+  const typeFilter = propertyType || type;
+  if (typeFilter) {
+    filter.type = typeFilter;
   }
 
   // Add search functionality
@@ -3474,7 +3477,7 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
     const propertyLimit = planData.limits.properties;
     // Check for unlimited: null (standard), -1 (legacy), 0 (legacy)
     const isUnlimited = propertyLimit === null || propertyLimit === -1 || propertyLimit === 0;
-    
+
     // Extract features from plan
     features = (planData.features || []).map(f => {
       if (typeof f === 'string') return f;
@@ -3633,26 +3636,26 @@ router.get('/subscription/badges', requireVendorRole, asyncHandler(async (req, r
     } else if (plan.benefits && typeof plan.benefits === 'object') {
       // Legacy format - convert to new format
       const benefitMapping = {
-        topRated: { 
-          name: 'Top Rated', 
+        topRated: {
+          name: 'Top Rated',
           description: 'Highly rated professional',
           icon: 'star',
           type: 'legacy'
         },
-        verifiedBadge: { 
-          name: 'Verified', 
+        verifiedBadge: {
+          name: 'Verified',
           description: 'Identity and credentials verified',
           icon: 'shield-check',
           type: 'legacy'
         },
-        marketingManager: { 
-          name: 'Marketing Pro', 
+        marketingManager: {
+          name: 'Marketing Pro',
           description: 'Advanced marketing tools access',
           icon: 'trending-up',
           type: 'legacy'
         },
-        commissionBased: { 
-          name: 'Commission Based', 
+        commissionBased: {
+          name: 'Commission Based',
           description: 'Performance-based pricing model',
           icon: 'dollar-sign',
           type: 'legacy'
@@ -4782,7 +4785,7 @@ router.get('/:vendorId/enterprise-check', asyncHandler(async (req, res) => {
 
     res.json({
       success: true,
-      data: { 
+      data: {
         isEnterprise,
         whatsappNumber
       }
@@ -4791,7 +4794,7 @@ router.get('/:vendorId/enterprise-check', asyncHandler(async (req, res) => {
     console.error('WhatsApp support check error:', error);
     res.json({
       success: true,
-      data: { 
+      data: {
         isEnterprise: false,
         whatsappNumber: null
       } // Default to false on error
