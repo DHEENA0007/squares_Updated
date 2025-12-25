@@ -78,7 +78,7 @@ class AnalyticsService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
@@ -98,7 +98,7 @@ class AnalyticsService {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
@@ -123,7 +123,7 @@ class AnalyticsService {
       if (filters.dateTo) queryParams.append('dateTo', filters.dateTo);
 
       const endpoint = `/vendors/analytics/overview?${queryParams.toString()}`;
-      
+
       const response = await this.makeRequest<{
         success: boolean;
         data: AnalyticsOverviewStats;
@@ -165,7 +165,7 @@ class AnalyticsService {
       };
     } catch (error) {
       console.error("Failed to fetch overview stats:", error);
-      
+
       // Return default stats with real rating on error
       let averageRating = 0;
       try {
@@ -201,7 +201,7 @@ class AnalyticsService {
       if (filters.dateTo) queryParams.append('dateTo', filters.dateTo);
 
       const endpoint = `/vendors/analytics/performance?${queryParams.toString()}`;
-      
+
       const response = await this.makeRequest<{
         success: boolean;
         data: PerformanceMetrics;
@@ -246,7 +246,7 @@ class AnalyticsService {
       if (filters.dateTo) queryParams.append('dateTo', filters.dateTo);
 
       const endpoint = `/vendors/analytics/export?${queryParams.toString()}`;
-      
+
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -258,7 +258,7 @@ class AnalyticsService {
       }
 
       const blob = await response.blob();
-      
+
       toast({
         title: "Success",
         description: `Analytics data exported as ${format.toUpperCase()}!`,
@@ -280,7 +280,7 @@ class AnalyticsService {
     if (amount === undefined || amount === null || isNaN(amount)) {
       return '₹0';
     }
-    
+
     return `₹${amount.toLocaleString('en-IN')}`;
   }
 
@@ -288,7 +288,7 @@ class AnalyticsService {
     if (num === undefined || num === null || isNaN(num)) {
       return '0';
     }
-    
+
     if (num >= 1000000) {
       return `${(num / 1000000).toFixed(1)}M`;
     } else if (num >= 1000) {
@@ -327,7 +327,7 @@ class AnalyticsService {
   generateDateRange(timeframe: string): ChartData[] {
     const now = new Date();
     const data: ChartData[] = [];
-    
+
     switch (timeframe) {
       case '7days':
         for (let i = 6; i >= 0; i--) {
@@ -370,7 +370,7 @@ class AnalyticsService {
         }
         break;
     }
-    
+
     return data;
   }
 
@@ -383,6 +383,48 @@ class AnalyticsService {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
+  }
+
+  // V3 Consolidated Admin Analytics - fetches all analytics data in one call
+  async getConsolidatedAdminAnalytics(dateRange: string = '30') {
+    return this.makeRequest<{
+      success: boolean;
+      data: {
+        overview: {
+          totalUsers: number;
+          totalProperties: number;
+          totalViews: number;
+          totalRegistrations: number;
+          totalRevenue: number;
+          usersByRole: Array<{ _id: string; count: number }>;
+          recentActivity: any[];
+        };
+        propertyViews: {
+          viewsByProperty: any[];
+          viewsByDate: any[];
+          viewerTypes: any[];
+          interactions: any;
+        };
+        conversion: {
+          totalViews: number;
+          guestViews: number;
+          registeredViews: number;
+          newRegistrations: number;
+          conversionRate: number;
+          registrationsByDate: any[];
+        };
+        traffic: {
+          trafficBySource: any[];
+          trafficByDevice: any[];
+          peakHours: any[];
+        };
+        engagement: {
+          activeUsers: any[];
+          messageActivity: any[];
+          reviewActivity: any[];
+        };
+      };
+    }>(`/analytics/v3/admin?dateRange=${dateRange}`);
   }
 
   async getOverview(dateRange: string = '30') {
@@ -412,7 +454,7 @@ class AnalyticsService {
   }
 
   async getAllPropertyViewers(dateRange: string = '30', propertyId?: string) {
-    const query = propertyId 
+    const query = propertyId
       ? `/analytics/all-property-viewers?dateRange=${dateRange}&propertyId=${propertyId}`
       : `/analytics/all-property-viewers?dateRange=${dateRange}`;
     return this.makeRequest<any>(query);

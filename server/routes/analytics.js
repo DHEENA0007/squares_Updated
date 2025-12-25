@@ -14,11 +14,305 @@ const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 
 router.use(authenticateToken);
 
+// V3 Consolidated Admin Analytics - Returns all analytics data in one call
+router.get('/v3/admin', asyncHandler(async (req, res) => {
+  const isSuperAdmin = req.user.role === 'superadmin';
+  const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
+
+  if (!isSuperAdmin && !hasAnalyticsPermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view analytics'
+    });
+  }
+
+  const { dateRange = '30' } = req.query;
+  const days = parseInt(dateRange);
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+
+  try {
+    // ========== OVERVIEW DATA ==========
+    const [
+      totalUsers,
+      totalProperties,
+      totalViews,
+      totalRegistrations,
+      totalRevenue,
+      usersByRole,
+      recentActivity
+    ] = await Promise.all([
+      User.countDocuments(),
+      Property.countDocuments(),
+      PropertyView.countDocuments({ viewedAt: { $gte: startDate } }),
+      User.countDocuments({ createdAt: { $gte: startDate } }),
+      Subscription.aggregate([
+        { $match: { createdAt: { $gte: startDate } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+      User.aggregate([
+        { $group: { _id: '$role', count: { $sum: 1 } } }
+      ]),
+      User.find().sort({ createdAt: -1 }).limit(10)
+        .select('email profile.firstName profile.lastName role createdAt')
+    ]);
+
+    // ========== PROPERTY VIEWS DATA ==========
+    const matchCondition = { viewedAt: { $gte: startDate } };
+    const [viewsByProperty, viewsByDate, viewerTypes, interactionsData] = await Promise.all([
+      PropertyView.aggregate([
+        { $match: matchCondition },
+        {
+          $group: {
+            _id: '$property',
+            totalViews: { $sum: 1 },
+            uniqueViewers: { $addToSet: '$viewer' }
+          }
+        },
+        {
+          $lookup: {
+            from: 'properties',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'propertyData'
+          }
+        },
+        { $unwind: '$propertyData' },
+        {
+          $project: {
+            propertyId: '$_id',
+            propertyTitle: '$propertyData.title',
+            totalViews: 1,
+            uniqueViewers: { $size: '$uniqueViewers' }
+          }
+        },
+        { $sort: { totalViews: -1 } },
+        { $limit: 20 }
+      ]),
+      PropertyView.aggregate([
+        { $match: matchCondition },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$viewedAt' } },
+            views: { $sum: 1 }
+          }
+        },
+        { $sort: { '_id': 1 } }
+      ]),
+      PropertyView.aggregate([
+        { $match: matchCondition },
+        {
+          $group: {
+            _id: {
+              isRegistered: { $cond: [{ $ne: ['$viewer', null] }, 'registered', 'guest'] }
+            },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+      PropertyView.aggregate([
+        { $match: matchCondition },
+        {
+          $group: {
+            _id: null,
+            totalClicks: {
+              $sum: {
+                $add: [
+                  { $cond: ['$interactions.clickedPhone', 1, 0] },
+                  { $cond: ['$interactions.clickedEmail', 1, 0] },
+                  { $cond: ['$interactions.clickedWhatsApp', 1, 0] }
+                ]
+              }
+            },
+            phoneClicks: { $sum: { $cond: ['$interactions.clickedPhone', 1, 0] } },
+            emailClicks: { $sum: { $cond: ['$interactions.clickedEmail', 1, 0] } },
+            whatsappClicks: { $sum: { $cond: ['$interactions.clickedWhatsApp', 1, 0] } },
+            galleryViews: { $sum: { $cond: ['$interactions.viewedGallery', 1, 0] } },
+            shares: { $sum: { $cond: ['$interactions.sharedProperty', 1, 0] } }
+          }
+        }
+      ])
+    ]);
+
+    // ========== USER CONVERSION DATA ==========
+    const [guestViews, registeredViews, newRegistrationsData] = await Promise.all([
+      PropertyView.countDocuments({
+        viewedAt: { $gte: startDate },
+        viewer: null
+      }),
+      PropertyView.countDocuments({
+        viewedAt: { $gte: startDate },
+        viewer: { $ne: null }
+      }),
+      User.aggregate([
+        { $match: { createdAt: { $gte: startDate } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { '_id': 1 } }
+      ])
+    ]);
+
+    const totalViewsConversion = guestViews + registeredViews;
+    const newRegistrationsTotal = newRegistrationsData.reduce((sum, day) => sum + day.count, 0);
+    const conversionRate = totalViewsConversion > 0
+      ? ((newRegistrationsTotal / totalViewsConversion) * 100).toFixed(2)
+      : 0;
+
+    // ========== TRAFFIC DATA ==========
+    const [trafficBySource, trafficByDevice, peakHours] = await Promise.all([
+      PropertyView.aggregate([
+        { $match: { viewedAt: { $gte: startDate } } },
+        {
+          $project: {
+            referrerDomain: {
+              $let: {
+                vars: {
+                  parts: { $split: ['$referrer', '/'] }
+                },
+                in: {
+                  $cond: [
+                    { $gte: [{ $size: '$$parts' }, 3] },
+                    { $arrayElemAt: ['$$parts', 2] },
+                    { $ifNull: ['$referrer', 'Direct / Unknown'] }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          $group: {
+            _id: '$referrerDomain',
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]),
+      PropertyView.aggregate([
+        { $match: { viewedAt: { $gte: startDate } } },
+        {
+          $group: {
+            _id: {
+              $cond: [
+                { $regexMatch: { input: '$userAgent', regex: 'Mobile|Android|iPhone' } },
+                'Mobile',
+                'Desktop'
+              ]
+            },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+      PropertyView.aggregate([
+        { $match: { viewedAt: { $gte: startDate } } },
+        {
+          $group: {
+            _id: { $hour: '$viewedAt' },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { '_id': 1 } }
+      ])
+    ]);
+
+    // ========== ENGAGEMENT DATA ==========
+    const [activeUsers, messageActivity, reviewActivity] = await Promise.all([
+      User.aggregate([
+        {
+          $match: {
+            lastLogin: { $gte: startDate }
+          }
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$lastLogin' } },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { '_id': 1 } }
+      ]),
+      Message.aggregate([
+        { $match: { createdAt: { $gte: startDate } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { '_id': 1 } }
+      ]),
+      Review.aggregate([
+        { $match: { createdAt: { $gte: startDate } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            count: { $sum: 1 },
+            avgRating: { $avg: '$rating' }
+          }
+        },
+        { $sort: { '_id': 1 } }
+      ])
+    ]);
+
+    // ========== RETURN CONSOLIDATED DATA ==========
+    res.json({
+      success: true,
+      data: {
+        overview: {
+          totalUsers,
+          totalProperties,
+          totalViews,
+          totalRegistrations,
+          totalRevenue: totalRevenue[0]?.total || 0,
+          usersByRole,
+          recentActivity
+        },
+        propertyViews: {
+          viewsByProperty,
+          viewsByDate,
+          viewerTypes,
+          interactions: interactionsData[0] || {}
+        },
+        conversion: {
+          totalViews: totalViewsConversion,
+          guestViews,
+          registeredViews,
+          newRegistrations: newRegistrationsTotal,
+          conversionRate: parseFloat(conversionRate),
+          registrationsByDate: newRegistrationsData
+        },
+        traffic: {
+          trafficBySource,
+          trafficByDevice,
+          peakHours
+        },
+        engagement: {
+          activeUsers,
+          messageActivity,
+          reviewActivity
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching consolidated analytics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch analytics data',
+      error: error.message
+    });
+  }
+}));
+
 // Analytics Overview
 router.get('/overview', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
   const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
-  
+
   if (!isSuperAdmin && !hasAnalyticsPermission) {
     return res.status(403).json({
       success: false,
@@ -75,7 +369,7 @@ router.get('/overview', asyncHandler(async (req, res) => {
 router.get('/property-views', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
   const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
-  
+
   if (!isSuperAdmin && !hasAnalyticsPermission) {
     return res.status(403).json({
       success: false,
@@ -181,7 +475,7 @@ router.get('/property-views', asyncHandler(async (req, res) => {
 router.get('/user-conversion', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
   const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
-  
+
   if (!isSuperAdmin && !hasAnalyticsPermission) {
     return res.status(403).json({
       success: false,
@@ -259,7 +553,7 @@ router.get('/user-conversion', asyncHandler(async (req, res) => {
   ]);
 
   const totalViews = guestViews + registeredViews;
-  const conversionRate = totalViews > 0 
+  const conversionRate = totalViews > 0
     ? ((newRegistrations.reduce((sum, day) => sum + day.count, 0) / totalViews) * 100).toFixed(2)
     : 0;
 
@@ -281,7 +575,7 @@ router.get('/user-conversion', asyncHandler(async (req, res) => {
 router.get('/traffic', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
   const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
-  
+
   if (!isSuperAdmin && !hasAnalyticsPermission) {
     return res.status(403).json({
       success: false,
@@ -298,8 +592,26 @@ router.get('/traffic', asyncHandler(async (req, res) => {
     PropertyView.aggregate([
       { $match: { viewedAt: { $gte: startDate } } },
       {
+        $project: {
+          referrerDomain: {
+            $let: {
+              vars: {
+                parts: { $split: ['$referrer', '/'] }
+              },
+              in: {
+                $cond: [
+                  { $gte: [{ $size: '$$parts' }, 3] },
+                  { $arrayElemAt: ['$$parts', 2] },
+                  { $ifNull: ['$referrer', 'Direct / Unknown'] }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
         $group: {
-          _id: '$referrer',
+          _id: '$referrerDomain',
           count: { $sum: 1 }
         }
       },
@@ -359,7 +671,7 @@ router.get('/traffic', asyncHandler(async (req, res) => {
 router.get('/engagement', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
   const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
-  
+
   if (!isSuperAdmin && !hasAnalyticsPermission) {
     return res.status(403).json({
       success: false,
@@ -459,7 +771,7 @@ router.get('/engagement', asyncHandler(async (req, res) => {
 router.get('/property-views/:propertyId', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
   const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
-  
+
   if (!isSuperAdmin && !hasAnalyticsPermission) {
     return res.status(403).json({
       success: false,
@@ -527,7 +839,7 @@ router.get('/property-views/:propertyId', asyncHandler(async (req, res) => {
 router.get('/all-property-viewers', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
   const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
-  
+
   if (!isSuperAdmin && !hasAnalyticsPermission) {
     return res.status(403).json({
       success: false,
