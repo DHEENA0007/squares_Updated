@@ -5,7 +5,6 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,16 +24,16 @@ import {
   Image as ImageIcon,
   X,
   Trash2,
-  Star,
   Archive,
-  ArrowLeft
+  ArrowLeft,
+  Info
 } from "lucide-react";
+import { ToastAction } from "@/components/ui/toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useMessagingRealtime } from "@/contexts/RealtimeContext";
 import { unifiedMessageService } from "@/services/unifiedMessageService";
-import { socketService } from "@/services/socketService";
 import { type Conversation, type Message, type UserStatus } from "@/services/messageService";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -74,6 +73,7 @@ export const BaseMessages = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Initialize unified message service
   useEffect(() => {
@@ -232,6 +232,16 @@ export const BaseMessages = ({
     }
   }, [conversations]);
 
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
+    }
+  }, [messages, otherUserTyping]);
+
   const activeConversation = conversations.find(c => (c.id || c._id) === selectedConversation);
 
   // Send message
@@ -247,7 +257,7 @@ export const BaseMessages = ({
     try {
       setSending(true);
 
-      const attachments: Array<{type: 'image' | 'document'; url: string; name: string; size?: number}> = [];
+      const attachments: Array<{ type: 'image' | 'document'; url: string; name: string; size?: number }> = [];
 
       if (selectedFiles.length > 0) {
         setIsUploading(true);
@@ -398,10 +408,18 @@ export const BaseMessages = ({
     }
   };
 
-  const handleArchiveConversation = async (conversationId: string, isArchived: boolean) => {
+  const handleArchiveConversation = async (conversation: Conversation, isArchived: boolean) => {
+    const conversationId = conversation.id || conversation._id || '';
+
+    // Calculate new status: if unarchiving, check if it has unread messages
+    // If archiving, set to 'archived'
+    const newStatus = !isArchived
+      ? 'archived'
+      : (conversation.unreadCount > 0 ? 'unread' : 'read');
+
     try {
       // Update status on backend
-      await unifiedMessageService.updateConversationStatus(conversationId, isArchived ? 'unread' : 'archived');
+      await unifiedMessageService.updateConversationStatus(conversationId, newStatus);
 
       // If this was the selected conversation, deselect it
       if (selectedConversation === conversationId) {
@@ -412,16 +430,24 @@ export const BaseMessages = ({
         }
       }
 
-      // Remove from current view immediately (like WhatsApp)
+      // Remove from current view immediately (Optimistic UI)
       setConversations(prev => prev.filter(conv => (conv.id || conv._id) !== conversationId));
 
       toast({
-        title: "Success",
-        description: isArchived ? "Conversation unarchived successfully!" : "Conversation archived successfully!",
+        title: !isArchived ? "Conversation archived" : "Conversation unarchived",
+        description: !isArchived ? "Moved to archived chats" : "Moved to main chat list",
+        action: (
+          <ToastAction
+            altText="Undo"
+            onClick={() => handleArchiveConversation(conversation, !isArchived)}
+          >
+            Undo
+          </ToastAction>
+        ),
       });
 
       // Reload conversations in background to sync with server
-      setTimeout(() => loadConversations(), 100);
+      setTimeout(() => loadConversations(), 500);
     } catch (error) {
       console.error('Failed to archive/unarchive conversation:', error);
       toast({
@@ -457,502 +483,491 @@ export const BaseMessages = ({
   const filteredConversations = conversations;
 
   return (
-    <div className="flex flex-col h-screen pt-16">
-      {/* Header */}
-      <div className="flex-shrink-0 px-6 py-4 border-b bg-background">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <MessageSquare className="w-8 h-8 text-primary" />
-              {pageTitle || unifiedMessageService.getConversationListTitle()}
+    <div className="flex h-[calc(100vh-4rem)] pt-0 bg-background overflow-hidden">
+      {/* Sidebar - Conversation List */}
+      <div className={`${isMobile ? (showConversationList ? 'flex' : 'hidden') : 'flex'} w-full md:w-80 lg:w-96 flex-col border-r bg-muted/10`}>
+        {/* Sidebar Header */}
+        <div className="p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-bold flex items-center gap-2">
+              Messages
               {totalUnreadCount > 0 && (
-                <Badge className="bg-red-500 text-white text-sm px-2 py-1 ml-2">
-                  {totalUnreadCount} unread
+                <Badge className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
+                  {totalUnreadCount}
                 </Badge>
               )}
             </h1>
-            <p className="text-muted-foreground mt-1">
-              {pageDescription || "Communicate with property agents and owners"}
-            </p>
-          </div>
-
-          <div className="flex gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
+              <SelectTrigger className="w-[110px] h-8 text-xs bg-background">
+                <SelectValue placeholder="Filter" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Messages</SelectItem>
+                <SelectItem value="all">All</SelectItem>
                 <SelectItem value="unread">Unread</SelectItem>
                 <SelectItem value="read">Read</SelectItem>
                 <SelectItem value="archived">Archived</SelectItem>
               </SelectContent>
             </Select>
           </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search conversations..."
+              className="pl-9 bg-muted/50 border-none rounded-full h-9 focus-visible:ring-1 focus-visible:ring-primary/20"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
+
+        {/* List */}
+        <ScrollArea className="flex-1">
+          <div className="flex flex-col">
+            {/* Archived Chats Button (WhatsApp style) */}
+            {statusFilter !== 'archived' && (
+              <div
+                className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50 border-b border-border/40 transition-colors"
+                onClick={() => setStatusFilter('archived')}
+              >
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted/80">
+                  <Archive className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-medium text-sm">Archived</h3>
+                  <p className="text-xs text-muted-foreground">View archived chats</p>
+                </div>
+              </div>
+            )}
+
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredConversations.length === 0 ? (
+              <div className="text-center py-12 px-4 text-muted-foreground">
+                <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                <p className="font-medium">No conversations yet</p>
+                <p className="text-sm mt-1">Start by sending a message to a property</p>
+              </div>
+            ) : (
+              filteredConversations.map((conversation) => {
+                const otherParticipant = getOtherParticipant(conversation);
+                const participantName = otherParticipant.name || 'Unknown User';
+                const conversationId = conversation.id || conversation._id || '';
+                const isSelected = selectedConversation === conversationId;
+
+                return (
+                  <div
+                    key={conversationId}
+                    className={`group flex items-start gap-3 p-4 cursor-pointer transition-all border-b border-border/40 hover:bg-muted/50 ${isSelected ? 'bg-primary/5 border-l-4 border-l-primary' : 'border-l-4 border-l-transparent'
+                      }`}
+                    onClick={() => setSelectedConversation(conversationId)}
+                  >
+                    <div className="relative flex-shrink-0">
+                      <Avatar className="w-12 h-12 border-2 border-background shadow-sm">
+                        <AvatarImage src={undefined} />
+                        <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                          {participantName.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {userStatuses[otherParticipant._id]?.isOnline && (
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-background rounded-full"></span>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className={`font-semibold text-sm truncate ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                          {participantName}
+                        </h3>
+                        <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                          {unifiedMessageService.formatTime(conversation.lastMessage.createdAt)}
+                        </span>
+                      </div>
+
+                      {showPropertyInfo && conversation.property && (
+                        <div className="flex items-center gap-1 mb-1 text-xs text-muted-foreground/80">
+                          <MapPin className="w-3 h-3" />
+                          <span className="truncate">{conversation.property.title}</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`text-sm truncate flex-1 ${conversation.unreadCount > 0 ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                          {conversation.lastMessage.isFromMe && <span className="mr-1">You:</span>}
+                          {conversation.lastMessage.message}
+                        </p>
+                        {conversation.unreadCount > 0 && (
+                          <Badge className="bg-primary text-primary-foreground h-5 min-w-[1.25rem] px-1 flex items-center justify-center text-[10px] rounded-full">
+                            {conversation.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </ScrollArea>
       </div>
 
-      {/* Messages Interface */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Conversations List */}
-        <Card className={`flex flex-col ${isMobile ? (showConversationList ? 'flex' : 'hidden') : 'w-1/3 border-r'}`}>
-          <CardHeader className="flex-shrink-0 pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Conversations</CardTitle>
-              <Badge variant="secondary">{conversations.length}</Badge>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search conversations..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </CardHeader>
-          <CardContent className="flex-1 p-0 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="space-y-1 p-3">
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      {/* Chat Area */}
+      <div className={`${isMobile ? (!showConversationList ? 'flex' : 'hidden') : 'flex'} flex-1 flex-col bg-background relative`}>
+        {activeConversation ? (
+          <>
+            {/* Chat Header */}
+            <div className="h-16 border-b flex items-center justify-between px-4 md:px-6 bg-background/95 backdrop-blur z-10 shadow-sm">
+              <div className="flex items-center gap-3">
+                {isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowConversationList(true)}
+                    className="-ml-2 hover:bg-muted/50 rounded-full"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </Button>
+                )}
+                <div className="relative">
+                  <Avatar className="w-10 h-10 border shadow-sm">
+                    <AvatarImage src={undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {getOtherParticipant(activeConversation).name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  {userStatuses[getOtherParticipant(activeConversation)._id]?.isOnline && (
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full"></span>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-sm md:text-base leading-none mb-1">
+                    {getOtherParticipant(activeConversation).name}
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {userStatuses[getOtherParticipant(activeConversation)._id]?.isOnline ? (
+                      <span className="text-green-600 font-medium">Active now</span>
+                    ) : userStatuses[getOtherParticipant(activeConversation)._id]?.lastSeen ? (
+                      <span>Last seen {unifiedMessageService.formatTime(userStatuses[getOtherParticipant(activeConversation)._id].lastSeen)}</span>
+                    ) : (
+                      <span>Offline</span>
+                    )}
+                    {showPropertyInfo && activeConversation.property && (
+                      <>
+                        <span className="w-1 h-1 bg-muted-foreground/30 rounded-full"></span>
+                        <span className="truncate max-w-[150px]">{activeConversation.property.title}</span>
+                      </>
+                    )}
                   </div>
-                ) : filteredConversations.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>No conversations yet</p>
-                    <p className="text-sm mt-1">Start by sending a message to a property</p>
-                  </div>
-                ) : (
-                  filteredConversations.map((conversation) => {
-                    const otherParticipant = getOtherParticipant(conversation);
-                    const participantName = otherParticipant.name || 'Unknown User';
-                    const conversationId = conversation.id || conversation._id || '';
+                </div>
+              </div>
 
-                    return (
-                      <div
-                        key={conversationId}
-                        className={`group p-3 rounded-lg cursor-pointer transition-colors ${
-                          selectedConversation === conversationId
-                            ? 'bg-primary/10 border border-primary/20'
-                            : 'hover:bg-muted/50'
-                        }`}
-                        onClick={() => setSelectedConversation(conversationId)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="relative">
-                            <Avatar className="w-12 h-12">
-                              <AvatarImage src={undefined} />
-                              <AvatarFallback>
-                                {participantName.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <p className="font-semibold text-sm truncate">{participantName}</p>
-                                {userStatuses[otherParticipant._id]?.isOnline ? (
-                                  <span className="text-[10px] text-green-600 font-medium">● Online</span>
-                                ) : userStatuses[otherParticipant._id]?.lastSeen ? (
-                                  <span className="text-[9px] text-muted-foreground">
-                                    Last seen {unifiedMessageService.formatTime(userStatuses[otherParticipant._id].lastSeen)}
-                                  </span>
-                                ) : null}
-                              </div>
-                              <span className="text-xs text-muted-foreground flex-shrink-0">
-                                {unifiedMessageService.formatTime(conversation.lastMessage.createdAt)}
-                              </span>
-                            </div>
-
-                            {showPropertyInfo && conversation.property && (
-                              <p className="text-xs text-primary font-medium mb-1 truncate">
-                                {conversation.property.title}
-                              </p>
-                            )}
-                            <p className="text-xs text-muted-foreground truncate">
-                              {conversation.lastMessage.message}
-                            </p>
-
-                            <div className="flex items-center justify-between mt-2">
-                              {conversation.unreadCount > 0 && (
-                                <Badge className="bg-primary text-white text-xs px-2 py-1">
-                                  {conversation.unreadCount}
-                                </Badge>
-                              )}
-                              {enableDeletion && (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <MoreVertical className="w-3 h-3" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleArchiveConversation(conversationId, conversation.status === 'archived');
-                                      }}
-                                    >
-                                      <Archive className="w-4 h-4 mr-2" />
-                                      {conversation.status === 'archived' ? 'Unarchive' : 'Archive'}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      className="text-red-600 focus:text-red-600"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteConversation(conversationId);
-                                      }}
-                                    >
-                                      <Trash2 className="w-4 h-4 mr-2" />
-                                      Delete Conversation
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              )}
-                            </div>
-                          </div>
+              <div className="flex items-center gap-1">
+                {getOtherParticipant(activeConversation).phone && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button size="icon" variant="ghost" className="rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10">
+                        <Phone className="w-5 h-5" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-3" align="end">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground">Contact Number</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-lg font-semibold">{getOtherParticipant(activeConversation).phone}</p>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              navigator.clipboard.writeText(getOtherParticipant(activeConversation).phone || '');
+                              toast({
+                                title: "Copied!",
+                                description: "Phone number copied to clipboard",
+                              });
+                            }}
+                          >
+                            Copy
+                          </Button>
                         </div>
                       </div>
-                    );
-                  })
+                    </PopoverContent>
+                  </Popover>
+                )}
+
+                {enableDeletion && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="ghost" className="rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10">
+                        <MoreVertical className="w-5 h-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => handleArchiveConversation(activeConversation, activeConversation.status === 'archived')}
+                      >
+                        <Archive className="w-4 h-4 mr-2" />
+                        {activeConversation.status === 'archived' ? 'Unarchive' : 'Archive'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-red-600 focus:text-red-600"
+                        onClick={() => handleDeleteConversation(activeConversation.id || activeConversation._id || '')}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Conversation
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            </div>
+
+            {/* Messages */}
+            <ScrollArea className="flex-1 bg-muted/5" ref={scrollAreaRef}>
+              <div className="p-4 space-y-6">
+                {messages.map((message, index) => {
+                  const senderId = typeof message.sender === 'string' ? message.sender : message.sender._id;
+                  const isOwnMessage = user?.id === senderId;
+                  const showAvatar = !isOwnMessage && (index === 0 || messages[index - 1].sender !== message.sender);
+
+                  return (
+                    <div
+                      key={message._id}
+                      className={`flex w-full ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`flex max-w-[80%] md:max-w-[70%] gap-2 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
+                        {!isOwnMessage && (
+                          <div className="w-8 flex-shrink-0 flex flex-col justify-end">
+                            {showAvatar ? (
+                              <Avatar className="w-8 h-8 border">
+                                <AvatarImage src={undefined} />
+                                <AvatarFallback className="text-[10px]">
+                                  {getOtherParticipant(activeConversation).name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                                </AvatarFallback>
+                              </Avatar>
+                            ) : <div className="w-8" />}
+                          </div>
+                        )}
+
+                        <div className={`group relative px-4 py-3 shadow-sm ${isOwnMessage
+                          ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-sm'
+                          : 'bg-card border text-foreground rounded-2xl rounded-tl-sm'
+                          }`}>
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                            {unifiedMessageService.getMessageContent(message)}
+                          </p>
+
+                          {/* Attachments */}
+                          {message.attachments && message.attachments.length > 0 && (
+                            <div className="mt-3 space-y-2">
+                              {message.attachments.map((attachment, idx) => (
+                                <div key={idx}>
+                                  {attachment.type === 'image' ? (
+                                    <a href={attachment.url} target="_blank" rel="noopener noreferrer">
+                                      <img
+                                        src={attachment.url}
+                                        alt={attachment.name}
+                                        className="max-w-full rounded-lg border border-border/20 cursor-pointer hover:opacity-95 transition-opacity"
+                                        style={{ maxHeight: '250px' }}
+                                      />
+                                    </a>
+                                  ) : (
+                                    <a
+                                      href={attachment.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`flex items-center gap-3 p-3 rounded-lg border ${isOwnMessage
+                                        ? 'border-primary-foreground/20 bg-primary-foreground/10 hover:bg-primary-foreground/20'
+                                        : 'border-border bg-muted/50 hover:bg-muted'
+                                        } transition-colors`}
+                                    >
+                                      <div className="bg-background p-2 rounded-md">
+                                        <Paperclip className={`w-4 h-4 ${isOwnMessage ? 'text-primary' : 'text-muted-foreground'}`} />
+                                      </div>
+                                      <span className="text-sm truncate font-medium underline decoration-dotted underline-offset-4">
+                                        {attachment.name}
+                                      </span>
+                                    </a>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className={`flex items-center justify-end gap-1 mt-1 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                            <span className="text-[10px]">
+                              {unifiedMessageService.formatTime(message.createdAt || message.timestamp)}
+                            </span>
+                            {isOwnMessage && (
+                              message.read ? (
+                                <CheckCheck className="w-3 h-3" />
+                              ) : (
+                                <CheckCheck className="w-3 h-3 opacity-50" />
+                              )
+                            )}
+                          </div>
+
+                          {enableDeletion && isOwnMessage && (
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 hover:bg-black/10 rounded-full"
+                                  >
+                                    <MoreVertical className="w-3 h-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    className="text-red-600 focus:text-red-600"
+                                    onClick={() => handleDeleteMessage(message._id)}
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Typing Indicator */}
+                {otherUserTyping && (
+                  <div className="flex justify-start">
+                    <div className="flex items-end gap-2">
+                      <Avatar className="w-8 h-8 border mb-1">
+                        <AvatarImage src={undefined} />
+                        <AvatarFallback className="text-[10px]">
+                          {getOtherParticipant(activeConversation).name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="bg-card border p-3 rounded-2xl rounded-tl-sm shadow-sm">
+                        <div className="flex gap-1.5 items-center h-4">
+                          <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                          <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </ScrollArea>
-          </CardContent>
-        </Card>
 
-        {/* Chat Area */}
-        <Card className={`flex flex-col ${isMobile ? (!showConversationList ? 'flex' : 'hidden') : 'flex-1'}`}>
-          {activeConversation ? (
-            <>
-              {/* Chat Header */}
-              <CardHeader className="flex-shrink-0 pb-3 border-b">
-                {isMobile && (
-                  <div className="flex items-center gap-2 mb-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowConversationList(true)}
-                      className="p-2"
-                    >
-                      <ArrowLeft className="w-4 h-4" />
-                    </Button>
-                    <span className="text-sm font-medium">Back to Conversations</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src={undefined} />
-                        <AvatarFallback>
-                          {getOtherParticipant(activeConversation).name.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">
-                          {getOtherParticipant(activeConversation).name}
-                        </h3>
-                        {userStatuses[getOtherParticipant(activeConversation)._id]?.isOnline && (
-                          <span className="text-xs text-green-600 font-medium">● Active now</span>
+            {/* Input Area */}
+            <div className="p-4 bg-background border-t">
+              {selectedFiles.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center gap-2 bg-muted px-3 py-2 rounded-lg border animate-in fade-in slide-in-from-bottom-2">
+                      <div className="p-1.5 bg-background rounded-md border">
+                        {file.type.startsWith('image/') ? (
+                          <ImageIcon className="w-4 h-4 text-blue-500" />
+                        ) : (
+                          <Paperclip className="w-4 h-4 text-orange-500" />
                         )}
                       </div>
-                      {showPropertyInfo && activeConversation.property && (
-                        <p className="text-sm text-muted-foreground">{activeConversation.property.title}</p>
-                      )}
+                      <span className="text-sm truncate max-w-[200px] font-medium">{file.name}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground rounded-full"
+                        onClick={() => removeFile(index)}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
                     </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    {getOtherParticipant(activeConversation).phone && (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button size="sm" variant="outline" title="View phone number">
-                            <Phone className="w-4 h-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-3">
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium">Phone Number</p>
-                            <div className="flex items-center gap-2">
-                              <p className="text-lg font-semibold">{getOtherParticipant(activeConversation).phone}</p>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(getOtherParticipant(activeConversation).phone || '');
-                                  toast({
-                                    title: "Copied!",
-                                    description: "Phone number copied to clipboard",
-                                  });
-                                }}
-                              >
-                                Copy
-                              </Button>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-
-              {/* Property Info */}
-              {showPropertyInfo && activeConversation.property && (
-                <div className="flex-shrink-0 px-6 py-3 bg-muted/30 border-b">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">{activeConversation.property.title}</span>
-                    </div>
-                    <span className="text-sm font-semibold text-primary">
-                      ₹{activeConversation.property.price.toLocaleString('en-IN')}
-                    </span>
-                  </div>
+                  ))}
                 </div>
               )}
 
-              {/* Messages */}
-              <CardContent className="flex-1 p-0 overflow-hidden">
-                <ScrollArea className="h-full p-4">
-                  <div className="space-y-4">
-                    {messages.map((message) => {
-                      const senderId = typeof message.sender === 'string' ? message.sender : message.sender._id;
-                      const isOwnMessage = user?.id === senderId;
+              <div className="flex items-end gap-2 bg-muted/30 p-2 rounded-[24px] border focus-within:ring-1 focus-within:ring-primary/20 focus-within:border-primary/20 transition-all shadow-sm">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx"
+                  onChange={(e) => handleFileSelect(e, 'document')}
+                  multiple
+                />
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={(e) => handleFileSelect(e, 'image')}
+                  multiple
+                />
 
-                      return (
-                        <div
-                          key={message._id}
-                          className={`group flex ${isOwnMessage ? 'justify-end' : 'justify-start'} hover:bg-muted/30 rounded-lg p-1 transition-colors`}
-                        >
-                          <div
-                            className={`max-w-[70%] p-3 rounded-lg ${
-                              isOwnMessage
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted'
-                            }`}
-                          >
-                            <p className="text-sm whitespace-pre-wrap">
-                              {unifiedMessageService.getMessageContent(message)}
-                            </p>
-
-                            {/* Attachments */}
-                            {message.attachments && message.attachments.length > 0 && (
-                              <div className="mt-2 space-y-2">
-                                {message.attachments.map((attachment, idx) => (
-                                  <div key={idx}>
-                                    {attachment.type === 'image' ? (
-                                      <a href={attachment.url} target="_blank" rel="noopener noreferrer">
-                                        <img
-                                          src={attachment.url}
-                                          alt={attachment.name}
-                                          className="max-w-full rounded border border-border cursor-pointer hover:opacity-90"
-                                          style={{ maxHeight: '200px' }}
-                                        />
-                                      </a>
-                                    ) : (
-                                      <a
-                                        href={attachment.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={`flex items-center gap-2 p-2 rounded border ${
-                                          isOwnMessage
-                                            ? 'border-primary-foreground/20 hover:bg-primary-foreground/10'
-                                            : 'border-border bg-background hover:bg-muted'
-                                        }`}
-                                      >
-                                        <Paperclip className="w-4 h-4" />
-                                        <span className="text-sm truncate">{attachment.name}</span>
-                                      </a>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            <div className="flex items-center justify-between mt-2">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs opacity-70">
-                                  {unifiedMessageService.formatTime(message.createdAt || message.timestamp)}
-                                </span>
-                                {isOwnMessage && (
-                                  <Badge variant="outline" className="text-xs px-1 py-0">You</Badge>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                {isOwnMessage && (
-                                  <>
-                                    {message.read ? (
-                                      <CheckCheck className="w-3 h-3 text-blue-500" />
-                                    ) : (
-                                      <CheckCheck className="w-3 h-3 text-gray-400" />
-                                    )}
-                                    {enableDeletion && (
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-6 w-6 p-0 opacity-50 group-hover:opacity-100 transition-opacity hover:bg-destructive/10"
-                                            title="Message options"
-                                          >
-                                            <MoreVertical className="w-3 h-3" />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                          <DropdownMenuItem
-                                            className="text-red-600 focus:text-red-600"
-                                            onClick={() => handleDeleteMessage(message._id)}
-                                          >
-                                            <Trash2 className="w-4 h-4 mr-2" />
-                                            Delete Message
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {/* Typing Indicator */}
-                    {otherUserTyping && (
-                      <div className="flex justify-start">
-                        <div className="bg-muted p-3 rounded-lg">
-                          <div className="flex items-center gap-1">
-                            <div className="flex gap-1">
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                            </div>
-                            <span className="text-xs text-muted-foreground ml-2">
-                              {getOtherParticipant(activeConversation).name} is typing...
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-
-              {/* Message Input */}
-              <div className="flex-shrink-0 p-4 border-t">
-                {selectedFiles.length > 0 && (
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    {selectedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center gap-2 bg-muted px-3 py-2 rounded-lg">
-                        <span className="text-sm truncate max-w-[200px]">{file.name}</span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-5 w-5 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                          onClick={() => removeFile(index)}
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex items-end gap-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    accept=".pdf,.doc,.docx"
-                    onChange={(e) => handleFileSelect(e, 'document')}
-                    multiple
-                  />
-                  <input
-                    ref={imageInputRef}
-                    type="file"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={(e) => handleFileSelect(e, 'image')}
-                    multiple
-                  />
-
-                  <div className="flex gap-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading || sending}
-                      title="Attach document"
-                    >
-                      <Paperclip className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => imageInputRef.current?.click()}
-                      disabled={isUploading || sending}
-                      title="Attach image"
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  <div className="flex-1">
-                    <Textarea
-                      placeholder="Type your message..."
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          sendMessage();
-                        }
-                      }}
-                      className="min-h-[40px] resize-none"
-                      disabled={sending || isUploading}
-                    />
-                  </div>
-
+                <div className="flex gap-1 mb-1 ml-1">
                   <Button
-                    onClick={sendMessage}
-                    disabled={(!newMessage.trim() && selectedFiles.length === 0) || sending || isUploading}
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading || sending}
+                    title="Attach document"
                   >
-                    {sending || isUploading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
+                    <Paperclip className="w-5 h-5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={isUploading || sending}
+                    title="Attach image"
+                  >
+                    <ImageIcon className="w-5 h-5" />
                   </Button>
                 </div>
+
+                <Textarea
+                  placeholder="Type a message..."
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                  className="flex-1 min-h-[40px] max-h-[120px] py-2.5 px-2 bg-transparent border-none shadow-none resize-none focus-visible:ring-0 text-base"
+                  disabled={sending || isUploading}
+                />
+
+                <Button
+                  onClick={sendMessage}
+                  disabled={(!newMessage.trim() && selectedFiles.length === 0) || sending || isUploading}
+                  size="icon"
+                  className="h-10 w-10 rounded-full shrink-0 mb-0.5"
+                >
+                  {sending || isUploading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5 ml-0.5" />
+                  )}
+                </Button>
               </div>
-            </>
-          ) : (
-            <CardContent className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <MessageSquare className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Select a conversation</h3>
-                <p className="text-muted-foreground">
-                  Choose a conversation from the left to start messaging
-                </p>
-              </div>
-            </CardContent>
-          )}
-        </Card>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center flex-col text-muted-foreground bg-muted/5">
+            <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
+              <MessageSquare className="w-10 h-10 opacity-20" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-foreground">Your Messages</h3>
+            <p className="max-w-xs text-center text-sm">
+              Select a conversation from the list to start chatting or send a new message.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
