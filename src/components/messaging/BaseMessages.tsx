@@ -483,7 +483,7 @@ export const BaseMessages = ({
   const filteredConversations = conversations;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] pt-0 bg-background overflow-hidden">
+    <div className="flex h-full pt-0 bg-background overflow-hidden">
       {/* Sidebar - Conversation List */}
       <div className={`${isMobile ? (showConversationList ? 'flex' : 'hidden') : 'flex'} w-full md:w-80 lg:w-96 flex-col border-r bg-muted/10`}>
         {/* Sidebar Header */}
@@ -577,8 +577,13 @@ export const BaseMessages = ({
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className={`font-semibold text-sm truncate ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                        <h3 className={`text-sm truncate ${conversation.unreadCount > 0 ? 'font-bold text-foreground' : 'font-semibold text-foreground/90'} ${isSelected ? 'text-primary' : ''}`}>
                           {participantName}
+                          {conversation.unreadCount > 0 && (
+                            <span className="ml-1.5 text-xs text-primary font-bold">
+                              ({conversation.unreadCount})
+                            </span>
+                          )}
                         </h3>
                         <span className="text-[10px] text-muted-foreground flex-shrink-0">
                           {unifiedMessageService.formatTime(conversation.lastMessage.createdAt)}
@@ -592,16 +597,22 @@ export const BaseMessages = ({
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={`text-sm truncate flex-1 ${conversation.unreadCount > 0 ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                      <div className="flex flex-col gap-1">
+                        <p className={`text-sm truncate ${conversation.unreadCount > 0 ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
                           {conversation.lastMessage.isFromMe && <span className="mr-1">You:</span>}
                           {conversation.lastMessage.message}
                         </p>
-                        {conversation.unreadCount > 0 && (
-                          <Badge className="bg-primary text-primary-foreground h-5 min-w-[1.25rem] px-1 flex items-center justify-center text-[10px] rounded-full">
-                            {conversation.unreadCount}
-                          </Badge>
-                        )}
+
+                        {/* Last Active Status */}
+                        <div className="text-[10px] text-muted-foreground/70">
+                          {userStatuses[otherParticipant._id]?.isOnline ? (
+                            <span className="text-green-600 font-medium">Active now</span>
+                          ) : userStatuses[otherParticipant._id]?.lastSeen ? (
+                            <span>Active {unifiedMessageService.formatTime(userStatuses[otherParticipant._id].lastSeen)}</span>
+                          ) : (
+                            <span>Offline</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
