@@ -5,6 +5,7 @@ const { asyncHandler, validateRequest } = require('../middleware/errorMiddleware
 const { authenticateToken, optionalAuth } = require('../middleware/authMiddleware');
 const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 const mongoose = require('mongoose');
+const adminRealtimeService = require('../services/adminRealtimeService');
 const router = express.Router();
 
 // Handle OPTIONS preflight requests
@@ -224,13 +225,13 @@ router.get('/:id', asyncHandler(async (req, res) => {
     if (req.user && property.owner._id.toString() !== req.user.id) {
       const socketService = require('../services/socketService');
       const ownerId = property.owner._id.toString();
-      
+
       if (socketService.isUserOnline(ownerId)) {
         socketService.sendToUser(ownerId, 'vendor:property_viewed', {
           propertyId: property._id,
           propertyTitle: property.title,
-          viewerName: req.user.profile?.firstName ? 
-            `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim() : 
+          viewerName: req.user.profile?.firstName ?
+            `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim() :
             'Anonymous',
           timestamp: new Date()
         });
@@ -350,6 +351,18 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
 
     const property = await Property.create(propertyData);
     await property.populate('owner', 'profile.firstName profile.lastName profile.phone email role');
+
+    // Notify admins about new property
+    adminRealtimeService.broadcastNotification({
+      type: 'property_created',
+      title: 'New Property Submitted',
+      message: `New property "${property.title}" submitted by ${req.user.profile.firstName} ${req.user.profile.lastName}`,
+      data: {
+        propertyId: property._id,
+        ownerId: req.user.id,
+        ownerName: `${req.user.profile.firstName} ${req.user.profile.lastName}`
+      }
+    });
 
     res.status(201).json({
       success: true,
@@ -986,7 +999,7 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req, res) => {
 router.get('/featured-vendors', asyncHandler(async (req, res) => {
   try {
     const { limit = 8 } = req.query;
-    
+
     // Validate limit parameter
     const parsedLimit = parseInt(limit);
     if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
@@ -995,12 +1008,12 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
         message: 'Invalid limit parameter. Must be a number between 1 and 50.'
       });
     }
-    
+
     // Import models - move to top level to avoid potential issues
     const User = require('../models/User');
     const Vendor = require('../models/Vendor');
     const Subscription = require('../models/Subscription');
-    
+
     console.log('Models loaded successfully');
 
     // Test basic query first
@@ -1008,7 +1021,7 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
       status: 'active',
       endDate: { $gt: new Date() }
     });
-    
+
     console.log(`Found ${subscriptionCount} total active subscriptions`);
 
     if (subscriptionCount === 0) {
@@ -1026,16 +1039,16 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
       status: 'active',
       endDate: { $gt: new Date() }
     })
-    .populate('plan')
-    .populate({
-      path: 'user',
-      select: 'email profile role status',
-      match: { 
-        role: 'agent',
-        status: 'active'
-      }
-    })
-    .sort({ updatedAt: -1 });
+      .populate('plan')
+      .populate({
+        path: 'user',
+        select: 'email profile role status',
+        match: {
+          role: 'agent',
+          status: 'active'
+        }
+      })
+      .sort({ updatedAt: -1 });
 
     console.log(`Found ${activeSubscriptions.length} active subscriptions`);
 
@@ -1045,9 +1058,9 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
         console.log('Filtered out subscription: missing plan or user');
         return false;
       }
-      
+
       const plan = sub.plan;
-      
+
       // Check if plan has any enabled badges
       if (Array.isArray(plan.benefits)) {
         // New format: check if any badges are enabled
@@ -1060,7 +1073,7 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
         console.log(`Plan ${plan.name} (object format) has badges:`, hasBadges);
         return hasBadges;
       }
-      
+
       console.log(`Plan ${plan.name} has no benefits/badges`);
       return false;
     });
@@ -1072,7 +1085,7 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
       validSubscriptions.slice(0, parsedLimit).map(async (subscription) => {
         const vendor = await Vendor.findOne({ user: subscription.user._id })
           .populate('user', 'email profile');
-        
+
         if (!vendor || !vendor.user) return null;
 
         const fullName = `${vendor.user.profile?.firstName || ''} ${vendor.user.profile?.lastName || ''}`.trim();
@@ -1111,7 +1124,7 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
                 marketingManager: { name: 'Marketing Pro', icon: 'trending-up', description: 'Advanced marketing tools' },
                 commissionBased: { name: 'Commission Based', icon: 'dollar-sign', description: 'Performance-based pricing' }
               };
-              
+
               return Object.entries(subscription.plan.benefits)
                 .filter(([_, isActive]) => isActive === true)
                 .map(([badgeKey, _]) => ({
@@ -1122,7 +1135,7 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
                   icon: legacyBadgeMap[badgeKey]?.icon || 'star'
                 }));
             }
-            
+
             return [];
           })(),
           rating: {
@@ -1142,11 +1155,11 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
         // Prioritize vendors with more badges
         const aBadgeCount = Array.isArray(a.badges) ? a.badges.length : 0;
         const bBadgeCount = Array.isArray(b.badges) ? b.badges.length : 0;
-        
+
         if (aBadgeCount !== bBadgeCount) {
           return bBadgeCount - aBadgeCount;
         }
-        
+
         // Then by rating
         return b.rating.average - a.rating.average;
       });
@@ -1156,7 +1169,7 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
       data: {
         vendors: featuredVendors,
         totalCount: featuredVendors.length,
-        message: featuredVendors.length > 0 
+        message: featuredVendors.length > 0
           ? `Showing ${featuredVendors.length} premium vendors with active subscriptions and badges`
           : 'No premium vendors with badges available yet'
       }
@@ -1164,12 +1177,12 @@ router.get('/featured-vendors', asyncHandler(async (req, res) => {
   } catch (error) {
     console.error('Get featured vendors error:', error);
     console.error('Error stack:', error.stack);
-    
+
     // Return 400 for validation/input errors, 500 for server errors
-    const isValidationError = error.name === 'ValidationError' || 
-                             error.name === 'CastError' ||
-                             error.message?.includes('Cast to ObjectId failed');
-    
+    const isValidationError = error.name === 'ValidationError' ||
+      error.name === 'CastError' ||
+      error.message?.includes('Cast to ObjectId failed');
+
     res.status(isValidationError ? 400 : 500).json({
       success: false,
       message: isValidationError ? 'Invalid request parameters' : 'Failed to fetch featured vendors',

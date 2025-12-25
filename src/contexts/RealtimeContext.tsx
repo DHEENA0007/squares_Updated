@@ -4,18 +4,18 @@ import { notificationService } from '@/services/notificationService';
 import { socketService, SocketMessage, TypingIndicator, UserStatus, MessageReadReceipt } from '@/services/socketService';
 
 interface RealtimeEvent {
-  type: 'favorite_added' | 'favorite_removed' | 'message_received' | 'property_updated' | 
-        'new_message' | 'message_read' | 'message_updated' | 'message_deleted' |
-        'typing_indicator' | 'conversation_updated' | 'user_online' | 'user_offline' |
-        'property_viewed' | 'property_favorited' | 'property_inquiry' |
-        'review_created' | 'review_updated' | 'review_deleted' | 'review_replied' |
-        'service_booking_created' | 'service_booking_updated' |
-        'property_alert' | 'price_alert' | 'property_update' | 'service_update' |
-        'lead_alert' | 'inquiry_received' | 'weekly_report' | 'business_update' |
-        'connection' | 'broadcast' | 'announcement' | 'test' |
-        'property_approved' | 'property_rejected' | 'property_reactivated' |
-        'support_ticket_created' | 'support_ticket_updated' | 'property_created' |
-        'user_typing' | 'user_status_changed' | 'message_notification' | 'conversation_read';
+  type: 'favorite_added' | 'favorite_removed' | 'message_received' | 'property_updated' |
+  'new_message' | 'message_read' | 'message_updated' | 'message_deleted' |
+  'typing_indicator' | 'conversation_updated' | 'user_online' | 'user_offline' |
+  'property_viewed' | 'property_favorited' | 'property_inquiry' |
+  'review_created' | 'review_updated' | 'review_deleted' | 'review_replied' |
+  'service_booking_created' | 'service_booking_updated' |
+  'property_alert' | 'price_alert' | 'property_update' | 'service_update' |
+  'lead_alert' | 'inquiry_received' | 'weekly_report' | 'business_update' |
+  'connection' | 'broadcast' | 'announcement' | 'test' |
+  'property_approved' | 'property_rejected' | 'property_reactivated' |
+  'support_ticket_created' | 'support_ticket_updated' | 'property_created' |
+  'user_typing' | 'user_status_changed' | 'message_notification' | 'conversation_read';
   data: any;
   timestamp: string;
 }
@@ -127,7 +127,15 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
 
     const unsubscribeNotification = socketService.on('notification', (data: any) => {
       handleEvent({
-        type: data.type || 'broadcast', 
+        type: data.type || 'broadcast',
+        data: data,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    const unsubscribeAdminNotification = socketService.on('admin:notification', (data: any) => {
+      handleEvent({
+        type: data.type || 'admin_notification',
         data: data,
         timestamp: new Date().toISOString()
       });
@@ -155,6 +163,7 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
       unsubscribeConversationRead();
       unsubscribeUserStatus();
       unsubscribeNotification();
+      unsubscribeAdminNotification();
       clearInterval(checkConnection);
       clearInterval(activityPing);
       socketService.disconnect();
@@ -163,22 +172,22 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
 
   // Request notification permission on mount
   useEffect(() => {
-      const requestPermission = async () => {
-        if ('Notification' in window && Notification.permission === 'default') {
-          try {
-            await Notification.requestPermission();
-          } catch (e) {
-            console.error('Error requesting notification permission:', e);
-          }
+    const requestPermission = async () => {
+      if ('Notification' in window && Notification.permission === 'default') {
+        try {
+          await Notification.requestPermission();
+        } catch (e) {
+          console.error('Error requesting notification permission:', e);
         }
-      };
-      
-      requestPermission();
+      }
+    };
+
+    requestPermission();
   }, []);
 
   const handleEvent = useCallback((event: RealtimeEvent) => {
     setLastEvent(event);
-    
+
     // Notify all listeners for this event type
     const listeners = eventListeners.get(event.type) || [];
     listeners.forEach(callback => {
@@ -218,13 +227,13 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
         const newMap = new Map(prev);
         const existingListeners = newMap.get(eventType) || [];
         const filteredListeners = existingListeners.filter(cb => cb !== callback);
-        
+
         if (filteredListeners.length === 0) {
           newMap.delete(eventType);
         } else {
           newMap.set(eventType, filteredListeners);
         }
-        
+
         return newMap;
       });
     };
@@ -264,11 +273,11 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children }) 
   }, []);
 
   return (
-    <RealtimeContext.Provider 
-      value={{ 
-        isConnected, 
-        lastEvent, 
-        emit, 
+    <RealtimeContext.Provider
+      value={{
+        isConnected,
+        lastEvent,
+        emit,
         subscribe,
         joinConversation,
         leaveConversation,

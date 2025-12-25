@@ -10,6 +10,11 @@ interface SidebarProps {
   onMobileClose: () => void;
 }
 
+import { useRealtime } from "@/contexts/RealtimeContext";
+import { useEffect, useState } from "react";
+
+// ... existing imports ...
+
 const Sidebar = ({
   isCollapsed,
   onToggle,
@@ -17,6 +22,66 @@ const Sidebar = ({
   onMobileClose
 }: SidebarProps) => {
   const location = useLocation();
+  const { subscribe } = useRealtime();
+
+  const [counts, setCounts] = useState({
+    properties: 0,
+    vendors: 0,
+    messages: 0
+  });
+
+  useEffect(() => {
+    // Listen for live metrics from admin service
+    const unsubscribeMetrics = subscribe('admin:live-metrics', (data: any) => {
+      if (data && data.alerts) {
+        let propertyCount = 0;
+        let vendorCount = 0;
+
+        data.alerts.forEach((alert: any) => {
+          if (alert.action === 'review_properties') {
+            // Extract number from message "X properties pending review"
+            const match = alert.message.match(/(\d+)/);
+            if (match) propertyCount = parseInt(match[1]);
+          }
+          if (alert.action === 'review_users') {
+            // Extract number from message "X users pending approval"
+            const match = alert.message.match(/(\d+)/);
+            if (match) vendorCount = parseInt(match[1]);
+          }
+        });
+
+        setCounts(prev => ({
+          ...prev,
+          properties: propertyCount,
+          vendors: vendorCount
+        }));
+      }
+    });
+
+    // Listen for new messages
+    const unsubscribeMessages = subscribe('new_message', () => {
+      setCounts(prev => ({
+        ...prev,
+        messages: prev.messages + 1
+      }));
+    });
+
+    // Listen for direct notifications
+    const unsubscribeNotifications = subscribe('admin:notification', (data: any) => {
+      if (data.type === 'property_created') {
+        setCounts(prev => ({ ...prev, properties: prev.properties + 1 }));
+      }
+      if (data.type === 'vendor_created') {
+        setCounts(prev => ({ ...prev, vendors: prev.vendors + 1 }));
+      }
+    });
+
+    return () => {
+      unsubscribeMetrics();
+      unsubscribeMessages();
+      unsubscribeNotifications();
+    };
+  }, [subscribe]);
 
   const menuItems = [
     {
@@ -37,12 +102,14 @@ const Sidebar = ({
     {
       label: 'Vendor Approvals',
       path: '/admin/vendor-approvals',
-      icon: UserCheck
+      icon: UserCheck,
+      count: counts.vendors
     },
     {
       label: 'Messages',
       path: '/admin/messages',
-      icon: MessageSquare
+      icon: MessageSquare,
+      count: counts.messages
     },
     {
       label: 'Roles',
@@ -52,7 +119,8 @@ const Sidebar = ({
     {
       label: 'Property Approvals',
       path: '/admin/properties',
-      icon: Building2
+      icon: Building2,
+      count: counts.properties
     },
     {
       label: 'Plans',
@@ -160,7 +228,7 @@ const Sidebar = ({
                 to={item.path}
                 onClick={onMobileClose}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all relative",
                   "hover:bg-accent",
                   isActive && "bg-accent text-accent-foreground",
                   !isActive && "text-foreground",
@@ -168,15 +236,27 @@ const Sidebar = ({
                 )}
                 title={isCollapsed ? item.label : undefined}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
+                <div className="relative">
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  {isCollapsed && (item.count || 0) > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
+                  )}
+                </div>
                 {!isCollapsed && (
                   <div className="flex-1 flex items-center justify-between">
                     <span className="font-medium text-sm">{item.label}</span>
-                    {item.badge && (
-                      <Badge variant="outline" className="text-xs ml-2">
-                        {item.badge}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {(item.count || 0) > 0 && (
+                        <Badge variant="destructive" className="text-xs h-5 px-1.5 min-w-[1.25rem] flex items-center justify-center">
+                          {item.count}
+                        </Badge>
+                      )}
+                      {item.badge && (
+                        <Badge variant="outline" className="text-xs ml-2">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 )}
               </Link>

@@ -5,6 +5,7 @@ const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const LoginAttempt = require('../models/LoginAttempt');
 const TwoFactorAuth = require('../models/TwoFactorAuth');
+const adminRealtimeService = require('../services/adminRealtimeService');
 const { asyncHandler, validateRequest } = require('../middleware/errorMiddleware');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const { sendEmail } = require('../utils/emailService');
@@ -559,6 +560,19 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
       console.error('Failed to send admin notification:', emailError);
       // Don't fail the registration if admin email fails
     }
+
+    // Notify admins via socket
+    adminRealtimeService.broadcastNotification({
+      type: 'vendor_created',
+      title: 'New Vendor Application',
+      message: `New vendor application from ${firstName} ${lastName} (${businessInfo?.businessName || 'No Company Name'})`,
+      data: {
+        vendorId: vendor._id,
+        userId: user._id,
+        name: `${firstName} ${lastName}`,
+        company: businessInfo?.businessName
+      }
+    });
   }
 
   // Send confirmation email (for vendors, confirm profile submission)
@@ -859,8 +873,8 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
   const systemSessionTimeout = settings.security.sessionTimeout || 30;
   // Allow user preference to override if it's more restrictive, otherwise use system setting
   const userSessionTimeout = user.profile?.preferences?.security?.sessionTimeout;
-  const sessionTimeout = userSessionTimeout && parseInt(userSessionTimeout) < systemSessionTimeout 
-    ? userSessionTimeout 
+  const sessionTimeout = userSessionTimeout && parseInt(userSessionTimeout) < systemSessionTimeout
+    ? userSessionTimeout
     : systemSessionTimeout.toString();
   const timeoutMinutes = sessionTimeout === '0' ? 7 * 24 * 60 : parseInt(sessionTimeout); // 0 = never expire (7 days)
 

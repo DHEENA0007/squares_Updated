@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Home, Building2, Plus, MessageSquare, BarChart3, Crown, CreditCard, Star, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
+import { useRealtime } from "@/contexts/RealtimeContext";
+import { Badge } from "@/components/ui/badge";
 
 interface VendorSidebarProps {
   sidebarOpen: boolean;
@@ -12,6 +14,24 @@ interface VendorSidebarProps {
 
 const VendorSidebar = ({ sidebarOpen, setSidebarOpen, isCollapsed, onToggle }: VendorSidebarProps) => {
   const location = useLocation();
+  const { subscribe } = useRealtime();
+  const [messageCount, setMessageCount] = useState(0);
+
+  useEffect(() => {
+    const unsubscribeMessages = subscribe('new_message', () => {
+      setMessageCount(prev => prev + 1);
+    });
+
+    // Also listen for message notifications
+    const unsubscribeNotifications = subscribe('message_notification', () => {
+      setMessageCount(prev => prev + 1);
+    });
+
+    return () => {
+      unsubscribeMessages();
+      unsubscribeNotifications();
+    };
+  }, [subscribe]);
 
   const menuItems = [
     {
@@ -32,7 +52,8 @@ const VendorSidebar = ({ sidebarOpen, setSidebarOpen, isCollapsed, onToggle }: V
     {
       label: 'Messages',
       path: '/vendor/messages',
-      icon: MessageSquare
+      icon: MessageSquare,
+      count: messageCount
     },
     {
       label: 'Analytics',
@@ -115,7 +136,7 @@ const VendorSidebar = ({ sidebarOpen, setSidebarOpen, isCollapsed, onToggle }: V
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all relative",
                   "hover:bg-accent",
                   isActive && "bg-accent text-accent-foreground",
                   !isActive && "text-foreground",
@@ -123,9 +144,21 @@ const VendorSidebar = ({ sidebarOpen, setSidebarOpen, isCollapsed, onToggle }: V
                 )}
                 title={isCollapsed ? item.label : undefined}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
+                <div className="relative">
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  {isCollapsed && (item.count || 0) > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
+                  )}
+                </div>
                 {!isCollapsed && (
-                  <span className="font-medium text-sm">{item.label}</span>
+                  <div className="flex-1 flex items-center justify-between">
+                    <span className="font-medium text-sm">{item.label}</span>
+                    {(item.count || 0) > 0 && (
+                      <Badge variant="destructive" className="text-xs h-5 px-1.5 min-w-[1.25rem] flex items-center justify-center">
+                        {item.count}
+                      </Badge>
+                    )}
+                  </div>
                 )}
               </Link>
             );
