@@ -87,13 +87,18 @@ const messageSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     }
+  }],
+  // Users who have archived this message (effectively archiving the conversation)
+  archivedBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }]
 }, {
   timestamps: true
 });
 
 // Validation: Either message or content must be provided
-messageSchema.pre('save', function() {
+messageSchema.pre('save', function () {
   if (!this.message && !this.content) {
     throw new Error('Either message or content must be provided');
   }

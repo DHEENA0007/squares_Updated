@@ -143,6 +143,14 @@ router.get('/conversations', asyncHandler(async (req, res) => {
     }
   ]);
 
+  // Update status based on archivedBy (per-user archiving)
+  conversations.forEach(conv => {
+    if (conv.lastMessage.archivedBy &&
+      conv.lastMessage.archivedBy.map(id => id.toString()).includes(req.user.id.toString())) {
+      conv.status = 'archived';
+    }
+  });
+
   // Apply filters after aggregation
   let filteredConversations = conversations;
 
@@ -245,7 +253,7 @@ router.post('/', asyncHandler(async (req, res) => {
   // Allow standard roles: superadmin, admin, subadmin, agent, vendor, customer
   const allowedRoles = ['superadmin', 'admin', 'subadmin', 'agent', 'vendor', 'customer'];
   const isAllowedRole = allowedRoles.includes(req.user.role);
-  
+
   if (!isAllowedRole) {
     // For custom roles, check MESSAGES_REPLY permission
     if (!hasPermission(req.user, PERMISSIONS.MESSAGES_REPLY)) {
@@ -270,20 +278,20 @@ router.post('/', asyncHandler(async (req, res) => {
   let finalRecipientId = recipientId;
   const allowedRecipientRoles = ['superadmin', 'admin', 'subadmin', 'agent', 'vendor', 'customer'];
   const isStandardRole = allowedRecipientRoles.includes(recipient.role);
-  
-  const canReceiveMessages = isStandardRole || 
-    (hasPermission(recipient, PERMISSIONS.MESSAGES_VIEW) && 
-     hasPermission(recipient, PERMISSIONS.MESSAGES_REPLY));
-  
+
+  const canReceiveMessages = isStandardRole ||
+    (hasPermission(recipient, PERMISSIONS.MESSAGES_VIEW) &&
+      hasPermission(recipient, PERMISSIONS.MESSAGES_REPLY));
+
   if (!canReceiveMessages) {
     console.log(`Recipient ${recipientId} doesn't have message permissions, routing to superadmin`);
-    
+
     // Find superadmin
     const superadmin = await User.findOne({ role: 'superadmin' }).sort({ createdAt: 1 });
-    
+
     if (superadmin) {
       finalRecipientId = superadmin._id.toString();
-      
+
       // Update conversation ID to include superadmin instead
       const newUserIds = [req.user.id.toString(), finalRecipientId].sort();
       conversationId = newUserIds.join('_');
@@ -518,26 +526,26 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
   // Standard roles can always receive messages
   const allowedRecipientRoles = ['superadmin', 'admin', 'subadmin', 'agent', 'vendor', 'customer'];
   const isStandardRole = allowedRecipientRoles.includes(recipient.role);
-  
+
   // Check if recipient has message view and reply permissions
-  const canReceiveMessages = isStandardRole || 
-    (hasPermission(recipient, PERMISSIONS.MESSAGES_VIEW) && 
-     hasPermission(recipient, PERMISSIONS.MESSAGES_REPLY));
+  const canReceiveMessages = isStandardRole ||
+    (hasPermission(recipient, PERMISSIONS.MESSAGES_VIEW) &&
+      hasPermission(recipient, PERMISSIONS.MESSAGES_REPLY));
 
   // If recipient doesn't have message permissions, route to superadmin
   if (!canReceiveMessages) {
     console.log(`User ${recipientId} (${recipient.role}) doesn't have message permissions, routing to superadmin`);
-    
+
     // Find superadmin
     const superadmin = await User.findOne({ role: 'superadmin' }).sort({ createdAt: 1 });
-    
+
     if (!superadmin) {
       return res.status(500).json({
         success: false,
         message: 'Unable to route message: No superadmin found'
       });
     }
-    
+
     recipientId = superadmin._id;
     console.log(`Message routed to superadmin: ${superadmin._id}`);
   }
@@ -673,6 +681,71 @@ router.post('/property-inquiry', asyncHandler(async (req, res) => {
     data: {
       message: newMessage,
       conversationId
+    }
+  });
+}
+  });
+}));
+
+// @desc    Update conversation status (archive/unarchive)
+// @route   PATCH /api/messages/conversations/:conversationId/status
+// @access  Private
+router.patch('/conversations/:conversationId/status', asyncHandler(async (req, res) => {
+  const { conversationId } = req.params;
+  const { status } = req.body; // 'archived', 'read', 'unread'
+
+  if (!['archived', 'read', 'unread'].includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid status'
+    });
+  }
+
+  // Verify user is part of this conversation
+  const userIds = conversationId.split('_');
+  if (userIds.length !== 2 || !userIds.includes(req.user.id.toString())) {
+    return res.status(403).json({
+      success: false,
+      message: 'Not authorized to access this conversation'
+    });
+  }
+
+  // Find the latest message in the conversation
+  const latestMessage = await Message.findOne({ conversationId })
+    .sort({ createdAt: -1 });
+
+  if (!latestMessage) {
+    return res.status(404).json({
+      success: false,
+      message: 'Conversation not found'
+    });
+  }
+
+  // Update archivedBy field based on status
+  if (status === 'archived') {
+    // Add user to archivedBy
+    if (!latestMessage.archivedBy) latestMessage.archivedBy = [];
+    const exists = latestMessage.archivedBy.some(id => id.toString() === req.user.id.toString());
+    if (!exists) {
+      latestMessage.archivedBy.push(req.user.id);
+    }
+  } else {
+    // Remove user from archivedBy (unarchive)
+    if (latestMessage.archivedBy) {
+      latestMessage.archivedBy = latestMessage.archivedBy.filter(
+        id => id.toString() !== req.user.id.toString()
+      );
+    }
+  }
+
+  await latestMessage.save();
+
+  res.json({
+    success: true,
+    message: `Conversation marked as ${status}`,
+    data: {
+      conversationId,
+      status
     }
   });
 }));
