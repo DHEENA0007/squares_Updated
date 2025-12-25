@@ -5,7 +5,22 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, CheckCircle, XCircle, Eye, MapPin, Calendar, User, Bed, Bath, Maximize, IndianRupee, Home } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Search, CheckCircle, XCircle, Eye, MapPin, Calendar, User, Bed, Bath, Maximize, IndianRupee, Home, Building2, Filter, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,17 +37,19 @@ import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 import { VirtualTourViewer } from "@/components/property/VirtualTourViewer";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
+import { configurationService } from "@/services/configurationService";
+import { PropertyType, FilterConfiguration } from "@/types/configuration";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "https://app.buildhomemartsquares.com/api";
 
 const getImageUrl = (image: string | { url?: string } | undefined): string => {
   if (!image) return DEFAULT_PROPERTY_IMAGE;
-  
+
   // Handle object format {url: "...", caption: "...", isPrimary: false}
   const imagePath = typeof image === 'object' ? image.url : image;
-  
+
   if (!imagePath || typeof imagePath !== 'string') return DEFAULT_PROPERTY_IMAGE;
-  
+
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
     return imagePath;
   }
@@ -101,6 +118,33 @@ const PropertyReviews = () => {
   const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
   const { toast } = useToast();
 
+  // Filter states
+  const [propertyType, setPropertyType] = useState("all");
+  const [listingType, setListingType] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Dynamic filter options
+  const [propertyTypeOptions, setPropertyTypeOptions] = useState<PropertyType[]>([]);
+  const [listingTypeOptions, setListingTypeOptions] = useState<FilterConfiguration[]>([]);
+
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        const [types, listingTypes] = await Promise.all([
+          configurationService.getAllPropertyTypes(),
+          configurationService.getFilterConfigurationsByType('listing_type')
+        ]);
+        setPropertyTypeOptions(types);
+        setListingTypeOptions(listingTypes);
+      } catch (error) {
+        console.error('Error fetching filter options:', error);
+      }
+    };
+    fetchFilterOptions();
+  }, []);
+
   // Auto-populate approver name from logged-in user
   const getApproverName = () => {
     if (user?.profile?.firstName && user?.profile?.lastName) {
@@ -135,14 +179,22 @@ const PropertyReviews = () => {
 
   useEffect(() => {
     fetchProperties();
-  }, [currentPage, searchTerm]);
+  }, [currentPage, searchTerm, propertyType, listingType, startDate, endDate]);
 
   const fetchProperties = async () => {
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`/subadmin/properties/pending?page=${currentPage}&search=${searchTerm}`);
+      const params = new URLSearchParams();
+      params.append('page', currentPage.toString());
+      if (searchTerm) params.append('search', searchTerm);
+      if (propertyType && propertyType !== 'all') params.append('type', propertyType);
+      if (listingType && listingType !== 'all') params.append('listingType', listingType);
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+
+      const response = await fetchWithAuth(`/subadmin/properties/pending?${params.toString()}`);
       const data = await handleApiResponse<{ data: { properties: Property[], totalPages: number } }>(response);
-      
+
       setProperties(data.data.properties || []);
       setTotalPages(data.data.totalPages || 1);
     } catch (error: any) {
@@ -323,139 +375,377 @@ const PropertyReviews = () => {
         </p>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search properties by title or city..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      {/* Search and Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-4">
+            {/* Search Row */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search properties by title or city..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                Filters
+                {(propertyType !== 'all' || listingType !== 'all' || startDate || endDate) && (
+                  <Badge variant="secondary" className="ml-1">
+                    {[propertyType !== 'all', listingType !== 'all', startDate, endDate].filter(Boolean).length}
+                  </Badge>
+                )}
+              </Button>
+            </div>
 
-      {/* Properties List */}
-      <div className="space-y-4">
-        {properties.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
+            {/* Filter Row */}
+            {showFilters && (
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3 pt-3 border-t">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs text-muted-foreground">Property Type</Label>
+                  <Select value={propertyType} onValueChange={setPropertyType}>
+                    <SelectTrigger className="w-full sm:w-[150px]">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      {propertyTypeOptions.map((type) => (
+                        <SelectItem key={type._id} value={type.value}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs text-muted-foreground">Listing Type</Label>
+                  <Select value={listingType} onValueChange={setListingType}>
+                    <SelectTrigger className="w-full sm:w-[130px]">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      {listingTypeOptions.length > 0 ? (
+                        listingTypeOptions.map((type) => (
+                          <SelectItem key={type._id} value={type.value}>
+                            {type.displayLabel || type.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        // Fallback if no dynamic options found
+                        <>
+                          <SelectItem value="sale">Sale</SelectItem>
+                          <SelectItem value="rent">Rent</SelectItem>
+                          <SelectItem value="lease">Lease</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs text-muted-foreground">From Date</Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full sm:w-[150px]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs text-muted-foreground">To Date</Label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full sm:w-[150px]"
+                  />
+                </div>
+
+                {(propertyType !== 'all' || listingType !== 'all' || startDate || endDate) && (
+                  <div className="flex items-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setPropertyType('all');
+                        setListingType('all');
+                        setStartDate('');
+                        setEndDate('');
+                      }}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Clear Filters
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Properties Table */}
+      <Card>
+        <CardContent className="p-0">
+          {properties.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
               <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
               <h3 className="text-lg font-semibold">No Pending Properties</h3>
               <p className="text-muted-foreground text-center">
                 All properties have been reviewed. Great job!
               </p>
-            </CardContent>
-          </Card>
-        ) : (
-          properties.map((property) => (
-            <Card key={property._id} className="overflow-hidden">
-              <CardHeader className="pb-3">
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                  {/* Property Thumbnail */}
-                  {property.images && property.images.length > 0 && (
-                    <div className="flex-shrink-0 mx-auto sm:mx-0">
-                      <img
-                        src={getImageUrl(property.images[0])}
-                        alt={property.title}
-                        className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg shadow-sm"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = DEFAULT_PROPERTY_IMAGE;
-                        }}
-                      />
-                    </div>
-                  )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="w-[60px] text-center">S.No.</TableHead>
+                    <TableHead className="w-[80px]">Image</TableHead>
+                    <TableHead>Property</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead className="text-center">Type</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead>Owner</TableHead>
+                    <TableHead className="text-center">Date</TableHead>
+                    <TableHead className="text-center w-[200px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {properties.map((property, index) => (
+                    <TableRow key={property._id} className="hover:bg-muted/30">
+                      {/* S.No. */}
+                      <TableCell className="text-center font-medium">
+                        {(currentPage - 1) * 10 + index + 1}
+                      </TableCell>
+                      {/* Image */}
+                      <TableCell className="p-2">
+                        <div className="w-16 h-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                          {property.images && property.images.length > 0 ? (
+                            <img
+                              src={getImageUrl(property.images[0])}
+                              alt={property.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = DEFAULT_PROPERTY_IMAGE;
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Building2 className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
 
-                  <div className="flex-1 space-y-2 text-center sm:text-left">
-                    <CardTitle className="text-lg sm:text-xl leading-tight">{property.title}</CardTitle>
-                    <CardDescription className="space-y-1">
-                      <div className="flex flex-wrap justify-center sm:justify-start items-center gap-2 sm:gap-4 text-xs sm:text-sm">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">{property.address.district ? `${property.address.city}, ${property.address.district}, ${property.address.state}` : `${property.address.city}, ${property.address.state}`}</span>
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 flex-shrink-0" />
-                          {new Date(property.createdAt).toLocaleDateString()}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <User className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">{property.owner.email}</span>
-                        </span>
-                      </div>
-                    </CardDescription>
-                  </div>
+                      {/* Property Title */}
+                      <TableCell>
+                        <div className="max-w-[200px]">
+                          <p className="font-medium text-sm truncate" title={property.title}>
+                            {property.title}
+                          </p>
+                          <div className="flex items-center gap-1 mt-1">
+                            {property.bedrooms > 0 && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                                <Bed className="h-3 w-3" /> {property.bedrooms}
+                              </span>
+                            )}
+                            {property.bathrooms > 0 && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-0.5 ml-2">
+                                <Bath className="h-3 w-3" /> {property.bathrooms}
+                              </span>
+                            )}
+                            {(property.area.builtUp || property.area.plot || property.area.carpet) && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-0.5 ml-2">
+                                <Maximize className="h-3 w-3" /> {formatArea(property.area)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
 
-                  <div className="text-center sm:text-right flex-shrink-0">
-                    <div className="text-xl sm:text-2xl font-bold text-primary">
-                      {formatPrice(property.price)}
-                    </div>
-                    <Badge variant="outline" className="mt-1 text-xs">
-                      {property.type} • {property.listingType}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex flex-wrap justify-center sm:justify-start gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedProperty(property);
-                      setViewDialogOpen(true);
-                    }}
-                    className="flex-1 min-w-[120px] touch-manipulation"
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Details
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => openApproveDialog(property)}
-                    disabled={actionLoading[property._id]}
-                    className="flex-1 min-w-[120px] bg-green-600 hover:bg-green-700 touch-manipulation"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Approve
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => openRejectDialog(property)}
-                    disabled={actionLoading[property._id]}
-                    className="flex-1 min-w-[120px] touch-manipulation"
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Reject
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                      {/* Location */}
+                      <TableCell>
+                        <div className="max-w-[150px]">
+                          <p className="text-sm truncate" title={`${property.address.city}, ${property.address.state}`}>
+                            {property.address.city}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {property.address.district ? `${property.address.district}, ` : ''}{property.address.state}
+                          </p>
+                        </div>
+                      </TableCell>
+
+                      {/* Type */}
+                      <TableCell className="text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {property.type}
+                          </Badge>
+                          <Badge variant={property.listingType === 'sale' ? 'default' : 'secondary'} className="text-xs">
+                            {property.listingType === 'sale' ? 'Sale' : property.listingType === 'rent' ? 'Rent' : 'Lease'}
+                          </Badge>
+                        </div>
+                      </TableCell>
+
+                      {/* Price */}
+                      <TableCell className="text-right">
+                        <p className="font-bold text-primary text-sm">
+                          {formatPrice(property.price)}
+                        </p>
+                      </TableCell>
+
+                      {/* Owner */}
+                      <TableCell>
+                        <div className="max-w-[150px]">
+                          <p className="text-sm font-medium truncate" title={property.owner?.profile?.firstName ? `${property.owner.profile.firstName} ${property.owner.profile.lastName || ''}` : property.owner.name}>
+                            {property.owner?.profile?.firstName
+                              ? `${property.owner.profile.firstName} ${property.owner.profile.lastName || ''}`
+                              : property.owner.name || 'N/A'}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate" title={property.owner.email}>
+                            {property.owner.email}
+                          </p>
+                        </div>
+                      </TableCell>
+
+                      {/* Date */}
+                      <TableCell className="text-center">
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(property.createdAt).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: '2-digit'
+                          })}
+                        </p>
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedProperty(property);
+                              setViewDialogOpen(true);
+                            }}
+                            className="h-8 px-2"
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => openApproveDialog(property)}
+                            disabled={actionLoading[property._id]}
+                            className="h-8 px-2 bg-green-600 hover:bg-green-700"
+                            title="Approve"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => openRejectDialog(property)}
+                            disabled={actionLoading[property._id]}
+                            className="h-8 px-2"
+                            title="Reject"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2">
-          <Button
-            variant="outline"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(currentPage - 1)}
-          >
-            Previous
-          </Button>
-          <span className="px-3 py-2 text-sm">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(currentPage + 1)}
-          >
-            Next
-          </Button>
-        </div>
+      {properties.length > 0 && (
+        <Card>
+          <CardContent className="py-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                Showing {(currentPage - 1) * 10 + 1} to {Math.min(currentPage * 10, (currentPage - 1) * 10 + properties.length)} of {totalPages * 10} properties
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(1)}
+                >
+                  First
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className="w-8 h-8 p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                >
+                  Next
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                >
+                  Last
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Approval Dialog */}

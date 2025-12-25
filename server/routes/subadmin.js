@@ -68,39 +68,39 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'resolved' }),
     SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'closed' }),
     // Last 7 days analytics
-    Property.countDocuments({ 
-      approvedBy: subAdminId, 
+    Property.countDocuments({
+      approvedBy: subAdminId,
       approvedAt: { $gte: last7Days }
     }),
-    Property.countDocuments({ 
-      approvedBy: subAdminId, 
+    Property.countDocuments({
+      approvedBy: subAdminId,
       approvedAt: { $gte: last30Days }
     }),
-    SupportTicket.countDocuments({ 
-      assignedTo: subAdminId, 
+    SupportTicket.countDocuments({
+      assignedTo: subAdminId,
       status: 'resolved',
       updatedAt: { $gte: last7Days }
     }),
-    SupportTicket.countDocuments({ 
-      assignedTo: subAdminId, 
+    SupportTicket.countDocuments({
+      assignedTo: subAdminId,
       status: 'resolved',
       updatedAt: { $gte: last30Days }
     }),
     // This month vs last month
-    Property.countDocuments({ 
-      approvedBy: subAdminId, 
+    Property.countDocuments({
+      approvedBy: subAdminId,
       approvedAt: { $gte: thisMonthStart }
     }),
-    Property.countDocuments({ 
-      approvedBy: subAdminId, 
+    Property.countDocuments({
+      approvedBy: subAdminId,
       approvedAt: { $gte: lastMonthStart, $lte: lastMonthEnd }
     }),
-    SupportTicket.countDocuments({ 
-      assignedTo: subAdminId, 
+    SupportTicket.countDocuments({
+      assignedTo: subAdminId,
       createdAt: { $gte: thisMonthStart }
     }),
-    SupportTicket.countDocuments({ 
-      assignedTo: subAdminId, 
+    SupportTicket.countDocuments({
+      assignedTo: subAdminId,
       createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd }
     }),
     // Recent activities
@@ -121,7 +121,7 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
   ]);
 
   // Calculate trends
-  const propertyApprovalTrend = propertiesApprovedLastMonth > 0 
+  const propertyApprovalTrend = propertiesApprovedLastMonth > 0
     ? ((propertiesApprovedThisMonth - propertiesApprovedLastMonth) / propertiesApprovedLastMonth * 100).toFixed(1)
     : propertiesApprovedThisMonth > 0 ? 100 : 0;
 
@@ -131,8 +131,8 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
 
   // Calculate average response time
   const avgResponseTime = await SupportTicket.aggregate([
-    { 
-      $match: { 
+    {
+      $match: {
         assignedTo: subAdminId,
         status: { $in: ['resolved', 'closed'] }
       }
@@ -152,7 +152,7 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     }
   ]);
 
-  const avgResponseTimeHours = avgResponseTime.length > 0 
+  const avgResponseTimeHours = avgResponseTime.length > 0
     ? (avgResponseTime[0].avgTime / (1000 * 60 * 60)).toFixed(1)
     : 0;
 
@@ -196,17 +196,43 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
 router.get('/properties/pending',
   hasPermission(SUB_ADMIN_PERMISSIONS.REVIEW_PROPERTIES),
   asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, search = '' } = req.query;
+    const { page = 1, limit = 10, search = '', type, listingType, startDate, endDate } = req.query;
     const pagination = sanitizePagination(page, limit);
 
     let query = { status: 'pending' };
 
+    // Search filter
     if (search) {
       const sanitizedSearch = sanitizeSearchQuery(search);
       query.$or = [
         { title: { $regex: sanitizedSearch, $options: 'i' } },
         { 'address.city': { $regex: sanitizedSearch, $options: 'i' } }
       ];
+    }
+
+    // Property type filter
+    if (type && type !== 'all') {
+      query.type = type;
+    }
+
+    // Listing type filter
+    if (listingType && listingType !== 'all') {
+      query.listingType = listingType;
+    }
+
+    // Date range filters
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        query.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = end;
+      }
     }
 
     const [properties, total] = await Promise.all([
@@ -238,7 +264,7 @@ router.post('/properties/:id/approve',
   asyncHandler(async (req, res) => {
     const property = await Property.findByIdAndUpdate(
       req.params.id,
-      { 
+      {
         status: 'available',
         verified: true,
         approvedBy: req.user.id,
@@ -309,7 +335,7 @@ router.post('/properties/:id/reject',
 
     const property = await Property.findByIdAndUpdate(
       req.params.id,
-      { 
+      {
         status: 'rejected',
         rejectionReason: reason,
         rejectedBy: req.user.id,
@@ -418,9 +444,9 @@ router.post('/properties/:id/reactivate',
   asyncHandler(async (req, res) => {
     const property = await Property.findByIdAndUpdate(
       req.params.id,
-      { 
+      {
         status: 'pending',
-        $unset: { 
+        $unset: {
           rejectionReason: 1,
           rejectedBy: 1,
           rejectedAt: 1
@@ -463,7 +489,7 @@ router.get('/content/reports',
   hasPermission(SUB_ADMIN_PERMISSIONS.MODERATE_CONTENT),
   asyncHandler(async (req, res) => {
     const { status = 'pending', search = '' } = req.query;
-    
+
     // Placeholder implementation - would need ContentReport model
     res.json({
       success: true,
@@ -574,10 +600,10 @@ router.patch('/support/tickets/:id',
     // Check if ticket is locked by another user
     if (ticket.lockedBy && ticket.lockedBy.toString() !== req.user.id.toString()) {
       const lockedUser = await User.findById(ticket.lockedBy).select('profile email');
-      const lockedByName = lockedUser?.profile?.firstName 
+      const lockedByName = lockedUser?.profile?.firstName
         ? `${lockedUser.profile.firstName} ${lockedUser.profile.lastName || ''}`
         : lockedUser?.email || 'Another user';
-      
+
       return res.status(423).json({ // 423 Locked
         success: false,
         message: `This ticket is currently being handled by ${lockedByName}`,
@@ -615,7 +641,7 @@ router.patch('/support/tickets/:id',
 
       ticket.responses.push({
         message: response,
-        author: req.user.profile?.firstName 
+        author: req.user.profile?.firstName
           ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`
           : req.user.email,
         authorId: req.user.id,
@@ -799,7 +825,7 @@ router.get('/vendors/performance',
         },
         {
           $addFields: {
-            name: { 
+            name: {
               $concat: [
                 { $ifNull: ['$profile.firstName', ''] },
                 ' ',
@@ -832,7 +858,7 @@ router.get('/vendors/performance',
             averageRating: {
               $cond: {
                 if: { $gt: [{ $size: '$reviews' }, 0] },
-                then: { 
+                then: {
                   $round: [
                     { $avg: '$reviews.rating' },
                     1
@@ -1031,14 +1057,14 @@ router.get('/notifications',
     const skip = (page - 1) * limit;
 
     const Notification = require('../models/Notification');
-    
+
     let query = {};
-    
+
     // Filter by status
     if (status && status !== 'all') {
       query.status = status;
     }
-    
+
     // Search filter
     if (search) {
       query.$or = [
@@ -1063,16 +1089,16 @@ router.get('/notifications',
       _id: notif._id,
       title: notif.title,
       message: notif.message,
-      type: notif.type === 'informational' ? 'info' : 
-            notif.type === 'alert' ? 'warning' : 
-            notif.type === 'system' ? 'success' : notif.type,
-      recipients: notif.targetAudience === 'all_users' ? 'all' : 
-                  notif.targetAudience === 'vendors' ? 'vendors' : 
-                  notif.targetAudience === 'customers' ? 'customers' : 'specific',
+      type: notif.type === 'informational' ? 'info' :
+        notif.type === 'alert' ? 'warning' :
+          notif.type === 'system' ? 'success' : notif.type,
+      recipients: notif.targetAudience === 'all_users' ? 'all' :
+        notif.targetAudience === 'vendors' ? 'vendors' :
+          notif.targetAudience === 'customers' ? 'customers' : 'specific',
       recipientCount: notif.statistics?.totalRecipients || 0,
       sentBy: {
         _id: notif.sentBy?._id || notif.sentBy,
-        name: notif.sentBy?.profile?.firstName 
+        name: notif.sentBy?.profile?.firstName
           ? `${notif.sentBy.profile.firstName} ${notif.sentBy.profile.lastName || ''}`.trim()
           : notif.sentBy?.email || 'System'
       },
@@ -1098,13 +1124,13 @@ router.get('/notifications',
 router.post('/notifications/send',
   hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
   asyncHandler(async (req, res) => {
-    const { 
-      title, 
-      message, 
-      recipients = 'all', 
+    const {
+      title,
+      message,
+      recipients = 'all',
       type = 'info',
       sendEmail = true,
-      sendInApp = true 
+      sendInApp = true
     } = req.body;
 
     if (!title || !message) {
@@ -1136,7 +1162,7 @@ router.post('/notifications/send',
     // Send in-app notifications
     if (sendInApp) {
       const userIds = targetUsers.map(u => u._id.toString());
-      
+
       notificationService.broadcast({
         type: type,
         title,
@@ -1158,7 +1184,7 @@ router.post('/notifications/send',
       for (const user of targetUsers) {
         // Check if user has email notifications enabled
         const emailEnabled = user.profile?.preferences?.notifications?.email !== false;
-        
+
         if (emailEnabled && user.email) {
           try {
             await emailService.sendTemplateEmail(
@@ -1187,11 +1213,11 @@ router.post('/notifications/send',
       title,
       subject: title,
       message,
-      type: type === 'info' ? 'informational' : 
-            type === 'warning' ? 'alert' : 
-            type === 'success' ? 'system' : 'alert',
-      targetAudience: recipients === 'all' ? 'all_users' : 
-                      recipients === 'vendors' ? 'vendors' : 'customers',
+      type: type === 'info' ? 'informational' :
+        type === 'warning' ? 'alert' :
+          type === 'success' ? 'system' : 'alert',
+      targetAudience: recipients === 'all' ? 'all_users' :
+        recipients === 'vendors' ? 'vendors' : 'customers',
       channels: [
         sendInApp ? 'in_app' : null,
         sendEmail ? 'email' : null
@@ -1226,13 +1252,13 @@ router.post('/notifications/send',
 router.post('/notifications/draft',
   hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
   asyncHandler(async (req, res) => {
-    const { 
-      title, 
-      message, 
-      recipients = 'all', 
+    const {
+      title,
+      message,
+      recipients = 'all',
       type = 'info',
       sendEmail = true,
-      sendInApp = true 
+      sendInApp = true
     } = req.body;
 
     if (!title || !message) {
@@ -1260,11 +1286,11 @@ router.post('/notifications/draft',
       title,
       subject: title,
       message,
-      type: type === 'info' ? 'informational' : 
-            type === 'warning' ? 'alert' : 
-            type === 'success' ? 'system' : 'alert',
-      targetAudience: recipients === 'all' ? 'all_users' : 
-                      recipients === 'vendors' ? 'vendors' : 'customers',
+      type: type === 'info' ? 'informational' :
+        type === 'warning' ? 'alert' :
+          type === 'success' ? 'system' : 'alert',
+      targetAudience: recipients === 'all' ? 'all_users' :
+        recipients === 'vendors' ? 'vendors' : 'customers',
       channels: [
         sendInApp ? 'in_app' : null,
         sendEmail ? 'email' : null
@@ -1293,7 +1319,7 @@ router.post('/notifications/draft/:id/send',
   hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
   asyncHandler(async (req, res) => {
     const Notification = require('../models/Notification');
-    
+
     // Get the draft notification
     const draftNotification = await Notification.findOne({
       _id: req.params.id,
@@ -1309,12 +1335,12 @@ router.post('/notifications/draft/:id/send',
 
     // Determine recipients based on targetAudience
     const recipients = draftNotification.targetAudience === 'all_users' ? 'all' :
-                       draftNotification.targetAudience === 'vendors' ? 'vendors' : 'customers';
-    
+      draftNotification.targetAudience === 'vendors' ? 'vendors' : 'customers';
+
     // Determine notification type
     const type = draftNotification.type === 'informational' ? 'info' :
-                 draftNotification.type === 'alert' ? 'warning' :
-                 draftNotification.type === 'system' ? 'success' : 'info';
+      draftNotification.type === 'alert' ? 'warning' :
+        draftNotification.type === 'system' ? 'success' : 'info';
 
     const sendEmail = draftNotification.channels.includes('email');
     const sendInApp = draftNotification.channels.includes('in_app');
@@ -1341,7 +1367,7 @@ router.post('/notifications/draft/:id/send',
     // Send in-app notifications
     if (sendInApp) {
       const userIds = targetUsers.map(u => u._id.toString());
-      
+
       notificationService.broadcast({
         type: type,
         title: draftNotification.title,
@@ -1362,7 +1388,7 @@ router.post('/notifications/draft/:id/send',
     if (sendEmail) {
       for (const user of targetUsers) {
         const emailEnabled = user.profile?.preferences?.notifications?.email !== false;
-        
+
         if (emailEnabled && user.email) {
           try {
             await emailService.sendTemplateEmail(
@@ -1410,7 +1436,7 @@ router.delete('/notifications/draft/:id',
   hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
   asyncHandler(async (req, res) => {
     const Notification = require('../models/Notification');
-    
+
     const draft = await Notification.findOneAndDelete({
       _id: req.params.id,
       status: 'draft'
@@ -1487,12 +1513,12 @@ router.get('/reports',
         }
       ]),
       // My properties in selected range
-      Property.countDocuments({ 
+      Property.countDocuments({
         approvedBy: subAdminId,
         updatedAt: { $gte: startDate }
       }),
       // Total vendors I approved
-      User.countDocuments({ 
+      User.countDocuments({
         role: 'agent',
         'vendorProfile': { $exists: true }
       }).then(async () => {
@@ -1509,11 +1535,11 @@ router.get('/reports',
         const VendorProfile = require('../models/VendorProfile');
         return await VendorProfile.countDocuments({
           $or: [
-            { 
+            {
               'approvals.subadmin.reviewedBy': subAdminId,
               'approvals.subadmin.reviewedAt': { $gte: startDate }
             },
-            { 
+            {
               'approvals.subadmin.approvedBy': subAdminId,
               'approvals.subadmin.approvedAt': { $gte: startDate }
             }
@@ -1525,15 +1551,15 @@ router.get('/reports',
       SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'open' }),
       SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'resolved' }),
       SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'closed' }),
-      SupportTicket.countDocuments({ 
+      SupportTicket.countDocuments({
         assignedTo: subAdminId,
         updatedAt: { $gte: startDate }
       }),
       // Content moderation count (assuming rejection is content moderation)
-      Property.countDocuments({ 
+      Property.countDocuments({
         rejectedBy: subAdminId
       }),
-      Property.countDocuments({ 
+      Property.countDocuments({
         rejectedBy: subAdminId,
         rejectedAt: { $gte: startDate }
       })
@@ -1545,7 +1571,7 @@ router.get('/reports',
     }, {});
 
     // Calculate average resolution time for my tickets
-    const myResolvedTicketsWithTime = await SupportTicket.find({ 
+    const myResolvedTicketsWithTime = await SupportTicket.find({
       assignedTo: subAdminId,
       status: 'resolved',
       resolvedAt: { $exists: true }
@@ -1583,8 +1609,8 @@ router.get('/reports',
           openTickets: myOpenTickets,
           closedTickets: myClosedTickets,
           responseRate: mySupportTickets > 0 ? Math.round((myResolvedTickets / mySupportTickets) * 100) : 0,
-          approvalRate: Object.values(myPropertyStatsMap).reduce((sum, count) => sum + count, 0) > 0 
-            ? Math.round(((myPropertyStatsMap.available || 0) / Object.values(myPropertyStatsMap).reduce((sum, count) => sum + count, 0)) * 100) 
+          approvalRate: Object.values(myPropertyStatsMap).reduce((sum, count) => sum + count, 0) > 0
+            ? Math.round(((myPropertyStatsMap.available || 0) / Object.values(myPropertyStatsMap).reduce((sum, count) => sum + count, 0)) * 100)
             : 0
         }
       }
@@ -1642,8 +1668,8 @@ router.get('/reports/export',
           break;
 
         case 'users':
-          const users = await User.find({ 
-            role: { $nin: ['superadmin', 'subadmin'] } 
+          const users = await User.find({
+            role: { $nin: ['superadmin', 'subadmin'] }
           })
             .select('email role profile createdAt status')
             .sort({ createdAt: -1 })
@@ -1688,7 +1714,7 @@ router.get('/reports/export',
           csvContent += `\n"Summary"\n`;
           csvContent += `"Total Reviews","${reviews}"\n`;
           csvContent += `"Total Messages","${messages}"\n\n`;
-          
+
           csvContent += 'Recent Reviews\n';
           csvContent += 'Review ID,Vendor,Client,Property,Rating,Review Type,Comment,Date\n';
           allReviews.forEach(review => {
@@ -1714,10 +1740,10 @@ router.get('/reports/export',
             const assignedToEmail = ticket.assignedTo?.email || 'Unassigned';
             const createdDate = new Date(ticket.createdAt).toLocaleDateString();
             const resolvedDate = ticket.resolvedAt ? new Date(ticket.resolvedAt).toLocaleDateString() : 'N/A';
-            const resolutionTime = ticket.resolvedAt 
+            const resolutionTime = ticket.resolvedAt
               ? Math.round((new Date(ticket.resolvedAt) - new Date(ticket.createdAt)) / (1000 * 60 * 60))
               : 'N/A';
-            
+
             csvContent += `"${ticket._id}","${ticket.subject}","${ticket.status}","${ticket.priority}","${userEmail}","${assignedToEmail}","${createdDate}","${resolvedDate}","${resolutionTime}"\n`;
           });
           break;
@@ -1828,7 +1854,7 @@ router.get('/addon-services',
 
       // Build match query for subscriptions
       let matchQuery = {};
-      
+
       if (status === 'active') {
         matchQuery.status = 'active';
         matchQuery.endDate = { $gt: new Date() };
@@ -1896,7 +1922,7 @@ router.get('/addon-services',
             _id: 1,
             user: {
               _id: '$user._id',
-              name: { 
+              name: {
                 $concat: [
                   { $ifNull: ['$user.profile.firstName', ''] },
                   ' ',
@@ -2006,7 +2032,7 @@ router.get('/addon-services/stats',
     try {
       // Build match query for subscriptions
       let matchQuery = {};
-      
+
       if (status === 'active') {
         matchQuery.status = 'active';
         matchQuery.endDate = { $gt: new Date() };
@@ -2064,7 +2090,7 @@ router.get('/addon-services/stats',
       ]);
 
       const vendorIds = vendorAddons.map(v => v._id);
-      
+
       // Get all schedules for stats
       const allSchedules = await AddonServiceSchedule.find({
         vendor: { $in: vendorIds }

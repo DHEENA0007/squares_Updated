@@ -6,7 +6,22 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, RotateCcw, Eye, MapPin, Calendar, User, AlertCircle } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Search, RotateCcw, Eye, MapPin, Calendar, User, AlertCircle, Building2, Bed, Bath, Maximize, Filter, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +34,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useRealtimeEvent } from "@/contexts/RealtimeContext";
 import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 import { VirtualTourViewer } from "@/components/property/VirtualTourViewer";
+import { configurationService } from "@/services/configurationService";
+import { PropertyType, FilterConfiguration } from "@/types/configuration";
 
 interface Property {
   _id: string;
@@ -72,6 +89,33 @@ const PropertyRejections = () => {
   const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
   const { toast } = useToast();
 
+  // Filter states
+  const [propertyType, setPropertyType] = useState("all");
+  const [listingType, setListingType] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Dynamic filter options
+  const [propertyTypeOptions, setPropertyTypeOptions] = useState<PropertyType[]>([]);
+  const [listingTypeOptions, setListingTypeOptions] = useState<FilterConfiguration[]>([]);
+
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        const [types, listingTypes] = await Promise.all([
+          configurationService.getAllPropertyTypes(),
+          configurationService.getFilterConfigurationsByType('listing_type')
+        ]);
+        setPropertyTypeOptions(types);
+        setListingTypeOptions(listingTypes);
+      } catch (error) {
+        console.error('Error fetching filter options:', error);
+      }
+    };
+    fetchFilterOptions();
+  }, []);
+
   // Reactivation approval form state
   const [approverName, setApproverName] = useState("");
   const [checklist, setChecklist] = useState({
@@ -86,12 +130,20 @@ const PropertyRejections = () => {
 
   useEffect(() => {
     fetchRejectedProperties();
-  }, [currentPage, searchTerm]);
+  }, [currentPage, searchTerm, propertyType, listingType, startDate, endDate]);
 
   const fetchRejectedProperties = async () => {
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`/subadmin/properties/rejected?page=${currentPage}&search=${searchTerm}`);
+      const params = new URLSearchParams();
+      params.append('page', currentPage.toString());
+      if (searchTerm) params.append('search', searchTerm);
+      if (propertyType && propertyType !== 'all') params.append('type', propertyType);
+      if (listingType && listingType !== 'all') params.append('listingType', listingType);
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+
+      const response = await fetchWithAuth(`/subadmin/properties/rejected?${params.toString()}`);
       const data = await handleApiResponse<{ data: { properties: Property[], totalPages: number } }>(response);
       setProperties(data.data.properties || []);
       setTotalPages(data.data.totalPages || 1);
@@ -218,138 +270,372 @@ const PropertyRejections = () => {
         </p>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search rejected properties by title, city, state, email, or description..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      {/* Search and Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-4">
+            {/* Search Row */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search rejected properties by title, city, state, email, or description..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                Filters
+                {(propertyType !== 'all' || listingType !== 'all' || startDate || endDate) && (
+                  <Badge variant="secondary" className="ml-1">
+                    {[propertyType !== 'all', listingType !== 'all', startDate, endDate].filter(Boolean).length}
+                  </Badge>
+                )}
+              </Button>
+            </div>
 
-      {/* Rejected Properties List */}
-      <div className="space-y-4">
-        {properties.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
+            {/* Filter Row */}
+            {showFilters && (
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3 pt-3 border-t">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs text-muted-foreground">Property Type</Label>
+                  <Select value={propertyType} onValueChange={setPropertyType}>
+                    <SelectTrigger className="w-full sm:w-[150px]">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      {propertyTypeOptions.map((type) => (
+                        <SelectItem key={type._id} value={type.value}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs text-muted-foreground">Listing Type</Label>
+                  <Select value={listingType} onValueChange={setListingType}>
+                    <SelectTrigger className="w-full sm:w-[130px]">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      {listingTypeOptions.length > 0 ? (
+                        listingTypeOptions.map((type) => (
+                          <SelectItem key={type._id} value={type.value}>
+                            {type.displayLabel || type.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        // Fallback if no dynamic options found
+                        <>
+                          <SelectItem value="sale">Sale</SelectItem>
+                          <SelectItem value="rent">Rent</SelectItem>
+                          <SelectItem value="lease">Lease</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs text-muted-foreground">From Date</Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full sm:w-[150px]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs text-muted-foreground">To Date</Label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full sm:w-[150px]"
+                  />
+                </div>
+
+                {(propertyType !== 'all' || listingType !== 'all' || startDate || endDate) && (
+                  <div className="flex items-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setPropertyType('all');
+                        setListingType('all');
+                        setStartDate('');
+                        setEndDate('');
+                      }}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Clear Filters
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Rejected Properties Table */}
+      <Card>
+        <CardContent className="p-0">
+          {properties.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
               <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold">No Rejected Properties</h3>
               <p className="text-muted-foreground text-center">
                 There are no rejected properties at the moment
               </p>
-            </CardContent>
-          </Card>
-        ) : (
-          properties.map((property) => (
-            <Card key={property._id} className="border-l-4 border-l-red-500 overflow-hidden">
-              <CardHeader className="pb-3">
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                  <div className="space-y-2 flex-1 text-center sm:text-left">
-                    <CardTitle className="text-lg sm:text-xl leading-tight">{property.title}</CardTitle>
-                    <CardDescription className="space-y-1">
-                      <div className="flex flex-wrap justify-center sm:justify-start items-center gap-2 sm:gap-4 text-xs sm:text-sm">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">{property.address.district ? `${property.address.city}, ${property.address.district}, ${property.address.state}` : `${property.address.city}, ${property.address.state}`}</span>
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">Rejected: {property.rejectedAt ? new Date(property.rejectedAt).toLocaleDateString() : 'N/A'}</span>
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <User className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">{property.owner.email}</span>
-                        </span>
-                      </div>
-                    </CardDescription>
-                    {property.rejectionReason && (
-                      <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-2 sm:p-3 mt-3 mx-auto sm:mx-0 max-w-full">
-                        <div className="flex items-start gap-2">
-                          <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-red-900 dark:text-red-100">Rejection Reason:</p>
-                            <p className="text-sm text-red-700 dark:text-red-300 mt-1 break-words">{property.rejectionReason}</p>
-                            {property.rejectedBy && (
-                              <p className="text-xs text-red-600 dark:text-red-400 mt-1 truncate">
-                                Rejected by: {property.rejectedBy.name}
-                              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="w-[60px] text-center">S.No.</TableHead>
+                    <TableHead>Property</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead className="text-center">Type</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="max-w-[200px]">Rejection Reason</TableHead>
+                    <TableHead>Owner</TableHead>
+                    <TableHead className="text-center">Rejected On</TableHead>
+                    <TableHead className="text-center w-[150px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {properties.map((property, index) => (
+                    <TableRow key={property._id} className="hover:bg-muted/30">
+                      {/* S.No. */}
+                      <TableCell className="text-center font-medium">
+                        {(currentPage - 1) * 10 + index + 1}
+                      </TableCell>
+
+                      {/* Property Title */}
+                      <TableCell>
+                        <div className="max-w-[180px]">
+                          <p className="font-medium text-sm truncate" title={property.title}>
+                            {property.title}
+                          </p>
+                          <div className="flex items-center gap-1 mt-1">
+                            {property.bedrooms > 0 && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                                <Bed className="h-3 w-3" /> {property.bedrooms}
+                              </span>
+                            )}
+                            {property.bathrooms > 0 && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-0.5 ml-2">
+                                <Bath className="h-3 w-3" /> {property.bathrooms}
+                              </span>
+                            )}
+                            {(property.area.builtUp || property.area.plot || property.area.carpet) && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-0.5 ml-2">
+                                <Maximize className="h-3 w-3" /> {formatArea(property.area)}
+                              </span>
                             )}
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-center sm:text-right flex-shrink-0">
-                    <div className="text-xl sm:text-2xl font-bold text-primary mb-2">
-                      {formatPrice(property.price)}
-                    </div>
-                    <div className="flex flex-col gap-1 items-center sm:items-end">
-                      <Badge variant="destructive" className="text-xs px-2 py-1 font-semibold">
-                        Rejected
-                      </Badge>
-                      <Badge variant="outline" className="text-xs px-2 py-1 bg-blue-50 text-blue-700 border-blue-200">
-                        {property.type} • {property.listingType}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex flex-col sm:flex-row gap-2 sm:justify-start">
-                  <div className="flex flex-col sm:flex-row gap-2 w-full">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedProperty(property);
-                        setViewDialogOpen(true);
-                      }}
-                      className="flex-1 touch-manipulation min-h-[40px]"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => openReactivateDialog(property)}
-                      disabled={actionLoading[property._id]}
-                      className="flex-1 touch-manipulation min-h-[40px]"
-                    >
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Reactivate for Review
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                      </TableCell>
+
+                      {/* Location */}
+                      <TableCell>
+                        <div className="max-w-[130px]">
+                          <p className="text-sm truncate" title={`${property.address.city}, ${property.address.state}`}>
+                            {property.address.city}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {property.address.district ? `${property.address.district}, ` : ''}{property.address.state}
+                          </p>
+                        </div>
+                      </TableCell>
+
+                      {/* Type */}
+                      <TableCell className="text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {property.type}
+                          </Badge>
+                          <Badge variant={property.listingType === 'sale' ? 'default' : 'secondary'} className="text-xs">
+                            {property.listingType === 'sale' ? 'Sale' : property.listingType === 'rent' ? 'Rent' : 'Lease'}
+                          </Badge>
+                        </div>
+                      </TableCell>
+
+                      {/* Price */}
+                      <TableCell className="text-right">
+                        <p className="font-bold text-primary text-sm">
+                          {formatPrice(property.price)}
+                        </p>
+                      </TableCell>
+
+                      {/* Rejection Reason */}
+                      <TableCell>
+                        <div className="max-w-[200px]">
+                          {property.rejectionReason ? (
+                            <div className="flex items-start gap-1">
+                              <AlertCircle className="h-3 w-3 text-red-500 mt-0.5 flex-shrink-0" />
+                              <div>
+                                <p className="text-xs text-red-600 dark:text-red-400 line-clamp-2" title={property.rejectionReason}>
+                                  {property.rejectionReason}
+                                </p>
+                                {property.rejectedBy && (
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    by {property.rejectedBy.name}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">N/A</span>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      {/* Owner */}
+                      <TableCell>
+                        <div className="max-w-[130px]">
+                          <p className="text-sm font-medium truncate" title={property.owner.name}>
+                            {property.owner.name || 'N/A'}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate" title={property.owner.email}>
+                            {property.owner.email}
+                          </p>
+                        </div>
+                      </TableCell>
+
+                      {/* Rejected Date */}
+                      <TableCell className="text-center">
+                        <p className="text-sm text-muted-foreground">
+                          {property.rejectedAt
+                            ? new Date(property.rejectedAt).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: '2-digit'
+                            })
+                            : 'N/A'}
+                        </p>
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedProperty(property);
+                              setViewDialogOpen(true);
+                            }}
+                            className="h-8 px-2"
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => openReactivateDialog(property)}
+                            disabled={actionLoading[property._id]}
+                            className="h-8 px-2"
+                            title="Reactivate"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2">
-          <Button
-            variant="outline"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(currentPage - 1)}
-          >
-            Previous
-          </Button>
-          <span className="px-3 py-2 text-sm">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(currentPage + 1)}
-          >
-            Next
-          </Button>
-        </div>
+      {properties.length > 0 && (
+        <Card>
+          <CardContent className="py-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                Showing {(currentPage - 1) * 10 + 1} to {Math.min(currentPage * 10, (currentPage - 1) * 10 + properties.length)} of {totalPages * 10} properties
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(1)}
+                >
+                  First
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className="w-8 h-8 p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                >
+                  Next
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                >
+                  Last
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* View Property Dialog */}
@@ -379,7 +665,7 @@ const PropertyRejections = () => {
                   </div>
                 </div>
               )}
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <h4 className="font-semibold">Property Details</h4>
