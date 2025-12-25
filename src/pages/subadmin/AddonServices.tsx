@@ -13,6 +13,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -185,7 +193,7 @@ const AddonServices = () => {
     }
 
     // Get the subscription ID from the vendor's subscriptions
-    const subscription = selectedVendor.subscriptions.find(sub => 
+    const subscription = selectedVendor.subscriptions.find(sub =>
       sub.addons.some(a => a._id === selectedAddon._id)
     );
 
@@ -213,7 +221,7 @@ const AddonServices = () => {
           scheduledDate: scheduledServiceDate
         })
       });
-      
+
       const data = await handleApiResponse(response);
       toast({
         title: "Success",
@@ -258,15 +266,15 @@ const AddonServices = () => {
           cancellationReason: scheduleStatus === 'cancelled' ? cancellationReason : undefined
         })
       });
-      
+
       await handleApiResponse(response);
       toast({
         title: "Success",
-        description: scheduleStatus === 'cancelled' 
-          ? "Service cancelled successfully" 
-          : scheduleStatus === 'completed' 
-          ? "Service marked as completed" 
-          : "Schedule status updated successfully",
+        description: scheduleStatus === 'cancelled'
+          ? "Service cancelled successfully"
+          : scheduleStatus === 'completed'
+            ? "Service marked as completed"
+            : "Schedule status updated successfully",
       });
       setStatusDialogOpen(false);
       setSelectedSchedule(null);
@@ -294,19 +302,19 @@ const AddonServices = () => {
           message: newNote
         })
       });
-      
+
       const data = await handleApiResponse<{ data: { schedule: Schedule } }>(response);
       toast({
         title: "Success",
         description: "Note added successfully",
       });
       setNewNote("");
-      
+
       // Update the selected schedule with the new data
       if (data.data?.schedule) {
         setSelectedSchedule(data.data.schedule);
       }
-      
+
       fetchVendorAddons();
     } catch (error: any) {
       toast({
@@ -474,149 +482,112 @@ const AddonServices = () => {
         </TabsList>
 
         <TabsContent value={activeTab} className="space-y-4 mt-6">
-          {vendorAddons.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold">No Addon Services Found</h3>
-                <p className="text-muted-foreground text-center">
-                  {activeTab === 'active' 
-                    ? 'No vendors with active addon subscriptions'
-                    : `No vendors with ${activeTab} addon subscriptions`
-                  }
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            vendorAddons.map((vendor) => (
-              <Card key={vendor._id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">
-                          {vendor.user.profile.firstName} {vendor.user.profile.lastName}
-                        </CardTitle>
-                        <Badge variant="outline">
-                          {vendor.totalAddons} Addon{vendor.totalAddons !== 1 ? 's' : ''}
-                        </Badge>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Active Addons</TableHead>
+                  <TableHead>Total Value</TableHead>
+                  <TableHead>Scheduled</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {vendorAddons.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        <Package className="h-8 w-8 text-muted-foreground mb-2" />
+                        <p>No addon services found</p>
                       </div>
-                      <div className="space-y-2">
-                        <CardDescription className="text-sm">
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  vendorAddons.map((vendor) => (
+                    <TableRow key={vendor._id}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {vendor.user.profile.firstName} {vendor.user.profile.lastName}
+                          </span>
+                          <Badge variant="outline" className="w-fit mt-1">
+                            {vendor.totalAddons} Addon{vendor.totalAddons !== 1 ? 's' : ''}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm text-muted-foreground">
                           {vendor.user.email}
-                        </CardDescription>
-                        <div className="flex items-center gap-2 text-sm">
-                          {vendor.activeAddons.slice(0, 3).map((addon) => (
-                            <Badge 
-                              key={addon._id} 
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {vendor.activeAddons.slice(0, 2).map((addon) => (
+                            <Badge
+                              key={addon._id}
                               className={getAddonCategoryColor(addon.category)}
+                              variant="secondary"
                             >
                               {addon.name}
                             </Badge>
                           ))}
-                          {vendor.activeAddons.length > 3 && (
+                          {vendor.activeAddons.length > 2 && (
                             <Badge variant="outline">
-                              +{vendor.activeAddons.length - 3} more
+                              +{vendor.activeAddons.length - 2} more
                             </Badge>
                           )}
                         </div>
-                      </div>
-                    </div>
-                    <div className="text-right ml-4">
-                      <div className="text-sm text-muted-foreground">
-                        Total Value
-                      </div>
-                      <div className="text-xl font-bold text-primary">
-                        {formatPrice(vendor.activeAddons.reduce((sum, addon) => sum + addon.price, 0))}
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {/* Display existing schedules */}
-                  {vendor.schedules && vendor.schedules.length > 0 && (
-                    <div className="mb-4 space-y-2">
-                      <h4 className="text-sm font-semibold mb-2">Scheduled Services ({vendor.schedules.length})</h4>
-                      <div className="space-y-2">
-                        {vendor.schedules.map((schedule) => (
-                          <div 
-                            key={schedule._id} 
-                            className="bg-muted/50 p-3 rounded-md border border-border hover:bg-muted transition-colors"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-sm">{schedule.addon.name}</span>
-                                  <Badge className={getAddonCategoryColor(schedule.addon.category)} variant="outline">
-                                    {schedule.addon.category}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge className={getStatusColor(schedule.status)}>
-                                    {schedule.status.replace('_', ' ')}
-                                  </Badge>
-                                  <Badge className={getPriorityColor(schedule.priority)}>
-                                    {schedule.priority}
-                                  </Badge>
-                                </div>
-                                {schedule.scheduledDate && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Scheduled: {new Date(schedule.scheduledDate).toLocaleString()}
-                                  </p>
-                                )}
-                                <p className="text-xs text-muted-foreground">
-                                  Created: {new Date(schedule.createdAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openStatusDialog(schedule)}
-                              >
-                                Update Status
-                              </Button>
-                            </div>
-                            
-                            {/* Show notes if any */}
-                            {schedule.notes && schedule.notes.length > 0 && (
-                              <div className="mt-2 pt-2 border-t border-border/50">
-                                <p className="text-xs font-medium mb-1">Latest Note:</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {schedule.notes[schedule.notes.length - 1].message}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  - {schedule.notes[schedule.notes.length - 1].author.profile.firstName} on {new Date(schedule.notes[schedule.notes.length - 1].createdAt).toLocaleDateString()}
-                                </p>
-                              </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-bold text-primary">
+                          {formatPrice(vendor.activeAddons.reduce((sum, addon) => sum + addon.price, 0))}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {vendor.schedules && vendor.schedules.length > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            {vendor.schedules.slice(0, 1).map(s => (
+                              <Badge key={s._id} className={getStatusColor(s.status)} variant="outline">
+                                {s.status.replace('_', ' ')}
+                              </Badge>
+                            ))}
+                            {vendor.schedules.length > 1 && (
+                              <span className="text-xs text-muted-foreground">
+                                +{vendor.schedules.length - 1} more
+                              </span>
                             )}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedVendor(vendor);
-                      setViewDialogOpen(true);
-                    }}
-                    className="w-full"
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    View All Details & Schedule
-                  </Button>
-                </CardContent>
-              </Card>
-            ))
-          )}
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedVendor(vendor);
+                            setViewDialogOpen(true);
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </TabsContent>
       </Tabs>
 
       {/* View Vendor Details Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Vendor Addon Services</DialogTitle>
             <DialogDescription>
@@ -644,70 +615,93 @@ const AddonServices = () => {
                   {selectedVendor.activeAddons.map((addon) => {
                     // Check if this addon is scheduled
                     const existingSchedule = selectedVendor.schedules?.find(
-                      schedule => schedule.addon._id === addon._id && 
-                      ['scheduled', 'in_progress'].includes(schedule.status)
+                      schedule => schedule.addon._id === addon._id &&
+                        ['scheduled', 'in_progress'].includes(schedule.status)
                     );
                     const isScheduled = !!existingSchedule;
-                    
+
+                    // Check if there is an active subscription for this addon
+                    const hasActiveSubscription = selectedVendor.subscriptions.some(sub =>
+                      sub.addons.some(a => a._id === addon._id) &&
+                      sub.status === 'active' &&
+                      new Date(sub.endDate) > new Date()
+                    );
+
                     return (
-                    <Card key={addon._id} className="hover:shadow-md transition-shadow">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-sm">{addon.name}</CardTitle>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge className={getAddonCategoryColor(addon.category)}>
-                                {addon.category}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {addon.billingType.replace('_', ' ')}
-                              </span>
-                              {isScheduled && (
-                                <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                  Scheduled
+                      <Card key={addon._id} className="hover:shadow-md transition-shadow">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <CardTitle className="text-sm">{addon.name}</CardTitle>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge className={getAddonCategoryColor(addon.category)}>
+                                  {addon.category}
                                 </Badge>
-                              )}
+                                <span className="text-xs text-muted-foreground">
+                                  {addon.billingType.replace('_', ' ')}
+                                </span>
+                                {isScheduled && (
+                                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                    Scheduled
+                                  </Badge>
+                                )}
+                                {!hasActiveSubscription && (
+                                  <Badge variant="destructive" className="text-[10px] h-5">
+                                    Expired
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold text-primary">
+                                {formatPrice(addon.price, addon.currency)}
+                              </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-bold text-primary">
-                              {formatPrice(addon.price, addon.currency)}
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <p className="text-xs text-muted-foreground mb-3">
+                            {addon.description}
+                          </p>
+                          {isScheduled ? (
+                            hasActiveSubscription ? (
+                              <Button
+                                size="sm"
+                                className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+                                onClick={() => {
+                                  setViewDialogOpen(false);
+                                  handleScheduleService(addon);
+                                }}
+                              >
+                                <Calendar className="h-3 w-3 mr-2" />
+                                Re-schedule Service
+                              </Button>
+                            ) : (
+                              <div className="w-full py-2 text-center text-sm text-muted-foreground bg-muted rounded-md border border-border">
+                                Service Scheduled (Expired)
+                              </div>
+                            )
+                          ) : hasActiveSubscription ? (
+                            <Button
+                              size="sm"
+                              className="w-full"
+                              onClick={() => {
+                                setViewDialogOpen(false);
+                                handleScheduleService(addon);
+                              }}
+                            >
+                              <Calendar className="h-3 w-3 mr-2" />
+                              Schedule This Service
+                            </Button>
+                          ) : (
+                            <div className="w-full py-2 text-center text-sm text-muted-foreground bg-muted rounded-md border border-border">
+                              Subscription Expired
                             </div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <p className="text-xs text-muted-foreground mb-3">
-                          {addon.description}
-                        </p>
-                        {isScheduled ? (
-                          <Button
-                            size="sm"
-                            className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-                            onClick={() => {
-                              setViewDialogOpen(false);
-                              handleScheduleService(addon);
-                            }}
-                          >
-                            <Calendar className="h-3 w-3 mr-2" />
-                            Re-schedule Service
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            className="w-full"
-                            onClick={() => {
-                              setViewDialogOpen(false);
-                              handleScheduleService(addon);
-                            }}
-                          >
-                            <Calendar className="h-3 w-3 mr-2" />
-                            Schedule This Service
-                          </Button>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )})}
+                          )}
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
                 </div>
               </div>
 
@@ -730,17 +724,17 @@ const AddonServices = () => {
                                   {schedule.priority}
                                 </Badge>
                               </div>
-                              
+
                               {schedule.scheduledDate && (
                                 <p className="text-sm text-muted-foreground">
                                   📅 {new Date(schedule.scheduledDate).toLocaleString()}
                                 </p>
                               )}
-                              
+
                               <p className="text-xs text-muted-foreground">
                                 Created: {new Date(schedule.createdAt).toLocaleDateString()}
                               </p>
-                              
+
                               {schedule.notes && schedule.notes.length > 0 && (
                                 <div className="mt-2 pt-2 border-t">
                                   <p className="text-xs font-medium">Latest Note:</p>
@@ -751,7 +745,7 @@ const AddonServices = () => {
                                 </div>
                               )}
                             </div>
-                            
+
                             <Button
                               size="sm"
                               variant="outline"
@@ -816,7 +810,7 @@ const AddonServices = () => {
                   <strong>Service:</strong> {selectedAddon.name}
                 </p>
               </div>
-              
+
               <div>
                 <Label htmlFor="subject">Email Subject</Label>
                 <Input
@@ -826,7 +820,7 @@ const AddonServices = () => {
                   placeholder="Enter email subject"
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="priority">Priority</Label>
                 <select
@@ -841,7 +835,7 @@ const AddonServices = () => {
                   <option value="urgent">Urgent</option>
                 </select>
               </div>
-              
+
               <div>
                 <Label htmlFor="scheduledDate">Scheduled Service Date & Time *</Label>
                 <Input
@@ -857,7 +851,7 @@ const AddonServices = () => {
                   Select when this service will be performed
                 </p>
               </div>
-              
+
               <div>
                 <Label htmlFor="message">Email Message</Label>
                 <Textarea
@@ -874,7 +868,7 @@ const AddonServices = () => {
             <Button variant="outline" onClick={() => setScheduleDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={sendSchedulingEmail}
               disabled={actionLoading.email || !emailSubject || !emailMessage || !scheduledServiceDate}
             >
@@ -960,7 +954,7 @@ const AddonServices = () => {
               {/* Status Update Section */}
               <div className="space-y-4 pt-4 border-t">
                 <h4 className="font-semibold">Update Status</h4>
-                
+
                 <div>
                   <Label htmlFor="status">Status</Label>
                   <select
@@ -1051,7 +1045,7 @@ const AddonServices = () => {
                         className="w-full"
                       />
                       <p className="text-xs text-muted-foreground mt-1">
-                        {selectedSchedule?.scheduledDate 
+                        {selectedSchedule?.scheduledDate
                           ? `Current: ${new Date(selectedSchedule.scheduledDate).toLocaleString()}`
                           : 'Not set'
                         }
@@ -1075,12 +1069,12 @@ const AddonServices = () => {
                     </div>
                   </>
                 )}
-                
-                <Button 
+
+                <Button
                   onClick={handleUpdateScheduleStatus}
                   disabled={
-                    actionLoading.status || 
-                    selectedSchedule?.status === 'completed' || 
+                    actionLoading.status ||
+                    selectedSchedule?.status === 'completed' ||
                     selectedSchedule?.status === 'cancelled' ||
                     (scheduleStatus === 'cancelled' && !cancellationReason.trim())
                   }
@@ -1093,7 +1087,7 @@ const AddonServices = () => {
               {/* Notes Section */}
               <div className="space-y-3 pt-4 border-t">
                 <h4 className="font-semibold">Communication Notes</h4>
-                
+
                 {/* Existing Notes */}
                 {selectedSchedule.notes && selectedSchedule.notes.length > 0 && (
                   <div className="space-y-2 mb-4">
@@ -1110,7 +1104,7 @@ const AddonServices = () => {
                     </div>
                   </div>
                 )}
-                
+
                 {/* Add New Note */}
                 <div className="space-y-2">
                   <Label htmlFor="newNote">Add New Note</Label>

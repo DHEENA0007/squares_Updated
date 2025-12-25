@@ -2176,4 +2176,125 @@ router.get('/addon-services/stats',
   })
 );
 
+// Schedule Addon Service
+router.post('/addon-services/schedule',
+  hasPermission(PERMISSIONS.ADDON_SERVICES_SCHEDULE),
+  asyncHandler(async (req, res) => {
+    const { vendorId, addonId, subscriptionId, subject, message, vendorEmail, priority, scheduledDate } = req.body;
+    const AddonServiceSchedule = require('../models/AddonServiceSchedule');
+
+    const schedule = await AddonServiceSchedule.create({
+      vendor: vendorId,
+      addon: addonId,
+      subscription: subscriptionId,
+      scheduledBy: req.user.id,
+      emailSubject: subject,
+      emailMessage: message,
+      priority,
+      scheduledDate,
+      status: 'scheduled',
+      notes: [{
+        message: 'Service scheduled',
+        author: req.user.id,
+        createdAt: new Date()
+      }]
+    });
+
+    // Send email to vendor
+    try {
+      await emailService.sendTemplateEmail({
+        to: vendorEmail,
+        subject: subject,
+        template: 'service-scheduled',
+        context: {
+          message: message,
+          scheduledDate: new Date(scheduledDate).toLocaleString(),
+          priority
+        }
+      });
+    } catch (error) {
+      console.error('Failed to send schedule email:', error);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Service scheduled successfully',
+      data: { schedule }
+    });
+  })
+);
+
+// Update Schedule Status
+router.patch('/addon-services/schedule/:id/status',
+  hasPermission(PERMISSIONS.ADDON_SERVICES_STATUS),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { status, scheduledDate, vendorResponse, cancellationReason } = req.body;
+    const AddonServiceSchedule = require('../models/AddonServiceSchedule');
+
+    const schedule = await AddonServiceSchedule.findById(id);
+    if (!schedule) {
+      return res.status(404).json({
+        success: false,
+        message: 'Schedule not found'
+      });
+    }
+
+    schedule.status = status;
+    if (scheduledDate) schedule.scheduledDate = scheduledDate;
+    if (vendorResponse) schedule.vendorResponse = vendorResponse;
+    if (cancellationReason) schedule.cancellationReason = cancellationReason;
+
+    if (status === 'completed') schedule.completedAt = new Date();
+    if (status === 'in_progress') schedule.inProgressAt = new Date();
+    if (status === 'cancelled') schedule.cancelledAt = new Date();
+
+    schedule.notes.push({
+      message: `Status updated to ${status}`,
+      author: req.user.id,
+      createdAt: new Date()
+    });
+
+    await schedule.save();
+
+    res.json({
+      success: true,
+      message: 'Schedule status updated successfully',
+      data: { schedule }
+    });
+  })
+);
+
+// Add Note to Schedule
+router.post('/addon-services/schedule/:id/notes',
+  hasPermission(PERMISSIONS.ADDON_SERVICES_NOTES),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { message } = req.body;
+    const AddonServiceSchedule = require('../models/AddonServiceSchedule');
+
+    const schedule = await AddonServiceSchedule.findById(id);
+    if (!schedule) {
+      return res.status(404).json({
+        success: false,
+        message: 'Schedule not found'
+      });
+    }
+
+    schedule.notes.push({
+      message,
+      author: req.user.id,
+      createdAt: new Date()
+    });
+
+    await schedule.save();
+
+    res.json({
+      success: true,
+      message: 'Note added successfully',
+      data: { schedule }
+    });
+  })
+);
+
 module.exports = router;
