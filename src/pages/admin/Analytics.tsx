@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Users, Eye, TrendingUp, DollarSign, Activity,
   MousePointer, Globe, Clock, MessageSquare, Star,
-  BarChart3, PieChart, LineChart, FileText, ArrowRight, User, Phone
+  BarChart3, PieChart, LineChart, FileText, ArrowRight, User, Phone,
+  MapPin, Monitor
 } from 'lucide-react';
 import analyticsService from '@/services/analyticsService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -303,23 +304,46 @@ const Analytics = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {(traffic?.trafficBySource || []).map((source: any, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-blue-500" />
-                        <span className="text-sm font-medium">{source._id || 'Direct / Unknown'}</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-blue-500"
-                            style={{ width: `${(source.count / (traffic?.trafficBySource[0]?.count || 1)) * 100}%` }}
-                          />
-                        </div>
-                        <span className="text-sm font-bold w-8 text-right">{source.count}</span>
-                      </div>
+                  {(traffic?.trafficBySource || []).length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Globe className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">No traffic data yet</p>
+                      <p className="text-xs mt-1">Traffic will be tracked as users visit pages</p>
                     </div>
-                  ))}
+                  ) : (
+                    (traffic?.trafficBySource || []).map((source: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: COLORS[idx % COLORS.length] }}
+                          />
+                          <span className="text-sm font-medium truncate">
+                            {source._id || 'Direct'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 flex-shrink-0">
+                          <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full transition-all duration-500"
+                              style={{
+                                width: `${(source.count / (traffic?.trafficBySource[0]?.count || 1)) * 100}%`,
+                                backgroundColor: COLORS[idx % COLORS.length]
+                              }}
+                            />
+                          </div>
+                          <div className="text-right min-w-[60px]">
+                            <span className="text-sm font-bold">{source.count}</span>
+                            {source.uniqueVisitors && (
+                              <span className="text-xs text-muted-foreground ml-1">
+                                ({source.uniqueVisitors} unique)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -379,6 +403,79 @@ const Analytics = () => {
                 </ResponsiveContainer>
               </CardContent>
             </Card>
+
+            {/* Traffic by Country */}
+            {traffic?.trafficByCountry && traffic.trafficByCountry.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5 text-primary" />
+                    Traffic by Country
+                  </CardTitle>
+                  <CardDescription>Geographic distribution of visitors</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {traffic.trafficByCountry.map((country: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: COLORS[idx % COLORS.length] }}
+                          />
+                          <span className="text-sm font-medium">{country._id || 'Unknown'}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full"
+                              style={{
+                                width: `${(country.count / (traffic.trafficByCountry[0]?.count || 1)) * 100}%`,
+                                backgroundColor: COLORS[idx % COLORS.length]
+                              }}
+                            />
+                          </div>
+                          <span className="text-sm font-bold w-8 text-right">{country.count}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Traffic by Browser */}
+            {traffic?.trafficByBrowser && traffic.trafficByBrowser.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Monitor className="h-5 w-5 text-primary" />
+                    Traffic by Browser
+                  </CardTitle>
+                  <CardDescription>Which browsers your visitors use</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <RechartsPie>
+                      <Pie
+                        data={traffic.trafficByBrowser}
+                        dataKey="count"
+                        nameKey="_id"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={70}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {traffic.trafficByBrowser.map((_: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </RechartsPie>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 

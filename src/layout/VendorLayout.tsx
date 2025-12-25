@@ -4,6 +4,7 @@ import VendorSidebar from "@/components/vendor/VendorSidebar";
 import VendorNavbar from "@/components/vendor/VendorNavbar";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { cn } from "@/lib/utils";
+import { useTrafficTracking } from "@/hooks/useTrafficTracking";
 
 const VendorLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -11,6 +12,9 @@ const VendorLayout = () => {
 
   const location = useLocation();
   const isMessagesPage = location.pathname.includes('/messages');
+
+  // Track page visits for analytics
+  useTrafficTracking({ pageType: 'dashboard' });
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);

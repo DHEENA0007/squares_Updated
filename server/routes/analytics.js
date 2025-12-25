@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const Property = require('../models/Property');
 const PropertyView = require('../models/PropertyView');
+const PageVisit = require('../models/PageVisit');
 const Vendor = require('../models/Vendor');
 const Subscription = require('../models/Subscription');
 const Message = require('../models/Message');
@@ -162,63 +163,138 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
       ? ((newRegistrationsTotal / totalViewsConversion) * 100).toFixed(2)
       : 0;
 
-    // ========== TRAFFIC DATA ==========
-    const [trafficBySource, trafficByDevice, peakHours] = await Promise.all([
-      PropertyView.aggregate([
-        { $match: { viewedAt: { $gte: startDate } } },
-        {
-          $project: {
-            referrerDomain: {
-              $let: {
-                vars: {
-                  parts: { $split: ['$referrer', '/'] }
-                },
-                in: {
-                  $cond: [
-                    { $gte: [{ $size: '$$parts' }, 3] },
-                    { $arrayElemAt: ['$$parts', 2] },
-                    { $ifNull: ['$referrer', 'Direct / Unknown'] }
-                  ]
+    // ========== TRAFFIC DATA (Using PageVisit for comprehensive tracking) ==========
+    // Try to get data from PageVisit first (new comprehensive tracking)
+    let trafficBySource, trafficByDevice, peakHours, trafficByCountry, trafficByBrowser;
+
+    const pageVisitCount = await PageVisit.countDocuments({ visitedAt: { $gte: startDate } });
+
+    if (pageVisitCount > 0) {
+      // Use PageVisit data (comprehensive tracking)
+      [trafficBySource, trafficByDevice, peakHours, trafficByCountry, trafficByBrowser] = await Promise.all([
+        PageVisit.aggregate([
+          { $match: { visitedAt: { $gte: startDate } } },
+          {
+            $group: {
+              _id: '$referrerDomain',
+              count: { $sum: 1 },
+              uniqueVisitors: { $addToSet: '$visitorId' }
+            }
+          },
+          {
+            $project: {
+              _id: 1,
+              count: 1,
+              uniqueVisitors: { $size: '$uniqueVisitors' }
+            }
+          },
+          { $sort: { count: -1 } },
+          { $limit: 10 }
+        ]),
+        PageVisit.aggregate([
+          { $match: { visitedAt: { $gte: startDate } } },
+          {
+            $group: {
+              _id: '$deviceType',
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { count: -1 } }
+        ]),
+        PageVisit.aggregate([
+          { $match: { visitedAt: { $gte: startDate } } },
+          {
+            $group: {
+              _id: { $hour: '$visitedAt' },
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { '_id': 1 } }
+        ]),
+        PageVisit.aggregate([
+          { $match: { visitedAt: { $gte: startDate } } },
+          {
+            $group: {
+              _id: '$country',
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { count: -1 } },
+          { $limit: 10 }
+        ]),
+        PageVisit.aggregate([
+          { $match: { visitedAt: { $gte: startDate } } },
+          {
+            $group: {
+              _id: '$browser.name',
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { count: -1 } },
+          { $limit: 5 }
+        ])
+      ]);
+    } else {
+      // Fallback to PropertyView data (legacy tracking)
+      [trafficBySource, trafficByDevice, peakHours] = await Promise.all([
+        PropertyView.aggregate([
+          { $match: { viewedAt: { $gte: startDate } } },
+          {
+            $project: {
+              referrerDomain: {
+                $let: {
+                  vars: {
+                    parts: { $split: ['$referrer', '/'] }
+                  },
+                  in: {
+                    $cond: [
+                      { $gte: [{ $size: '$$parts' }, 3] },
+                      { $arrayElemAt: ['$$parts', 2] },
+                      { $ifNull: ['$referrer', 'Direct'] }
+                    ]
+                  }
                 }
               }
             }
+          },
+          {
+            $group: {
+              _id: '$referrerDomain',
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { count: -1 } },
+          { $limit: 10 }
+        ]),
+        PropertyView.aggregate([
+          { $match: { viewedAt: { $gte: startDate } } },
+          {
+            $group: {
+              _id: {
+                $cond: [
+                  { $regexMatch: { input: '$userAgent', regex: 'Mobile|Android|iPhone' } },
+                  'Mobile',
+                  'Desktop'
+                ]
+              },
+              count: { $sum: 1 }
+            }
           }
-        },
-        {
-          $group: {
-            _id: '$referrerDomain',
-            count: { $sum: 1 }
-          }
-        },
-        { $sort: { count: -1 } },
-        { $limit: 10 }
-      ]),
-      PropertyView.aggregate([
-        { $match: { viewedAt: { $gte: startDate } } },
-        {
-          $group: {
-            _id: {
-              $cond: [
-                { $regexMatch: { input: '$userAgent', regex: 'Mobile|Android|iPhone' } },
-                'Mobile',
-                'Desktop'
-              ]
-            },
-            count: { $sum: 1 }
-          }
-        }
-      ]),
-      PropertyView.aggregate([
-        { $match: { viewedAt: { $gte: startDate } } },
-        {
-          $group: {
-            _id: { $hour: '$viewedAt' },
-            count: { $sum: 1 }
-          }
-        },
-        { $sort: { '_id': 1 } }
-      ])
-    ]);
+        ]),
+        PropertyView.aggregate([
+          { $match: { viewedAt: { $gte: startDate } } },
+          {
+            $group: {
+              _id: { $hour: '$viewedAt' },
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { '_id': 1 } }
+        ])
+      ]);
+      trafficByCountry = [];
+      trafficByBrowser = [];
+    }
 
     // ========== ENGAGEMENT DATA ==========
     const [activeUsers, messageActivity, reviewActivity] = await Promise.all([
@@ -289,7 +365,9 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
         traffic: {
           trafficBySource,
           trafficByDevice,
-          peakHours
+          peakHours,
+          trafficByCountry: trafficByCountry || [],
+          trafficByBrowser: trafficByBrowser || []
         },
         engagement: {
           activeUsers,

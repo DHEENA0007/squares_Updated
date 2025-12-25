@@ -155,8 +155,8 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
 
 // @desc    Get single property
 // @route   GET /api/properties/:id
-// @access  Public
-router.get('/:id', asyncHandler(async (req, res) => {
+// @access  Public (with optional auth to track logged-in viewers)
+router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -204,22 +204,62 @@ router.get('/:id', asyncHandler(async (req, res) => {
     });
 
     // Track property view using PropertyView model
-    const sessionId = req.sessionID || req.ip + '-' + Date.now();
-    const viewData = {
-      property: property._id,
-      viewer: req.user?.id || null,
-      sessionId,
-      ipAddress: req.ip || req.connection.remoteAddress,
-      userAgent: req.get('user-agent'),
-      referrer: req.get('referer'),
-      viewedAt: new Date()
-    };
+    // Only count views from customers and guests (non-logged in users)
+    // Don't count views from admin, superadmin, subadmin, or vendor/agent roles
+    try {
+      const userRole = req.user?.role || 'guest';
+      const isPropertyOwner = req.user && property.owner._id.toString() === req.user.id;
+      const isPropertyAgent = req.user && property.agent && property.agent._id?.toString() === req.user.id;
 
-    // Create view record
-    await PropertyView.create(viewData);
+      // Only track views from customers and guests (not admins, vendors viewing own properties)
+      const shouldTrackView =
+        userRole === 'guest' ||
+        userRole === 'customer' ||
+        (userRole === 'agent' && !isPropertyOwner && !isPropertyAgent); // Agents can view other properties
 
-    // Increment view count in property
-    await Property.findByIdAndUpdate(id, { $inc: { views: 1 } });
+      // Never count views from admin roles
+      const isAdminRole = ['admin', 'superadmin', 'subadmin'].includes(userRole);
+
+      if (shouldTrackView && !isAdminRole) {
+        const sessionId = req.sessionID || req.ip + '-' + Date.now();
+        const viewerId = req.user?.id || req.user?._id || null;
+
+        const viewData = {
+          property: property._id,
+          viewer: viewerId,
+          sessionId,
+          ipAddress: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress,
+          userAgent: req.get('user-agent'),
+          referrer: req.get('referer'),
+          viewedAt: new Date()
+        };
+
+        console.log('📊 Tracking property view:', {
+          propertyId: property._id,
+          propertyTitle: property.title,
+          viewerId: viewerId,
+          userRole: userRole,
+          sessionId: sessionId.substring(0, 20) + '...'
+        });
+
+        // Create view record
+        const createdView = await PropertyView.create(viewData);
+        console.log('✅ Property view tracked successfully:', createdView._id);
+
+        // Increment view count in property
+        await Property.findByIdAndUpdate(id, { $inc: { views: 1 } });
+      } else {
+        console.log('⏭️ Skipping view tracking for:', {
+          propertyId: property._id,
+          userRole: userRole,
+          isPropertyOwner: isPropertyOwner,
+          isAdminRole: isAdminRole
+        });
+      }
+    } catch (viewError) {
+      // Log the error but don't fail the main request
+      console.error('❌ Error tracking property view:', viewError.message);
+    }
 
     // Emit real-time notification to property owner about new view (if viewer is logged in)
     if (req.user && property.owner._id.toString() !== req.user.id) {

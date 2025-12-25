@@ -3,12 +3,16 @@ import { Outlet, useLocation } from "react-router-dom";
 import CustomerNavbar from "@/components/customer/CustomerNavbar";
 import CustomerSidebar from "@/components/customer/CustomerSidebar";
 import { cn } from "@/lib/utils";
+import { useTrafficTracking } from "@/hooks/useTrafficTracking";
 
 const CustomerLayout = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const location = useLocation();
   const isMessagesPage = location.pathname.includes('/messages');
+
+  // Track page visits for analytics
+  useTrafficTracking({ pageType: 'dashboard' });
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);

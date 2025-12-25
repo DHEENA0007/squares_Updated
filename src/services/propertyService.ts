@@ -159,7 +159,7 @@ class PropertyService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
@@ -179,18 +179,18 @@ class PropertyService {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
           message: `HTTP ${response.status}: ${response.statusText}`,
         }));
-        
+
         // Better error message for validation errors
         if (errorData.errors && Array.isArray(errorData.errors)) {
           throw new Error(`Validation failed: ${errorData.errors.join(', ')}`);
         }
-        
+
         throw new Error(errorData.message || "An error occurred");
       }
 
@@ -204,7 +204,7 @@ class PropertyService {
   async getProperties(filters: PropertyFilters = {}): Promise<PropertyResponse> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           // Handle arrays (like amenities)
@@ -316,7 +316,7 @@ class PropertyService {
       // Check user role to determine which endpoint to use
       const userStr = localStorage.getItem("user");
       let endpoint = `/properties/${id}`;
-      
+
       if (userStr) {
         try {
           const user = JSON.parse(userStr);
@@ -377,7 +377,7 @@ class PropertyService {
   formatPrice(price: number, listingType: 'sale' | 'rent' | 'lease'): string {
     if (listingType === 'rent') return `₹${price.toLocaleString('en-IN')}/month`;
     if (listingType === 'lease') return `₹${price.toLocaleString('en-IN')}/year`;
-    
+
     if (price >= 10000000) return `₹${(price / 10000000).toFixed(1)} Cr`;
     if (price >= 100000) return `₹${(price / 100000).toFixed(1)} Lac`;
     return `₹${price.toLocaleString('en-IN')}`;
@@ -409,7 +409,7 @@ class PropertyService {
   async getVendorProperties(filters: PropertyFilters = {}): Promise<PropertyResponse> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           queryParams.append(key, value.toString());
@@ -530,7 +530,7 @@ class PropertyService {
     } catch (error: any) {
       const errorData = error.response?.data || error;
       const errorMessage = errorData.message || error.message || "Failed to update property featured status";
-      
+
       // Show specific message for subscription-related errors
       if (errorData.upgradeRequired || errorData.limitReached) {
         toast({
@@ -550,20 +550,20 @@ class PropertyService {
   }
 
   async assignPropertyToCustomer(
-    propertyId: string, 
-    customerId: string, 
+    propertyId: string,
+    customerId: string,
     status: string,
     notes?: string
   ): Promise<SinglePropertyResponse> {
     try {
       const response = await this.makeRequest<SinglePropertyResponse>(
-        `/properties/${propertyId}/assign-customer`, 
+        `/properties/${propertyId}/assign-customer`,
         {
           method: "POST",
-          body: JSON.stringify({ 
-            customerId, 
+          body: JSON.stringify({
+            customerId,
             status,
-            notes 
+            notes
           }),
         }
       );
@@ -600,12 +600,13 @@ class PropertyService {
   // Track user interactions with properties
   async trackInteraction(propertyId: string, interactionType: 'clickedPhone' | 'clickedEmail' | 'clickedWhatsApp' | 'viewedGallery' | 'sharedProperty'): Promise<void> {
     try {
-      await this.api.post(`/properties/${propertyId}/track-interaction`, {
-        interactionType
+      await this.makeRequest(`/properties/${propertyId}/track-interaction`, {
+        method: 'POST',
+        body: JSON.stringify({ interactionType })
       });
     } catch (error) {
       console.error('Failed to track interaction:', error);
-      throw error;
+      // Don't throw error for tracking - it's non-critical
     }
   }
 }

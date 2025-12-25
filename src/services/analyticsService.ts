@@ -459,6 +459,46 @@ class AnalyticsService {
       : `/analytics/all-property-viewers?dateRange=${dateRange}`;
     return this.makeRequest<any>(query);
   }
+
+  // Get comprehensive traffic analytics from the new traffic tracking system
+  async getTrafficAnalytics(dateRange: string = '30') {
+    return this.makeRequest<{
+      success: boolean;
+      data: {
+        overview: {
+          totalVisits: number;
+          uniqueVisitors: number;
+          totalSessions: number;
+          pagesPerSession: string;
+          avgDuration: number;
+          avgScrollDepth: number;
+          bounceRate: string;
+        };
+        trafficBySource: Array<{ _id: string; count: number; uniqueVisitors: number }>;
+        trafficByDevice: Array<{ _id: string; count: number }>;
+        trafficByCountry: Array<{ _id: string; count: number }>;
+        trafficByBrowser: Array<{ _id: string; count: number }>;
+        visitsByDate: Array<{ _id: string; visits: number; uniqueVisitors: number }>;
+        peakHours: Array<{ _id: number; count: number }>;
+        topPages: Array<{ _id: string; pageTitle: string; views: number; avgDuration: number; bounceRate: number }>;
+        entryPages: Array<{ _id: string; count: number }>;
+        exitPages: Array<{ _id: string; count: number }>;
+      };
+    }>(`/traffic/analytics?dateRange=${dateRange}`);
+  }
+
+  // Get real-time traffic stats
+  async getRealtimeTraffic() {
+    return this.makeRequest<{
+      success: boolean;
+      data: {
+        activeVisitors: number;
+        visitsLastHour: number;
+        topPages: any[];
+        devices: any[];
+      };
+    }>('/traffic/realtime');
+  }
 }
 
 export const analyticsService = new AnalyticsService();
