@@ -29,11 +29,38 @@ const parseUserAgent = (userAgentString) => {
 };
 
 // Helper to extract domain from referrer
-const extractDomain = (referrer) => {
+const extractDomain = (referrer, currentHost) => {
     if (!referrer) return 'Direct';
     try {
         const url = new URL(referrer);
-        return url.hostname.replace('www.', '');
+        const hostname = url.hostname.replace('www.', '');
+
+        // Define your own domains (these count as Direct/Internal traffic)
+        const ownDomains = [
+            'localhost',
+            '127.0.0.1',
+            'buildhomemartsquares.com',
+            'app.buildhomemartsquares.com'
+        ];
+
+        // If referrer is from own domain, classify as Direct/Internal
+        if (ownDomains.some(domain => hostname.includes(domain))) {
+            return 'Direct (Internal)';
+        }
+
+        // Classify common sources
+        if (hostname.includes('google')) return 'Google';
+        if (hostname.includes('facebook') || hostname.includes('fb.com')) return 'Facebook';
+        if (hostname.includes('instagram')) return 'Instagram';
+        if (hostname.includes('twitter') || hostname.includes('x.com')) return 'Twitter/X';
+        if (hostname.includes('linkedin')) return 'LinkedIn';
+        if (hostname.includes('youtube')) return 'YouTube';
+        if (hostname.includes('whatsapp')) return 'WhatsApp';
+        if (hostname.includes('telegram')) return 'Telegram';
+        if (hostname.includes('bing')) return 'Bing';
+        if (hostname.includes('yahoo')) return 'Yahoo';
+
+        return hostname;
     } catch {
         return 'Direct';
     }

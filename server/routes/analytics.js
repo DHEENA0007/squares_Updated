@@ -13,6 +13,34 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 
+// Helper to classify referrer domain
+const classifyReferrer = (referrer) => {
+  if (!referrer) return 'Direct';
+  try {
+    const url = new URL(referrer);
+    const hostname = url.hostname.replace('www.', '').toLowerCase();
+
+    // Own domains - internal traffic
+    const ownDomains = ['localhost', '127.0.0.1', 'buildhomemartsquares.com', 'app.buildhomemartsquares.com'];
+    if (ownDomains.some(domain => hostname.includes(domain))) return 'Direct (Internal)';
+
+    // Common sources classification
+    if (hostname.includes('google')) return 'Google';
+    if (hostname.includes('facebook') || hostname.includes('fb.com')) return 'Facebook';
+    if (hostname.includes('instagram')) return 'Instagram';
+    if (hostname.includes('twitter') || hostname.includes('x.com')) return 'Twitter/X';
+    if (hostname.includes('linkedin')) return 'LinkedIn';
+    if (hostname.includes('youtube')) return 'YouTube';
+    if (hostname.includes('whatsapp')) return 'WhatsApp';
+    if (hostname.includes('bing')) return 'Bing';
+    if (hostname.includes('yahoo')) return 'Yahoo';
+
+    return hostname;
+  } catch {
+    return 'Direct';
+  }
+};
+
 router.use(authenticateToken);
 
 // V3 Consolidated Admin Analytics - Returns all analytics data in one call
@@ -41,7 +69,10 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
       totalRegistrations,
       totalRevenue,
       usersByRole,
-      recentActivity
+      recentActivity,
+      uniqueViewers,
+      avgViewDuration,
+      totalInteractions
     ] = await Promise.all([
       User.countDocuments(),
       Property.countDocuments(),
@@ -55,7 +86,47 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
         { $group: { _id: '$role', count: { $sum: 1 } } }
       ]),
       User.find().sort({ createdAt: -1 }).limit(10)
-        .select('email profile.firstName profile.lastName role createdAt')
+        .select('email profile.firstName profile.lastName role createdAt'),
+      // Count unique viewers (by sessionId or viewer)
+      PropertyView.aggregate([
+        { $match: { viewedAt: { $gte: startDate } } },
+        {
+          $group: {
+            _id: { $ifNull: ['$viewer', '$sessionId'] }
+          }
+        },
+        { $count: 'count' }
+      ]),
+      // Calculate average view duration
+      PropertyView.aggregate([
+        { $match: { viewedAt: { $gte: startDate }, viewDuration: { $gt: 0 } } },
+        {
+          $group: {
+            _id: null,
+            avgDuration: { $avg: '$viewDuration' }
+          }
+        }
+      ]),
+      // Count total interactions (clicks + shares)
+      PropertyView.aggregate([
+        { $match: { viewedAt: { $gte: startDate } } },
+        {
+          $group: {
+            _id: null,
+            totalClicks: {
+              $sum: {
+                $add: [
+                  { $cond: ['$interactions.clickedPhone', 1, 0] },
+                  { $cond: ['$interactions.clickedEmail', 1, 0] },
+                  { $cond: ['$interactions.clickedWhatsApp', 1, 0] }
+                ]
+              }
+            },
+            totalShares: { $sum: { $cond: ['$interactions.sharedProperty', 1, 0] } },
+            totalGalleryViews: { $sum: { $cond: ['$interactions.viewedGallery', 1, 0] } }
+          }
+        }
+      ])
     ]);
 
     // ========== PROPERTY VIEWS DATA ==========
@@ -296,6 +367,20 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
       trafficByBrowser = [];
     }
 
+    // Post-process traffic sources to classify referrer domains
+    if (trafficBySource && trafficBySource.length > 0) {
+      // Group and re-classify traffic sources
+      const sourceMap = new Map();
+      for (const source of trafficBySource) {
+        const classified = source._id ? classifyReferrer('http://' + source._id) : 'Direct';
+        const existing = sourceMap.get(classified) || { _id: classified, count: 0, uniqueVisitors: 0 };
+        existing.count += source.count || 0;
+        existing.uniqueVisitors += source.uniqueVisitors || 0;
+        sourceMap.set(classified, existing);
+      }
+      trafficBySource = Array.from(sourceMap.values()).sort((a, b) => b.count - a.count);
+    }
+
     // ========== ENGAGEMENT DATA ==========
     const [activeUsers, messageActivity, reviewActivity] = await Promise.all([
       User.aggregate([
@@ -346,7 +431,12 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
           totalRegistrations,
           totalRevenue: totalRevenue[0]?.total || 0,
           usersByRole,
-          recentActivity
+          recentActivity,
+          uniqueViewers: uniqueViewers[0]?.count || 0,
+          avgViewDuration: Math.round(avgViewDuration[0]?.avgDuration || 0),
+          totalInteractions: (totalInteractions[0]?.totalClicks || 0) + (totalInteractions[0]?.totalShares || 0),
+          guestViews,
+          registeredViews
         },
         propertyViews: {
           viewsByProperty,

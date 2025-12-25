@@ -164,7 +164,7 @@ const Analytics = () => {
           value={overview?.overview?.totalViews || 0}
           icon={Eye}
           color="text-green-500"
-          subtext="Property page views"
+          subtext={`${overview?.overview?.uniqueViewers || 0} unique viewers`}
         />
         <StatCard
           title="Conversions"
@@ -175,7 +175,7 @@ const Analytics = () => {
         />
         <StatCard
           title="Revenue"
-          value={`$${(overview?.overview?.totalRevenue || 0).toFixed(2)}`}
+          value={`₹${((overview?.overview?.totalRevenue || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={DollarSign}
           color="text-emerald-500"
           subtext="Total earnings"
@@ -287,6 +287,70 @@ const Analytics = () => {
                     <Legend verticalAlign="bottom" height={36} />
                   </RechartsPie>
                 </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Additional View Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-4">
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="pt-4">
+                <div className="text-center">
+                  <Eye className="h-6 w-6 mx-auto text-blue-500 mb-2" />
+                  <p className="text-xs text-muted-foreground">Total Views</p>
+                  <p className="text-xl font-bold">{overview?.overview?.totalViews || 0}</p>
+                  <p className="text-xs text-muted-foreground">{overview?.overview?.uniqueViewers || 0} unique viewers</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="pt-4">
+                <div className="text-center">
+                  <Users className="h-6 w-6 mx-auto text-green-500 mb-2" />
+                  <p className="text-xs text-muted-foreground">Registered vs Guest</p>
+                  <p className="text-xl font-bold">{overview?.overview?.registeredViews || 0} / {overview?.overview?.guestViews || 0}</p>
+                  <p className="text-xs text-muted-foreground">Registered / Guest</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="pt-4">
+                <div className="text-center">
+                  <MousePointer className="h-6 w-6 mx-auto text-purple-500 mb-2" />
+                  <p className="text-xs text-muted-foreground">Total Interactions</p>
+                  <p className="text-xl font-bold">{overview?.overview?.totalInteractions || 0}</p>
+                  <p className="text-xs text-muted-foreground">Clicks & Shares</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="pt-4">
+                <div className="text-center">
+                  <Clock className="h-6 w-6 mx-auto text-orange-500 mb-2" />
+                  <p className="text-xs text-muted-foreground">Avg. Duration</p>
+                  <p className="text-xl font-bold">{overview?.overview?.avgViewDuration || 0}s</p>
+                  <p className="text-xs text-muted-foreground">Per view</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="pt-4">
+                <div className="text-center">
+                  <BarChart3 className="h-6 w-6 mx-auto text-indigo-500 mb-2" />
+                  <p className="text-xs text-muted-foreground">Properties</p>
+                  <p className="text-xl font-bold">{overview?.overview?.totalProperties || 0}</p>
+                  <p className="text-xs text-muted-foreground">Total listings</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="pt-4">
+                <div className="text-center">
+                  <TrendingUp className="h-6 w-6 mx-auto text-emerald-500 mb-2" />
+                  <p className="text-xs text-muted-foreground">Conversion Rate</p>
+                  <p className="text-xl font-bold">{conversion?.conversionRate || 0}%</p>
+                  <p className="text-xs text-muted-foreground">Guest to user</p>
+                </div>
               </CardContent>
             </Card>
           </div>
