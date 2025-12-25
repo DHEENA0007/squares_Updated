@@ -1509,6 +1509,78 @@ router.delete('/notifications/draft/:id',
   })
 );
 
+// Export Report Data
+router.get('/reports/export-data',
+  hasPermission(SUB_ADMIN_PERMISSIONS.GENERATE_REPORTS),
+  asyncHandler(async (req, res) => {
+    const { range = '30days' } = req.query;
+    const subAdminId = req.user.id;
+
+    // Calculate date range
+    const now = new Date();
+    let startDate = new Date();
+    switch (range) {
+      case '7days':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case '30days':
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case '90days':
+        startDate.setDate(now.getDate() - 90);
+        break;
+      case '1year':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      case 'all':
+        startDate = new Date(0); // Beginning of time
+        break;
+      default:
+        startDate.setDate(now.getDate() - 30);
+    }
+
+    const [properties, tickets] = await Promise.all([
+      Property.find({
+        approvedBy: subAdminId,
+        updatedAt: { $gte: startDate }
+      }).populate('owner', 'email profile').lean(),
+
+      SupportTicket.find({
+        assignedTo: subAdminId,
+        updatedAt: { $gte: startDate }
+      }).populate('user', 'email profile').lean()
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        properties: properties.map(p => ({
+          title: p.title,
+          type: p.type,
+          status: p.status,
+          price: p.price,
+          ownerName: `${p.owner?.profile?.firstName || ''} ${p.owner?.profile?.lastName || ''}`.trim(),
+          ownerEmail: p.owner?.email,
+          approvedAt: p.approvedAt,
+          address: `${p.address?.city || ''}, ${p.address?.state || ''}`
+        })),
+        tickets: tickets.map(t => ({
+          ticketNumber: t.ticketNumber,
+          subject: t.subject,
+          status: t.status,
+          priority: t.priority,
+          userName: `${t.user?.profile?.firstName || ''} ${t.user?.profile?.lastName || ''}`.trim(),
+          userEmail: t.user?.email,
+          createdAt: t.createdAt,
+          updatedAt: t.updatedAt
+        })),
+        range,
+        generatedAt: new Date()
+      }
+    });
+  })
+);
+
 // Reports Generation
 router.get('/reports',
   hasPermission(SUB_ADMIN_PERMISSIONS.GENERATE_REPORTS),

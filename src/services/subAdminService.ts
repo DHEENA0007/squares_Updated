@@ -131,7 +131,7 @@ class SubAdminService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
@@ -151,11 +151,11 @@ class SubAdminService {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         const contentType = response.headers.get('content-type');
         let errorData;
-        
+
         if (contentType && contentType.includes('application/json')) {
           errorData = await response.json().catch(() => ({
             success: false,
@@ -167,7 +167,7 @@ class SubAdminService {
             message: `HTTP ${response.status}: ${response.statusText}`,
           };
         }
-        
+
         const error = new Error(errorData.message || "An error occurred");
         (error as any).status = response.status;
         throw error;
@@ -321,7 +321,7 @@ class SubAdminService {
       const params = new URLSearchParams();
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
-      
+
       const response = await this.makeRequest<{ success: boolean; data: any }>(
         `/subadmin/reports/city/${city}?${params}`
       );
@@ -340,6 +340,18 @@ class SubAdminService {
       return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to fetch content reports');
+    }
+  }
+
+  // Export Data
+  async getExportData(range: string): Promise<any> {
+    try {
+      const response = await this.makeRequest<{ success: boolean; data: any }>(
+        `/subadmin/reports/export-data?range=${range}`
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to fetch export data');
     }
   }
 
