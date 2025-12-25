@@ -277,7 +277,6 @@ const Analytics = () => {
                       innerRadius={60}
                       outerRadius={80}
                       paddingAngle={5}
-                      dataKey="count"
                     >
                       {(overview?.usersByRole || []).map((_: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
