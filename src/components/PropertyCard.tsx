@@ -1,4 +1,4 @@
-import { Heart, MapPin, Bed, Bath, Square, MessageSquare, Phone } from "lucide-react";
+import { Heart, MapPin, Bed, Bath, Square, MessageSquare, Phone, ThumbsUp } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,12 +29,12 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
   const [checkingEnterprise, setCheckingEnterprise] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false);
   const [loadingFavorite, setLoadingFavorite] = useState(false);
-  
+
   const primaryImage = propertyService.getPrimaryImage(property);
   const formattedPrice = propertyService.formatPrice(property.price, property.listingType);
   const formattedArea = propertyService.formatArea(property.area);
-  const location = property.address.district 
-    ? `${property.address.city}, ${property.address.district}, ${property.address.state}` 
+  const location = property.address.district
+    ? `${property.address.city}, ${property.address.district}, ${property.address.state}`
     : `${property.address.city}, ${property.address.state}`;
 
   // Check if property is from enterprise vendor
@@ -141,11 +141,25 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
     }
   };
 
+  const handleInterestClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: `/property/${property._id}`, action: 'interest' } });
+      return;
+    }
+
+    try {
+      await propertyService.registerInterest(property._id);
+    } catch (error) {
+      console.error("Failed to register interest:", error);
+    }
+  };
+
   return (
     <Card className="group overflow-hidden hover:shadow-[var(--shadow-large)] transition-all duration-300 flex flex-col h-full">
       <div className="relative h-44 md:h-48 overflow-hidden">
-        <img 
-          src={primaryImage} 
+        <img
+          src={primaryImage}
           alt={property.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           onError={(e) => {
@@ -162,13 +176,12 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
             Verified
           </Badge>
         )}
-        <Badge 
-          className={`absolute top-3 ${isAuthenticated && isCustomer ? 'right-12' : 'right-3'} text-xs py-1 px-2 ${
-            property.status === 'available' ? 'bg-green-500' : 
-            property.status === 'sold' ? 'bg-red-500' : 
-            property.status === 'rented' ? 'bg-blue-500' : 
-            'bg-yellow-500'
-          } text-white`}
+        <Badge
+          className={`absolute top-3 ${isAuthenticated && isCustomer ? 'right-12' : 'right-3'} text-xs py-1 px-2 ${property.status === 'available' ? 'bg-green-500' :
+            property.status === 'sold' ? 'bg-red-500' :
+              property.status === 'rented' ? 'bg-blue-500' :
+                'bg-yellow-500'
+            } text-white`}
         >
           {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
         </Badge>
@@ -185,16 +198,16 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
           </Button>
         )}
       </div>
-      
+
       <CardContent className="p-3 flex-1">
         <div className="flex items-start justify-between mb-2">
           <h3 className="font-semibold text-base md:text-lg line-clamp-2">{property.title}</h3>
           <Badge variant="secondary" className="text-sm">
-            {property.listingType === 'sale' ? 'For Sale' : 
-             property.listingType === 'rent' ? 'For Rent' : 'For Lease'}
+            {property.listingType === 'sale' ? 'For Sale' :
+              property.listingType === 'rent' ? 'For Rent' : 'For Lease'}
           </Badge>
         </div>
-        
+
         <div className="flex items-center text-muted-foreground mb-2">
           <MapPin className="h-4 w-4 mr-1" />
           <span className="text-sm line-clamp-1">{location}</span>
@@ -207,7 +220,7 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
         <div className="text-sm text-muted-foreground mb-2">
           {getPropertyListingLabel(property)}
         </div>
-        
+
         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
           {property.bedrooms > 0 && (
             <div className="flex items-center gap-1">
@@ -226,9 +239,9 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
             <span>{formattedArea}</span>
           </div>
         </div>
-        
+
         <div className="text-xl md:text-2xl font-bold text-primary">{formattedPrice}</div>
-        
+
         {property.amenities.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
             {property.amenities.slice(0, 3).map((amenity, index) => (
@@ -244,32 +257,42 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
           </div>
         )}
       </CardContent>
-      
+
       <CardFooter className="p-3 pt-0 flex gap-2 text-sm">
         {!checkingEnterprise && !isEnterpriseProperty && (
           <>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex-1 py-2"
               onClick={handleMessageClick}
             >
               <MessageSquare className="w-4 h-4 mr-2" />
               Message
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex-1 py-2"
               onClick={handleContactClick}
             >
               <Phone className="w-4 h-4 mr-2" />
               Contact
             </Button>
+            {isAuthenticated && isCustomer && (
+              <Button
+                variant="outline"
+                className="flex-1 py-2"
+                onClick={handleInterestClick}
+              >
+                <ThumbsUp className="w-4 h-4 mr-2" />
+                Interest
+              </Button>
+            )}
           </>
         )}
-        
+
         {!checkingEnterprise && isEnterpriseProperty && (
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 py-2"
             onClick={() => setShowEnterpriseDialog(true)}
           >
@@ -277,8 +300,8 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
             WhatsApp Contact
           </Button>
         )}
-        
-        <Button 
+
+        <Button
           className="flex-1 py-2"
           onClick={handleViewDetails}
         >

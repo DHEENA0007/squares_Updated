@@ -260,7 +260,8 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
               $sum: {
                 $add: [
                   { $cond: ['$interactions.clickedPhone', 1, 0] },
-                  { $cond: ['$interactions.clickedMessage', 1, 0] }
+                  { $cond: ['$interactions.clickedMessage', 1, 0] },
+                  { $cond: ['$interactions.clickedInterest', 1, 0] }
                 ]
               }
             },
@@ -332,12 +333,14 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
               $sum: {
                 $add: [
                   { $cond: ['$interactions.clickedPhone', 1, 0] },
-                  { $cond: ['$interactions.clickedMessage', 1, 0] }
+                  { $cond: ['$interactions.clickedMessage', 1, 0] },
+                  { $cond: ['$interactions.clickedInterest', 1, 0] }
                 ]
               }
             },
             phoneClicks: { $sum: { $cond: ['$interactions.clickedPhone', 1, 0] } },
-            messageClicks: { $sum: { $cond: ['$interactions.clickedMessage', 1, 0] } }
+            messageClicks: { $sum: { $cond: ['$interactions.clickedMessage', 1, 0] } },
+            interestClicks: { $sum: { $cond: ['$interactions.clickedInterest', 1, 0] } }
           }
         }
       ])
@@ -739,12 +742,14 @@ router.get('/property-views', asyncHandler(async (req, res) => {
             $sum: {
               $add: [
                 { $cond: ['$interactions.clickedPhone', 1, 0] },
-                { $cond: ['$interactions.clickedMessage', 1, 0] }
+                { $cond: ['$interactions.clickedMessage', 1, 0] },
+                { $cond: ['$interactions.clickedInterest', 1, 0] }
               ]
             }
           },
           phoneClicks: { $sum: { $cond: ['$interactions.clickedPhone', 1, 0] } },
-          messageClicks: { $sum: { $cond: ['$interactions.clickedMessage', 1, 0] } }
+          messageClicks: { $sum: { $cond: ['$interactions.clickedMessage', 1, 0] } },
+          interestClicks: { $sum: { $cond: ['$interactions.clickedInterest', 1, 0] } }
         }
       }
     ])
@@ -1196,7 +1201,8 @@ router.get('/all-property-viewers', asyncHandler(async (req, res) => {
         interactions: {
           clickedPhone: '$interactions.clickedPhone',
           clickedMessage: '$interactions.clickedMessage',
-          sharedProperty: '$interactions.sharedProperty'
+          sharedProperty: '$interactions.sharedProperty',
+          clickedInterest: '$interactions.clickedInterest'
         },
         ipAddress: 1,
         userAgent: 1,
@@ -1255,6 +1261,7 @@ router.get('/all-property-viewers', asyncHandler(async (req, res) => {
         clickedPhone: { $max: { $cond: ['$interactions.clickedPhone', true, false] } },
         clickedMessage: { $max: { $cond: ['$interactions.clickedMessage', true, false] } },
         sharedProperty: { $max: { $cond: ['$interactions.sharedProperty', true, false] } },
+        clickedInterest: { $max: { $cond: ['$interactions.clickedInterest', true, false] } },
         property: { $first: '$property' },
         viewer: { $first: '$viewer' },
         ipAddress: { $first: '$ipAddress' },
@@ -1272,7 +1279,8 @@ router.get('/all-property-viewers', asyncHandler(async (req, res) => {
         interactions: {
           clickedPhone: '$clickedPhone',
           clickedMessage: '$clickedMessage',
-          sharedProperty: '$sharedProperty'
+          sharedProperty: '$sharedProperty',
+          clickedInterest: '$clickedInterest'
         },
         property: 1,
         viewer: 1,
@@ -1327,7 +1335,8 @@ router.get('/all-property-viewers', asyncHandler(async (req, res) => {
             $add: [
               { $cond: ['$interactions.clickedPhone', 1, 0] },
               { $cond: ['$interactions.clickedMessage', 1, 0] },
-              { $cond: ['$interactions.sharedProperty', 1, 0] }
+              { $cond: ['$interactions.sharedProperty', 1, 0] },
+              { $cond: ['$interactions.clickedInterest', 1, 0] }
             ]
           }
         },

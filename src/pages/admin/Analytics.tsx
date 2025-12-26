@@ -11,7 +11,7 @@ import {
   Users, Eye, TrendingUp, DollarSign, Activity,
   MousePointer, Globe, Clock, MessageSquare, Star,
   BarChart3, PieChart, LineChart, FileText, ArrowRight, User, Phone,
-  MapPin, Monitor, Download, CalendarIcon, Filter, RefreshCw
+  MapPin, Monitor, Download, CalendarIcon, Filter, RefreshCw, ThumbsUp
 } from 'lucide-react';
 import analyticsService from '@/services/analyticsService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -122,7 +122,8 @@ const Analytics = () => {
       const interactionsData = [
         { 'Interaction Type': 'Phone Clicks', 'Count': propertyViews?.interactions?.phoneClicks || 0 },
         { 'Interaction Type': 'Message Clicks', 'Count': propertyViews?.interactions?.messageClicks || 0 },
-        { 'Interaction Type': 'Total', 'Count': (propertyViews?.interactions?.phoneClicks || 0) + (propertyViews?.interactions?.messageClicks || 0) },
+        { 'Interaction Type': 'Interest Clicks', 'Count': propertyViews?.interactions?.interestClicks || 0 },
+        { 'Interaction Type': 'Total', 'Count': (propertyViews?.interactions?.phoneClicks || 0) + (propertyViews?.interactions?.messageClicks || 0) + (propertyViews?.interactions?.interestClicks || 0) },
       ];
 
       // Traffic Sources
@@ -290,6 +291,7 @@ const Analytics = () => {
     const interactions = [
       { 'Type': 'Phone Clicks', 'Count': propertyViews?.interactions?.phoneClicks || 0 },
       { 'Type': 'Message Clicks', 'Count': propertyViews?.interactions?.messageClicks || 0 },
+      { 'Type': 'Interest Clicks', 'Count': propertyViews?.interactions?.interestClicks || 0 },
     ];
 
     ExportUtils.generateExcelReport(
@@ -619,9 +621,7 @@ const Analytics = () => {
                 { 'Metric': 'Total Revenue', 'Value': formatCurrency(overview?.overview?.totalRevenue || 0) },
                 { 'Metric': 'Subscription Revenue', 'Value': formatCurrency(overview?.overview?.subscriptionRevenue || 0) },
                 { 'Metric': 'Addon Revenue', 'Value': formatCurrency(overview?.overview?.addonRevenue || 0) },
-                { 'Metric': 'Featured Listing Revenue', 'Value': formatCurrency(overview?.overview?.featuredRevenue || 0) },
                 { 'Metric': 'Active Subscriptions', 'Value': overview?.overview?.activeSubscriptions || 0 },
-                { 'Metric': 'Avg. Revenue per User', 'Value': formatCurrency((overview?.overview?.totalRevenue || 0) / (overview?.overview?.totalCustomers || 1)) },
                 { 'Metric': 'Revenue Period', 'Value': `Last ${dateRange} days` },
               ];
               ExportUtils.generateExcelReport(
@@ -637,7 +637,7 @@ const Analytics = () => {
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border shadow-sm">
               <p className="text-xs text-muted-foreground uppercase font-medium">Total Revenue</p>
               <p className="text-2xl font-bold text-emerald-600">
@@ -658,27 +658,6 @@ const Analytics = () => {
                 ₹{((overview?.overview?.addonRevenue || 0)).toLocaleString('en-IN')}
               </p>
               <p className="text-xs text-muted-foreground">Addon services</p>
-            </div>
-            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border shadow-sm">
-              <p className="text-xs text-muted-foreground uppercase font-medium">Featured</p>
-              <p className="text-xl font-bold text-orange-600">
-                ₹{((overview?.overview?.featuredRevenue || 0)).toLocaleString('en-IN')}
-              </p>
-              <p className="text-xs text-muted-foreground">Featured listings</p>
-            </div>
-            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border shadow-sm">
-              <p className="text-xs text-muted-foreground uppercase font-medium">Avg. Per User</p>
-              <p className="text-xl font-bold text-teal-600">
-                ₹{((overview?.overview?.totalRevenue || 0) / (overview?.overview?.totalCustomers || 1)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </p>
-              <p className="text-xs text-muted-foreground">ARPU</p>
-            </div>
-            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border shadow-sm">
-              <p className="text-xs text-muted-foreground uppercase font-medium">Conversion Value</p>
-              <p className="text-xl font-bold text-pink-600">
-                ₹{((overview?.overview?.totalRevenue || 0) / (overview?.overview?.newRegistrations || 1)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </p>
-              <p className="text-xs text-muted-foreground">Per registration</p>
             </div>
           </div>
         </CardContent>
@@ -834,7 +813,7 @@ const Analytics = () => {
           </div>
 
           {/* Additional View Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
             <Card className="hover:shadow-md transition-shadow">
               <CardContent className="pt-4">
                 <div className="text-center">
@@ -865,16 +844,7 @@ const Analytics = () => {
                 </div>
               </CardContent>
             </Card>
-            <Card className="hover:shadow-md transition-shadow">
-              <CardContent className="pt-4">
-                <div className="text-center">
-                  <Clock className="h-6 w-6 mx-auto text-orange-500 mb-2" />
-                  <p className="text-xs text-muted-foreground">Avg. Duration</p>
-                  <p className="text-xl font-bold">{overview?.overview?.avgViewDuration || 0}s</p>
-                  <p className="text-xs text-muted-foreground">Per view</p>
-                </div>
-              </CardContent>
-            </Card>
+
             <Card className="hover:shadow-md transition-shadow">
               <CardContent className="pt-4">
                 <div className="text-center">
@@ -1191,6 +1161,15 @@ const Analytics = () => {
                         <span>Message Clicks</span>
                       </div>
                       <span className="font-bold text-lg">{propertyViews?.interactions?.messageClicks || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded text-purple-600 dark:text-purple-300">
+                          <ThumbsUp className="h-4 w-4" />
+                        </div>
+                        <span>Interest Clicks</span>
+                      </div>
+                      <span className="font-bold text-lg">{propertyViews?.interactions?.interestClicks || 0}</span>
                     </div>
                   </div>
                 </CardContent>

@@ -292,6 +292,87 @@ router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
   }
 }));
 
+// @desc    Register interest in property
+// @route   POST /api/properties/:id/interest
+// @access  Private
+router.post('/:id/interest', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    const property = await Property.findById(id).populate('owner');
+
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Track interest interaction
+    const sessionId = req.sessionID || req.ip + '-' + Date.now();
+    const viewerId = req.user.id;
+
+    // Find existing view for today or create new
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let view = await PropertyView.findOne({
+      property: id,
+      viewer: viewerId,
+      viewedAt: { $gte: today }
+    });
+
+    if (view) {
+      view.interactions.clickedInterest = true;
+      await view.save();
+    } else {
+      view = await PropertyView.create({
+        property: id,
+        viewer: viewerId,
+        sessionId,
+        ipAddress: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress,
+        userAgent: req.get('user-agent'),
+        referrer: req.get('referer'),
+        viewedAt: new Date(),
+        interactions: { clickedInterest: true }
+      });
+    }
+
+    // Send socket notification to owner
+    const socketService = require('../services/socketService');
+    const ownerId = property.owner._id.toString();
+
+    if (socketService.isUserOnline(ownerId)) {
+      socketService.sendToUser(ownerId, 'vendor:property_interest', {
+        propertyId: property._id,
+        propertyTitle: property.title,
+        customerName: `${req.user.profile.firstName} ${req.user.profile.lastName}`.trim(),
+        customerPhone: req.user.profile.phone,
+        timestamp: new Date()
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Interest registered successfully'
+    });
+  } catch (error) {
+    console.error('Interest registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to register interest'
+    });
+  }
+}));
+
 // @desc    Create property
 // @route   POST /api/properties
 // @access  Private

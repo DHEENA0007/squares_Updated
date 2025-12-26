@@ -609,6 +609,27 @@ class PropertyService {
       // Don't throw error for tracking - it's non-critical
     }
   }
+
+  async registerInterest(propertyId: string): Promise<void> {
+    try {
+      await this.makeRequest(`/properties/${propertyId}/interest`, {
+        method: 'POST'
+      });
+
+      toast({
+        title: "Interest Registered",
+        description: "The property owner has been notified of your interest.",
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to register interest";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
 }
 
 export const propertyService = new PropertyService();

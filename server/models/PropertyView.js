@@ -31,7 +31,8 @@ const propertyViewSchema = new mongoose.Schema({
   interactions: {
     clickedPhone: { type: Boolean, default: false },
     clickedMessage: { type: Boolean, default: false },
-    sharedProperty: { type: Boolean, default: false }
+    sharedProperty: { type: Boolean, default: false },
+    clickedInterest: { type: Boolean, default: false }
   }
 }, {
   timestamps: true

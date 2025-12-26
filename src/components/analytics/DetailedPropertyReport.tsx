@@ -6,8 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
     Download, Search, User, Phone, Mail, MessageCircle,
-    MapPin, ExternalLink, Shield, UserX, Share2, Filter
+    MapPin, ExternalLink, Shield, UserX, Share2, Filter, ThumbsUp
 } from 'lucide-react';
+import ExportUtils from '@/utils/exportUtils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import analyticsService from '@/services/analyticsService';
 import { format } from 'date-fns';
@@ -50,7 +51,8 @@ const DetailedPropertyReport = ({ dateRange, propertyId, customStartDate, custom
                     if (interactionFilter === 'phone') return v.interactions?.clickedPhone;
                     if (interactionFilter === 'message') return v.interactions?.clickedMessage;
                     if (interactionFilter === 'share') return v.interactions?.sharedProperty;
-                    if (interactionFilter === 'any') return v.interactions?.clickedPhone || v.interactions?.clickedMessage || v.interactions?.sharedProperty;
+                    if (interactionFilter === 'interest') return v.interactions?.clickedInterest;
+                    if (interactionFilter === 'any') return v.interactions?.clickedPhone || v.interactions?.clickedMessage || v.interactions?.sharedProperty || v.interactions?.clickedInterest;
                     return true;
                 });
             }
@@ -80,41 +82,94 @@ const DetailedPropertyReport = ({ dateRange, propertyId, customStartDate, custom
     const handleDownload = () => {
         if (!data?.viewers) return;
 
-        const headers = ['Date', 'Property', 'Location', 'Viewer Name', 'Email', 'Phone', 'Interactions'];
-        const csvContent = [
-            headers.join(','),
-            ...data.viewers.map((v: any) => {
-                const isRegistered = v.viewer && (v.viewer.firstName || v.viewer.email);
-                const viewerName = isRegistered ? `${v.viewer.firstName || ''} ${v.viewer.lastName || ''}`.trim() || v.viewer.email : 'Guest';
-                const location = v.property?.location || 'No location';
-                const interactions = [];
-                if (v.interactions?.clickedPhone) interactions.push('Phone');
-                if (v.interactions?.clickedMessage) interactions.push('Message');
-                if (v.interactions?.sharedProperty) interactions.push('Share');
+        const currentDate = format(new Date(), 'yyyy-MM-dd');
 
-                return [
-                    format(new Date(v.viewedAt), 'yyyy-MM-dd HH:mm:ss'),
-                    `"${v.property?.title || 'Unknown'}"`,
-                    `"${location}"`,
-                    `"${viewerName}"`,
-                    v.viewer?.email || 'N/A',
-                    v.viewer?.phone || 'N/A',
-                    `"${interactions.join('; ')}"`
-                ].join(',');
-            })
-        ].join('\n');
+        // Sheet 1: All Interactions
+        const allInteractionsData = data.viewers.map((v: any) => {
+            const isRegistered = v.viewer && (v.viewer.firstName || v.viewer.email);
+            const viewerName = isRegistered ? `${v.viewer.firstName || ''} ${v.viewer.lastName || ''}`.trim() || v.viewer.email : 'Guest';
+            const interactions = [];
+            if (v.interactions?.clickedPhone) interactions.push('Phone');
+            if (v.interactions?.clickedMessage) interactions.push('Message');
+            if (v.interactions?.sharedProperty) interactions.push('Share');
+            if (v.interactions?.clickedInterest) interactions.push('Interest');
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        if (link.download !== undefined) {
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `property_views_report_${format(new Date(), 'yyyy-MM-dd')}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
+            return {
+                'Date': format(new Date(v.viewedAt), 'yyyy-MM-dd HH:mm:ss'),
+                'Property': v.property?.title || 'Unknown',
+                'Location': v.property?.location || 'No location',
+                'Viewer Name': viewerName,
+                'Email': v.viewer?.email || 'N/A',
+                'Phone': v.viewer?.phone || 'N/A',
+                'Interactions': interactions.join('; ') || 'None'
+            };
+        });
+
+        // Sheet 2: Interested Users
+        const interestedUsersData = data.viewers
+            .filter((v: any) => v.interactions?.clickedInterest)
+            .map((v: any) => ({
+                'Date': format(new Date(v.viewedAt), 'yyyy-MM-dd HH:mm:ss'),
+                'User Name': v.viewer ? `${v.viewer.firstName || ''} ${v.viewer.lastName || ''}`.trim() : 'Guest',
+                'Email': v.viewer?.email || 'N/A',
+                'Phone': v.viewer?.phone || 'N/A',
+                'Property Interested In': v.property?.title || 'Unknown'
+            }));
+
+        // Sheet 3: Properties with Interest
+        const propertiesWithInterestMap = new Map();
+        data.viewers.forEach((v: any) => {
+            if (v.interactions?.clickedInterest && v.property) {
+                const propId = v.property._id || v.property.title;
+                if (!propertiesWithInterestMap.has(propId)) {
+                    propertiesWithInterestMap.set(propId, {
+                        'Property Title': v.property.title,
+                        'Location': v.property.location,
+                        'Interest Count': 0
+                    });
+                }
+                propertiesWithInterestMap.get(propId)['Interest Count']++;
+            }
+        });
+        const propertiesWithInterestData = Array.from(propertiesWithInterestMap.values());
+
+        // Sheet 4: Properties without Interest (from the viewed list)
+        const propertiesWithoutInterestMap = new Map();
+        data.viewers.forEach((v: any) => {
+            if (v.property) {
+                const propId = v.property._id || v.property.title;
+                if (!propertiesWithInterestMap.has(propId) && !propertiesWithoutInterestMap.has(propId)) {
+                    propertiesWithoutInterestMap.set(propId, {
+                        'Property Title': v.property.title,
+                        'Location': v.property.location,
+                        'Total Views': 0
+                    });
+                }
+                if (propertiesWithoutInterestMap.has(propId)) {
+                    propertiesWithoutInterestMap.get(propId)['Total Views']++;
+                }
+            }
+        });
+        const propertiesWithoutInterestData = Array.from(propertiesWithoutInterestMap.values());
+
+        const config = {
+            filename: `detailed_property_report_${currentDate}`,
+            title: 'Detailed Property Report',
+            metadata: {
+                'Generated on': currentDate,
+                'Total Views': data.viewers.length.toString()
+            }
+        };
+
+        const sheets = [
+            { name: 'All Interactions', data: allInteractionsData, columns: [{ wch: 20 }, { wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 20 }] },
+            { name: 'Interested Users', data: interestedUsersData, columns: [{ wch: 20 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 30 }] },
+            { name: 'Properties with Interest', data: propertiesWithInterestData, columns: [{ wch: 30 }, { wch: 20 }, { wch: 15 }] },
+            { name: 'Properties w/o Interest', data: propertiesWithoutInterestData, columns: [{ wch: 30 }, { wch: 20 }, { wch: 15 }] }
+        ];
+
+        ExportUtils.generateExcelReport(config, sheets);
+        toast({ title: 'Detailed Report Downloaded' });
     };
 
     if (loading) {
@@ -179,7 +234,7 @@ const DetailedPropertyReport = ({ dateRange, propertyId, customStartDate, custom
                         </div>
                         <Button onClick={handleDownload} variant="outline" className="gap-2">
                             <Download className="h-4 w-4" />
-                            Export CSV
+                            Export Excel
                         </Button>
                     </div>
                     <div className="mt-4 flex flex-col sm:flex-row gap-3">
@@ -202,6 +257,7 @@ const DetailedPropertyReport = ({ dateRange, propertyId, customStartDate, custom
                                 <SelectItem value="any">With Interactions</SelectItem>
                                 <SelectItem value="phone">Phone Clicks</SelectItem>
                                 <SelectItem value="message">Message Clicks</SelectItem>
+                                <SelectItem value="interest">Interest Clicks</SelectItem>
                                 <SelectItem value="share">Shares</SelectItem>
                             </SelectContent>
                         </Select>
@@ -315,7 +371,12 @@ const DetailedPropertyReport = ({ dateRange, propertyId, customStartDate, custom
                                                             <Share2 className="h-3 w-3" />
                                                         </Badge>
                                                     )}
-                                                    {!view.interactions?.clickedPhone && !view.interactions?.clickedMessage && !view.interactions?.sharedProperty && (
+                                                    {view.interactions?.clickedInterest && (
+                                                        <Badge variant="outline" className="bg-pink-50 text-pink-700 border-pink-200" title="Interested">
+                                                            <ThumbsUp className="h-3 w-3" />
+                                                        </Badge>
+                                                    )}
+                                                    {!view.interactions?.clickedPhone && !view.interactions?.clickedMessage && !view.interactions?.sharedProperty && !view.interactions?.clickedInterest && (
                                                         <span className="text-xs text-muted-foreground">-</span>
                                                     )}
                                                 </div>
