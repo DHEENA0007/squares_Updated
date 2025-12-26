@@ -64,11 +64,12 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
     const handleDownload = () => {
         if (!data?.viewers) return;
 
-        const headers = ['Date', 'Property', 'Location', 'Viewer Name', 'Email', 'Phone', 'Duration (s)', 'Interactions'];
+        const headers = ['Date', 'Property', 'Location', 'Viewer Name', 'Email', 'Phone', 'Duration (s)', 'Visit Count', 'Interactions'];
         const csvContent = [
             headers.join(','),
             ...data.viewers.map((v: any) => {
-                const viewerName = v.viewer ? `${v.viewer.firstName} ${v.viewer.lastName}` : 'Guest';
+                const isRegistered = v.viewer && (v.viewer.firstName || v.viewer.email);
+                const viewerName = isRegistered ? `${v.viewer.firstName || ''} ${v.viewer.lastName || ''}`.trim() || v.viewer.email : 'Guest';
                 const location = v.property?.location || 'No location';
                 const interactions = [];
                 if (v.interactions?.clickedPhone) interactions.push('Phone');
@@ -83,6 +84,7 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
                     v.viewer?.email || 'N/A',
                     v.viewer?.phone || 'N/A',
                     v.viewDuration || 0,
+                    v.viewCount || 1,
                     `"${interactions.join('; ')}"`
                 ].join(',');
             })
@@ -222,14 +224,14 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                {view.viewer ? (
+                                                {view.viewer && (view.viewer.firstName || view.viewer.email) ? (
                                                     <div className="flex items-center gap-2">
                                                         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                                                            {view.viewer.firstName?.[0]}{view.viewer.lastName?.[0]}
+                                                            {view.viewer.firstName?.[0] || '?'}{view.viewer.lastName?.[0] || ''}
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className="font-medium text-sm">
-                                                                {view.viewer.firstName} {view.viewer.lastName}
+                                                                {view.viewer.firstName || ''} {view.viewer.lastName || ''}
                                                             </span>
                                                             <span className="text-xs text-green-600">Registered</span>
                                                         </div>
@@ -247,7 +249,7 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                {view.viewer ? (
+                                                {view.viewer && (view.viewer.email || view.viewer.phone) ? (
                                                     <div className="flex flex-col gap-1 text-sm">
                                                         {view.viewer.email && (
                                                             <div className="flex items-center gap-1.5">
@@ -266,17 +268,24 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
                                                     </div>
                                                 ) : (
                                                     <span className="text-xs text-muted-foreground italic">
-                                                        Login to view details
+                                                        N/A
                                                     </span>
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                <div className="flex items-center gap-1.5 text-sm">
-                                                    <Clock className="h-3 w-3 text-muted-foreground" />
-                                                    {view.viewDuration < 60
-                                                        ? `${view.viewDuration}s`
-                                                        : `${Math.floor(view.viewDuration / 60)}m ${view.viewDuration % 60}s`
-                                                    }
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-1.5 text-sm">
+                                                        <Clock className="h-3 w-3 text-muted-foreground" />
+                                                        {(view.viewDuration || 0) < 60
+                                                            ? `${view.viewDuration || 0}s`
+                                                            : `${Math.floor((view.viewDuration || 0) / 60)}m ${(view.viewDuration || 0) % 60}s`
+                                                        }
+                                                    </div>
+                                                    {view.viewCount > 1 && (
+                                                        <span className="text-xs text-muted-foreground">
+                                                            ({view.viewCount} visits)
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                             <TableCell>

@@ -1261,6 +1261,48 @@ router.get('/all-property-viewers', asyncHandler(async (req, res) => {
         }
       }
     },
+    // Group by viewer + property to merge duplicate entries
+    {
+      $group: {
+        _id: {
+          property: '$property._id',
+          viewer: '$viewer._id',
+          // For guests, group by sessionId or ipAddress
+          sessionId: { $ifNull: ['$sessionId', '$ipAddress'] }
+        },
+        lastViewedAt: { $max: '$viewedAt' },
+        firstViewedAt: { $min: '$viewedAt' },
+        totalDuration: { $sum: { $ifNull: ['$viewDuration', 0] } },
+        viewCount: { $sum: 1 },
+        // Merge interactions - if any view has the interaction, it's true
+        clickedPhone: { $max: { $cond: ['$interactions.clickedPhone', true, false] } },
+        clickedMessage: { $max: { $cond: ['$interactions.clickedMessage', true, false] } },
+        sharedProperty: { $max: { $cond: ['$interactions.sharedProperty', true, false] } },
+        property: { $first: '$property' },
+        viewer: { $first: '$viewer' },
+        ipAddress: { $first: '$ipAddress' },
+        referrer: { $first: '$referrer' }
+      }
+    },
+    // Reshape the output
+    {
+      $project: {
+        _id: 0,
+        viewedAt: '$lastViewedAt',
+        firstViewedAt: 1,
+        viewDuration: '$totalDuration',
+        viewCount: 1,
+        interactions: {
+          clickedPhone: '$clickedPhone',
+          clickedMessage: '$clickedMessage',
+          sharedProperty: '$sharedProperty'
+        },
+        property: 1,
+        viewer: 1,
+        ipAddress: 1,
+        referrer: 1
+      }
+    },
     { $sort: { viewedAt: -1 } },
     { $limit: 500 }
   ]);
