@@ -86,10 +86,10 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
     if (propertyType) {
       // Handle comma-separated property types (e.g., "commercial,office")
       if (propertyType.includes(',')) {
-        const propertyTypeArray = propertyType.split(',').map(type => type.trim());
+        const propertyTypeArray = propertyType.split(',').map(type => new RegExp(`^${type.trim()}$`, 'i'));
         queryFilter.type = { $in: propertyTypeArray };
       } else {
-        queryFilter.type = propertyType;
+        queryFilter.type = { $regex: new RegExp(`^${propertyType}$`, 'i') };
       }
     }
 

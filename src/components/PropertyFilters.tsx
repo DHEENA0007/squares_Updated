@@ -4,19 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Filter, Loader2 } from "lucide-react";
 import { PropertyFilters as PropertyFilterType } from "@/services/propertyService";
 import { configurationService } from "@/services/configurationService";
-import type { PropertyType } from "@/types/configuration";
+import type { PropertyType, FilterConfiguration } from "@/types/configuration";
 
 interface PropertyFiltersProps {
   onFilterChange: (filters: PropertyFilterType) => void;
   initialFilters?: PropertyFilterType;
-}
-
-interface BudgetRange {
-  id: string;
-  name: string;
-  displayLabel: string;
-  minValue: number | null;
-  maxValue: number | null;
 }
 
 const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProps) => {
@@ -28,8 +20,9 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
     listingType: undefined,
   });
   const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
-  const [budgetRanges, setBudgetRanges] = useState<BudgetRange[]>([]);
-  const [listingTypes, setListingTypes] = useState<Array<{ id: string; name: string; value: string; displayLabel?: string }>>([]);
+  const [listingTypes, setListingTypes] = useState<FilterConfiguration[]>([]);
+  const [bedroomTypes, setBedroomTypes] = useState<FilterConfiguration[]>([]);
+  const [budgetTypes, setBudgetTypes] = useState<FilterConfiguration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch configuration data on component mount
@@ -37,22 +30,19 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
     const fetchFilterData = async () => {
       try {
         setIsLoading(true);
-        // Fetch property types and listing types from configuration
-        const [typesData, listingTypesData] = await Promise.all([
+        // Fetch property types and all filter configurations
+        const [typesData, listingTypesData, bedroomTypesData, budgetTypesData] = await Promise.all([
           configurationService.getAllPropertyTypes(false),
           configurationService.getFilterConfigurationsByType('listing_type', false),
+          configurationService.getFilterConfigurationsByType('bedrooms', false),
+          configurationService.getFilterConfigurationsByType('budget', false),
         ]);
+
         setPropertyTypes(typesData);
         setListingTypes(listingTypesData);
+        setBedroomTypes(bedroomTypesData);
+        setBudgetTypes(budgetTypesData);
 
-        // For now, use default budget ranges - can be configured later
-        setBudgetRanges([
-          { id: '20-40', name: '20-40L', displayLabel: '₹20L - ₹40L', minValue: 2000000, maxValue: 4000000 },
-          { id: '40-60', name: '40-60L', displayLabel: '₹40L - ₹60L', minValue: 4000000, maxValue: 6000000 },
-          { id: '60-80', name: '60-80L', displayLabel: '₹60L - ₹80L', minValue: 6000000, maxValue: 8000000 },
-          { id: '80-1cr', name: '80L-1Cr', displayLabel: '₹80L - ₹1Cr', minValue: 8000000, maxValue: 10000000 },
-          { id: '1cr+', name: '1Cr+', displayLabel: '₹1Cr+', minValue: 10000000, maxValue: null },
-        ]);
       } catch (error) {
         console.error('Error fetching filter data:', error);
       } finally {
@@ -76,39 +66,25 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
     onFilterChange(newFilters);
   };
 
-  const handleBudgetChange = (budgetRange: string) => {
-    let minPrice: number | undefined;
-    let maxPrice: number | undefined;
-
-    switch (budgetRange) {
-      case '20-40':
-        minPrice = 2000000;
-        maxPrice = 4000000;
-        break;
-      case '40-60':
-        minPrice = 4000000;
-        maxPrice = 6000000;
-        break;
-      case '60-80':
-        minPrice = 6000000;
-        maxPrice = 8000000;
-        break;
-      case '80-1cr':
-        minPrice = 8000000;
-        maxPrice = 10000000;
-        break;
-      case '1cr+':
-        minPrice = 10000000;
-        maxPrice = undefined;
-        break;
-      default:
-        minPrice = undefined;
-        maxPrice = undefined;
+  const handleBudgetChange = (budgetId: string) => {
+    if (budgetId === 'any-budget') {
+      const newFilters = { ...filters, minPrice: undefined, maxPrice: undefined };
+      setFilters(newFilters);
+      onFilterChange(newFilters);
+      return;
     }
 
-    const newFilters = { ...filters, minPrice, maxPrice };
-    setFilters(newFilters);
-    onFilterChange(newFilters);
+    const selectedBudget = budgetTypes.find(b => (b.id || b._id) === budgetId);
+
+    if (selectedBudget) {
+      const newFilters = {
+        ...filters,
+        minPrice: selectedBudget.minValue,
+        maxPrice: selectedBudget.maxValue
+      };
+      setFilters(newFilters);
+      onFilterChange(newFilters);
+    }
   };
 
   const resetFilters = () => {
@@ -153,7 +129,7 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
             {listingTypes.map((type) => (
-              <SelectItem key={type.id} value={type.value}>
+              <SelectItem key={type.id || type._id} value={type.value}>
                 {type.displayLabel || type.name}
               </SelectItem>
             ))}
@@ -161,8 +137,17 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
         </Select>
 
         <Select
-          value={filters.propertyType || 'all'}
-          onValueChange={(value) => handleFilterChange('propertyType', value)}
+          value={filters.propertyType ? propertyTypes.find(t => t.value.toLowerCase() === filters.propertyType?.toLowerCase())?.id || propertyTypes.find(t => t.value.toLowerCase() === filters.propertyType?.toLowerCase())?._id || 'all' : 'all'}
+          onValueChange={(value) => {
+            if (value === 'all') {
+              handleFilterChange('propertyType', 'all');
+            } else {
+              const type = propertyTypes.find(t => (t.id || t._id) === value);
+              if (type) {
+                handleFilterChange('propertyType', type.value);
+              }
+            }
+          }}
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Property Type" />
@@ -170,15 +155,15 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
           <SelectContent>
             <SelectItem value="all">All Properties</SelectItem>
             {propertyTypes.map((type) => (
-              <SelectItem key={type.id} value={type.value}>
+              <SelectItem key={type.id || type._id} value={type.id || type._id}>
                 {type.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        
-        <Select 
-          value={filters.bedrooms?.toString() || 'any'} 
+
+        <Select
+          value={filters.bedrooms?.toString() || 'any'}
           onValueChange={(value) => {
             const bedroomValue = value === 'any' ? undefined : parseInt(value);
             handleFilterChange('bedrooms', bedroomValue && !isNaN(bedroomValue) ? bedroomValue : undefined);
@@ -189,20 +174,18 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="any">Any BHK</SelectItem>
-            <SelectItem value="1">1 BHK</SelectItem>
-            <SelectItem value="2">2 BHK</SelectItem>
-            <SelectItem value="3">3 BHK</SelectItem>
-            <SelectItem value="4">4+ BHK</SelectItem>
+            {bedroomTypes.map((type) => (
+              <SelectItem key={type.id || type._id} value={type.value}>
+                {type.displayLabel || type.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
-        
-        <Select 
+
+        <Select
           value={
-            filters.minPrice === 2000000 && filters.maxPrice === 4000000 ? '20-40' :
-            filters.minPrice === 4000000 && filters.maxPrice === 6000000 ? '40-60' :
-            filters.minPrice === 6000000 && filters.maxPrice === 8000000 ? '60-80' :
-            filters.minPrice === 8000000 && filters.maxPrice === 10000000 ? '80-1cr' :
-            filters.minPrice === 10000000 && !filters.maxPrice ? '1cr+' :
+            budgetTypes.find(b => b.minValue === filters.minPrice && b.maxValue === filters.maxPrice)?.id ||
+            budgetTypes.find(b => b.minValue === filters.minPrice && b.maxValue === filters.maxPrice)?._id ||
             'any-budget'
           }
           onValueChange={handleBudgetChange}
@@ -212,14 +195,14 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="any-budget">Any Budget</SelectItem>
-            <SelectItem value="20-40">₹20L - ₹40L</SelectItem>
-            <SelectItem value="40-60">₹40L - ₹60L</SelectItem>
-            <SelectItem value="60-80">₹60L - ₹80L</SelectItem>
-            <SelectItem value="80-1cr">₹80L - ₹1Cr</SelectItem>
-            <SelectItem value="1cr+">₹1Cr+</SelectItem>
+            {budgetTypes.map((type) => (
+              <SelectItem key={type.id || type._id} value={type.id || type._id}>
+                {type.displayLabel || type.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
-        
+
         <Button variant="secondary" className="ml-auto" onClick={resetFilters}>
           Reset Filters
         </Button>
