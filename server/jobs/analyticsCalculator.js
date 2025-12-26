@@ -160,7 +160,7 @@ class AnalyticsCalculatorJob {
                 }
             ]),
 
-            // Customer interactions ONLY (phone clicks + shares from customers)
+            // Customer interactions ONLY (phone clicks + message clicks from customers)
             PropertyView.aggregate([
                 {
                     $match: {
@@ -168,7 +168,7 @@ class AnalyticsCalculatorJob {
                         viewer: { $in: customerIds },
                         $or: [
                             { 'interactions.clickedPhone': true },
-                            { 'interactions.sharedProperty': true }
+                            { 'interactions.clickedMessage': true }
                         ]
                     }
                 },
@@ -176,7 +176,7 @@ class AnalyticsCalculatorJob {
                     $group: {
                         _id: null,
                         phoneClicks: { $sum: { $cond: ['$interactions.clickedPhone', 1, 0] } },
-                        shares: { $sum: { $cond: ['$interactions.sharedProperty', 1, 0] } }
+                        messageClicks: { $sum: { $cond: ['$interactions.clickedMessage', 1, 0] } }
                     }
                 }
             ])
@@ -188,7 +188,7 @@ class AnalyticsCalculatorJob {
 
         const customerInteractions = customerInteractionsData[0] || {};
         const totalInteractions = (customerInteractions.phoneClicks || 0) +
-            (customerInteractions.shares || 0);
+            (customerInteractions.messageClicks || 0);
 
         // Calculate conversion rate (Guest to Customer)
         // Formula: (New Customer Registrations / Guest Visits) * 100
@@ -220,7 +220,7 @@ class AnalyticsCalculatorJob {
             totalInteractions,
             interactions: {
                 phoneClicks: customerInteractions.phoneClicks || 0,
-                shares: customerInteractions.shares || 0
+                messageClicks: customerInteractions.messageClicks || 0
             },
 
             // Conversion metrics
@@ -243,7 +243,7 @@ class AnalyticsCalculatorJob {
             console.log(`    👁️  Total Views: ${data.totalViews} (${data.uniqueViewers} unique)`);
             console.log(`    📊 Registered vs Guest: ${data.registeredViews} / ${data.guestViews}`);
             console.log(`    🖱️  Customer Interactions: ${data.totalInteractions}`);
-            console.log(`       - Phone Clicks: ${data.interactions.phoneClicks}, Shares: ${data.interactions.shares}`);
+            console.log(`       - Phone Clicks: ${data.interactions.phoneClicks}, Message Clicks: ${data.interactions.messageClicks}`);
             console.log(`    ⏱️  Avg. Duration: ${data.avgViewDuration}s per view`);
             console.log(`    🏠 Properties: ${data.totalProperties} total listings`);
             console.log(`    📈 Conversion Rate: ${data.conversionRate}% (Guest to customer)`);

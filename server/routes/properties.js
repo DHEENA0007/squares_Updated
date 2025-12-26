@@ -938,8 +938,8 @@ router.post('/:id/track-interaction', authenticateToken, asyncHandler(async (req
       });
     }
 
-    // Validate interaction type (only phone clicks and shares)
-    const validInteractionTypes = ['clickedPhone', 'sharedProperty'];
+    // Validate interaction type (phone clicks, message clicks, and shares)
+    const validInteractionTypes = ['clickedPhone', 'clickedMessage', 'sharedProperty'];
     if (!validInteractionTypes.includes(interactionType)) {
       return res.status(400).json({
         success: false,

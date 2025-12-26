@@ -597,8 +597,8 @@ class PropertyService {
     return status.charAt(0).toUpperCase() + status.slice(1);
   }
 
-  // Track customer interactions with properties (only phone clicks and shares)
-  async trackInteraction(propertyId: string, interactionType: 'clickedPhone' | 'sharedProperty'): Promise<void> {
+  // Track customer interactions with properties (phone clicks, message clicks, and shares)
+  async trackInteraction(propertyId: string, interactionType: 'clickedPhone' | 'clickedMessage' | 'sharedProperty'): Promise<void> {
     try {
       await this.makeRequest(`/properties/${propertyId}/track-interaction`, {
         method: 'POST',

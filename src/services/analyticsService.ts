@@ -524,7 +524,7 @@ class AnalyticsService {
         totalInteractions: number;
         interactions: {
           phoneClicks: number;
-          shares: number;
+          messageClicks: number;
         };
         // Conversion metrics
         conversionRate: number;

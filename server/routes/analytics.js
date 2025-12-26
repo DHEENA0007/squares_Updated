@@ -289,16 +289,12 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
               $sum: {
                 $add: [
                   { $cond: ['$interactions.clickedPhone', 1, 0] },
-                  { $cond: ['$interactions.clickedEmail', 1, 0] },
-                  { $cond: ['$interactions.clickedWhatsApp', 1, 0] }
+                  { $cond: ['$interactions.clickedMessage', 1, 0] }
                 ]
               }
             },
             phoneClicks: { $sum: { $cond: ['$interactions.clickedPhone', 1, 0] } },
-            emailClicks: { $sum: { $cond: ['$interactions.clickedEmail', 1, 0] } },
-            whatsappClicks: { $sum: { $cond: ['$interactions.clickedWhatsApp', 1, 0] } },
-            galleryViews: { $sum: { $cond: ['$interactions.viewedGallery', 1, 0] } },
-            shares: { $sum: { $cond: ['$interactions.sharedProperty', 1, 0] } }
+            messageClicks: { $sum: { $cond: ['$interactions.clickedMessage', 1, 0] } }
           }
         }
       ])
@@ -482,20 +478,57 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
     }
 
     // ========== ENGAGEMENT DATA ==========
-    const [activeUsers, messageActivity, reviewActivity] = await Promise.all([
+    const [activeUsersData, activeUsersByRole, messageActivity, reviewActivity] = await Promise.all([
+      // Daily active users count with breakdown
       User.aggregate([
         {
           $match: {
-            lastLogin: { $gte: startDate }
+            'profile.lastLogin': { $gte: startDate },
+            role: { $in: ['customer', 'vendor'] }
           }
         },
         {
           $group: {
-            _id: { $dateToString: { format: '%Y-%m-%d', date: '$lastLogin' } },
-            count: { $sum: 1 }
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$profile.lastLogin' } },
+            count: { $sum: 1 },
+            customers: {
+              $sum: { $cond: [{ $eq: ['$role', 'customer'] }, 1, 0] }
+            },
+            vendors: {
+              $sum: { $cond: [{ $eq: ['$role', 'vendor'] }, 1, 0] }
+            },
+            userNames: {
+              $push: {
+                name: { $concat: ['$profile.firstName', ' ', '$profile.lastName'] },
+                role: '$role'
+              }
+            }
           }
         },
         { $sort: { '_id': 1 } }
+      ]),
+      // Active users grouped by role with names
+      User.aggregate([
+        {
+          $match: {
+            'profile.lastLogin': { $gte: startDate },
+            role: { $in: ['customer', 'vendor'] }
+          }
+        },
+        {
+          $group: {
+            _id: '$role',
+            count: { $sum: 1 },
+            users: {
+              $push: {
+                id: '$_id',
+                name: { $concat: ['$profile.firstName', ' ', '$profile.lastName'] },
+                email: '$email',
+                lastLogin: '$profile.lastLogin'
+              }
+            }
+          }
+        }
       ]),
       Message.aggregate([
         { $match: { createdAt: { $gte: startDate } } },
@@ -519,6 +552,21 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
         { $sort: { '_id': 1 } }
       ])
     ]);
+
+    // Process active users data - limit names to top 5 per day for display
+    const activeUsers = activeUsersData.map(day => ({
+      _id: day._id,
+      count: day.count,
+      customers: day.customers,
+      vendors: day.vendors,
+      topUsers: day.userNames.slice(0, 5).map(u => u.name).filter(n => n && n.trim() !== ' ')
+    }));
+
+    // Get summary of active users by role
+    const activeUsersSummary = {
+      customers: activeUsersByRole.find(r => r._id === 'customer') || { count: 0, users: [] },
+      vendors: activeUsersByRole.find(r => r._id === 'vendor') || { count: 0, users: [] }
+    };
 
     // ========== RETURN CONSOLIDATED DATA ==========
     res.json({
@@ -561,6 +609,7 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
         },
         engagement: {
           activeUsers,
+          activeUsersSummary,
           messageActivity,
           reviewActivity
         }
@@ -713,16 +762,12 @@ router.get('/property-views', asyncHandler(async (req, res) => {
             $sum: {
               $add: [
                 { $cond: ['$interactions.clickedPhone', 1, 0] },
-                { $cond: ['$interactions.clickedEmail', 1, 0] },
-                { $cond: ['$interactions.clickedWhatsApp', 1, 0] }
+                { $cond: ['$interactions.clickedMessage', 1, 0] }
               ]
             }
           },
           phoneClicks: { $sum: { $cond: ['$interactions.clickedPhone', 1, 0] } },
-          emailClicks: { $sum: { $cond: ['$interactions.clickedEmail', 1, 0] } },
-          whatsappClicks: { $sum: { $cond: ['$interactions.clickedWhatsApp', 1, 0] } },
-          galleryViews: { $sum: { $cond: ['$interactions.viewedGallery', 1, 0] } },
-          shares: { $sum: { $cond: ['$interactions.sharedProperty', 1, 0] } }
+          messageClicks: { $sum: { $cond: ['$interactions.clickedMessage', 1, 0] } }
         }
       }
     ])
@@ -1085,10 +1130,7 @@ router.get('/property-views/:propertyId', asyncHandler(async (req, res) => {
             $group: {
               _id: null,
               phoneClicks: { $sum: { $cond: ['$interactions.clickedPhone', 1, 0] } },
-              emailClicks: { $sum: { $cond: ['$interactions.clickedEmail', 1, 0] } },
-              whatsappClicks: { $sum: { $cond: ['$interactions.clickedWhatsApp', 1, 0] } },
-              galleryViews: { $sum: { $cond: ['$interactions.viewedGallery', 1, 0] } },
-              shares: { $sum: { $cond: ['$interactions.sharedProperty', 1, 0] } }
+              messageClicks: { $sum: { $cond: ['$interactions.clickedMessage', 1, 0] } }
             }
           }
         ]

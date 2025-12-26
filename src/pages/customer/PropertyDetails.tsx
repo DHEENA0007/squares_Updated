@@ -653,7 +653,11 @@ const PropertyDetails: React.FC = () => {
                       <Button
                         variant="outline"
                         className="w-full"
-                        onClick={() => setShowMessageDialog(true)}
+                        onClick={() => {
+                          // Track message click (customer interaction)
+                          if (id) propertyService.trackInteraction(id, 'clickedMessage');
+                          setShowMessageDialog(true);
+                        }}
                       >
                         <MessageSquare className="w-4 h-4 mr-2" />
                         Send Message

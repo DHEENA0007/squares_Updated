@@ -5,8 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { 
-  User, Mail, Phone, MapPin, Calendar, Clock, 
+import {
+  User, Mail, Phone, MapPin, Calendar, Clock,
   MousePointer, Eye, ExternalLink, ChevronDown, ChevronUp
 } from 'lucide-react';
 import analyticsService from '@/services/analyticsService';
@@ -34,7 +34,7 @@ const PropertyViewDetails = ({ propertyId, dateRange }: PropertyViewDetailsProps
 
   const fetchPropertyViewDetails = async () => {
     if (!propertyId) return;
-    
+
     setLoading(true);
     try {
       const response = await analyticsService.getPropertyViewDetails(propertyId, dateRange);
@@ -62,15 +62,15 @@ const PropertyViewDetails = ({ propertyId, dateRange }: PropertyViewDetailsProps
   };
 
   const filteredViews = viewDetails?.views?.filter((view: any) => {
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       view.viewer?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       view.viewer?.profile?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       view.viewer?.profile?.lastName?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesFilter = filterType === 'all' || 
+    const matchesFilter = filterType === 'all' ||
       (filterType === 'registered' && view.viewer) ||
       (filterType === 'guest' && !view.viewer) ||
-      (filterType === 'interacted' && (view.interactions?.clickedPhone || view.interactions?.clickedEmail || view.interactions?.clickedWhatsApp));
+      (filterType === 'interacted' && (view.interactions?.clickedPhone || view.interactions?.clickedMessage));
 
     return matchesSearch && matchesFilter;
   }) || [];
@@ -146,8 +146,7 @@ const PropertyViewDetails = ({ propertyId, dateRange }: PropertyViewDetailsProps
               <MousePointer className="h-8 w-8 mx-auto mb-2 text-orange-600" />
               <p className="text-2xl font-bold">
                 {(viewDetails.aggregateData?.interactions?.[0]?.phoneClicks || 0) +
-                 (viewDetails.aggregateData?.interactions?.[0]?.emailClicks || 0) +
-                 (viewDetails.aggregateData?.interactions?.[0]?.whatsappClicks || 0)}
+                  (viewDetails.aggregateData?.interactions?.[0]?.messageClicks || 0)}
               </p>
               <p className="text-sm text-muted-foreground">Total Interactions</p>
             </div>
@@ -286,19 +285,9 @@ const PropertyViewDetails = ({ propertyId, dateRange }: PropertyViewDetailsProps
                                 <Phone className="h-3 w-3 mr-1" /> Phone
                               </Badge>
                             )}
-                            {view.interactions?.clickedEmail && (
+                            {view.interactions?.clickedMessage && (
                               <Badge variant="outline" className="text-xs">
-                                <Mail className="h-3 w-3 mr-1" /> Email
-                              </Badge>
-                            )}
-                            {view.interactions?.clickedWhatsApp && (
-                              <Badge variant="outline" className="text-xs">
-                                WhatsApp
-                              </Badge>
-                            )}
-                            {view.interactions?.viewedGallery && (
-                              <Badge variant="outline" className="text-xs">
-                                Gallery
+                                <Mail className="h-3 w-3 mr-1" /> Message
                               </Badge>
                             )}
                             {view.interactions?.sharedProperty && (
@@ -339,7 +328,7 @@ const PropertyViewDetails = ({ propertyId, dateRange }: PropertyViewDetailsProps
                                     </div>
                                   </div>
                                 )}
-                                
+
                                 {/* Session Details */}
                                 <div className="space-y-2">
                                   <h4 className="font-semibold text-sm">Session Details</h4>
@@ -350,7 +339,7 @@ const PropertyViewDetails = ({ propertyId, dateRange }: PropertyViewDetailsProps
                                   </div>
                                 </div>
                               </div>
-                              
+
                               {/* Interaction Timeline */}
                               {Object.values(view.interactions || {}).some((v) => v) && (
                                 <div className="space-y-2">
@@ -359,14 +348,8 @@ const PropertyViewDetails = ({ propertyId, dateRange }: PropertyViewDetailsProps
                                     {view.interactions?.clickedPhone && (
                                       <Badge variant="default">Clicked Phone Number</Badge>
                                     )}
-                                    {view.interactions?.clickedEmail && (
-                                      <Badge variant="default">Clicked Email</Badge>
-                                    )}
-                                    {view.interactions?.clickedWhatsApp && (
-                                      <Badge variant="default">Contacted via WhatsApp</Badge>
-                                    )}
-                                    {view.interactions?.viewedGallery && (
-                                      <Badge variant="default">Viewed Image Gallery</Badge>
+                                    {view.interactions?.clickedMessage && (
+                                      <Badge variant="default">Sent Message</Badge>
                                     )}
                                     {view.interactions?.sharedProperty && (
                                       <Badge variant="default">Shared Property</Badge>
@@ -384,7 +367,7 @@ const PropertyViewDetails = ({ propertyId, dateRange }: PropertyViewDetailsProps
               </TableBody>
             </Table>
           </div>
-          
+
           {filteredViews.length > 0 && (
             <div className="mt-4 text-sm text-muted-foreground text-center">
               Showing {filteredViews.length} of {viewDetails.views?.length || 0} visitors

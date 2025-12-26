@@ -634,18 +634,9 @@ const Analytics = () => {
                         <div className="p-2 bg-green-100 dark:bg-green-900 rounded text-green-600 dark:text-green-300">
                           <MessageSquare className="h-4 w-4" />
                         </div>
-                        <span>WhatsApp Clicks</span>
+                        <span>Message Clicks</span>
                       </div>
-                      <span className="font-bold text-lg">{propertyViews?.interactions?.whatsappClicks || 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded text-orange-600 dark:text-orange-300">
-                          <FileText className="h-4 w-4" />
-                        </div>
-                        <span>Email Clicks</span>
-                      </div>
-                      <span className="font-bold text-lg">{propertyViews?.interactions?.emailClicks || 0}</span>
+                      <span className="font-bold text-lg">{propertyViews?.interactions?.messageClicks || 0}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -655,26 +646,118 @@ const Analytics = () => {
         </TabsContent>
 
         <TabsContent value="retention" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5 text-primary" />
-                Daily Active Users
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={350}>
-                <RechartsLine data={engagement?.activeUsers || []}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="_id" axisLine={false} tickLine={false} />
-                  <YAxis axisLine={false} tickLine={false} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="count" stroke="#FBBC05" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
-                </RechartsLine>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Daily Active Users Chart */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-primary" />
+                  Daily Active Users
+                </CardTitle>
+                <CardDescription>Users who logged in by role (customers vs agents/vendors)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={350}>
+                  <RechartsBar data={engagement?.activeUsers || []}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="_id" axisLine={false} tickLine={false} />
+                    <YAxis axisLine={false} tickLine={false} />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0]?.payload;
+                          return (
+                            <div className="bg-background border rounded-lg shadow-lg p-3">
+                              <p className="font-bold text-sm mb-2">{label}</p>
+                              <div className="space-y-1 text-sm">
+                                <p className="text-blue-600">Customers: {data?.customers || 0}</p>
+                                <p className="text-green-600">Agents/Vendors: {data?.vendors || 0}</p>
+                                <p className="font-semibold">Total: {data?.count || 0}</p>
+                              </div>
+                              {data?.topUsers && data.topUsers.length > 0 && (
+                                <div className="mt-2 pt-2 border-t">
+                                  <p className="text-xs text-muted-foreground mb-1">Active users:</p>
+                                  <ul className="text-xs space-y-0.5">
+                                    {data.topUsers.map((name: string, idx: number) => (
+                                      <li key={idx}>{name}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend />
+                    <Bar dataKey="customers" name="Customers" fill="#4285F4" radius={[4, 4, 0, 0]} stackId="stack" />
+                    <Bar dataKey="vendors" name="Agents/Vendors" fill="#34A853" radius={[4, 4, 0, 0]} stackId="stack" />
+                  </RechartsBar>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Active Users Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Active Users Summary
+                </CardTitle>
+                <CardDescription>Breakdown by role</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Customers */}
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Customers</span>
+                    <span className="text-lg font-bold text-blue-600">{engagement?.activeUsersSummary?.customers?.count || 0}</span>
+                  </div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {(engagement?.activeUsersSummary?.customers?.users || []).slice(0, 5).map((user: any, idx: number) => (
+                      <div key={idx} className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                        {user.name || user.email}
+                      </div>
+                    ))}
+                    {(engagement?.activeUsersSummary?.customers?.users?.length || 0) > 5 && (
+                      <p className="text-xs text-muted-foreground">+{(engagement?.activeUsersSummary?.customers?.users?.length || 0) - 5} more</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Vendors/Agents */}
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-green-700 dark:text-green-300">Agents/Vendors</span>
+                    <span className="text-lg font-bold text-green-600">{engagement?.activeUsersSummary?.vendors?.count || 0}</span>
+                  </div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {(engagement?.activeUsersSummary?.vendors?.users || []).slice(0, 5).map((user: any, idx: number) => (
+                      <div key={idx} className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                        {user.name || user.email}
+                      </div>
+                    ))}
+                    {(engagement?.activeUsersSummary?.vendors?.users?.length || 0) > 5 && (
+                      <p className="text-xs text-muted-foreground">+{(engagement?.activeUsersSummary?.vendors?.users?.length || 0) - 5} more</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Total Summary */}
+                <div className="pt-3 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Total Active Users</span>
+                    <span className="text-xl font-bold text-primary">
+                      {(engagement?.activeUsersSummary?.customers?.count || 0) + (engagement?.activeUsersSummary?.vendors?.count || 0)}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="detailed" className="space-y-4">
