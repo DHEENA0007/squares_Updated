@@ -181,6 +181,25 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
       Payment.aggregate([
         { $match: { status: 'paid', createdAt: { $gte: startDate } } },
         {
+          $lookup: {
+            from: 'subscriptions',
+            localField: 'subscription',
+            foreignField: '_id',
+            as: 'subscriptionDetails'
+          }
+        },
+        {
+          $unwind: {
+            path: '$subscriptionDetails',
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $match: {
+            'subscriptionDetails.status': { $ne: 'cancelled' }
+          }
+        },
+        {
           $group: {
             _id: null,
             total: { $sum: '$amount' },
