@@ -914,13 +914,21 @@ router.post('/:id/assign-customer', authenticateToken, asyncHandler(async (req, 
   }
 }));
 
-// @desc    Track property interaction (phone click, email click, etc.)
+// @desc    Track property interaction (phone click, share)
 // @route   POST /api/properties/:id/track-interaction
-// @access  Public (can be tracked by non-logged in users too)
-router.post('/:id/track-interaction', asyncHandler(async (req, res) => {
+// @access  Private (customers only)
+router.post('/:id/track-interaction', authenticateToken, asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
     const { interactionType } = req.body;
+
+    // Only track interactions from customers
+    if (req.user.role !== 'customer') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only customer interactions are tracked'
+      });
+    }
 
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -930,8 +938,8 @@ router.post('/:id/track-interaction', asyncHandler(async (req, res) => {
       });
     }
 
-    // Validate interaction type
-    const validInteractionTypes = ['clickedPhone', 'clickedEmail', 'clickedWhatsApp', 'viewedGallery', 'sharedProperty'];
+    // Validate interaction type (only phone clicks and shares)
+    const validInteractionTypes = ['clickedPhone', 'sharedProperty'];
     if (!validInteractionTypes.includes(interactionType)) {
       return res.status(400).json({
         success: false,
@@ -948,23 +956,20 @@ router.post('/:id/track-interaction', asyncHandler(async (req, res) => {
       });
     }
 
-    // Get or create PropertyView for tracking
+    // Get PropertyView model for tracking
     const PropertyView = require('../models/PropertyView');
 
-    // Create or update property view with interaction
+    // Create property view with interaction (customer only)
     const interactionData = {
       property: id,
-      sessionId: req.sessionID || req.headers['x-session-id'] || `anon-${Date.now()}`,
+      viewer: req.user.id, // Always set viewer since it's authenticated
+      viewerRole: 'customer',
+      sessionId: req.sessionID || req.headers['x-session-id'] || `customer-${Date.now()}`,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
       referrer: req.headers.referer || req.headers.referrer,
       [`interactions.${interactionType}`]: true
     };
-
-    // If user is authenticated, add viewer
-    if (req.user) {
-      interactionData.viewer = req.user.id;
-    }
 
     await PropertyView.create(interactionData);
 

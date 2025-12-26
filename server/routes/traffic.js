@@ -43,9 +43,9 @@ const extractDomain = (referrer, currentHost) => {
             'app.buildhomemartsquares.com'
         ];
 
-        // If referrer is from own domain, classify as Direct/Internal
+        // If referrer is from own domain, show actual domain
         if (ownDomains.some(domain => hostname.includes(domain))) {
-            return 'Direct (Internal)';
+            return 'buildhomemartsquares.com/v3';
         }
 
         // Classify common sources

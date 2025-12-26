@@ -510,6 +510,7 @@ class AnalyticsService {
         calculatedAt: string;
         // User metrics
         totalUsers: number;
+        totalCustomers: number;
         newRegistrations: number;
         // Property metrics
         totalProperties: number;
@@ -519,14 +520,11 @@ class AnalyticsService {
         guestViews: number;
         registeredViews: number;
         avgViewDuration: number;
-        // Interaction metrics
+        // Customer interaction metrics (ONLY customers)
         totalInteractions: number;
         interactions: {
           phoneClicks: number;
-          emailClicks: number;
-          whatsappClicks: number;
           shares: number;
-          galleryViews: number;
         };
         // Conversion metrics
         conversionRate: number;

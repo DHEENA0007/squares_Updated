@@ -21,9 +21,9 @@ const classifyReferrer = (referrer) => {
     const url = new URL(referrer);
     const hostname = url.hostname.replace('www.', '').toLowerCase();
 
-    // Own domains - internal traffic
+    // Own domains - internal traffic (show actual domain)
     const ownDomains = ['localhost', '127.0.0.1', 'buildhomemartsquares.com', 'app.buildhomemartsquares.com'];
-    if (ownDomains.some(domain => hostname.includes(domain))) return 'Direct (Internal)';
+    if (ownDomains.some(domain => hostname.includes(domain))) return 'buildhomemartsquares.com/v3';
 
     // Common sources classification
     if (hostname.includes('google')) return 'Google';

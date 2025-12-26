@@ -2,7 +2,7 @@
  * Analytics Calculator Job
  * 
  * Periodically calculates and caches analytics metrics for faster dashboard loading.
- * Also validates analytics data integrity.
+ * Only counts CUSTOMER interactions (not vendors/admins).
  */
 
 const User = require('../models/User');
@@ -84,9 +84,14 @@ class AnalyticsCalculatorJob {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
 
+        // Get customer user IDs for filtering interactions
+        const customerUsers = await User.find({ role: 'customer' }).select('_id');
+        const customerIds = customerUsers.map(u => u._id);
+
         // Fetch all data in parallel
         const [
             totalUsers,
+            totalCustomers,
             totalProperties,
             totalViews,
             guestViews,
@@ -95,10 +100,13 @@ class AnalyticsCalculatorJob {
             totalRevenue,
             uniqueViewersData,
             avgDurationData,
-            interactionsData
+            customerInteractionsData
         ] = await Promise.all([
             // Total users
             User.countDocuments(),
+
+            // Total customers
+            User.countDocuments({ role: 'customer' }),
 
             // Total properties
             Property.countDocuments(),
@@ -118,8 +126,11 @@ class AnalyticsCalculatorJob {
                 viewer: { $ne: null }
             }),
 
-            // New registrations in period
-            User.countDocuments({ createdAt: { $gte: startDate } }),
+            // New customer registrations in period
+            User.countDocuments({
+                createdAt: { $gte: startDate },
+                role: 'customer'
+            }),
 
             // Total revenue in period
             Subscription.aggregate([
@@ -149,17 +160,23 @@ class AnalyticsCalculatorJob {
                 }
             ]),
 
-            // Total interactions (clicks + shares)
+            // Customer interactions ONLY (phone clicks + shares from customers)
             PropertyView.aggregate([
-                { $match: { viewedAt: { $gte: startDate } } },
+                {
+                    $match: {
+                        viewedAt: { $gte: startDate },
+                        viewer: { $in: customerIds },
+                        $or: [
+                            { 'interactions.clickedPhone': true },
+                            { 'interactions.sharedProperty': true }
+                        ]
+                    }
+                },
                 {
                     $group: {
                         _id: null,
                         phoneClicks: { $sum: { $cond: ['$interactions.clickedPhone', 1, 0] } },
-                        emailClicks: { $sum: { $cond: ['$interactions.clickedEmail', 1, 0] } },
-                        whatsappClicks: { $sum: { $cond: ['$interactions.clickedWhatsApp', 1, 0] } },
-                        shares: { $sum: { $cond: ['$interactions.sharedProperty', 1, 0] } },
-                        galleryViews: { $sum: { $cond: ['$interactions.viewedGallery', 1, 0] } }
+                        shares: { $sum: { $cond: ['$interactions.sharedProperty', 1, 0] } }
                     }
                 }
             ])
@@ -169,14 +186,12 @@ class AnalyticsCalculatorJob {
         const uniqueViewers = uniqueViewersData[0]?.count || 0;
         const avgViewDuration = Math.round(avgDurationData[0]?.avgDuration || 0);
 
-        const interactions = interactionsData[0] || {};
-        const totalInteractions = (interactions.phoneClicks || 0) +
-            (interactions.emailClicks || 0) +
-            (interactions.whatsappClicks || 0) +
-            (interactions.shares || 0);
+        const customerInteractions = customerInteractionsData[0] || {};
+        const totalInteractions = (customerInteractions.phoneClicks || 0) +
+            (customerInteractions.shares || 0);
 
-        // Calculate conversion rate (Guest to User)
-        // Formula: (New Registrations / Guest Visits) * 100
+        // Calculate conversion rate (Guest to Customer)
+        // Formula: (New Customer Registrations / Guest Visits) * 100
         const conversionRate = guestViews > 0
             ? parseFloat(((newRegistrations / guestViews) * 100).toFixed(2))
             : 0;
@@ -188,6 +203,7 @@ class AnalyticsCalculatorJob {
 
             // User metrics
             totalUsers,
+            totalCustomers,
             newRegistrations,
 
             // Property metrics
@@ -200,14 +216,11 @@ class AnalyticsCalculatorJob {
             registeredViews,
             avgViewDuration,
 
-            // Interaction metrics
+            // Customer interaction metrics (ONLY customers)
             totalInteractions,
             interactions: {
-                phoneClicks: interactions.phoneClicks || 0,
-                emailClicks: interactions.emailClicks || 0,
-                whatsappClicks: interactions.whatsappClicks || 0,
-                shares: interactions.shares || 0,
-                galleryViews: interactions.galleryViews || 0
+                phoneClicks: customerInteractions.phoneClicks || 0,
+                shares: customerInteractions.shares || 0
             },
 
             // Conversion metrics
@@ -226,14 +239,14 @@ class AnalyticsCalculatorJob {
 
         for (const [key, data] of Object.entries(results)) {
             console.log(`\n  📊 ${key}:`);
-            console.log(`    👥 Total Users: ${data.totalUsers} (${data.newRegistrations} new)`);
+            console.log(`    👥 Total Users: ${data.totalUsers} (${data.totalCustomers} customers, ${data.newRegistrations} new)`);
             console.log(`    👁️  Total Views: ${data.totalViews} (${data.uniqueViewers} unique)`);
             console.log(`    📊 Registered vs Guest: ${data.registeredViews} / ${data.guestViews}`);
-            console.log(`    🖱️  Total Interactions: ${data.totalInteractions}`);
-            console.log(`       - Phone: ${data.interactions.phoneClicks}, Email: ${data.interactions.emailClicks}, WhatsApp: ${data.interactions.whatsappClicks}`);
+            console.log(`    🖱️  Customer Interactions: ${data.totalInteractions}`);
+            console.log(`       - Phone Clicks: ${data.interactions.phoneClicks}, Shares: ${data.interactions.shares}`);
             console.log(`    ⏱️  Avg. Duration: ${data.avgViewDuration}s per view`);
             console.log(`    🏠 Properties: ${data.totalProperties} total listings`);
-            console.log(`    📈 Conversion Rate: ${data.conversionRate}% (Guest to user)`);
+            console.log(`    📈 Conversion Rate: ${data.conversionRate}% (Guest to customer)`);
             console.log(`    💰 Total Revenue: ₹${data.totalRevenue.toLocaleString('en-IN')}`);
         }
     }

@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trash2, Heart, MapPin, Search, Filter, Calendar, Share, SortAsc, GitCompare } from 'lucide-react';
 import { favoriteService, type Favorite, type FavoriteStats } from '@/services/favoriteService';
+import { propertyService } from '@/services/propertyService';
 import { toast } from '@/hooks/use-toast';
 import { useRealtime, useRealtimeEvent } from '@/contexts/RealtimeContext';
 import { getPropertyListingLabel } from '@/utils/propertyUtils';
@@ -85,8 +86,8 @@ const MyFavorites: React.FC = () => {
   };
 
   const toggleSelection = (propertyId: string) => {
-    setSelectedProperties(prev => 
-      prev.includes(propertyId) 
+    setSelectedProperties(prev =>
+      prev.includes(propertyId)
         ? prev.filter(id => id !== propertyId)
         : [...prev, propertyId]
     );
@@ -95,7 +96,7 @@ const MyFavorites: React.FC = () => {
   const removeSelectedFavorites = async () => {
     try {
       await Promise.all(
-        selectedProperties.map(propertyId => 
+        selectedProperties.map(propertyId =>
           favoriteService.removeFromFavorites(propertyId)
         )
       );
@@ -136,17 +137,17 @@ const MyFavorites: React.FC = () => {
     if (!property) return false;
 
     // Handle address being an object or string
-    const addressStr = typeof property.address === 'string' 
-      ? property.address 
+    const addressStr = typeof property.address === 'string'
+      ? property.address
       : property.address.district
         ? `${property.address.street || ''} ${property.address.city || ''} ${property.address.district || ''} ${property.address.state || ''}`.trim()
         : `${property.address.street || ''} ${property.address.city || ''} ${property.address.state || ''}`.trim();
-    
-    const cityStr = typeof property.city === 'string' 
-      ? property.city 
+
+    const cityStr = typeof property.city === 'string'
+      ? property.city
       : (property.address?.city || '');
 
-    const matchesSearch = !searchQuery || 
+    const matchesSearch = !searchQuery ||
       property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       addressStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
       cityStr.toLowerCase().includes(searchQuery.toLowerCase());
@@ -319,8 +320,8 @@ const MyFavorites: React.FC = () => {
                 <Heart className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">No favorites found</h3>
                 <p className="text-muted-foreground mb-4">
-                  {searchQuery || (filterType && filterType !== 'all') ? 
-                    "No properties match your search criteria" : 
+                  {searchQuery || (filterType && filterType !== 'all') ?
+                    "No properties match your search criteria" :
                     "Start adding properties to your favorites to see them here"
                   }
                 </p>
@@ -336,29 +337,28 @@ const MyFavorites: React.FC = () => {
             filteredFavorites.map((favorite) => {
               const property = favorite.property;
               if (!property) return null;
-              
+
               const statusInfo = favoriteService.getPropertyStatusBadge(property);
-              
+
               // Handle images being array of objects or strings
-              const firstImage = property.images && property.images.length > 0 
-                ? (typeof property.images[0] === 'string' 
-                    ? property.images[0] 
-                    : property.images[0].url)
+              const firstImage = property.images && property.images.length > 0
+                ? (typeof property.images[0] === 'string'
+                  ? property.images[0]
+                  : property.images[0].url)
                 : null;
-              
+
               return (
-                <Card key={favorite._id} className={`hover:shadow-lg transition-all ${
-                  selectedProperties.includes(property._id) 
-                    ? 'ring-2 ring-primary bg-primary/5' 
+                <Card key={favorite._id} className={`hover:shadow-lg transition-all ${selectedProperties.includes(property._id)
+                    ? 'ring-2 ring-primary bg-primary/5'
                     : ''
-                }`}>
+                  }`}>
                   <CardContent className="p-0">
                     <div className={`flex ${isMobile ? 'flex-col' : 'flex-col md:flex-row'}`}>
                       {/* Property Image */}
                       <div className={`${isMobile ? 'w-full h-64' : 'md:w-80 h-64 md:h-48'} bg-muted flex items-center justify-center relative`}>
                         {firstImage ? (
-                          <img 
-                            src={firstImage} 
+                          <img
+                            src={firstImage}
                             alt={property.title}
                             className="w-full h-full object-cover"
                           />
@@ -503,6 +503,9 @@ const MyFavorites: React.FC = () => {
                               size="sm"
                               variant="outline"
                               onClick={() => {
+                                // Track share interaction
+                                propertyService.trackInteraction(property._id, 'sharedProperty');
+
                                 // Share functionality with public URL
                                 const publicUrl = `${window.location.origin}/v3/property/${property._id}`;
                                 if (navigator.share) {
