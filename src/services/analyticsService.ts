@@ -500,6 +500,47 @@ class AnalyticsService {
     }>('/analytics/recalculate', { method: 'POST' });
   }
 
+  // Get cached snapshot stats from cron job (fast, pre-calculated)
+  async getAnalyticsSnapshot(dateRange: string = '30') {
+    return this.makeRequest<{
+      success: boolean;
+      data: {
+        days: number;
+        startDate: string;
+        calculatedAt: string;
+        // User metrics
+        totalUsers: number;
+        newRegistrations: number;
+        // Property metrics
+        totalProperties: number;
+        // View metrics
+        totalViews: number;
+        uniqueViewers: number;
+        guestViews: number;
+        registeredViews: number;
+        avgViewDuration: number;
+        // Interaction metrics
+        totalInteractions: number;
+        interactions: {
+          phoneClicks: number;
+          emailClicks: number;
+          whatsappClicks: number;
+          shares: number;
+          galleryViews: number;
+        };
+        // Conversion metrics
+        conversionRate: number;
+        // Revenue metrics
+        totalRevenue: number;
+      };
+      meta: {
+        calculatedAt: string;
+        duration: number;
+        cached: boolean;
+      };
+    }>(`/analytics/snapshot?dateRange=${dateRange}`);
+  }
+
   // Get comprehensive traffic analytics from the new traffic tracking system
   async getComprehensiveTrafficAnalytics(dateRange: string = '30') {
     return this.makeRequest<{

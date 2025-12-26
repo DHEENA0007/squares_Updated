@@ -87,6 +87,60 @@ router.post('/recalculate', asyncHandler(async (req, res) => {
   });
 }));
 
+// Get cached snapshot stats (from cron job)
+router.get('/snapshot', asyncHandler(async (req, res) => {
+  const isSuperAdmin = req.user.role === 'superadmin';
+  const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
+
+  if (!isSuperAdmin && !hasAnalyticsPermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view analytics'
+    });
+  }
+
+  const { dateRange = '30' } = req.query;
+  const lastRunStats = analyticsCalculatorJob.getLastRunStats();
+
+  // If no cached stats, run the calculation
+  if (!lastRunStats) {
+    await analyticsCalculatorJob.run();
+    const newStats = analyticsCalculatorJob.getLastRunStats();
+
+    if (!newStats) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to calculate analytics'
+      });
+    }
+
+    const rangeKey = `${dateRange}days`;
+    return res.json({
+      success: true,
+      data: newStats.metrics[rangeKey] || newStats.metrics['30days'],
+      meta: {
+        calculatedAt: newStats.runAt,
+        duration: newStats.duration,
+        cached: false
+      }
+    });
+  }
+
+  // Return cached stats for the requested date range
+  const rangeKey = `${dateRange}days`;
+  const metrics = lastRunStats.metrics[rangeKey] || lastRunStats.metrics['30days'];
+
+  res.json({
+    success: true,
+    data: metrics,
+    meta: {
+      calculatedAt: lastRunStats.runAt,
+      duration: lastRunStats.duration,
+      cached: true
+    }
+  });
+}));
+
 // V3 Consolidated Admin Analytics - Returns all analytics data in one call
 router.get('/v3/admin', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
