@@ -2,11 +2,16 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Users, Eye, TrendingUp, DollarSign, Activity,
   MousePointer, Globe, Clock, MessageSquare, Star,
   BarChart3, PieChart, LineChart, FileText, ArrowRight, User, Phone,
-  MapPin, Monitor
+  MapPin, Monitor, Download, CalendarIcon, Filter, RefreshCw
 } from 'lucide-react';
 import analyticsService from '@/services/analyticsService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +19,8 @@ import { PERMISSIONS } from '@/config/permissionConfig';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContainer, LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart as RechartsBar, Bar, PieChart as RechartsPie, Pie, Cell, AreaChart, Area } from 'recharts';
+import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import ExportUtils from '@/utils/exportUtils';
 
 import DetailedPropertyReport from '@/components/analytics/DetailedPropertyReport';
 
@@ -32,9 +39,352 @@ const Analytics = () => {
   const [engagement, setEngagement] = useState<any>(null);
   const [selectedProperty, setSelectedProperty] = useState<string>('');
 
+  // Custom date range states
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(subDays(new Date(), 30));
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(new Date());
+  const [showCustomRange, setShowCustomRange] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
   const hasPermission = (permission: string) => {
     if (user?.role === 'superadmin') return true;
     return user?.rolePermissions?.includes(permission) || false;
+  };
+
+  // Comprehensive Report Generation
+  const generateComprehensiveReport = () => {
+    setExporting(true);
+    try {
+      const currentDate = format(new Date(), 'MMMM dd, yyyy');
+      const rangeDays = dateRange === 'custom' ?
+        Math.ceil((customEndDate!.getTime() - customStartDate!.getTime()) / (1000 * 60 * 60 * 24)) :
+        parseInt(dateRange);
+      const formatCurrency = (amount: number) => `₹${(amount || 0).toLocaleString('en-IN')}`;
+
+      // Executive Summary
+      const summaryData = [
+        { 'Metric': 'Report Period', 'Value': `Last ${rangeDays} days`, 'Details': `Generated on ${currentDate}` },
+        { 'Metric': 'Total Users', 'Value': overview?.overview?.totalUsers || 0, 'Details': 'All registered users' },
+        { 'Metric': 'Total Customers', 'Value': overview?.overview?.totalCustomers || 0, 'Details': 'Customer role users' },
+        { 'Metric': 'New Registrations', 'Value': overview?.overview?.newRegistrations || 0, 'Details': 'Users registered in this period' },
+        { 'Metric': 'Total Properties', 'Value': overview?.overview?.totalProperties || 0, 'Details': 'All listed properties' },
+        { 'Metric': 'Total Views', 'Value': overview?.overview?.totalViews || 0, 'Details': 'Property page views' },
+        { 'Metric': 'Unique Viewers', 'Value': overview?.overview?.uniqueViewers || 0, 'Details': 'Distinct visitors' },
+        { 'Metric': 'Avg. View Duration', 'Value': `${overview?.overview?.avgViewDuration || 0}s`, 'Details': 'Average time on property pages' },
+        { 'Metric': 'Total Revenue', 'Value': formatCurrency(overview?.overview?.totalRevenue || 0), 'Details': 'Revenue in this period' },
+        { 'Metric': 'Guest Views', 'Value': overview?.overview?.guestViews || 0, 'Details': 'Views from unregistered users' },
+        { 'Metric': 'Registered Views', 'Value': overview?.overview?.registeredViews || 0, 'Details': 'Views from registered users' },
+        { 'Metric': 'Total Interactions', 'Value': overview?.overview?.totalInteractions || 0, 'Details': 'Phone + Message clicks' },
+      ];
+
+      // User Distribution by Role
+      const usersByRole = (overview?.usersByRole || []).map((role: any) => ({
+        'Role': role._id || 'Unknown',
+        'Count': role.count || 0,
+        'Percentage': `${overview?.overview?.totalUsers > 0 ? ((role.count / overview.overview.totalUsers) * 100).toFixed(1) : 0}%`
+      }));
+
+      // Conversion Metrics
+      const conversionData = [
+        { 'Metric': 'Total Views', 'Value': conversion?.totalViews || 0 },
+        { 'Metric': 'Guest Views', 'Value': conversion?.guestViews || 0 },
+        { 'Metric': 'Registered Views', 'Value': conversion?.registeredViews || 0 },
+        { 'Metric': 'New Registrations', 'Value': conversion?.newRegistrations || 0 },
+        { 'Metric': 'Conversion Rate', 'Value': `${conversion?.conversionRate || 0}%` },
+      ];
+
+      // Daily Registrations
+      const registrationsByDate = (conversion?.registrationsByDate || []).map((day: any) => ({
+        'Date': day._id,
+        'New Registrations': day.count,
+      }));
+
+      // Property Views by Date
+      const viewsByDate = (propertyViews?.viewsByDate || []).map((day: any) => ({
+        'Date': day._id,
+        'Views': day.count,
+      }));
+
+      // Top Viewed Properties
+      const topProperties = (propertyViews?.viewsByProperty || []).slice(0, 30).map((prop: any, idx: number) => ({
+        '#': idx + 1,
+        'Property Title': prop.title || 'Unknown',
+        'Total Views': prop.views || 0,
+        'Views in Period': prop.periodViews || prop.views || 0,
+      }));
+
+      // Viewer Types
+      const viewerTypes = (propertyViews?.viewerTypes || []).map((type: any) => ({
+        'Viewer Type': type.name || type._id || 'Unknown',
+        'Count': type.value || type.count || 0,
+      }));
+
+      // Interactions Summary
+      const interactionsData = [
+        { 'Interaction Type': 'Phone Clicks', 'Count': propertyViews?.interactions?.phoneClicks || 0 },
+        { 'Interaction Type': 'Message Clicks', 'Count': propertyViews?.interactions?.messageClicks || 0 },
+        { 'Interaction Type': 'Total', 'Count': (propertyViews?.interactions?.phoneClicks || 0) + (propertyViews?.interactions?.messageClicks || 0) },
+      ];
+
+      // Traffic Sources
+      const trafficSources = (traffic?.trafficBySource || []).map((source: any, idx: number) => ({
+        '#': idx + 1,
+        'Source': source.source || 'Unknown',
+        'Visits': source.count || 0,
+        'Percentage': traffic?.trafficBySource?.length > 0 ?
+          `${((source.count / traffic.trafficBySource.reduce((sum: number, s: any) => sum + s.count, 0)) * 100).toFixed(1)}%` : '0%'
+      }));
+
+      // Traffic by Device
+      const trafficByDevice = (traffic?.trafficByDevice || []).map((device: any) => ({
+        'Device': device.name || device._id || 'Unknown',
+        'Count': device.value || device.count || 0,
+      }));
+
+      // Traffic by Browser
+      const trafficByBrowser = (traffic?.trafficByBrowser || []).map((browser: any) => ({
+        'Browser': browser._id || 'Unknown',
+        'Count': browser.count || 0,
+      }));
+
+      // Traffic by Country
+      const trafficByCountry = (traffic?.trafficByCountry || []).map((country: any) => ({
+        'Country': country._id || 'Unknown',
+        'Visits': country.count || 0,
+      }));
+
+      // Peak Hours
+      const peakHours = (traffic?.peakHours || []).map((hour: any) => ({
+        'Hour': `${hour._id || 0}:00`,
+        'Visits': hour.count || 0,
+      }));
+
+      // Daily Active Users
+      const activeUsers = (engagement?.activeUsers || []).map((day: any) => ({
+        'Date': day._id,
+        'Total Active': day.count || 0,
+        'Customers': day.customers || 0,
+        'Vendors/Agents': day.vendors || 0,
+      }));
+
+      // Active Users Summary
+      const activeUsersSummary = [
+        { 'Role': 'Customers', 'Count': engagement?.activeUsersSummary?.customers?.count || 0 },
+        { 'Role': 'Vendors/Agents', 'Count': engagement?.activeUsersSummary?.vendors?.count || 0 },
+        { 'Role': 'Total Active', 'Count': (engagement?.activeUsersSummary?.customers?.count || 0) + (engagement?.activeUsersSummary?.vendors?.count || 0) },
+      ];
+
+      // Message Activity
+      const messageActivity = (engagement?.messageActivity || []).map((day: any) => ({
+        'Date': day._id,
+        'Messages Sent': day.count || 0,
+      }));
+
+      // Review Activity
+      const reviewActivity = (engagement?.reviewActivity || []).map((day: any) => ({
+        'Date': day._id,
+        'Reviews': day.count || 0,
+        'Avg. Rating': (day.avgRating || 0).toFixed(1),
+      }));
+
+      // Recent Activity
+      const recentActivity = (overview?.overview?.recentActivity || []).map((activity: any) => ({
+        'Type': activity.type || 'Unknown',
+        'Count': activity.count || 0,
+      }));
+
+      const config = {
+        filename: `analytics_comprehensive_report_${format(new Date(), 'yyyy-MM-dd')}`,
+        title: 'Comprehensive Analytics Report',
+        metadata: {
+          'Generated on': currentDate,
+          'Report Period': `Last ${rangeDays} days`,
+          'Total Users': (overview?.overview?.totalUsers || 0).toString(),
+          'Total Properties': (overview?.overview?.totalProperties || 0).toString(),
+          'Total Views': (overview?.overview?.totalViews || 0).toString(),
+          'Total Revenue': formatCurrency(overview?.overview?.totalRevenue || 0),
+          'Generated By': user?.email || 'Admin'
+        }
+      };
+
+      const sheets = [
+        { name: 'Executive Summary', data: summaryData, columns: [{ wch: 25 }, { wch: 20 }, { wch: 40 }] },
+        { name: 'Users by Role', data: usersByRole, columns: [{ wch: 15 }, { wch: 12 }, { wch: 12 }] },
+        { name: 'Conversion Metrics', data: conversionData, columns: [{ wch: 20 }, { wch: 15 }] },
+        { name: 'Daily Registrations', data: registrationsByDate, columns: [{ wch: 15 }, { wch: 15 }] },
+        { name: 'Daily Views', data: viewsByDate, columns: [{ wch: 15 }, { wch: 12 }] },
+        { name: 'Top Properties', data: topProperties, columns: [{ wch: 5 }, { wch: 40 }, { wch: 12 }, { wch: 15 }] },
+        { name: 'Viewer Types', data: viewerTypes, columns: [{ wch: 15 }, { wch: 12 }] },
+        { name: 'Interactions', data: interactionsData, columns: [{ wch: 18 }, { wch: 12 }] },
+        { name: 'Traffic Sources', data: trafficSources, columns: [{ wch: 5 }, { wch: 30 }, { wch: 12 }, { wch: 12 }] },
+        { name: 'Devices', data: trafficByDevice, columns: [{ wch: 15 }, { wch: 12 }] },
+        { name: 'Browsers', data: trafficByBrowser, columns: [{ wch: 20 }, { wch: 12 }] },
+        { name: 'Countries', data: trafficByCountry, columns: [{ wch: 20 }, { wch: 12 }] },
+        { name: 'Peak Hours', data: peakHours, columns: [{ wch: 10 }, { wch: 12 }] },
+        { name: 'Daily Active Users', data: activeUsers, columns: [{ wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 15 }] },
+        { name: 'Active Users Summary', data: activeUsersSummary, columns: [{ wch: 15 }, { wch: 12 }] },
+        { name: 'Message Activity', data: messageActivity, columns: [{ wch: 15 }, { wch: 15 }] },
+        { name: 'Review Activity', data: reviewActivity, columns: [{ wch: 15 }, { wch: 10 }, { wch: 12 }] },
+        { name: 'Recent Activity', data: recentActivity, columns: [{ wch: 15 }, { wch: 12 }] },
+      ];
+
+      ExportUtils.generateExcelReport(config, sheets);
+
+      toast({
+        title: 'Report Generated',
+        description: `Comprehensive analytics report with ${sheets.length} sheets has been downloaded`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: 'Export Failed',
+        description: 'Failed to generate analytics report. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // Export Overview Tab
+  const exportOverviewReport = () => {
+    const currentDate = format(new Date(), 'yyyy-MM-dd');
+    const formatCurrency = (amount: number) => `₹${(amount || 0).toLocaleString('en-IN')}`;
+
+    const overviewData = [
+      { 'Metric': 'Total Users', 'Value': overview?.overview?.totalUsers || 0 },
+      { 'Metric': 'Total Customers', 'Value': overview?.overview?.totalCustomers || 0 },
+      { 'Metric': 'New Registrations', 'Value': overview?.overview?.newRegistrations || 0 },
+      { 'Metric': 'Total Properties', 'Value': overview?.overview?.totalProperties || 0 },
+      { 'Metric': 'Total Views', 'Value': overview?.overview?.totalViews || 0 },
+      { 'Metric': 'Unique Viewers', 'Value': overview?.overview?.uniqueViewers || 0 },
+      { 'Metric': 'Avg. View Duration', 'Value': `${overview?.overview?.avgViewDuration || 0}s` },
+      { 'Metric': 'Total Revenue', 'Value': formatCurrency(overview?.overview?.totalRevenue || 0) },
+      { 'Metric': 'Total Interactions', 'Value': overview?.overview?.totalInteractions || 0 },
+    ];
+
+    const usersByRole = (overview?.usersByRole || []).map((role: any) => ({
+      'Role': role._id, 'Count': role.count
+    }));
+
+    ExportUtils.generateExcelReport(
+      { filename: `overview_report_${currentDate}`, title: 'Overview Report', metadata: { 'Generated': currentDate } },
+      [
+        { name: 'Overview', data: overviewData, columns: [{ wch: 25 }, { wch: 20 }] },
+        { name: 'Users by Role', data: usersByRole, columns: [{ wch: 15 }, { wch: 12 }] },
+      ]
+    );
+    toast({ title: 'Overview Report Downloaded' });
+  };
+
+  // Export Property Views Tab
+  const exportPropertyViewsReport = () => {
+    const currentDate = format(new Date(), 'yyyy-MM-dd');
+
+    const viewsByDate = (propertyViews?.viewsByDate || []).map((d: any) => ({ 'Date': d._id, 'Views': d.count }));
+    const topProperties = (propertyViews?.viewsByProperty || []).map((p: any, i: number) => ({
+      '#': i + 1, 'Title': p.title, 'Views': p.views
+    }));
+    const viewerTypes = (propertyViews?.viewerTypes || []).map((t: any) => ({
+      'Type': t.name || t._id, 'Count': t.value || t.count
+    }));
+    const interactions = [
+      { 'Type': 'Phone Clicks', 'Count': propertyViews?.interactions?.phoneClicks || 0 },
+      { 'Type': 'Message Clicks', 'Count': propertyViews?.interactions?.messageClicks || 0 },
+    ];
+
+    ExportUtils.generateExcelReport(
+      { filename: `property_views_report_${currentDate}`, title: 'Property Views Report', metadata: { 'Generated': currentDate } },
+      [
+        { name: 'Daily Views', data: viewsByDate, columns: [{ wch: 15 }, { wch: 12 }] },
+        { name: 'Top Properties', data: topProperties, columns: [{ wch: 5 }, { wch: 40 }, { wch: 12 }] },
+        { name: 'Viewer Types', data: viewerTypes, columns: [{ wch: 15 }, { wch: 12 }] },
+        { name: 'Interactions', data: interactions, columns: [{ wch: 18 }, { wch: 12 }] },
+      ]
+    );
+    toast({ title: 'Property Views Report Downloaded' });
+  };
+
+  // Export Conversion Tab
+  const exportConversionReport = () => {
+    const currentDate = format(new Date(), 'yyyy-MM-dd');
+
+    const conversionMetrics = [
+      { 'Metric': 'Total Views', 'Value': conversion?.totalViews || 0 },
+      { 'Metric': 'Guest Views', 'Value': conversion?.guestViews || 0 },
+      { 'Metric': 'Registered Views', 'Value': conversion?.registeredViews || 0 },
+      { 'Metric': 'New Registrations', 'Value': conversion?.newRegistrations || 0 },
+      { 'Metric': 'Conversion Rate', 'Value': `${conversion?.conversionRate || 0}%` },
+    ];
+    const registrationsByDate = (conversion?.registrationsByDate || []).map((d: any) => ({
+      'Date': d._id, 'Registrations': d.count
+    }));
+
+    ExportUtils.generateExcelReport(
+      { filename: `conversion_report_${currentDate}`, title: 'Conversion Report', metadata: { 'Generated': currentDate } },
+      [
+        { name: 'Conversion Metrics', data: conversionMetrics, columns: [{ wch: 20 }, { wch: 15 }] },
+        { name: 'Daily Registrations', data: registrationsByDate, columns: [{ wch: 15 }, { wch: 15 }] },
+      ]
+    );
+    toast({ title: 'Conversion Report Downloaded' });
+  };
+
+  // Export Traffic Tab
+  const exportTrafficReport = () => {
+    const currentDate = format(new Date(), 'yyyy-MM-dd');
+
+    const sources = (traffic?.trafficBySource || []).map((s: any, i: number) => ({
+      '#': i + 1, 'Source': s.source, 'Visits': s.count
+    }));
+    const devices = (traffic?.trafficByDevice || []).map((d: any) => ({
+      'Device': d.name || d._id, 'Count': d.value || d.count
+    }));
+    const browsers = (traffic?.trafficByBrowser || []).map((b: any) => ({
+      'Browser': b._id, 'Count': b.count
+    }));
+    const countries = (traffic?.trafficByCountry || []).map((c: any) => ({
+      'Country': c._id, 'Visits': c.count
+    }));
+    const peakHours = (traffic?.peakHours || []).map((h: any) => ({
+      'Hour': `${h._id}:00`, 'Visits': h.count
+    }));
+
+    ExportUtils.generateExcelReport(
+      { filename: `traffic_report_${currentDate}`, title: 'Traffic Report', metadata: { 'Generated': currentDate } },
+      [
+        { name: 'Traffic Sources', data: sources, columns: [{ wch: 5 }, { wch: 35 }, { wch: 12 }] },
+        { name: 'Devices', data: devices, columns: [{ wch: 15 }, { wch: 12 }] },
+        { name: 'Browsers', data: browsers, columns: [{ wch: 20 }, { wch: 12 }] },
+        { name: 'Countries', data: countries, columns: [{ wch: 20 }, { wch: 12 }] },
+        { name: 'Peak Hours', data: peakHours, columns: [{ wch: 10 }, { wch: 12 }] },
+      ]
+    );
+    toast({ title: 'Traffic Report Downloaded' });
+  };
+
+  // Export Engagement Tab
+  const exportEngagementReport = () => {
+    const currentDate = format(new Date(), 'yyyy-MM-dd');
+
+    const activeUsers = (engagement?.activeUsers || []).map((d: any) => ({
+      'Date': d._id, 'Total': d.count, 'Customers': d.customers || 0, 'Agents': d.vendors || 0
+    }));
+    const messages = (engagement?.messageActivity || []).map((d: any) => ({
+      'Date': d._id, 'Messages': d.count
+    }));
+    const reviews = (engagement?.reviewActivity || []).map((d: any) => ({
+      'Date': d._id, 'Reviews': d.count, 'Avg Rating': (d.avgRating || 0).toFixed(1)
+    }));
+
+    ExportUtils.generateExcelReport(
+      { filename: `engagement_report_${currentDate}`, title: 'Engagement Report', metadata: { 'Generated': currentDate } },
+      [
+        { name: 'Daily Active Users', data: activeUsers, columns: [{ wch: 15 }, { wch: 10 }, { wch: 12 }, { wch: 10 }] },
+        { name: 'Message Activity', data: messages, columns: [{ wch: 15 }, { wch: 12 }] },
+        { name: 'Review Activity', data: reviews, columns: [{ wch: 15 }, { wch: 10 }, { wch: 12 }] },
+      ]
+    );
+    toast({ title: 'Engagement Report Downloaded' });
   };
 
   useEffect(() => {
@@ -128,27 +478,211 @@ const Analytics = () => {
 
   return (
     <div className="p-6 space-y-6 bg-background min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
-          <p className="text-muted-foreground mt-1">
-            Reports snapshot and detailed insights
-          </p>
+      {/* Header with Filters */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+            <p className="text-muted-foreground mt-1">
+              Reports snapshot and detailed insights
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Date Range Selector */}
+            <Select value={dateRange} onValueChange={(val) => {
+              setDateRange(val);
+              setShowCustomRange(val === 'custom');
+            }}>
+              <SelectTrigger className="w-[160px]">
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Select range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Today</SelectItem>
+                <SelectItem value="7">Last 7 days</SelectItem>
+                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="90">Last 90 days</SelectItem>
+                <SelectItem value="180">Last 6 months</SelectItem>
+                <SelectItem value="365">Last year</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Custom Date Range Pickers */}
+            {showCustomRange && (
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[130px] text-left">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customStartDate ? format(customStartDate, 'MMM dd') : 'Start'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customStartDate}
+                      onSelect={setCustomStartDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="text-muted-foreground">to</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[130px] text-left">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customEndDate ? format(customEndDate, 'MMM dd') : 'End'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customEndDate}
+                      onSelect={setCustomEndDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => fetchAllAnalytics()}
+                >
+                  Apply
+                </Button>
+              </div>
+            )}
+
+            {/* Refresh Button */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => fetchAllAnalytics()}
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+
+            {/* Export Report Button */}
+            <Button
+              onClick={generateComprehensiveReport}
+              disabled={exporting || loading}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              {exporting ? 'Generating...' : 'Export Report'}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select range" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">Last 7 days</SelectItem>
-              <SelectItem value="30">Last 30 days</SelectItem>
-              <SelectItem value="90">Last 90 days</SelectItem>
-              <SelectItem value="365">Last year</SelectItem>
-            </SelectContent>
-          </Select>
+
+        {/* Quick Filter Chips */}
+        <div className="flex flex-wrap gap-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Filter className="h-4 w-4" />
+            <span>Quick Filters:</span>
+          </div>
+          {['1', '7', '30', '90'].map((days) => (
+            <Button
+              key={days}
+              variant={dateRange === days ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setDateRange(days);
+                setShowCustomRange(false);
+              }}
+              className="h-7 text-xs"
+            >
+              {days === '1' ? 'Today' : `${days}D`}
+            </Button>
+          ))}
         </div>
       </div>
+
+      {/* Detailed Revenue Summary Section */}
+      <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border-emerald-200 dark:border-emerald-800">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+              <DollarSign className="h-5 w-5" />
+              Revenue Summary
+            </CardTitle>
+            <CardDescription>Complete financial overview for the selected period</CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const currentDate = format(new Date(), 'yyyy-MM-dd');
+              const formatCurrency = (amt: number) => `₹${(amt || 0).toLocaleString('en-IN')}`;
+              const revenueData = [
+                { 'Metric': 'Total Revenue', 'Value': formatCurrency(overview?.overview?.totalRevenue || 0) },
+                { 'Metric': 'Subscription Revenue', 'Value': formatCurrency(overview?.overview?.subscriptionRevenue || 0) },
+                { 'Metric': 'Addon Revenue', 'Value': formatCurrency(overview?.overview?.addonRevenue || 0) },
+                { 'Metric': 'Featured Listing Revenue', 'Value': formatCurrency(overview?.overview?.featuredRevenue || 0) },
+                { 'Metric': 'Active Subscriptions', 'Value': overview?.overview?.activeSubscriptions || 0 },
+                { 'Metric': 'Avg. Revenue per User', 'Value': formatCurrency((overview?.overview?.totalRevenue || 0) / (overview?.overview?.totalCustomers || 1)) },
+                { 'Metric': 'Revenue Period', 'Value': `Last ${dateRange} days` },
+              ];
+              ExportUtils.generateExcelReport(
+                { filename: `revenue_report_${currentDate}`, title: 'Revenue Report', metadata: { 'Generated': currentDate } },
+                [{ name: 'Revenue Summary', data: revenueData, columns: [{ wch: 25 }, { wch: 20 }] }]
+              );
+              toast({ title: 'Revenue Report Downloaded' });
+            }}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export Revenue
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border shadow-sm">
+              <p className="text-xs text-muted-foreground uppercase font-medium">Total Revenue</p>
+              <p className="text-2xl font-bold text-emerald-600">
+                ₹{((overview?.overview?.totalRevenue || 0)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </p>
+              <p className="text-xs text-muted-foreground">Last {dateRange} days</p>
+            </div>
+            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border shadow-sm">
+              <p className="text-xs text-muted-foreground uppercase font-medium">Subscriptions</p>
+              <p className="text-xl font-bold text-blue-600">
+                ₹{((overview?.overview?.subscriptionRevenue || 0)).toLocaleString('en-IN')}
+              </p>
+              <p className="text-xs text-muted-foreground">{overview?.overview?.activeSubscriptions || 0} active</p>
+            </div>
+            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border shadow-sm">
+              <p className="text-xs text-muted-foreground uppercase font-medium">Addons</p>
+              <p className="text-xl font-bold text-purple-600">
+                ₹{((overview?.overview?.addonRevenue || 0)).toLocaleString('en-IN')}
+              </p>
+              <p className="text-xs text-muted-foreground">Addon services</p>
+            </div>
+            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border shadow-sm">
+              <p className="text-xs text-muted-foreground uppercase font-medium">Featured</p>
+              <p className="text-xl font-bold text-orange-600">
+                ₹{((overview?.overview?.featuredRevenue || 0)).toLocaleString('en-IN')}
+              </p>
+              <p className="text-xs text-muted-foreground">Featured listings</p>
+            </div>
+            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border shadow-sm">
+              <p className="text-xs text-muted-foreground uppercase font-medium">Avg. Per User</p>
+              <p className="text-xl font-bold text-teal-600">
+                ₹{((overview?.overview?.totalRevenue || 0) / (overview?.overview?.totalCustomers || 1)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </p>
+              <p className="text-xs text-muted-foreground">ARPU</p>
+            </div>
+            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border shadow-sm">
+              <p className="text-xs text-muted-foreground uppercase font-medium">Conversion Value</p>
+              <p className="text-xl font-bold text-pink-600">
+                ₹{((overview?.overview?.totalRevenue || 0) / (overview?.overview?.newRegistrations || 1)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </p>
+              <p className="text-xs text-muted-foreground">Per registration</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Overview Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -184,15 +718,23 @@ const Analytics = () => {
 
       {/* Main Analytics Tabs */}
       <Tabs defaultValue="snapshot" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 lg:w-auto">
-          <TabsTrigger value="snapshot">Snapshot</TabsTrigger>
-          <TabsTrigger value="acquisition">Acquisition</TabsTrigger>
-          <TabsTrigger value="engagement">Engagement</TabsTrigger>
-          <TabsTrigger value="retention">Retention</TabsTrigger>
-          <TabsTrigger value="detailed">Detailed Reports</TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 lg:w-auto">
+            <TabsTrigger value="snapshot">Snapshot</TabsTrigger>
+            <TabsTrigger value="acquisition">Acquisition</TabsTrigger>
+            <TabsTrigger value="engagement">Engagement</TabsTrigger>
+            <TabsTrigger value="retention">Retention</TabsTrigger>
+            <TabsTrigger value="detailed">Detailed Reports</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="snapshot" className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={exportOverviewReport} className="gap-2">
+              <Download className="h-4 w-4" />
+              Export Snapshot
+            </Button>
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Conversion Funnel - Prominent */}
             <Card className="lg:col-span-2">
@@ -357,6 +899,12 @@ const Analytics = () => {
         </TabsContent>
 
         <TabsContent value="acquisition" className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={exportTrafficReport} className="gap-2">
+              <Download className="h-4 w-4" />
+              Export Acquisition
+            </Button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader>
@@ -544,6 +1092,12 @@ const Analytics = () => {
         </TabsContent>
 
         <TabsContent value="engagement" className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={exportPropertyViewsReport} className="gap-2">
+              <Download className="h-4 w-4" />
+              Export Engagement
+            </Button>
+          </div>
           <div className="grid grid-cols-1 gap-4">
             <Card>
               <CardHeader>
@@ -646,6 +1200,12 @@ const Analytics = () => {
         </TabsContent>
 
         <TabsContent value="retention" className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={exportEngagementReport} className="gap-2">
+              <Download className="h-4 w-4" />
+              Export Retention
+            </Button>
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Daily Active Users Chart */}
             <Card className="lg:col-span-2">
@@ -777,7 +1337,12 @@ const Analytics = () => {
         </TabsContent>
 
         <TabsContent value="detailed" className="space-y-4">
-          <DetailedPropertyReport dateRange={dateRange} propertyId={selectedProperty} />
+          <DetailedPropertyReport
+            dateRange={dateRange}
+            propertyId={selectedProperty}
+            customStartDate={customStartDate}
+            customEndDate={customEndDate}
+          />
         </TabsContent>
       </Tabs>
     </div>

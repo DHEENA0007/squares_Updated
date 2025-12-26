@@ -6,8 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
     Download, Search, User, Phone, Mail, MessageCircle,
-    Clock, MapPin, ExternalLink, Shield, UserX, Share2
+    MapPin, ExternalLink, Shield, UserX, Share2, Filter
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import analyticsService from '@/services/analyticsService';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -15,13 +16,16 @@ import { useToast } from '@/hooks/use-toast';
 interface DetailedPropertyReportProps {
     dateRange: string;
     propertyId?: string;
+    customStartDate?: Date;
+    customEndDate?: Date;
 }
 
-const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyReportProps) => {
+const DetailedPropertyReport = ({ dateRange, propertyId, customStartDate, customEndDate }: DetailedPropertyReportProps) => {
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [interactionFilter, setInteractionFilter] = useState('all');
     const [filteredViewers, setFilteredViewers] = useState<any[]>([]);
 
     useEffect(() => {
@@ -31,7 +35,7 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
     useEffect(() => {
         if (data?.viewers) {
             const lowerSearch = searchTerm.toLowerCase();
-            const filtered = data.viewers.filter((v: any) =>
+            let filtered = data.viewers.filter((v: any) =>
                 v.property?.title?.toLowerCase().includes(lowerSearch) ||
                 v.viewer?.firstName?.toLowerCase().includes(lowerSearch) ||
                 v.viewer?.lastName?.toLowerCase().includes(lowerSearch) ||
@@ -39,14 +43,26 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
                 v.viewer?.phone?.toLowerCase().includes(lowerSearch) ||
                 (!v.viewer && 'guest'.includes(lowerSearch))
             );
+
+            // Apply interaction filter
+            if (interactionFilter !== 'all') {
+                filtered = filtered.filter((v: any) => {
+                    if (interactionFilter === 'phone') return v.interactions?.clickedPhone;
+                    if (interactionFilter === 'message') return v.interactions?.clickedMessage;
+                    if (interactionFilter === 'share') return v.interactions?.sharedProperty;
+                    if (interactionFilter === 'any') return v.interactions?.clickedPhone || v.interactions?.clickedMessage || v.interactions?.sharedProperty;
+                    return true;
+                });
+            }
+
             setFilteredViewers(filtered);
         }
-    }, [searchTerm, data]);
+    }, [searchTerm, interactionFilter, data]);
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            const response = await analyticsService.getAllPropertyViewers(dateRange, propertyId);
+            const response = await analyticsService.getAllPropertyViewers(dateRange, propertyId, customStartDate, customEndDate);
             setData(response.data);
             setFilteredViewers(response.data.viewers);
         } catch (error) {
@@ -64,7 +80,7 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
     const handleDownload = () => {
         if (!data?.viewers) return;
 
-        const headers = ['Date', 'Property', 'Location', 'Viewer Name', 'Email', 'Phone', 'Duration (s)', 'Visit Count', 'Interactions'];
+        const headers = ['Date', 'Property', 'Location', 'Viewer Name', 'Email', 'Phone', 'Interactions'];
         const csvContent = [
             headers.join(','),
             ...data.viewers.map((v: any) => {
@@ -83,8 +99,6 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
                     `"${viewerName}"`,
                     v.viewer?.email || 'N/A',
                     v.viewer?.phone || 'N/A',
-                    v.viewDuration || 0,
-                    v.viewCount || 1,
                     `"${interactions.join('; ')}"`
                 ].join(',');
             })
@@ -168,8 +182,8 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
                             Export CSV
                         </Button>
                     </div>
-                    <div className="mt-4">
-                        <div className="relative">
+                    <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                        <div className="relative flex-1">
                             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search by property, viewer name, email..."
@@ -178,6 +192,19 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
+                        <Select value={interactionFilter} onValueChange={setInteractionFilter}>
+                            <SelectTrigger className="w-full sm:w-[180px]">
+                                <Filter className="h-4 w-4 mr-2" />
+                                <SelectValue placeholder="Filter by" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Views</SelectItem>
+                                <SelectItem value="any">With Interactions</SelectItem>
+                                <SelectItem value="phone">Phone Clicks</SelectItem>
+                                <SelectItem value="message">Message Clicks</SelectItem>
+                                <SelectItem value="share">Shares</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -189,14 +216,13 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
                                     <TableHead>Property</TableHead>
                                     <TableHead>Viewer</TableHead>
                                     <TableHead>Contact Info</TableHead>
-                                    <TableHead>Duration</TableHead>
                                     <TableHead>Interactions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredViewers.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                                             No views found for this period
                                         </TableCell>
                                     </TableRow>
@@ -271,22 +297,6 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
                                                         N/A
                                                     </span>
                                                 )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    <div className="flex items-center gap-1.5 text-sm">
-                                                        <Clock className="h-3 w-3 text-muted-foreground" />
-                                                        {(view.viewDuration || 0) < 60
-                                                            ? `${view.viewDuration || 0}s`
-                                                            : `${Math.floor((view.viewDuration || 0) / 60)}m ${(view.viewDuration || 0) % 60}s`
-                                                        }
-                                                    </div>
-                                                    {view.viewCount > 1 && (
-                                                        <span className="text-xs text-muted-foreground">
-                                                            ({view.viewCount} visits)
-                                                        </span>
-                                                    )}
-                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex gap-2">

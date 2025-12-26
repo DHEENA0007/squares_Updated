@@ -453,10 +453,11 @@ class AnalyticsService {
     return this.makeRequest<any>(`/analytics/property-views/${propertyId}?dateRange=${dateRange}`);
   }
 
-  async getAllPropertyViewers(dateRange: string = '30', propertyId?: string) {
-    const query = propertyId
-      ? `/analytics/all-property-viewers?dateRange=${dateRange}&propertyId=${propertyId}`
-      : `/analytics/all-property-viewers?dateRange=${dateRange}`;
+  async getAllPropertyViewers(dateRange: string = '30', propertyId?: string, startDate?: Date, endDate?: Date) {
+    let query = `/analytics/all-property-viewers?dateRange=${dateRange}`;
+    if (propertyId) query += `&propertyId=${propertyId}`;
+    if (startDate) query += `&startDate=${startDate.toISOString()}`;
+    if (endDate) query += `&endDate=${endDate.toISOString()}`;
     return this.makeRequest<any>(query);
   }
 

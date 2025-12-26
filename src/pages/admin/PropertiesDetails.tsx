@@ -17,6 +17,7 @@ interface Property {
   price: number;
   currency: string;
   address: {
+    street?: string;
     city?: string;
     locality?: string;
   };

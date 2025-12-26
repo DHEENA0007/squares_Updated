@@ -9,6 +9,7 @@ const Vendor = require('../models/Vendor');
 const Subscription = require('../models/Subscription');
 const Message = require('../models/Message');
 const Review = require('../models/Review');
+const Payment = require('../models/Payment');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { PERMISSIONS, hasPermission } = require('../utils/permissions');
@@ -165,7 +166,8 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
       totalProperties,
       totalViews,
       totalRegistrations,
-      totalRevenue,
+      totalRevenueStats,
+      activeSubscriptions,
       usersByRole,
       recentActivity,
       uniqueViewers,
@@ -176,10 +178,34 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
       Property.countDocuments(),
       PropertyView.countDocuments({ viewedAt: { $gte: startDate } }),
       User.countDocuments({ createdAt: { $gte: startDate } }),
-      Subscription.aggregate([
-        { $match: { createdAt: { $gte: startDate } } },
-        { $group: { _id: null, total: { $sum: '$amount' } } }
+      Payment.aggregate([
+        { $match: { status: 'paid', createdAt: { $gte: startDate } } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$amount' },
+            subscription: {
+              $sum: {
+                $cond: [
+                  { $in: ['$type', ['subscription_purchase', 'renewal', 'upgrade']] },
+                  '$amount',
+                  0
+                ]
+              }
+            },
+            addon: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$type', 'addon_purchase'] },
+                  '$amount',
+                  0
+                ]
+              }
+            }
+          }
+        }
       ]),
+      Subscription.countDocuments({ status: 'active', endDate: { $gt: new Date() } }),
       User.aggregate([
         { $group: { _id: '$role', count: { $sum: 1 } } }
       ]),
@@ -215,13 +241,11 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
               $sum: {
                 $add: [
                   { $cond: ['$interactions.clickedPhone', 1, 0] },
-                  { $cond: ['$interactions.clickedEmail', 1, 0] },
-                  { $cond: ['$interactions.clickedWhatsApp', 1, 0] }
+                  { $cond: ['$interactions.clickedMessage', 1, 0] }
                 ]
               }
             },
-            totalShares: { $sum: { $cond: ['$interactions.sharedProperty', 1, 0] } },
-            totalGalleryViews: { $sum: { $cond: ['$interactions.viewedGallery', 1, 0] } }
+            totalShares: { $sum: { $cond: ['$interactions.sharedProperty', 1, 0] } }
           }
         }
       ])
@@ -324,20 +348,16 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
 
     const totalViewsConversion = guestViews + registeredViews;
     const newRegistrationsTotal = newRegistrationsData.reduce((sum, day) => sum + day.count, 0);
-    // Calculate conversion rate based on guest views only (guest-to-user conversion)
-    // Formula: (New Registrations / Guest Visits) * 100
     const conversionRate = guestViews > 0
       ? ((newRegistrationsTotal / guestViews) * 100).toFixed(2)
       : 0;
 
-    // ========== TRAFFIC DATA (Using PageVisit for comprehensive tracking) ==========
-    // Try to get data from PageVisit first (new comprehensive tracking)
+    // ========== TRAFFIC DATA ==========
     let trafficBySource, trafficByDevice, peakHours, trafficByCountry, trafficByBrowser;
 
     const pageVisitCount = await PageVisit.countDocuments({ visitedAt: { $gte: startDate } });
 
     if (pageVisitCount > 0) {
-      // Use PageVisit data (comprehensive tracking)
       [trafficBySource, trafficByDevice, peakHours, trafficByCountry, trafficByBrowser] = await Promise.all([
         PageVisit.aggregate([
           { $match: { visitedAt: { $gte: startDate } } },
@@ -402,7 +422,6 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
         ])
       ]);
     } else {
-      // Fallback to PropertyView data (legacy tracking)
       [trafficBySource, trafficByDevice, peakHours] = await Promise.all([
         PropertyView.aggregate([
           { $match: { viewedAt: { $gte: startDate } } },
@@ -463,9 +482,7 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
       trafficByBrowser = [];
     }
 
-    // Post-process traffic sources to classify referrer domains
     if (trafficBySource && trafficBySource.length > 0) {
-      // Group and re-classify traffic sources
       const sourceMap = new Map();
       for (const source of trafficBySource) {
         const classified = source._id ? classifyReferrer('http://' + source._id) : 'Direct';
@@ -479,7 +496,6 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
 
     // ========== ENGAGEMENT DATA ==========
     const [activeUsersData, activeUsersByRole, messageActivity, reviewActivity] = await Promise.all([
-      // Daily active users count with breakdown
       User.aggregate([
         {
           $match: {
@@ -507,7 +523,6 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
         },
         { $sort: { '_id': 1 } }
       ]),
-      // Active users grouped by role with names
       User.aggregate([
         {
           $match: {
@@ -553,7 +568,6 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
       ])
     ]);
 
-    // Process active users data - limit names to top 5 per day for display
     const activeUsers = activeUsersData.map(day => ({
       _id: day._id,
       count: day.count,
@@ -562,13 +576,11 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
       topUsers: day.userNames.slice(0, 5).map(u => u.name).filter(n => n && n.trim() !== ' ')
     }));
 
-    // Get summary of active users by role
     const activeUsersSummary = {
       customers: activeUsersByRole.find(r => r._id === 'customer') || { count: 0, users: [] },
       vendors: activeUsersByRole.find(r => r._id === 'vendor') || { count: 0, users: [] }
     };
 
-    // ========== RETURN CONSOLIDATED DATA ==========
     res.json({
       success: true,
       data: {
@@ -577,7 +589,10 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
           totalProperties,
           totalViews,
           totalRegistrations,
-          totalRevenue: totalRevenue[0]?.total || 0,
+          totalRevenue: totalRevenueStats[0]?.total || 0,
+          subscriptionRevenue: totalRevenueStats[0]?.subscription || 0,
+          addonRevenue: totalRevenueStats[0]?.addon || 0,
+          activeSubscriptions,
           usersByRole,
           recentActivity,
           uniqueViewers: uniqueViewers[0]?.count || 0,
@@ -623,63 +638,6 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
       error: error.message
     });
   }
-}));
-
-// Analytics Overview
-router.get('/overview', asyncHandler(async (req, res) => {
-  const isSuperAdmin = req.user.role === 'superadmin';
-  const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
-
-  if (!isSuperAdmin && !hasAnalyticsPermission) {
-    return res.status(403).json({
-      success: false,
-      message: 'Insufficient permissions to view analytics'
-    });
-  }
-
-  const { dateRange = '30' } = req.query;
-  const days = parseInt(dateRange);
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
-
-  const [
-    totalUsers,
-    totalProperties,
-    totalViews,
-    totalRegistrations,
-    totalRevenue,
-    usersByRole,
-    recentActivity
-  ] = await Promise.all([
-    User.countDocuments(),
-    Property.countDocuments(),
-    PropertyView.countDocuments({ viewedAt: { $gte: startDate } }),
-    User.countDocuments({ createdAt: { $gte: startDate } }),
-    Subscription.aggregate([
-      { $match: { createdAt: { $gte: startDate } } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]),
-    User.aggregate([
-      { $group: { _id: '$role', count: { $sum: 1 } } }
-    ]),
-    User.find().sort({ createdAt: -1 }).limit(10)
-      .select('email profile.firstName profile.lastName role createdAt')
-  ]);
-
-  res.json({
-    success: true,
-    data: {
-      overview: {
-        totalUsers,
-        totalProperties,
-        totalViews,
-        totalRegistrations,
-        totalRevenue: totalRevenue[0]?.total || 0
-      },
-      usersByRole,
-      recentActivity
-    }
-  });
 }));
 
 // Property Views Analytics
