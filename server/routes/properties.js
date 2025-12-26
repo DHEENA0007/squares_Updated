@@ -1,6 +1,7 @@
 const express = require('express');
 const Property = require('../models/Property');
 const PropertyView = require('../models/PropertyView');
+const UserNotification = require('../models/UserNotification');
 const { asyncHandler, validateRequest } = require('../middleware/errorMiddleware');
 const { authenticateToken, optionalAuth } = require('../middleware/authMiddleware');
 const { PERMISSIONS, hasPermission } = require('../utils/permissions');
@@ -347,17 +348,42 @@ router.post('/:id/interest', authenticateToken, asyncHandler(async (req, res) =>
     }
 
     // Send socket notification to owner
-    const socketService = require('../services/socketService');
-    const ownerId = property.owner._id.toString();
+    // Create persistent notification
+    const notification = await UserNotification.create({
+      user: ownerId,
+      type: 'lead_alert',
+      title: 'New Interest Registered',
+      message: `${req.user.profile.firstName} ${req.user.profile.lastName} is interested in ${property.title}`,
+      data: {
+        propertyId: property._id,
+        propertyTitle: property.title,
+        customerId: req.user._id,
+        customerName: `${req.user.profile.firstName} ${req.user.profile.lastName}`.trim(),
+        customerPhone: req.user.profile.phone,
+        timestamp: new Date()
+      },
+      priority: 'high'
+    });
 
-    if (socketService.isUserOnline(ownerId)) {
-      socketService.sendToUser(ownerId, 'vendor:property_interest', {
+    // Send socket notification to owner
+    const socketService = require('../services/socketService');
+    const ownerIdString = property.owner._id.toString();
+
+    if (socketService.isUserOnline(ownerIdString)) {
+      const sent = socketService.sendToUser(ownerIdString, 'vendor:property_interest', {
+        notificationId: notification._id,
         propertyId: property._id,
         propertyTitle: property.title,
         customerName: `${req.user.profile.firstName} ${req.user.profile.lastName}`.trim(),
         customerPhone: req.user.profile.phone,
         timestamp: new Date()
       });
+
+      if (sent) {
+        notification.delivered = true;
+        notification.deliveredAt = new Date();
+        await notification.save();
+      }
     }
 
     res.json({

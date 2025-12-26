@@ -28,8 +28,10 @@ import {
   User,
   Mail,
   GitCompare,
-  ExternalLink
+  ExternalLink,
+  ThumbsUp
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { propertyService, type Property } from '@/services/propertyService';
 import { favoriteService } from '@/services/favoriteService';
 import { messageService } from '@/services/messageService';
@@ -42,6 +44,8 @@ const PropertyDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isConnected } = useRealtime();
+  const { user, isAuthenticated } = useAuth();
+  const isCustomer = user?.role === 'customer';
 
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
@@ -194,6 +198,23 @@ const PropertyDetails: React.FC = () => {
         title: "Link copied",
         description: "Property link has been copied to clipboard",
       });
+    }
+  };
+
+
+
+  const handleInterestClick = async () => {
+    if (!property) return;
+
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: `/property/${property._id}`, action: 'interest' } });
+      return;
+    }
+
+    try {
+      await propertyService.registerInterest(property._id);
+    } catch (error) {
+      console.error("Failed to register interest:", error);
     }
   };
 
@@ -662,6 +683,16 @@ const PropertyDetails: React.FC = () => {
                         <MessageSquare className="w-4 h-4 mr-2" />
                         Send Message
                       </Button>
+                      {isAuthenticated && isCustomer && (
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={handleInterestClick}
+                        >
+                          <ThumbsUp className="w-4 h-4 mr-2" />
+                          Express Interest
+                        </Button>
+                      )}
                     </>
                   )}
 

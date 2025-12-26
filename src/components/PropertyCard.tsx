@@ -258,33 +258,36 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
         )}
       </CardContent>
 
-      <CardFooter className="p-3 pt-0 flex gap-2 text-sm">
+      <CardFooter className="p-2 pt-0 flex gap-1 text-xs">
         {!checkingEnterprise && !isEnterpriseProperty && (
           <>
             <Button
               variant="outline"
-              className="flex-1 py-2"
+              className="flex-1 h-8 px-1"
               onClick={handleMessageClick}
+              title="Message"
             >
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Message
+              <MessageSquare className="w-3 h-3 mr-1" />
+              <span className="truncate">Message</span>
             </Button>
             <Button
               variant="outline"
-              className="flex-1 py-2"
+              className="flex-1 h-8 px-1"
               onClick={handleContactClick}
+              title="Contact"
             >
-              <Phone className="w-4 h-4 mr-2" />
-              Contact
+              <Phone className="w-3 h-3 mr-1" />
+              <span className="truncate">Contact</span>
             </Button>
             {isAuthenticated && isCustomer && (
               <Button
                 variant="outline"
-                className="flex-1 py-2"
+                className="flex-1 h-8 px-1"
                 onClick={handleInterestClick}
+                title="Interest"
               >
-                <ThumbsUp className="w-4 h-4 mr-2" />
-                Interest
+                <ThumbsUp className="w-3 h-3 mr-1" />
+                <span className="truncate">Interest</span>
               </Button>
             )}
           </>

@@ -31,20 +31,56 @@ class NotificationService extends EventEmitter {
    * Send queued notifications to a user via Socket.IO
    * @param {string} userId - User ID
    */
-  sendQueuedNotifications(userId) {
+
+  async sendQueuedNotifications(userId) {
     if (!this.io) return;
-    
+
+    // 1. Check in-memory queue
     if (this.notificationQueue.has(userId)) {
       const notifications = this.notificationQueue.get(userId);
-      
+
       if (this.isUserConnected(userId)) {
         notifications.forEach(notification => {
           this.io.to(`user:${userId}`).emit('notification', notification);
         });
-        
+
         // Clear queue after sending
         this.notificationQueue.delete(userId);
       }
+    }
+
+    // 2. Check database for persistent undelivered notifications
+    try {
+      const UserNotification = require('../models/UserNotification');
+      const undeliveredNotifications = await UserNotification.find({
+        user: userId,
+        delivered: false
+      }).sort({ createdAt: 1 });
+
+      if (undeliveredNotifications.length > 0 && this.isUserConnected(userId)) {
+        console.log(`Found ${undeliveredNotifications.length} undelivered notifications for user ${userId}`);
+
+        for (const notification of undeliveredNotifications) {
+          const notificationData = {
+            _id: notification._id,
+            type: notification.type,
+            title: notification.title,
+            message: notification.message,
+            data: notification.data,
+            timestamp: notification.createdAt,
+            userId: userId
+          };
+
+          this.io.to(`user:${userId}`).emit('notification', notificationData);
+
+          // Mark as delivered
+          notification.delivered = true;
+          notification.deliveredAt = new Date();
+          await notification.save();
+        }
+      }
+    } catch (error) {
+      console.error('Error sending queued notifications from DB:', error);
     }
   }
 
@@ -424,13 +460,13 @@ class NotificationService extends EventEmitter {
 
     const sockets = this.io.sockets.sockets;
     const connectedUsers = new Set();
-    
+
     sockets.forEach(socket => {
       if (socket.userId) {
         connectedUsers.add(socket.userId);
       }
     });
-    
+
     return {
       connectedUsers: connectedUsers.size,
       totalConnections: sockets.size,
@@ -445,12 +481,12 @@ class NotificationService extends EventEmitter {
    */
   cleanupQueue(maxAge = 24 * 60 * 60 * 1000) {
     const cutoffTime = Date.now() - maxAge;
-    
+
     for (const [userId, notifications] of this.notificationQueue.entries()) {
       const filteredNotifications = notifications.filter(
         notification => new Date(notification.timestamp).getTime() > cutoffTime
       );
-      
+
       if (filteredNotifications.length === 0) {
         this.notificationQueue.delete(userId);
       } else {
