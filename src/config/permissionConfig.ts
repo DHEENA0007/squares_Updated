@@ -41,6 +41,7 @@ export const PERMISSIONS = {
     PLANS_READ: 'plans.read',
     PLANS_CREATE: 'plans.create',
     PLANS_EDIT: 'plans.edit',
+    PLANS_DELETE: 'plans.delete',
 
     // Addons Management
     ADDONS_READ: 'addons.read',
@@ -177,6 +178,7 @@ export const PERMISSION_GROUPS = [
             { id: PERMISSIONS.PLANS_READ, label: 'View Plans' },
             { id: PERMISSIONS.PLANS_CREATE, label: 'Create Plan' },
             { id: PERMISSIONS.PLANS_EDIT, label: 'Edit Plan' },
+            { id: PERMISSIONS.PLANS_DELETE, label: 'Delete Plan' },
         ]
     },
     {

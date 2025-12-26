@@ -31,10 +31,10 @@ const AddonManagement: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const permissions = user?.rolePermissions || [];
-  
+
   // Check if user has admin role
   const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
-  
+
   // Permission checks - support both old role-based AND new permission-based
   const hasPermission = (permission: string) => permissions.includes(permission);
   const canViewAddons = hasAdminRole || hasPermission(PERMISSIONS.ADDONS_READ);
@@ -42,13 +42,13 @@ const AddonManagement: React.FC = () => {
   const canEditAddons = hasAdminRole || hasPermission(PERMISSIONS.ADDONS_EDIT);
   const canToggleAddons = hasAdminRole || hasPermission(PERMISSIONS.ADDONS_DEACTIVATE);
   const canDeleteAddons = hasAdminRole || hasPermission(PERMISSIONS.ADDONS_DELETE);
-  
+
   const [addons, setAddons] = useState<AdminAddonService[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
-  
+
   // Filters
   const [filters, setFilters] = useState<AddonFilters>({
     page: 1,
@@ -59,13 +59,13 @@ const AddonManagement: React.FC = () => {
   const [maxPrice, setMaxPrice] = useState<string>('');
   const [billingCycleFilter, setBillingCycleFilter] = useState<string>('');
   const [maxPossiblePrice, setMaxPossiblePrice] = useState<number>(100000);
-  
+
   // Dialog states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedAddon, setSelectedAddon] = useState<AdminAddonService | null>(null);
-  
+
   // Form states
   const [formData, setFormData] = useState<CreateAddonRequest>({
     name: '',
@@ -80,7 +80,7 @@ const AddonManagement: React.FC = () => {
     isActive: true,
     sortOrder: 0,
   });
-  
+
   const [customCategory, setCustomCategory] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -102,13 +102,13 @@ const AddonManagement: React.FC = () => {
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
-      setFilters(prev => ({ 
-        ...prev, 
-        search: searchTerm, 
+      setFilters(prev => ({
+        ...prev,
+        search: searchTerm,
         minPrice: minPrice ? parseFloat(minPrice) : undefined,
         maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
         billingCycleMonths: billingCycleFilter ? parseInt(billingCycleFilter) : undefined,
-        page: 1 
+        page: 1
       }));
     }, 300);
 
@@ -123,7 +123,7 @@ const AddonManagement: React.FC = () => {
       setTotalPages(response.totalPages);
       setCurrentPage(response.currentPage);
       setTotal(response.total);
-      
+
       // Use maxAvailablePrice from API response, or calculate from current addons as fallback
       const maxPriceFromAPI = response.maxAvailablePrice;
       const maxPriceFromAddons = Math.max(...response.addons.map(addon => addon.price), 0);
@@ -144,7 +144,7 @@ const AddonManagement: React.FC = () => {
       });
       return;
     }
-    
+
     try {
       setSubmitting(true);
       const newAddon = await adminAddonService.createAddon(formData);
@@ -171,7 +171,7 @@ const AddonManagement: React.FC = () => {
 
   const handleEditAddon = async () => {
     if (!selectedAddon) return;
-    
+
     if (!canEditAddons) {
       toast({
         title: "Permission Denied",
@@ -180,7 +180,7 @@ const AddonManagement: React.FC = () => {
       });
       return;
     }
-    
+
     try {
       setSubmitting(true);
       const updatedAddon = await adminAddonService.updateAddon(selectedAddon._id, formData);
@@ -188,7 +188,7 @@ const AddonManagement: React.FC = () => {
       setSelectedAddon(null);
       resetForm();
       // Realtime update: Update the addon in state
-      setAddons(prev => prev.map(addon => 
+      setAddons(prev => prev.map(addon =>
         addon._id === updatedAddon._id ? updatedAddon : addon
       ));
       toast({
@@ -209,7 +209,7 @@ const AddonManagement: React.FC = () => {
 
   const handleDeleteAddon = async () => {
     if (!selectedAddon) return;
-    
+
     if (!canDeleteAddons) {
       toast({
         title: "Permission Denied",
@@ -218,7 +218,7 @@ const AddonManagement: React.FC = () => {
       });
       return;
     }
-    
+
     try {
       setSubmitting(true);
       await adminAddonService.deleteAddon(selectedAddon._id);
@@ -253,11 +253,11 @@ const AddonManagement: React.FC = () => {
       });
       return;
     }
-    
+
     try {
       const updatedAddon = await adminAddonService.toggleAddonStatus(addon._id);
       // Realtime update: Update the addon status in state
-      setAddons(prev => prev.map(a => 
+      setAddons(prev => prev.map(a =>
         a._id === updatedAddon._id ? updatedAddon : a
       ));
       toast({
@@ -482,6 +482,7 @@ const AddonManagement: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow className="h-10">
+                      <TableHead className="w-[50px] py-2">S.no</TableHead>
                       <TableHead className="min-w-[250px] py-2">Name</TableHead>
                       <TableHead className="min-w-[120px] py-2">Category</TableHead>
                       <TableHead className="min-w-[100px] py-2">Price</TableHead>
@@ -494,8 +495,11 @@ const AddonManagement: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {addons.map((addon) => (
+                    {addons.map((addon, index) => (
                       <TableRow key={addon._id} className="h-12">
+                        <TableCell className="py-2 text-center">
+                          {((currentPage - 1) * 10) + index + 1}
+                        </TableCell>
                         <TableCell className="py-2">
                           <div className="flex items-center space-x-2">
                             <div className="p-1.5 rounded-lg bg-gray-100 flex-shrink-0">
@@ -726,10 +730,10 @@ const AddonManagement: React.FC = () => {
                     else if (months === 1) billingPeriod = "monthly";
                     else if (months === 12) billingPeriod = "yearly";
                     else billingPeriod = `${months} months`;
-                    setFormData(prev => ({ 
-                      ...prev, 
-                      billingPeriod, 
-                      billingCycleMonths: months 
+                    setFormData(prev => ({
+                      ...prev,
+                      billingPeriod,
+                      billingCycleMonths: months
                     }));
                   }}
                   placeholder="Enter months (0 for one-time)"
@@ -893,10 +897,10 @@ const AddonManagement: React.FC = () => {
                     else if (months === 1) billingPeriod = "monthly";
                     else if (months === 12) billingPeriod = "yearly";
                     else billingPeriod = `${months} months`;
-                    setFormData(prev => ({ 
-                      ...prev, 
-                      billingPeriod, 
-                      billingCycleMonths: months 
+                    setFormData(prev => ({
+                      ...prev,
+                      billingPeriod,
+                      billingCycleMonths: months
                     }));
                   }}
                   placeholder="Enter months (0 for one-time)"

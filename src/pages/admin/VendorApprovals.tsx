@@ -984,6 +984,7 @@ const VendorApprovals: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>S.no</TableHead>
                   <TableHead>Company Name</TableHead>
                   <TableHead>Applicant</TableHead>
                   <TableHead>Contact</TableHead>
@@ -996,13 +997,14 @@ const VendorApprovals: React.FC = () => {
               <TableBody>
                 {applications.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No applications found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  applications.map((app) => (
+                  applications.map((app, index) => (
                     <TableRow key={app._id}>
+                      <TableCell>{(pagination.currentPage - 1) * pagination.limit + index + 1}</TableCell>
                       <TableCell className="font-medium">{app.businessInfo.companyName}</TableCell>
                       <TableCell>
                         <div className="flex flex-col">

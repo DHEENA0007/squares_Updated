@@ -297,6 +297,7 @@ const RoleBasedVendors = () => {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead>S.no</TableHead>
                                         <TableHead>Business Name</TableHead>
                                         <TableHead>Contact Person</TableHead>
                                         <TableHead>Email</TableHead>
@@ -307,8 +308,9 @@ const RoleBasedVendors = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {vendors.map((vendor) => (
+                                    {vendors.map((vendor, index) => (
                                         <TableRow key={vendor._id}>
+                                            <TableCell>{index + 1}</TableCell>
                                             <TableCell className="font-medium">{vendor.businessInfo?.companyName || 'N/A'}</TableCell>
                                             <TableCell>
                                                 {vendor.user?.profile?.firstName} {vendor.user?.profile?.lastName}

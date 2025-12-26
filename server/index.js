@@ -51,6 +51,7 @@ const paymentStatusService = require('./services/paymentStatusService');
 const paymentCleanupJob = require('./jobs/paymentCleanup');
 const freeListingExpiryJob = require('./jobs/freeListingExpiry');
 const notificationSchedulerJob = require('./jobs/notificationScheduler');
+const analyticsCalculatorJob = require('./jobs/analyticsCalculator');
 
 // Import database
 const { connectDB } = require('./config/database');
@@ -395,6 +396,11 @@ const startServer = async () => {
       // Start notification scheduler job (runs every minute)
       notificationSchedulerJob.start(1);
       console.log(` Notification scheduler job started (runs every 1 minute)`);
+
+      // Start analytics calculator job (runs every hour)
+      analyticsCalculatorJob.start(1);
+      console.log(` Analytics calculator job started (runs every 1 hour)`);
+      console.log(`  Calculates conversion rate, views, and registrations`);
     });
   } catch (error) {
     console.error(' Failed to start server:', error.message);
@@ -431,6 +437,10 @@ const gracefulShutdown = (signal) => {
       // Stop notification scheduler job
       notificationSchedulerJob.stop();
       console.log('Notification scheduler job stopped');
+
+      // Stop analytics calculator job
+      analyticsCalculatorJob.stop();
+      console.log('Analytics calculator job stopped');
 
       // Close database connection
       await mongoose.connection.close();

@@ -251,9 +251,16 @@ const Roles = () => {
   };
 
   // Create extended type for DataTable
-  type RoleWithId = Role & { id: string };
+  type RoleWithId = Role & { id: string; sNo: number };
 
   const columns: Column<RoleWithId>[] = [
+    {
+      key: "sNo",
+      label: "S.no",
+      render: (role) => (
+        <span className="font-medium">{role.sNo}</span>
+      )
+    },
     {
       key: "name",
       label: "Role Name",
@@ -536,7 +543,7 @@ const Roles = () => {
           <div className="overflow-x-auto">
             <DataTable
               columns={columns}
-              data={roles.map(role => ({ ...role, id: role._id }))}
+              data={roles.map((role, index) => ({ ...role, id: role._id, sNo: (currentPage - 1) * 10 + index + 1 }))}
               hideDefaultActions
             />
           </div>

@@ -460,8 +460,48 @@ class AnalyticsService {
     return this.makeRequest<any>(query);
   }
 
+  // Get analytics job status (superadmin only)
+  async getAnalyticsJobStatus() {
+    return this.makeRequest<{
+      success: boolean;
+      data: {
+        lastRunStats: {
+          runAt: string;
+          duration: number;
+          metrics: Record<string, {
+            days: number;
+            startDate: string;
+            totalUsers: number;
+            totalProperties: number;
+            totalViews: number;
+            guestViews: number;
+            registeredViews: number;
+            newRegistrations: number;
+            conversionRate: number;
+            totalRevenue: number;
+            calculatedAt: string;
+          }>;
+        } | null;
+        jobRunning: boolean;
+      };
+    }>('/analytics/job-status');
+  }
+
+  // Trigger manual analytics recalculation (superadmin only)
+  async triggerAnalyticsRecalculation() {
+    return this.makeRequest<{
+      success: boolean;
+      message: string;
+      data: {
+        runAt: string;
+        duration: number;
+        metrics: Record<string, any>;
+      };
+    }>('/analytics/recalculate', { method: 'POST' });
+  }
+
   // Get comprehensive traffic analytics from the new traffic tracking system
-  async getTrafficAnalytics(dateRange: string = '30') {
+  async getComprehensiveTrafficAnalytics(dateRange: string = '30') {
     return this.makeRequest<{
       success: boolean;
       data: {

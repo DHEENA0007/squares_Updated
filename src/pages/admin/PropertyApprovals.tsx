@@ -51,7 +51,7 @@ const PropertyApprovals = () => {
     try {
       setLoading(true);
       const token = authService.getToken();
-      
+
       const response = await fetch(`${baseUrl}/admin/properties?status=${statusFilter}&limit=100`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -60,7 +60,7 @@ const PropertyApprovals = () => {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setProperties(data.data.properties || []);
       }
@@ -83,7 +83,7 @@ const PropertyApprovals = () => {
   const handleApprove = async (propertyId: string) => {
     try {
       const token = authService.getToken();
-      
+
       const response = await fetch(`${baseUrl}/admin/properties/${propertyId}/approve`, {
         method: 'POST',
         headers: {
@@ -93,7 +93,7 @@ const PropertyApprovals = () => {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         toast({
           title: "Success",
@@ -124,20 +124,20 @@ const PropertyApprovals = () => {
 
     try {
       const token = authService.getToken();
-      
+
       const response = await fetch(`${baseUrl}/admin/properties/${selectedProperty._id}/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           reason: rejectionReason
         })
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         toast({
           title: "Success",
@@ -219,6 +219,7 @@ const PropertyApprovals = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
+                  <TableHead className="font-semibold">S.no</TableHead>
                   <TableHead className="font-semibold">Property</TableHead>
                   <TableHead className="font-semibold">Owner</TableHead>
                   <TableHead className="font-semibold">Type</TableHead>
@@ -231,13 +232,14 @@ const PropertyApprovals = () => {
               <TableBody>
                 {properties.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No properties found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  properties.map((property) => (
+                  properties.map((property, index) => (
                     <TableRow key={property._id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell>{index + 1}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-primary/10 rounded-lg">
@@ -288,7 +290,7 @@ const PropertyApprovals = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
-                          
+
                           {property.status === 'pending' && (
                             <>
                               <Button
@@ -334,7 +336,7 @@ const PropertyApprovals = () => {
               Detailed information about the property listing
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedProperty && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -499,7 +501,7 @@ const PropertyApprovals = () => {
               Please provide a reason for rejecting this property listing
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div>
               <Label htmlFor="reason">Rejection Reason *</Label>

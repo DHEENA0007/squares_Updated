@@ -145,7 +145,7 @@ const Properties = () => {
       const response = await adminPropertyService.getProperties({
         limit: 1000, // Get all properties for admin view
       });
-      
+
       if (response.success) {
         setProperties(response.data.properties);
       }
@@ -179,7 +179,7 @@ const Properties = () => {
 
   const handleDeleteProperty = async () => {
     if (!selectedProperty) return;
-    
+
     try {
       await adminPropertyService.deleteProperty(selectedProperty._id);
       // Realtime update: Remove from state
@@ -204,7 +204,7 @@ const Properties = () => {
     try {
       await adminPropertyService.togglePropertyFeatured(property._id, !property.featured);
       // Realtime update: Update in state
-      setProperties(properties.map(p => 
+      setProperties(properties.map(p =>
         p._id === property._id ? { ...p, featured: !p.featured } : p
       ));
       toast({
@@ -332,23 +332,30 @@ const Properties = () => {
     // If property has owner with admin or superadmin role, it was created by admin
     // Properties created by vendors/agents will have owner with 'agent' role
     if (!property.owner) return false;
-    
+
     // Check if the owner is the current admin user
     if (currentUser && property.owner._id === currentUser.id) {
       return true;
     }
-    
+
     // For safety, also check if vendor field is empty (admin-created properties won't have vendor)
     // and status is 'available' (admin properties don't go through approval)
     return !property.vendor && property.status === 'available';
   };
 
   // Create extended type for DataTable
-  type PropertyWithId = Property & { id: string };
+  type PropertyWithId = Property & { id: string; sNo: number };
 
   const columns: Column<PropertyWithId>[] = [
-    { 
-      key: "title", 
+    {
+      key: "sNo",
+      label: "S.no",
+      render: (property) => (
+        <span className="font-medium">{property.sNo}</span>
+      )
+    },
+    {
+      key: "title",
       label: "Property Title",
       render: (property) => (
         <div>
@@ -424,7 +431,7 @@ const Properties = () => {
       render: (property) => {
         const adminCreated = isAdminCreated(property);
         const isPending = property.status === 'pending';
-        
+
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -435,7 +442,7 @@ const Properties = () => {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              
+
               {/* View Details - Always show if user has view permission */}
               {hasPermission(PERMISSIONS.PROPERTIES_VIEW) && (
                 <DropdownMenuItem onClick={() => openViewDialog(property)}>
@@ -443,7 +450,7 @@ const Properties = () => {
                   View Details
                 </DropdownMenuItem>
               )}
-              
+
               {/* If property created by admin - show Edit (with permission check) */}
               {adminCreated && hasPermission(PERMISSIONS.PROPERTIES_EDIT) && (
                 <DropdownMenuItem onClick={() => navigate(`/admin/properties/edit/${property._id}`)}>
@@ -451,7 +458,7 @@ const Properties = () => {
                   Edit Property
                 </DropdownMenuItem>
               )}
-              
+
               {/* Approval Actions for Pending Vendor Properties (with permission check) */}
               {!adminCreated && isPending && hasPermission(PERMISSIONS.PROPERTIES_APPROVE) && (
                 <>
@@ -497,7 +504,7 @@ const Properties = () => {
               {hasPermission(PERMISSIONS.PROPERTIES_DELETE) && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={() => openDeleteDialog(property)}
                     className="text-red-600"
                   >
@@ -653,7 +660,7 @@ const Properties = () => {
           <div className="table-responsive-wrapper">
             <DataTable
               columns={columns}
-              data={paginatedItems.map(property => ({ ...property, id: property._id }))}
+              data={paginatedItems.map((property, index) => ({ ...property, id: property._id, sNo: (currentPage - 1) * 10 + index + 1 }))}
               hideDefaultActions
             />
           </div>

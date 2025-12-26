@@ -12,6 +12,7 @@ const Review = require('../models/Review');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { PERMISSIONS, hasPermission } = require('../utils/permissions');
+const analyticsCalculatorJob = require('../jobs/analyticsCalculator');
 
 // Helper to classify referrer domain
 const classifyReferrer = (referrer) => {
@@ -42,6 +43,49 @@ const classifyReferrer = (referrer) => {
 };
 
 router.use(authenticateToken);
+
+// Get analytics job status (for debugging)
+router.get('/job-status', asyncHandler(async (req, res) => {
+  const isSuperAdmin = req.user.role === 'superadmin';
+
+  if (!isSuperAdmin) {
+    return res.status(403).json({
+      success: false,
+      message: 'Only superadmins can access job status'
+    });
+  }
+
+  const lastRunStats = analyticsCalculatorJob.getLastRunStats();
+
+  res.json({
+    success: true,
+    data: {
+      lastRunStats,
+      jobRunning: analyticsCalculatorJob.isRunning
+    }
+  });
+}));
+
+// Trigger manual analytics recalculation (for debugging)
+router.post('/recalculate', asyncHandler(async (req, res) => {
+  const isSuperAdmin = req.user.role === 'superadmin';
+
+  if (!isSuperAdmin) {
+    return res.status(403).json({
+      success: false,
+      message: 'Only superadmins can trigger recalculation'
+    });
+  }
+
+  // Run the job manually
+  await analyticsCalculatorJob.run();
+
+  res.json({
+    success: true,
+    message: 'Analytics recalculation triggered',
+    data: analyticsCalculatorJob.getLastRunStats()
+  });
+}));
 
 // V3 Consolidated Admin Analytics - Returns all analytics data in one call
 router.get('/v3/admin', asyncHandler(async (req, res) => {
@@ -230,8 +274,10 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
 
     const totalViewsConversion = guestViews + registeredViews;
     const newRegistrationsTotal = newRegistrationsData.reduce((sum, day) => sum + day.count, 0);
-    const conversionRate = totalViewsConversion > 0
-      ? ((newRegistrationsTotal / totalViewsConversion) * 100).toFixed(2)
+    // Calculate conversion rate based on guest views only (guest-to-user conversion)
+    // Formula: (New Registrations / Guest Visits) * 100
+    const conversionRate = guestViews > 0
+      ? ((newRegistrationsTotal / guestViews) * 100).toFixed(2)
       : 0;
 
     // ========== TRAFFIC DATA (Using PageVisit for comprehensive tracking) ==========
@@ -721,8 +767,10 @@ router.get('/user-conversion', asyncHandler(async (req, res) => {
   ]);
 
   const totalViews = guestViews + registeredViews;
-  const conversionRate = totalViews > 0
-    ? ((newRegistrations.reduce((sum, day) => sum + day.count, 0) / totalViews) * 100).toFixed(2)
+  // Calculate conversion rate based on guest views only (guest-to-user conversion)
+  // Formula: (New Registrations / Guest Visits) * 100
+  const conversionRate = guestViews > 0
+    ? ((newRegistrations.reduce((sum, day) => sum + day.count, 0) / guestViews) * 100).toFixed(2)
     : 0;
 
   res.json({
