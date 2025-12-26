@@ -1202,11 +1202,25 @@ router.get('/all-property-viewers', asyncHandler(async (req, res) => {
         preserveNullAndEmptyArrays: true
       }
     },
+    // Filter out vendor/agent role users - only show customers and guests
+    {
+      $match: {
+        $or: [
+          { 'viewerDetails.role': 'customer' },
+          { 'viewerDetails': { $exists: false } },
+          { 'viewerDetails': null }
+        ]
+      }
+    },
     {
       $project: {
         viewedAt: 1,
         viewDuration: 1,
-        interactions: 1,
+        interactions: {
+          clickedPhone: '$interactions.clickedPhone',
+          clickedMessage: '$interactions.clickedMessage',
+          sharedProperty: '$interactions.sharedProperty'
+        },
         ipAddress: 1,
         userAgent: 1,
         referrer: 1,
@@ -1214,19 +1228,36 @@ router.get('/all-property-viewers', asyncHandler(async (req, res) => {
         property: {
           _id: '$propertyDetails._id',
           title: '$propertyDetails.title',
-          location: '$propertyDetails.location',
+          location: {
+            $cond: {
+              if: { $and: ['$propertyDetails.address.city', '$propertyDetails.address.state'] },
+              then: {
+                $concat: [
+                  { $ifNull: ['$propertyDetails.address.locality', ''] },
+                  { $cond: [{ $ne: ['$propertyDetails.address.locality', null] }, ', ', ''] },
+                  { $ifNull: ['$propertyDetails.address.city', ''] },
+                  ', ',
+                  { $ifNull: ['$propertyDetails.address.state', ''] }
+                ]
+              },
+              else: null
+            }
+          },
           price: '$propertyDetails.price'
         },
         viewer: {
-          _id: '$viewerDetails._id',
-          email: '$viewerDetails.email',
-          role: '$viewerDetails.role',
-          status: '$viewerDetails.status',
-          firstName: '$viewerDetails.profile.firstName',
-          lastName: '$viewerDetails.profile.lastName',
-          phone: '$viewerDetails.profile.phone',
-          location: '$viewerDetails.profile.location',
-          registeredAt: '$viewerDetails.createdAt'
+          $cond: {
+            if: { $ne: ['$viewerDetails', null] },
+            then: {
+              _id: '$viewerDetails._id',
+              email: '$viewerDetails.email',
+              firstName: '$viewerDetails.profile.firstName',
+              lastName: '$viewerDetails.profile.lastName',
+              phone: '$viewerDetails.profile.phone',
+              registeredAt: '$viewerDetails.createdAt'
+            },
+            else: null
+          }
         }
       }
     },
@@ -1234,8 +1265,33 @@ router.get('/all-property-viewers', asyncHandler(async (req, res) => {
     { $limit: 500 }
   ]);
 
+  // Summary - only count customers and guests
   const summary = await PropertyView.aggregate([
     { $match: matchCondition },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'viewer',
+        foreignField: '_id',
+        as: 'viewerDetails'
+      }
+    },
+    {
+      $unwind: {
+        path: '$viewerDetails',
+        preserveNullAndEmptyArrays: true
+      }
+    },
+    // Filter out vendor/agent role
+    {
+      $match: {
+        $or: [
+          { 'viewerDetails.role': 'customer' },
+          { 'viewerDetails': { $exists: false } },
+          { 'viewerDetails': null }
+        ]
+      }
+    },
     {
       $group: {
         _id: null,
@@ -1251,8 +1307,8 @@ router.get('/all-property-viewers', asyncHandler(async (req, res) => {
           $sum: {
             $add: [
               { $cond: ['$interactions.clickedPhone', 1, 0] },
-              { $cond: ['$interactions.clickedEmail', 1, 0] },
-              { $cond: ['$interactions.clickedWhatsApp', 1, 0] }
+              { $cond: ['$interactions.clickedMessage', 1, 0] },
+              { $cond: ['$interactions.sharedProperty', 1, 0] }
             ]
           }
         },

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
     Download, Search, User, Phone, Mail, MessageCircle,
-    Clock, MapPin, ExternalLink, Shield, UserX
+    Clock, MapPin, ExternalLink, Shield, UserX, Share2
 } from 'lucide-react';
 import analyticsService from '@/services/analyticsService';
 import { format } from 'date-fns';
@@ -64,22 +64,22 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
     const handleDownload = () => {
         if (!data?.viewers) return;
 
-        const headers = ['Date', 'Property', 'Viewer Name', 'Viewer Type', 'Email', 'Phone', 'Duration (s)', 'Interactions'];
+        const headers = ['Date', 'Property', 'Location', 'Viewer Name', 'Email', 'Phone', 'Duration (s)', 'Interactions'];
         const csvContent = [
             headers.join(','),
             ...data.viewers.map((v: any) => {
                 const viewerName = v.viewer ? `${v.viewer.firstName} ${v.viewer.lastName}` : 'Guest';
-                const viewerType = v.viewer ? v.viewer.role : 'Guest';
+                const location = v.property?.location || 'No location';
                 const interactions = [];
                 if (v.interactions?.clickedPhone) interactions.push('Phone');
-                if (v.interactions?.clickedEmail) interactions.push('Email');
-                if (v.interactions?.clickedWhatsApp) interactions.push('WhatsApp');
+                if (v.interactions?.clickedMessage) interactions.push('Message');
+                if (v.interactions?.sharedProperty) interactions.push('Share');
 
                 return [
                     format(new Date(v.viewedAt), 'yyyy-MM-dd HH:mm:ss'),
                     `"${v.property?.title || 'Unknown'}"`,
+                    `"${location}"`,
                     `"${viewerName}"`,
-                    viewerType,
                     v.viewer?.email || 'N/A',
                     v.viewer?.phone || 'N/A',
                     v.viewDuration || 0,
@@ -217,7 +217,7 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
                                                         {view.property?.title || 'Unknown Property'}
                                                     </span>
                                                     <span className="text-xs text-muted-foreground truncate">
-                                                        {view.property?.location?.address || 'No location'}
+                                                        {view.property?.location || 'No location'}
                                                     </span>
                                                 </div>
                                             </TableCell>
@@ -231,9 +231,7 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
                                                             <span className="font-medium text-sm">
                                                                 {view.viewer.firstName} {view.viewer.lastName}
                                                             </span>
-                                                            <Badge variant="secondary" className="w-fit text-[10px] px-1 py-0 h-4">
-                                                                {view.viewer.role}
-                                                            </Badge>
+                                                            <span className="text-xs text-green-600">Registered</span>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -284,21 +282,21 @@ const DetailedPropertyReport = ({ dateRange, propertyId }: DetailedPropertyRepor
                                             <TableCell>
                                                 <div className="flex gap-2">
                                                     {view.interactions?.clickedPhone && (
-                                                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200" title="Clicked Phone">
+                                                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200" title="Called Owner">
                                                             <Phone className="h-3 w-3" />
                                                         </Badge>
                                                     )}
-                                                    {view.interactions?.clickedEmail && (
-                                                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200" title="Clicked Email">
-                                                            <Mail className="h-3 w-3" />
-                                                        </Badge>
-                                                    )}
-                                                    {view.interactions?.clickedWhatsApp && (
-                                                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200" title="Clicked WhatsApp">
+                                                    {view.interactions?.clickedMessage && (
+                                                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200" title="Sent Message">
                                                             <MessageCircle className="h-3 w-3" />
                                                         </Badge>
                                                     )}
-                                                    {!view.interactions?.clickedPhone && !view.interactions?.clickedEmail && !view.interactions?.clickedWhatsApp && (
+                                                    {view.interactions?.sharedProperty && (
+                                                        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200" title="Shared Property">
+                                                            <Share2 className="h-3 w-3" />
+                                                        </Badge>
+                                                    )}
+                                                    {!view.interactions?.clickedPhone && !view.interactions?.clickedMessage && !view.interactions?.sharedProperty && (
                                                         <span className="text-xs text-muted-foreground">-</span>
                                                     )}
                                                 </div>

@@ -658,7 +658,7 @@ const Analytics = () => {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={350}>
-                  <RechartsBar data={engagement?.activeUsers || []}>
+                  <RechartsLine data={engagement?.activeUsers || []}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="_id" axisLine={false} tickLine={false} />
                     <YAxis axisLine={false} tickLine={false} />
@@ -691,9 +691,25 @@ const Analytics = () => {
                       }}
                     />
                     <Legend />
-                    <Bar dataKey="customers" name="Customers" fill="#4285F4" radius={[4, 4, 0, 0]} stackId="stack" />
-                    <Bar dataKey="vendors" name="Agents/Vendors" fill="#34A853" radius={[4, 4, 0, 0]} stackId="stack" />
-                  </RechartsBar>
+                    <Line
+                      type="monotone"
+                      dataKey="customers"
+                      name="Customers"
+                      stroke="#4285F4"
+                      strokeWidth={2}
+                      dot={{ r: 4, fill: '#4285F4' }}
+                      activeDot={{ r: 6, fill: '#4285F4' }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="vendors"
+                      name="Agents/Vendors"
+                      stroke="#34A853"
+                      strokeWidth={2}
+                      dot={{ r: 4, fill: '#34A853' }}
+                      activeDot={{ r: 6, fill: '#34A853' }}
+                    />
+                  </RechartsLine>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
