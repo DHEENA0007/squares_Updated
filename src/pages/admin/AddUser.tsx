@@ -57,7 +57,7 @@ const vendorFields = {
       "Invalid business type"
     ),
   businessDescription: z.string()
-    .min(50, "Business description must be at least 50 characters")
+    .min(10, "Business description must be at least 10 characters")
     .max(500, "Business description cannot exceed 500 characters"),
   experience: z.string()
     .refine(
@@ -475,10 +475,10 @@ const AddUser = () => {
           return;
         }
 
-        if (!data.businessDescription || data.businessDescription.length < 50) {
+        if (!data.businessDescription || data.businessDescription.length < 10) {
           toast({
             title: "Error",
-            description: "Business description must be at least 50 characters.",
+            description: "Business description must be at least 10 characters.",
             variant: "destructive",
           });
           return;
@@ -776,17 +776,18 @@ const AddUser = () => {
                           </FormControl>
                           <SelectContent>
                             {roles.length > 0 ? (
-                              roles.map((role) => (
-                                <SelectItem key={role._id} value={role.name}>
-                                  {role.name}
-                                </SelectItem>
-                              ))
+                              roles
+                                .filter(role => role.name.toLowerCase() !== 'superadmin')
+                                .map((role) => (
+                                  <SelectItem key={role._id} value={role.name}>
+                                    {role.name}
+                                  </SelectItem>
+                                ))
                             ) : (
                               <>
                                 <SelectItem value="customer">Customer</SelectItem>
                                 <SelectItem value="agent">Vendor/Agent</SelectItem>
                                 <SelectItem value="subadmin">Sub Admin</SelectItem>
-                                <SelectItem value="superadmin">Super Admin</SelectItem>
                               </>
                             )}
                           </SelectContent>
@@ -996,7 +997,7 @@ const AddUser = () => {
                             <FormLabel>Business Description *</FormLabel>
                             <FormControl>
                               <Textarea
-                                placeholder="Describe the business, services, and expertise (minimum 50 characters)..."
+                                placeholder="Describe the business, services, and expertise (minimum 10 characters)..."
                                 rows={4}
                                 {...field}
                                 maxLength={500}

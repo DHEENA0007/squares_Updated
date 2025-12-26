@@ -49,6 +49,13 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/config/permissionConfig";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { locaService, PincodeSuggestion } from "@/services/locaService";
+import { PincodeAutocomplete } from "@/components/PincodeAutocomplete";
+import { CheckCircle, AlertCircle } from "lucide-react";
 
 interface UserTableProps {
   searchQuery: string;
@@ -76,6 +83,101 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => 
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [roles, setRoles] = useState<Role[]>([]);
   const itemsPerPage = 10;
+
+  // Business Info State
+  const [businessInfo, setBusinessInfo] = useState({
+    businessName: "",
+    businessType: "",
+    businessDescription: "",
+    experience: "0",
+    licenseNumber: "",
+    gstNumber: "",
+    panNumber: "",
+    website: "",
+    address: "",
+    city: "",
+    district: "",
+    state: "",
+    pincode: "",
+  });
+
+  // Location service states
+  const [states, setStates] = useState<string[]>([]);
+  const [districts, setDistricts] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  const [selectedState, setSelectedState] = useState("");
+  const [selectedDistrict, setSelectedDistrict] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
+  const [locaInitialized, setLocaInitialized] = useState(false);
+
+  // Initialize locaService
+  useEffect(() => {
+    const initLocaService = async () => {
+      try {
+        if (!locaService.isReady()) {
+          await locaService.initialize();
+        }
+        const loadedStates = locaService.getStates();
+        setStates(loadedStates);
+        setLocaInitialized(true);
+      } catch (error) {
+        console.error('Failed to initialize loca service:', error);
+        setStates([]);
+      }
+    };
+
+    initLocaService();
+  }, []);
+
+  // Load districts when state changes
+  useEffect(() => {
+    if (selectedState && locaInitialized) {
+      const loadedDistricts = locaService.getDistricts(selectedState);
+      setDistricts(loadedDistricts);
+      // Only reset if the current district is not valid for the new state
+      if (!loadedDistricts.includes(selectedDistrict)) {
+        setSelectedDistrict("");
+        setBusinessInfo(prev => ({ ...prev, district: "", city: "" })); // Reset district and city in form
+      }
+      setCities([]);
+    } else {
+      setDistricts([]);
+      if (!selectedState) { // Only reset if state is cleared
+        setSelectedDistrict("");
+        setBusinessInfo(prev => ({ ...prev, district: "", city: "" }));
+        setCities([]);
+      }
+    }
+  }, [selectedState, locaInitialized]);
+
+  // Load cities when district changes
+  useEffect(() => {
+    if (selectedState && selectedDistrict && locaInitialized) {
+      const loadedCities = locaService.getCities(selectedState, selectedDistrict);
+      setCities(loadedCities);
+      // Only reset if current city is not valid
+      if (!loadedCities.includes(selectedCity)) {
+        setSelectedCity("");
+        setBusinessInfo(prev => ({ ...prev, city: "" }));
+      }
+    } else {
+      setCities([]);
+      if (!selectedDistrict) {
+        setSelectedCity("");
+        setBusinessInfo(prev => ({ ...prev, city: "" }));
+      }
+    }
+  }, [selectedState, selectedDistrict, locaInitialized]);
+
+  // Update form when location state changes
+  useEffect(() => {
+    setBusinessInfo(prev => ({
+      ...prev,
+      state: selectedState,
+      district: selectedDistrict,
+      city: selectedCity
+    }));
+  }, [selectedState, selectedDistrict, selectedCity]);
 
   // Fetch roles on mount
   useEffect(() => {
@@ -153,15 +255,84 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => 
   const handlePromoteUser = (user: User) => {
     setSelectedUser(user);
     setSelectedRole(user.role);
+    // Pre-fill business info if available
+    if (user.businessInfo) {
+      setBusinessInfo({
+        businessName: user.businessInfo.businessName || "",
+        businessType: user.businessInfo.businessType || "",
+        businessDescription: user.businessInfo.businessDescription || "",
+        experience: user.businessInfo.experience?.toString() || "0",
+        licenseNumber: user.businessInfo.licenseNumber || "",
+        gstNumber: user.businessInfo.gstNumber || "",
+        panNumber: user.businessInfo.panNumber || "",
+        website: user.businessInfo.website || "",
+        address: user.businessInfo.address || "",
+        city: user.businessInfo.city || "",
+        district: user.businessInfo.district || "",
+        state: user.businessInfo.state || "",
+        pincode: user.businessInfo.pincode || "",
+      });
+      // Set location states if available
+      if (user.businessInfo.state) setSelectedState(user.businessInfo.state);
+      if (user.businessInfo.district) setSelectedDistrict(user.businessInfo.district);
+      if (user.businessInfo.city) setSelectedCity(user.businessInfo.city);
+    } else {
+      // Reset form
+      setBusinessInfo({
+        businessName: "",
+        businessType: "",
+        businessDescription: "",
+        experience: "0",
+        licenseNumber: "",
+        gstNumber: "",
+        panNumber: "",
+        website: "",
+        address: "",
+        city: "",
+        district: "",
+        state: "",
+        pincode: "",
+      });
+      setSelectedState("");
+      setSelectedDistrict("");
+      setSelectedCity("");
+    }
     setIsPromoteDialogOpen(true);
   };
 
   const handlePromoteSubmit = async () => {
     if (!selectedUser || !selectedRole) return;
 
+    // Validation for agent/vendor role
+    const isVendorRole = selectedRole.toLowerCase() === 'agent' || selectedRole.toLowerCase() === 'vendor';
+    let finalBusinessInfo = null;
+
+    if (isVendorRole) {
+      // Check if we need to collect data
+      const needsData = !selectedUser.businessInfo;
+
+      if (needsData) {
+        // Validate required fields
+        if (!businessInfo.businessName) return alert("Business Name is required");
+        if (!businessInfo.businessType) return alert("Business Type is required");
+        if (!businessInfo.businessDescription || businessInfo.businessDescription.length < 10) return alert("Description must be at least 10 chars");
+        if (!businessInfo.panNumber) return alert("PAN Number is required");
+        if (!businessInfo.address) return alert("Address is required");
+        if (!businessInfo.city) return alert("City is required");
+        if (!businessInfo.district) return alert("District is required");
+        if (!businessInfo.state) return alert("State is required");
+        if (!businessInfo.pincode) return alert("Pincode is required");
+
+        finalBusinessInfo = {
+          ...businessInfo,
+          experience: parseInt(businessInfo.experience) || 0
+        };
+      }
+    }
+
     setPromotingUserId(selectedUser._id);
     try {
-      await userService.promoteUser(selectedUser._id, selectedRole);
+      await userService.promoteUser(selectedUser._id, selectedRole, finalBusinessInfo);
       // Refresh the user list
       const response = await userService.getUsers({
         page: currentPage,
@@ -590,17 +761,18 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => 
                   </SelectTrigger>
                   <SelectContent>
                     {roles.length > 0 ? (
-                      roles.map((role) => (
-                        <SelectItem key={role._id} value={role.name}>
-                          {role.name}
-                        </SelectItem>
-                      ))
+                      roles
+                        .filter(role => role.name.toLowerCase() !== 'superadmin')
+                        .map((role) => (
+                          <SelectItem key={role._id} value={role.name}>
+                            {role.name}
+                          </SelectItem>
+                        ))
                     ) : (
                       <>
                         <SelectItem value="customer">Customer</SelectItem>
                         <SelectItem value="agent">Vendor/Agent</SelectItem>
                         <SelectItem value="subadmin">Sub Admin</SelectItem>
-                        <SelectItem value="superadmin">Super Admin</SelectItem>
                       </>
                     )}
                   </SelectContent>
@@ -612,6 +784,257 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => 
                   <strong>Warning:</strong> Changing a user's role will affect their permissions and access to features.
                 </p>
               </div>
+
+              {/* Business Info Form for Agent/Vendor */}
+              {(selectedRole.toLowerCase() === 'agent' || selectedRole.toLowerCase() === 'vendor') && !selectedUser.businessInfo && (
+                <ScrollArea className="h-[300px] pr-4 border rounded-md p-2">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Shield className="w-4 h-4 text-primary" />
+                      <h3 className="font-semibold">Business Information Required</h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Business Name *</Label>
+                        <Input
+                          value={businessInfo.businessName}
+                          onChange={(e) => setBusinessInfo({ ...businessInfo, businessName: e.target.value })}
+                          placeholder="Enter business name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Business Type *</Label>
+                        <Select
+                          value={businessInfo.businessType}
+                          onValueChange={(val) => setBusinessInfo({ ...businessInfo, businessType: val })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="real_estate_agent">Real Estate Agent</SelectItem>
+                            <SelectItem value="property_developer">Property Developer</SelectItem>
+                            <SelectItem value="construction_company">Construction Company</SelectItem>
+                            <SelectItem value="interior_designer">Interior Designer</SelectItem>
+                            <SelectItem value="legal_services">Legal Services</SelectItem>
+                            <SelectItem value="home_loan_provider">Home Loan Provider</SelectItem>
+                            <SelectItem value="packers_movers">Packers & Movers</SelectItem>
+                            <SelectItem value="property_management">Property Management</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Description * (min 10 chars)</Label>
+                      <Textarea
+                        value={businessInfo.businessDescription}
+                        onChange={(e) => setBusinessInfo({ ...businessInfo, businessDescription: e.target.value })}
+                        placeholder="Describe your business..."
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Experience (Years)</Label>
+                        <Input
+                          type="number"
+                          value={businessInfo.experience}
+                          onChange={(e) => setBusinessInfo({ ...businessInfo, experience: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>PAN Number *</Label>
+                        <Input
+                          value={businessInfo.panNumber}
+                          onChange={(e) => setBusinessInfo({ ...businessInfo, panNumber: e.target.value.toUpperCase() })}
+                          placeholder="ABCDE1234F"
+                          maxLength={10}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>GST Number</Label>
+                        <Input
+                          value={businessInfo.gstNumber}
+                          onChange={(e) => setBusinessInfo({ ...businessInfo, gstNumber: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>License Number</Label>
+                        <Input
+                          value={businessInfo.licenseNumber}
+                          onChange={(e) => setBusinessInfo({ ...businessInfo, licenseNumber: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Website</Label>
+                      <Input
+                        value={businessInfo.website}
+                        onChange={(e) => setBusinessInfo({ ...businessInfo, website: e.target.value })}
+                        placeholder="https://..."
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Address *</Label>
+                      <Input
+                        value={businessInfo.address}
+                        onChange={(e) => setBusinessInfo({ ...businessInfo, address: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>State *</Label>
+                        <Select
+                          value={selectedState}
+                          onValueChange={(value) => {
+                            setSelectedState(value);
+                            setSelectedDistrict("");
+                            setSelectedCity("");
+                            setBusinessInfo(prev => ({ ...prev, state: value, district: "", city: "" }));
+                          }}
+                          disabled={!locaInitialized}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={locaInitialized ? "Select state" : "Loading..."} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {states.map((state) => (
+                              <SelectItem key={state} value={state}>
+                                {state}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>District *</Label>
+                        <Select
+                          value={selectedDistrict}
+                          onValueChange={(value) => {
+                            setSelectedDistrict(value);
+                            setSelectedCity("");
+                            setBusinessInfo(prev => ({ ...prev, district: value, city: "" }));
+                          }}
+                          disabled={!selectedState || districts.length === 0}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={selectedState ? "Select district" : "Select state first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {districts.map((district) => (
+                              <SelectItem key={district} value={district}>
+                                {district}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>City *</Label>
+                        <Select
+                          value={selectedCity}
+                          onValueChange={(value) => {
+                            setSelectedCity(value);
+                            setBusinessInfo(prev => ({ ...prev, city: value }));
+                          }}
+                          disabled={!selectedDistrict || cities.length === 0}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={selectedDistrict ? "Select city" : "Select district first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {cities.map((city) => (
+                              <SelectItem key={city} value={city}>
+                                {city}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Pincode *</Label>
+                        <PincodeAutocomplete
+                          value={businessInfo.pincode}
+                          onChange={(value, locationData) => {
+                            setBusinessInfo(prev => ({ ...prev, pincode: value }));
+
+                            // Auto-fill logic
+                            if (locationData) {
+                              const stateValue = locationData.state;
+                              // Find exact case match for state
+                              const matchingState = states.find(s => s.toUpperCase() === stateValue.toUpperCase());
+
+                              if (matchingState) {
+                                setSelectedState(matchingState);
+
+                                // Wait for districts to load
+                                setTimeout(() => {
+                                  const districtsForState = locaService.getDistricts(matchingState);
+                                  const matchingDistrict = districtsForState.find(d => d.toUpperCase() === locationData.district.toUpperCase());
+
+                                  if (matchingDistrict) {
+                                    setSelectedDistrict(matchingDistrict);
+
+                                    // Wait for cities to load
+                                    setTimeout(() => {
+                                      if (locationData.city) {
+                                        const citiesForDistrict = locaService.getCities(matchingState, matchingDistrict);
+                                        const matchingCity = citiesForDistrict.find(c => c.toUpperCase() === locationData.city.toUpperCase());
+
+                                        if (matchingCity) {
+                                          setSelectedCity(matchingCity);
+                                          setBusinessInfo(prev => ({
+                                            ...prev,
+                                            state: matchingState,
+                                            district: matchingDistrict,
+                                            city: matchingCity,
+                                            pincode: value
+                                          }));
+                                        }
+                                      }
+                                    }, 100);
+                                  }
+                                }, 100);
+                              }
+                            }
+                          }}
+                          state={selectedState}
+                          district={selectedDistrict}
+                          city={selectedCity}
+                          placeholder="Enter pincode"
+                        />
+                        {businessInfo.pincode && businessInfo.pincode.length === 6 && locaService.isReady() && (
+                          <div className="text-xs">
+                            {locaService.validatePincode(businessInfo.pincode) ? (
+                              <span className="text-green-600 flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" />
+                                Valid PIN code
+                              </span>
+                            ) : (
+                              <span className="text-amber-600 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />
+                                PIN code not found
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </ScrollArea>
+              )}
 
               <div className="flex justify-end gap-2">
                 <Button

@@ -8,7 +8,7 @@ const vendorSchema = new mongoose.Schema({
     required: true,
     sparse: true
   },
-  
+
   // Business Information
   businessInfo: {
     companyName: {
@@ -22,6 +22,11 @@ const vendorSchema = new mongoose.Schema({
       enum: ['real_estate_agent', 'property_developer', 'construction_company', 'interior_designer', 'legal_services', 'home_loan_provider', 'packers_movers', 'property_management', 'other'],
       default: 'real_estate_agent'
     },
+    description: {
+      type: String,
+      trim: true,
+      minlength: [10, 'Business description must be at least 10 characters']
+    },
     licenseNumber: {
       type: String,
       sparse: true,
@@ -32,7 +37,7 @@ const vendorSchema = new mongoose.Schema({
       sparse: true,
       trim: true,
       validate: {
-        validator: function(v) {
+        validator: function (v) {
           return !v || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(v);
         },
         message: 'Invalid GST number format'
@@ -43,7 +48,7 @@ const vendorSchema = new mongoose.Schema({
       sparse: true,
       trim: true,
       validate: {
-        validator: function(v) {
+        validator: function (v) {
           return !v || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v);
         },
         message: 'Invalid PAN number format'
@@ -57,7 +62,7 @@ const vendorSchema = new mongoose.Schema({
     website: {
       type: String,
       validate: {
-        validator: function(v) {
+        validator: function (v) {
           return !v || /^https?:\/\/.+/.test(v);
         },
         message: 'Invalid website URL'
@@ -156,7 +161,7 @@ const vendorSchema = new mongoose.Schema({
     officePhone: {
       type: String,
       validate: {
-        validator: function(v) {
+        validator: function (v) {
           return !v || /^[\+]?[0-9\s\-\(\)]{7,15}$/.test(v);
         },
         message: 'Invalid phone number'
@@ -165,7 +170,7 @@ const vendorSchema = new mongoose.Schema({
     whatsappNumber: {
       type: String,
       validate: {
-        validator: function(v) {
+        validator: function (v) {
           return !v || /^[\+]?[0-9\s\-\(\)]{7,15}$/.test(v);
         },
         message: 'Invalid WhatsApp number'
@@ -550,7 +555,7 @@ const vendorSchema = new mongoose.Schema({
   timestamps: true,
   toJSON: {
     virtuals: true,
-    transform: function(doc, ret) {
+    transform: function (doc, ret) {
       // Remove sensitive information from JSON output
       if (ret.financial) {
         delete ret.financial.accountDetails;
@@ -562,22 +567,22 @@ const vendorSchema = new mongoose.Schema({
 });
 
 // Virtual for full business name
-vendorSchema.virtual('fullBusinessName').get(function() {
+vendorSchema.virtual('fullBusinessName').get(function () {
   return this.businessInfo.companyName || 'Unknown Business';
 });
 
 // Virtual for location string
-vendorSchema.virtual('locationString').get(function() {
+vendorSchema.virtual('locationString').get(function () {
   const addr = this.contactInfo.officeAddress;
   if (!addr.city && !addr.state) return 'Location not provided';
   return `${addr.city || ''}${addr.city && addr.state ? ', ' : ''}${addr.state || ''}`;
 });
 
 // Virtual for verification status
-vendorSchema.virtual('isFullyVerified').get(function() {
-  return this.verification.isVerified && 
-         this.verification.verificationLevel !== 'none' &&
-         this.status === 'active';
+vendorSchema.virtual('isFullyVerified').get(function () {
+  return this.verification.isVerified &&
+    this.verification.verificationLevel !== 'none' &&
+    this.status === 'active';
 });
 
 // Indexes for better query performance
@@ -594,7 +599,7 @@ vendorSchema.index({ createdAt: -1 });
 vendorSchema.index({ 'seo.slug': 1 }, { unique: true, sparse: true });
 
 // Pre-save middleware
-vendorSchema.pre('save', async function(next) {
+vendorSchema.pre('save', async function (next) {
   try {
     // Generate slug if not exists
     if (!this.seo.slug && this.businessInfo.companyName) {
@@ -602,16 +607,16 @@ vendorSchema.pre('save', async function(next) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '');
-      
+
       let slug = baseSlug;
       let counter = 1;
-      
+
       // Ensure unique slug
       while (await this.constructor.findOne({ 'seo.slug': slug, _id: { $ne: this._id } })) {
         slug = `${baseSlug}-${counter}`;
         counter++;
       }
-      
+
       this.seo.slug = slug;
     }
 
@@ -627,25 +632,25 @@ vendorSchema.pre('save', async function(next) {
 });
 
 // Methods
-vendorSchema.methods.updateRating = function(newRating) {
+vendorSchema.methods.updateRating = function (newRating) {
   const rating = this.performance.rating;
   const oldAverage = rating.average;
   const oldCount = rating.count;
-  
+
   // Update breakdown
   rating.breakdown[getRatingKey(newRating)]++;
-  
+
   // Calculate new average
   const newCount = oldCount + 1;
   const newAverage = ((oldAverage * oldCount) + newRating) / newCount;
-  
+
   rating.average = Math.round(newAverage * 10) / 10;
   rating.count = newCount;
-  
+
   return this.save();
 };
 
-vendorSchema.methods.updateStatistics = function(updates) {
+vendorSchema.methods.updateStatistics = function (updates) {
   Object.keys(updates).forEach(key => {
     if (this.performance.statistics[key] !== undefined) {
       this.performance.statistics[key] = updates[key];
@@ -654,7 +659,7 @@ vendorSchema.methods.updateStatistics = function(updates) {
   return this.save();
 };
 
-vendorSchema.methods.getPublicProfile = function() {
+vendorSchema.methods.getPublicProfile = function () {
   return {
     id: this._id,
     user: this.user,
@@ -688,19 +693,19 @@ function getRatingKey(rating) {
 }
 
 // Static methods
-vendorSchema.statics.findByUserId = function(userId) {
+vendorSchema.statics.findByUserId = function (userId) {
   return this.findOne({ user: userId }).populate('user', '-password -verificationToken');
 };
 
-vendorSchema.statics.findActiveVendors = function(filters = {}) {
-  return this.find({ 
-    status: 'active', 
+vendorSchema.statics.findActiveVendors = function (filters = {}) {
+  return this.find({
+    status: 'active',
     'verification.isVerified': true,
-    ...filters 
+    ...filters
   }).populate('user', 'email profile.firstName profile.lastName profile.avatar');
 };
 
-vendorSchema.statics.searchVendors = function(searchParams) {
+vendorSchema.statics.searchVendors = function (searchParams) {
   const {
     location,
     specialization,
@@ -712,7 +717,7 @@ vendorSchema.statics.searchVendors = function(searchParams) {
   } = searchParams;
 
   const query = { status: 'active' };
-  
+
   if (location) {
     query.$or = [
       { 'contactInfo.officeAddress.city': new RegExp(location, 'i') },
@@ -720,19 +725,19 @@ vendorSchema.statics.searchVendors = function(searchParams) {
       { 'professionalInfo.serviceAreas.city': new RegExp(location, 'i') }
     ];
   }
-  
+
   if (specialization) {
     query['professionalInfo.specializations'] = specialization;
   }
-  
+
   if (rating) {
     query['performance.rating.average'] = { $gte: rating };
   }
-  
+
   if (experience) {
     query['professionalInfo.experience'] = { $gte: experience };
   }
-  
+
   if (verified) {
     query['verification.isVerified'] = true;
   }

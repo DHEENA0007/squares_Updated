@@ -35,6 +35,20 @@ export interface User {
       };
     };
   };
+  businessInfo?: {
+    businessName: string;
+    businessType: string;
+    businessDescription: string;
+    experience: number;
+    licenseNumber?: string;
+    gstNumber?: string;
+    panNumber?: string;
+    website?: string;
+    address: string;
+    city: string;
+    state: string;
+    pincode: string;
+  };
   role: string;
   rolePages?: string[];
   status: 'active' | 'inactive' | 'pending' | 'suspended';
@@ -77,7 +91,7 @@ class UserService {
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -97,7 +111,7 @@ class UserService {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
@@ -116,7 +130,7 @@ class UserService {
   async getUsers(filters: UserFilters = {}): Promise<UserResponse> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           queryParams.append(key, String(value));
@@ -260,11 +274,16 @@ class UserService {
     }
   }
 
-  async promoteUser(id: string, newRole: string): Promise<SingleUserResponse> {
+  async promoteUser(id: string, newRole: string, businessInfo?: any): Promise<SingleUserResponse> {
     try {
+      const body: any = { role: newRole };
+      if (businessInfo) {
+        body.businessInfo = businessInfo;
+      }
+
       const response = await this.makeRequest<SingleUserResponse>(`/users/${id}/promote`, {
         method: "PATCH",
-        body: JSON.stringify({ role: newRole }),
+        body: JSON.stringify(body),
       });
 
       toast({
@@ -302,7 +321,7 @@ class UserService {
   async updateCurrentUser(userData: Partial<User>): Promise<SingleUserResponse> {
     try {
       console.log('Update data being sent:', userData);
-      
+
       // Validate and clean userData before sending
       if (userData.profile) {
         // Ensure preferences is never undefined
@@ -349,12 +368,12 @@ class UserService {
       }
 
       console.log('Cleaned update data:', userData);
-      
+
       // Get user ID and update user profile
       let userId = null;
       const storedUser = authService.getStoredUser();
       console.log('Stored user data:', storedUser);
-      
+
       if (storedUser && (storedUser.id || storedUser._id)) {
         userId = storedUser.id || storedUser._id;
       }
@@ -371,9 +390,9 @@ class UserService {
         console.error('No user ID available');
         throw new Error("Unable to get user ID. Please log in again.");
       }
-      
+
       console.log('Updating user with ID:', userId);
-      
+
       const response = await this.makeRequest<SingleUserResponse>(`/users/${userId}`, {
         method: "PUT",
         body: JSON.stringify(userData),
@@ -402,10 +421,10 @@ class UserService {
       // Get current user data first to preserve all fields
       const currentUserResponse = await this.getCurrentUser();
       const currentUser = currentUserResponse.data.user;
-      
+
       // Try to get user ID from stored user data first
       let userId = currentUser._id;
-      
+
       if (!userId) {
         const storedUser = authService.getStoredUser();
         if (storedUser && storedUser.id) {
@@ -416,7 +435,7 @@ class UserService {
       if (!userId) {
         throw new Error("Unable to get user ID. Please log in again.");
       }
-      
+
       // Deep merge preferences to preserve existing nested objects
       const mergedData = {
         profile: {
@@ -428,7 +447,7 @@ class UserService {
           }
         }
       };
-      
+
       const response = await this.makeRequest<SingleUserResponse>(`/users/${userId}`, {
         method: "PUT",
         body: JSON.stringify(mergedData),
@@ -498,9 +517,9 @@ class UserService {
     try {
       const response = await this.makeRequest<{ success: boolean; message: string }>('/auth/change-password-with-otp', {
         method: "POST",
-        body: JSON.stringify({ 
-          otp, 
-          newPassword 
+        body: JSON.stringify({
+          otp,
+          newPassword
         }),
       });
 
@@ -525,9 +544,9 @@ class UserService {
     try {
       const response = await this.makeRequest<{ success: boolean; message: string; requiresOTP?: boolean; nextStep?: string }>('/auth/change-password', {
         method: "POST",
-        body: JSON.stringify({ 
-          currentPassword, 
-          newPassword 
+        body: JSON.stringify({
+          currentPassword,
+          newPassword
         }),
       });
 
@@ -563,9 +582,9 @@ class UserService {
     try {
       const response = await this.makeRequest<{ success: boolean; message: string; expiryMinutes: number }>('/auth/send-otp', {
         method: "POST",
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email: email,
-          firstName: firstName 
+          firstName: firstName
         }),
       });
 
@@ -577,13 +596,13 @@ class UserService {
       return response;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to send OTP";
-      
+
       toast({
         title: "Error",
         description: errorMessage,
         variant: "destructive",
       });
-      
+
       throw new Error(errorMessage);
     }
   }
@@ -592,9 +611,9 @@ class UserService {
     try {
       const response = await this.makeRequest<{ success: boolean; message: string; verified: boolean }>('/auth/verify-otp', {
         method: "POST",
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email: email,
-          otp: otp 
+          otp: otp
         }),
       });
 
@@ -608,13 +627,13 @@ class UserService {
       return response;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to verify OTP";
-      
+
       toast({
-        title: "Verification Failed", 
+        title: "Verification Failed",
         description: errorMessage,
         variant: "destructive",
       });
-      
+
       throw new Error(errorMessage);
     }
   }

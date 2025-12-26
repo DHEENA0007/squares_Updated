@@ -646,6 +646,7 @@ const Clients = () => {
         'Paid Amount': formatCurrencyForExport(paidRevenue),
         'Status': subscriptionService.formatSubscriptionStatus(subscription.status || 'unknown').label,
         'Start Date': ExportUtils.formatDate(subscription.startDate),
+        'Purchase Time': subscription.createdAt ? new Date(subscription.createdAt).toLocaleTimeString() : 'N/A',
         'End Date': ExportUtils.formatDate(subscription.endDate),
         'Auto Renew': subscription.autoRenew ? 'Yes' : 'No',
         'Add-ons': addonCount,
@@ -776,6 +777,7 @@ const Clients = () => {
         'Paid Amount': client['Paid Amount'],
         'Status': client['Status'],
         'Start Date': client['Start Date'],
+        'Purchase Time': client['Purchase Time'],
         'End Date': client['End Date'],
         'Auto Renew': client['Auto Renew'],
         'Add-ons': client['Add-ons'],
@@ -1044,7 +1046,7 @@ const Clients = () => {
           data: subscriptionDetails,
           columns: [
             { wch: 5 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, { wch: 15 },
-            { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 10 },
+            { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 10 },
             { wch: 8 }, { wch: 15 }, { wch: 12 }
           ]
         },
@@ -1135,7 +1137,7 @@ const Clients = () => {
       // Convert client details to table rows
       const clientDetails = generateClientDetails(processedData);
       const clientTable = {
-        head: [['#', 'Client Name', 'Email', 'Plan', 'Plan Price', 'Total Amount', 'Status', 'Start Date', 'End Date', 'Auto Renew', 'Add-ons', 'Add-on Amount']],
+        head: [['#', 'Client Name', 'Email', 'Plan', 'Plan Price', 'Total Amount', 'Status', 'Start Date', 'Purchase Time', 'End Date', 'Auto Renew', 'Add-ons', 'Add-on Amount']],
         body: [
           ...clientDetails.map(client => [
             client['#'].toString(),
@@ -1146,6 +1148,7 @@ const Clients = () => {
             client['Total Amount'],
             client['Status'],
             client['Start Date'],
+            client['Purchase Time'],
             client['End Date'],
             client['Auto Renew'],
             client['Add-ons'].toString(),
@@ -1163,10 +1166,11 @@ const Clients = () => {
           '5': { cellWidth: 20, halign: 'right' as const },
           '6': { cellWidth: 15, halign: 'center' as const },
           '7': { cellWidth: 20, halign: 'center' as const },
-          '8': { cellWidth: 20, halign: 'center' as const },
-          '9': { cellWidth: 15, halign: 'center' as const },
-          '10': { cellWidth: 12, halign: 'center' as const },
-          '11': { cellWidth: 20, halign: 'right' as const },
+          '8': { cellWidth: 15, halign: 'center' as const },
+          '9': { cellWidth: 20, halign: 'center' as const },
+          '10': { cellWidth: 15, halign: 'center' as const },
+          '11': { cellWidth: 12, halign: 'center' as const },
+          '12': { cellWidth: 20, halign: 'right' as const },
         },
         theme: 'striped' as const,
         fontSize: 7,
@@ -1538,6 +1542,12 @@ const Clients = () => {
                           </div>
                         </div>
                         <div>
+                          <span className="text-muted-foreground">Purchase Time:</span>
+                          <div className="font-medium">
+                            {subscription.createdAt ? new Date(subscription.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                          </div>
+                        </div>
+                        <div>
                           <span className="text-muted-foreground">End:</span>
                           <div className="font-medium">
                             {new Date(subscription.endDate).toLocaleDateString()}
@@ -1582,6 +1592,7 @@ const Clients = () => {
                   <TableHead className="font-semibold w-[200px] min-w-[150px]">Plan</TableHead>
                   <TableHead className="font-semibold w-[120px] min-w-[100px]">Amount</TableHead>
                   <TableHead className="font-semibold w-[130px] min-w-[110px]">Start Date</TableHead>
+                  <TableHead className="font-semibold w-[130px] min-w-[110px]">Purchase Time</TableHead>
                   <TableHead className="font-semibold w-[130px] min-w-[110px]">End Date</TableHead>
                   <TableHead className="font-semibold w-[120px] min-w-[100px]">Status</TableHead>
                   <TableHead className="font-semibold text-center w-[120px] min-w-[100px]">Actions</TableHead>
@@ -1628,6 +1639,11 @@ const Clients = () => {
                       <TableCell className="w-[130px] min-w-[110px]">
                         <span className="whitespace-nowrap">
                           {new Date(subscription.startDate).toLocaleDateString()}
+                        </span>
+                      </TableCell>
+                      <TableCell className="w-[130px] min-w-[110px]">
+                        <span className="whitespace-nowrap">
+                          {subscription.createdAt ? new Date(subscription.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                         </span>
                       </TableCell>
                       <TableCell className="w-[130px] min-w-[110px]">

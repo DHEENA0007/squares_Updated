@@ -99,11 +99,13 @@ const Users = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All roles</SelectItem>
-                    {roles.map((role) => (
-                      <SelectItem key={role._id} value={role.name.toLowerCase()}>
-                        {role.name}
-                      </SelectItem>
-                    ))}
+                    {roles
+                      .filter(role => role.name.toLowerCase() !== 'superadmin')
+                      .map((role) => (
+                        <SelectItem key={role._id} value={role.name}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

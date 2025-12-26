@@ -221,6 +221,7 @@ const PropertyApprovals = () => {
                 <TableRow className="bg-muted/50">
                   <TableHead className="font-semibold">S.no</TableHead>
                   <TableHead className="font-semibold">Property</TableHead>
+                  <TableHead className="font-semibold">Post Time</TableHead>
                   <TableHead className="font-semibold">Owner</TableHead>
                   <TableHead className="font-semibold">Type</TableHead>
                   <TableHead className="font-semibold">Price</TableHead>
@@ -247,10 +248,13 @@ const PropertyApprovals = () => {
                           </div>
                           <div>
                             <div className="font-medium">{property.title}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {new Date(property.createdAt).toLocaleDateString()}
-                            </div>
                           </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div className="font-medium">{new Date(property.createdAt).toLocaleDateString()}</div>
+                          <div className="text-muted-foreground">{new Date(property.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                         </div>
                       </TableCell>
                       <TableCell>

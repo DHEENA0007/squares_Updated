@@ -332,6 +332,15 @@ router.post('/', asyncHandler(async (req, res) => {
       });
     }
 
+    if (businessInfo.businessDescription && businessInfo.businessDescription.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Business description must be at least 10 characters'
+      });
+    }
+
+
+
     // Validate GST number format if provided
     if (businessInfo.gstNumber) {
       const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
@@ -407,6 +416,7 @@ router.post('/', asyncHandler(async (req, res) => {
           businessInfo: {
             companyName: companyName,
             businessType: businessInfo?.businessType || 'real_estate_agent',
+            description: businessInfo?.businessDescription || undefined,
             licenseNumber: businessInfo?.licenseNumber || undefined,
             gstNumber: businessInfo?.gstNumber || undefined,
             panNumber: businessInfo?.panNumber || undefined,
@@ -890,7 +900,7 @@ router.patch('/:id/promote', asyncHandler(async (req, res) => {
     });
   }
 
-  const { role } = req.body;
+  const { role, businessInfo } = req.body;
 
   // Check if role exists in Role collection
   const Role = require('../models/Role');
@@ -901,6 +911,16 @@ router.patch('/:id/promote', asyncHandler(async (req, res) => {
       success: false,
       message: 'Invalid role value. Role does not exist.'
     });
+  }
+
+  // Validate business info if promoting to agent/vendor
+  if ((role === 'agent' || role === 'vendor') && businessInfo) {
+    if (businessInfo.businessDescription && businessInfo.businessDescription.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Business description must be at least 10 characters'
+      });
+    }
   }
 
   const user = await User.findById(req.params.id);
@@ -914,6 +934,124 @@ router.patch('/:id/promote', asyncHandler(async (req, res) => {
 
   const oldRole = user.role;
   user.role = role;
+
+  // If promoting to agent/vendor, create vendor profile
+  if ((role === 'agent' || role === 'vendor') && businessInfo) {
+    try {
+      console.log(`[User Promotion] Creating vendor profile for ${user.email}`);
+
+      // Check if vendor profile already exists
+      const existingVendor = await Vendor.findOne({ user: user._id });
+      if (existingVendor) {
+        console.log(`[User Promotion] Vendor profile already exists for user ${user.email}`);
+        user.vendorProfile = existingVendor._id;
+      } else {
+        // Ensure businessInfo has required fields
+        const companyName = businessInfo?.businessName || `${user.profile.firstName} ${user.profile.lastName} Properties`;
+
+        const vendorData = {
+          user: user._id,
+          businessInfo: {
+            companyName: companyName,
+            businessType: businessInfo?.businessType || 'real_estate_agent',
+            description: businessInfo?.businessDescription || undefined,
+            licenseNumber: businessInfo?.licenseNumber || undefined,
+            gstNumber: businessInfo?.gstNumber || undefined,
+            panNumber: businessInfo?.panNumber || undefined,
+            website: businessInfo?.website || undefined,
+          },
+          professionalInfo: {
+            experience: businessInfo?.experience ? parseInt(businessInfo.experience) : 0,
+            specializations: [],
+            serviceAreas: [],
+            languages: ['english'],
+            certifications: []
+          },
+          contactInfo: {
+            officeAddress: {
+              street: businessInfo?.address || user.profile.address?.street || '',
+              area: '',
+              city: businessInfo?.city || user.profile.address?.city || '',
+              state: businessInfo?.state || user.profile.address?.state || '',
+              district: '',
+              country: 'India',
+              countryCode: 'IN',
+              stateCode: '',
+              districtCode: '',
+              cityCode: '',
+              pincode: businessInfo?.pincode || user.profile.address?.zipCode || '',
+              landmark: ''
+            },
+            officePhone: user.profile.phone || '',
+            whatsappNumber: user.profile.phone || '',
+            socialMedia: {
+              facebook: '',
+              instagram: '',
+              linkedin: '',
+              twitter: '',
+              youtube: ''
+            }
+          },
+          performance: {
+            rating: {
+              average: 0,
+              count: 0,
+              breakdown: { five: 0, four: 0, three: 0, two: 0, one: 0 }
+            },
+            statistics: {
+              totalProperties: 0,
+              activeListing: 0,
+              soldProperties: 0,
+              rentedProperties: 0,
+              totalViews: 0,
+              totalLeads: 0,
+              totalClients: 0,
+              responseTime: { average: 0, lastCalculated: new Date() }
+            }
+          },
+          status: 'active',
+          verification: {
+            isVerified: true,
+            verificationLevel: 'basic',
+            verificationDate: new Date()
+          },
+          approval: {
+            status: 'approved',
+            submittedAt: new Date(),
+            reviewedAt: new Date(),
+            reviewedBy: req.user?.id,
+            approvalNotes: 'Promoted by admin - auto-approved',
+            submittedDocuments: []
+          },
+          settings: {
+            notifications: {
+              emailNotifications: true,
+              smsNotifications: true,
+              leadAlerts: true,
+              marketingEmails: false,
+              weeklyReports: true
+            },
+            privacy: {
+              showContactInfo: true,
+              showPerformanceStats: true,
+              allowDirectContact: true
+            }
+          },
+          metadata: {
+            source: 'admin_promotion',
+            notes: 'Promoted by admin user'
+          }
+        };
+
+        const vendor = await Vendor.create(vendorData);
+        user.vendorProfile = vendor._id;
+        console.log(`[User Promotion] ✓ Vendor profile created: ${vendor._id}`);
+      }
+    } catch (vendorError) {
+      console.error('[User Promotion] Error creating vendor profile:', vendorError);
+      // Don't fail the promotion if vendor creation fails, but log it
+    }
+  }
 
   // Get role pages from Role collection
   try {
