@@ -60,7 +60,7 @@ import { Link } from "react-router-dom";
 const VendorDashboard = () => {
   const [dateRange, setDateRange] = useState("7d");
   const [activeTab, setActiveTab] = useState("overview");
-  
+
   // Real-time dashboard data
   const [dashboardState, dashboardActions] = useVendorDashboard({
     autoRefresh: true,
@@ -148,7 +148,7 @@ const VendorDashboard = () => {
     },
     {
       title: "Messages",
-      value: stats?.totalMessages || 0,
+      value: stats?.dateRangeMessages || stats?.totalMessages || 0,
       change: stats?.messagesChange || "0 unread",
       icon: MessageSquare,
       color: "text-orange-600",
@@ -168,8 +168,8 @@ const VendorDashboard = () => {
       color: "text-yellow-600",
     },
     {
-      title: "Phone Calls",
-      value: stats?.phoneCalls || 0,
+      title: "Phone Clicks",
+      value: stats?.totalPhoneCalls || stats?.phoneCalls || 0,
       change: stats?.phoneCallsChange || "+0%",
       icon: Phone,
       color: "text-green-600",
@@ -288,8 +288,8 @@ const VendorDashboard = () => {
                 >
                   <defs>
                     <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid

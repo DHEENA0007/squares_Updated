@@ -630,6 +630,56 @@ class PropertyService {
       throw error;
     }
   }
+
+  // Get property interaction stats (phone clicks, message clicks, shares, favorites)
+  async getPropertyInteractionStats(propertyId: string): Promise<{
+    views: number;
+    uniqueViewers: number;
+    phoneClicks: number;
+    messageClicks: number;
+    shares: number;
+    favorites: number;
+  }> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: {
+          propertyId: string;
+          stats: {
+            views: number;
+            uniqueViewers: number;
+            phoneClicks: number;
+            messageClicks: number;
+            shares: number;
+            favorites: number;
+          };
+        };
+      }>(`/properties/${propertyId}/interaction-stats`);
+
+      if (response.success && response.data?.stats) {
+        return response.data.stats;
+      }
+
+      return {
+        views: 0,
+        uniqueViewers: 0,
+        phoneClicks: 0,
+        messageClicks: 0,
+        shares: 0,
+        favorites: 0
+      };
+    } catch (error) {
+      console.error('Failed to fetch property interaction stats:', error);
+      return {
+        views: 0,
+        uniqueViewers: 0,
+        phoneClicks: 0,
+        messageClicks: 0,
+        shares: 0,
+        favorites: 0
+      };
+    }
+  }
 }
 
 export const propertyService = new PropertyService();

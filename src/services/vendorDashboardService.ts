@@ -12,6 +12,8 @@ export interface VendorStats {
   uniqueViewers?: number;
   unreadMessages: number;
   totalMessages: number;
+  dateRangeMessages?: number; // Property inquiries in the current date range
+  messageClicks?: number; // Message button clicks in the current date range
   messagesChange: string;
   totalRevenue: number;
   revenueChange: string;
@@ -19,7 +21,8 @@ export interface VendorStats {
   conversionChange: string;
   averageRating?: number;
   ratingChange?: string;
-  phoneCalls?: number;
+  phoneCalls?: number; // Phone clicks in the current date range
+  totalPhoneCalls?: number; // Total phone clicks all time
   phoneCallsChange?: string;
 }
 
@@ -119,7 +122,7 @@ class VendorDashboardService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
@@ -139,7 +142,7 @@ class VendorDashboardService {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
@@ -158,7 +161,7 @@ class VendorDashboardService {
   async getDashboardData(filters: VendorFilters = {}): Promise<VendorDashboardData> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           queryParams.append(key, value.toString());
@@ -166,7 +169,7 @@ class VendorDashboardService {
       });
 
       const endpoint = `/vendors/dashboard${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      
+
       const response = await this.makeRequest<{
         success: boolean;
         data: VendorDashboardData;
@@ -206,7 +209,7 @@ class VendorDashboardService {
       throw new Error("Failed to fetch vendor stats");
     } catch (error) {
       console.error("Failed to fetch vendor stats:", error);
-      
+
       // Get real rating data even for fallback stats
       let averageRating = 0;
       try {
@@ -215,7 +218,7 @@ class VendorDashboardService {
       } catch (reviewError) {
         console.log("Could not get rating for fallback stats:", reviewError);
       }
-      
+
       // Return empty stats for real-time data approach
       return {
         totalProperties: 0,
@@ -353,7 +356,7 @@ class VendorDashboardService {
     try {
       const response = await this.makeRequest<{
         success: boolean;
-        data: { 
+        data: {
           activities: Array<{
             _id: string;
             type: string;
@@ -428,11 +431,11 @@ class VendorDashboardService {
     if (!image) {
       return "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&h=300&fit=crop&auto=format";
     }
-    
+
     if (typeof image === 'string') {
       return image;
     }
-    
+
     return image.url || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&h=300&fit=crop&auto=format";
   }
 

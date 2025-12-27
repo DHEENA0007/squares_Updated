@@ -56,10 +56,10 @@ const PropertyDetails: React.FC = () => {
   // Dialog states
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showContactDialog, setShowContactDialog] = useState(false);
-  const [showEnterpriseDialog, setShowEnterpriseDialog] = useState(false);
-  const [isEnterpriseProperty, setIsEnterpriseProperty] = useState(false);
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
+  const [hasWhatsAppSupport, setHasWhatsAppSupport] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
-  const [checkingEnterprise, setCheckingEnterprise] = useState(false);
+  const [checkingWhatsApp, setCheckingWhatsApp] = useState(false);
 
   const loadProperty = useCallback(async () => {
     if (!id) return;
@@ -79,20 +79,20 @@ const PropertyDetails: React.FC = () => {
         const favoriteStatus = await favoriteService.isFavorite(id);
         setIsFavorited(favoriteStatus);
 
-        // Check if property is from vendor with WhatsApp support
+        // Check if vendor's plan has WhatsApp support enabled
         if (response.data.property.vendor?._id || response.data.property.owner?._id) {
           try {
-            setCheckingEnterprise(true);
+            setCheckingWhatsApp(true);
             const vendorId = response.data.property.vendor?._id || response.data.property.owner?._id;
-            const whatsappData = await vendorService.isVendorEnterpriseProperty(vendorId);
-            setIsEnterpriseProperty(whatsappData.isEnterprise);
+            const whatsappData = await vendorService.checkVendorWhatsAppSupport(vendorId);
+            setHasWhatsAppSupport(whatsappData.whatsappEnabled);
             setWhatsappNumber(whatsappData.whatsappNumber);
           } catch (error) {
             console.error("Failed to check WhatsApp support:", error);
-            setIsEnterpriseProperty(false);
+            setHasWhatsAppSupport(false);
             setWhatsappNumber(null);
           } finally {
-            setCheckingEnterprise(false);
+            setCheckingWhatsApp(false);
           }
         }
 
@@ -658,7 +658,7 @@ const PropertyDetails: React.FC = () => {
                 <Separator />
 
                 <div className="space-y-3">
-                  {!checkingEnterprise && !isEnterpriseProperty && (
+                  {!checkingWhatsApp && !hasWhatsAppSupport && (
                     <>
                       <Button
                         className="w-full"
@@ -696,17 +696,17 @@ const PropertyDetails: React.FC = () => {
                     </>
                   )}
 
-                  {!checkingEnterprise && isEnterpriseProperty && (
+                  {!checkingWhatsApp && hasWhatsAppSupport && (
                     <Button
                       className="w-full bg-green-600 hover:bg-green-700 text-white"
-                      onClick={() => setShowEnterpriseDialog(true)}
+                      onClick={() => setShowWhatsAppDialog(true)}
                     >
                       <MessageSquare className="w-4 h-4 mr-2" />
                       WhatsApp Contact
                     </Button>
                   )}
 
-                  {checkingEnterprise && (
+                  {checkingWhatsApp && (
                     <Button disabled className="w-full">
                       <Phone className="w-4 h-4 mr-2" />
                       Loading...
@@ -805,10 +805,10 @@ const PropertyDetails: React.FC = () => {
         property={property}
       />
 
-      {/* Enterprise Contact Dialog */}
+      {/* WhatsApp Contact Dialog */}
       <EnterprisePropertyContactDialog
-        open={showEnterpriseDialog}
-        onOpenChange={setShowEnterpriseDialog}
+        open={showWhatsAppDialog}
+        onOpenChange={setShowWhatsAppDialog}
         property={property}
         whatsappNumber={whatsappNumber}
       />

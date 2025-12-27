@@ -175,7 +175,7 @@ class VendorService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
@@ -195,7 +195,7 @@ class VendorService {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
@@ -227,9 +227,9 @@ class VendorService {
       if (value === undefined) {
         continue;
       }
-      
+
       const cleanedValue = this.cleanObject(value);
-      
+
       // Only add if cleanedValue is not undefined and not an empty object
       if (cleanedValue !== undefined) {
         // For objects, check if they have any keys
@@ -242,7 +242,7 @@ class VendorService {
         }
       }
     }
-    
+
     // Return undefined for empty objects instead of {}
     return Object.keys(cleaned).length > 0 ? cleaned : undefined;
   }
@@ -266,7 +266,7 @@ class VendorService {
 
       if (response.success && response.data) {
         const vendorProfile = response.data.user;
-        
+
         // Sync rating data from reviews if available
         try {
           const reviewStats = await reviewsService.getReviewStats();
@@ -282,7 +282,7 @@ class VendorService {
         } catch (reviewError) {
           console.log("Could not sync rating data:", reviewError);
         }
-        
+
         return vendorProfile;
       }
 
@@ -301,10 +301,10 @@ class VendorService {
   async updateVendorProfile(userData: UpdateVendorData): Promise<VendorProfile> {
     try {
       console.log("Starting vendor profile update with data:", userData);
-      
+
       // Get user data from localStorage or token
       let userId = null;
-      
+
       // Try to get user ID from stored user object
       const storedUser = localStorage.getItem("user");
       if (storedUser) {
@@ -340,7 +340,7 @@ class VendorService {
             success: boolean;
             data: { user: { id: string; _id: string } };
           }>("/auth/me");
-          
+
           if (currentUserResponse.success && currentUserResponse.data) {
             userId = currentUserResponse.data.user.id || currentUserResponse.data.user._id;
             console.log("Found user ID from API:", userId);
@@ -388,7 +388,7 @@ class VendorService {
         // Update stored user data
         localStorage.setItem("user", JSON.stringify(response.data.user));
         console.log("Profile update successful, updated localStorage");
-        
+
         toast({
           title: "Success",
           description: "Profile updated successfully!",
@@ -500,11 +500,13 @@ class VendorService {
     try {
       const response = await this.makeRequest<{
         success: boolean;
-        data: { subscriptions: Array<{
-          name: string;
-          isActive: boolean;
-          expiresAt?: string;
-        }> };
+        data: {
+          subscriptions: Array<{
+            name: string;
+            isActive: boolean;
+            expiresAt?: string;
+          }>
+        };
       }>("/vendors/subscriptions");
 
       if (response.success && response.data) {
@@ -572,10 +574,10 @@ class VendorService {
           title: "Subscriptions Cleaned Up",
           description: `Deactivated ${response.deactivatedCount} old subscriptions. Using latest subscription now.`,
         });
-        
+
         // Refresh subscription data after cleanup
         await this.refreshSubscriptionData();
-        
+
         return {
           success: true,
           activeSubscription: response.activeSubscription,
@@ -623,7 +625,7 @@ class VendorService {
           }
         }
         keysToRemove.forEach(key => localStorage.removeItem(key));
-        
+
         toast({
           title: "Success",
           description: response.message || "Subscription data refreshed successfully!",
@@ -667,7 +669,7 @@ class VendorService {
       if (response.success) {
         // Update localStorage with synced data
         localStorage.setItem('dynamicVendorSettings', JSON.stringify(response.data));
-        
+
         toast({
           title: "✅ Settings Synced",
           description: "All vendor preferences saved successfully.",
@@ -689,14 +691,14 @@ class VendorService {
           supportEmail: "support@buildhomemartsquares.com"
         }
       };
-      
+
       localStorage.setItem(settingsKey, JSON.stringify(offlineData));
-      
+
       toast({
         title: "💾 Settings Saved Offline",
         description: "Settings cached locally. Will sync when online.",
       });
-      
+
       return offlineData;
     }
   }
@@ -725,7 +727,7 @@ class VendorService {
       if (savedSettings) {
         return JSON.parse(savedSettings);
       }
-      
+
       console.error("Failed to fetch vendor settings:", error);
       return null;
     }
@@ -744,7 +746,7 @@ class VendorService {
 
       // Log for debugging
       console.log(`✅ In-app notification created: ${settingsType}`);
-      
+
       // In-app notification will be handled by the notification service/backend
       // No email sent for settings updates
     } catch (error) {
@@ -757,7 +759,7 @@ class VendorService {
     try {
       // Get current settings
       const currentSettings = await this.getVendorSettings() || {};
-      
+
       // Update specific preference
       const updatedSettings = {
         ...currentSettings,
@@ -774,14 +776,14 @@ class VendorService {
 
       // Save updated settings
       await this.updateVendorSettings(updatedSettings);
-      
+
       // Send real-time notification email
       const settingName = preferenceKey.replace(/([A-Z])/g, ' $1').toLowerCase();
       const statusText = typeof value === 'boolean' ? (value ? 'enabled' : 'disabled') : 'updated';
-      
+
       // In-app notification only - no email
       console.log(`Vendor preference "${settingName}" has been ${statusText}`);
-      
+
     } catch (error) {
       console.error("Failed to update vendor preference:", error);
       toast({
@@ -845,7 +847,7 @@ class VendorService {
       if (message.trim()) {
         await this.updateVendorPreferences('business.autoResponseMessage', message);
       }
-      
+
       toast({
         title: "Auto-Response Updated",
         description: enabled ? "Auto-responses are now enabled" : "Auto-responses have been disabled",
@@ -856,24 +858,24 @@ class VendorService {
     }
   }
 
-  async isVendorEnterpriseProperty(vendorId: string): Promise<{ isEnterprise: boolean; whatsappNumber: string | null }> {
+  async checkVendorWhatsAppSupport(vendorId: string): Promise<{ whatsappEnabled: boolean; whatsappNumber: string | null }> {
     try {
       const response = await this.makeRequest<{
         success: boolean;
-        data: { isEnterprise: boolean; whatsappNumber: string | null };
-      }>(`/vendors/${vendorId}/enterprise-check`);
+        data: { whatsappEnabled: boolean; whatsappNumber: string | null };
+      }>(`/vendors/${vendorId}/whatsapp-check`);
 
       if (response.success && response.data) {
         return {
-          isEnterprise: response.data.isEnterprise,
+          whatsappEnabled: response.data.whatsappEnabled,
           whatsappNumber: response.data.whatsappNumber
         };
       }
 
-      return { isEnterprise: false, whatsappNumber: null };
+      return { whatsappEnabled: false, whatsappNumber: null };
     } catch (error) {
       console.error("Failed to check vendor WhatsApp support:", error);
-      return { isEnterprise: false, whatsappNumber: null };
+      return { whatsappEnabled: false, whatsappNumber: null };
     }
   }
 

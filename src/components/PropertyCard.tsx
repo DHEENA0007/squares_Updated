@@ -23,10 +23,10 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
   const { isAuthenticated, user, isVendor, isCustomer } = useAuth();
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showContactDialog, setShowContactDialog] = useState(false);
-  const [showEnterpriseDialog, setShowEnterpriseDialog] = useState(false);
-  const [isEnterpriseProperty, setIsEnterpriseProperty] = useState(false);
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
+  const [hasWhatsAppSupport, setHasWhatsAppSupport] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
-  const [checkingEnterprise, setCheckingEnterprise] = useState(true);
+  const [checkingWhatsApp, setCheckingWhatsApp] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false);
   const [loadingFavorite, setLoadingFavorite] = useState(false);
 
@@ -37,29 +37,29 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
     ? `${property.address.city}, ${property.address.district}, ${property.address.state}`
     : `${property.address.city}, ${property.address.state}`;
 
-  // Check if property is from enterprise vendor
+  // Check if vendor's plan has WhatsApp support enabled
   useEffect(() => {
-    const checkEnterpriseStatus = async () => {
+    const checkWhatsAppStatus = async () => {
       if (property.vendor?._id || property.owner?._id) {
         try {
-          setCheckingEnterprise(true);
+          setCheckingWhatsApp(true);
           const vendorId = property.vendor?._id || property.owner?._id;
-          const whatsappData = await vendorService.isVendorEnterpriseProperty(vendorId);
-          setIsEnterpriseProperty(whatsappData.isEnterprise);
+          const whatsappData = await vendorService.checkVendorWhatsAppSupport(vendorId);
+          setHasWhatsAppSupport(whatsappData.whatsappEnabled);
           setWhatsappNumber(whatsappData.whatsappNumber);
         } catch (error) {
-          console.error("Failed to check enterprise status:", error);
-          setIsEnterpriseProperty(false);
+          console.error("Failed to check WhatsApp support:", error);
+          setHasWhatsAppSupport(false);
           setWhatsappNumber(null);
         } finally {
-          setCheckingEnterprise(false);
+          setCheckingWhatsApp(false);
         }
       } else {
-        setCheckingEnterprise(false);
+        setCheckingWhatsApp(false);
       }
     };
 
-    checkEnterpriseStatus();
+    checkWhatsAppStatus();
   }, [property.vendor?._id, property.owner?._id]);
 
   // Check if property is favorited
@@ -96,8 +96,8 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
       navigate('/login', { state: { from: `/property/${property._id}`, action: 'message' } });
       return;
     }
-    if (isEnterpriseProperty) {
-      setShowEnterpriseDialog(true);
+    if (hasWhatsAppSupport) {
+      setShowWhatsAppDialog(true);
     } else {
       setShowMessageDialog(true);
     }
@@ -108,8 +108,8 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
       navigate('/login', { state: { from: `/property/${property._id}`, action: 'contact' } });
       return;
     }
-    if (isEnterpriseProperty) {
-      setShowEnterpriseDialog(true);
+    if (hasWhatsAppSupport) {
+      setShowWhatsAppDialog(true);
     } else {
       setShowContactDialog(true);
     }
@@ -259,7 +259,7 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
       </CardContent>
 
       <CardFooter className="p-2 pt-0 flex gap-1 text-xs">
-        {!checkingEnterprise && !isEnterpriseProperty && (
+        {!checkingWhatsApp && !hasWhatsAppSupport && (
           <>
             <Button
               variant="outline"
@@ -293,11 +293,11 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
           </>
         )}
 
-        {!checkingEnterprise && isEnterpriseProperty && (
+        {!checkingWhatsApp && hasWhatsAppSupport && (
           <Button
             variant="outline"
             className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 py-2"
-            onClick={() => setShowEnterpriseDialog(true)}
+            onClick={() => setShowWhatsAppDialog(true)}
           >
             <MessageSquare className="w-4 h-4 mr-2" />
             WhatsApp Contact
@@ -329,10 +329,10 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
         property={property}
       />
 
-      {/* Enterprise Contact Dialog */}
+      {/* WhatsApp Contact Dialog */}
       <EnterprisePropertyContactDialog
-        open={showEnterpriseDialog}
-        onOpenChange={setShowEnterpriseDialog}
+        open={showWhatsAppDialog}
+        onOpenChange={setShowWhatsAppDialog}
         property={property}
         whatsappNumber={whatsappNumber}
       />

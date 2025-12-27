@@ -5,15 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  ArrowLeft, 
-  Edit3, 
-  Trash2, 
-  Eye, 
-  Users, 
-  Calendar, 
-  Star, 
-  MapPin, 
+import {
+  ArrowLeft,
+  Edit3,
+  Trash2,
+  Eye,
+  Users,
+  Calendar,
+  Star,
+  MapPin,
   Building2,
   Bed,
   Bath,
@@ -36,14 +36,23 @@ const PropertyDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [interactionStats, setInteractionStats] = useState<{
+    views: number;
+    uniqueViewers: number;
+    phoneClicks: number;
+    messageClicks: number;
+    shares: number;
+    favorites: number;
+  } | null>(null);
 
   useEffect(() => {
     if (id) {
       loadProperty(id);
+      loadInteractionStats(id);
     }
   }, [id]);
 
@@ -65,9 +74,19 @@ const PropertyDetails = () => {
     }
   };
 
+  const loadInteractionStats = async (propertyId: string) => {
+    try {
+      const stats = await propertyService.getPropertyInteractionStats(propertyId);
+      setInteractionStats(stats);
+    } catch (error) {
+      console.error('Failed to load interaction stats:', error);
+      // Stats are non-critical, don't show error toast
+    }
+  };
+
   const handleDelete = async () => {
     if (!property) return;
-    
+
     if (window.confirm('Are you sure you want to delete this property? This action cannot be undone.')) {
       try {
         setDeleteLoading(true);
@@ -92,7 +111,7 @@ const PropertyDetails = () => {
 
   const handleToggleFeatured = async () => {
     if (!property) return;
-    
+
     try {
       await propertyService.togglePropertyFeatured(property._id, !property.featured);
       setProperty(prev => prev ? { ...prev, featured: !prev.featured } : prev);
@@ -171,7 +190,7 @@ const PropertyDetails = () => {
             </p>
           </div>
         </div>
-        
+
         <div className="flex gap-2">
           <Link to={`/vendor/properties/edit/${property._id}`}>
             <Button variant="outline">
@@ -179,15 +198,15 @@ const PropertyDetails = () => {
               Edit
             </Button>
           </Link>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={handleToggleFeatured}
           >
             <TrendingUp className="w-4 h-4 mr-2" />
             {property.featured ? 'Unfeature' : 'Promote'}
           </Button>
-          <Button 
-            variant="destructive" 
+          <Button
+            variant="destructive"
             onClick={handleDelete}
             disabled={deleteLoading}
           >
@@ -408,28 +427,28 @@ const PropertyDetails = () => {
                   <Eye className="w-4 h-4 mr-2 text-blue-600" />
                   <span className="text-sm">Views</span>
                 </div>
-                <span className="font-semibold">{property.views}</span>
+                <span className="font-semibold">{interactionStats?.views || property.views || 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <Users className="w-4 h-4 mr-2 text-green-600" />
-                  <span className="text-sm">Leads</span>
+                  <span className="text-sm">Leads (Messages)</span>
                 </div>
-                <span className="font-semibold">0</span>
+                <span className="font-semibold">{interactionStats?.messageClicks || 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <Heart className="w-4 h-4 mr-2 text-red-600" />
                   <span className="text-sm">Favorites</span>
                 </div>
-                <span className="font-semibold">0</span>
+                <span className="font-semibold">{interactionStats?.favorites || 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <Phone className="w-4 h-4 mr-2 text-purple-600" />
-                  <span className="text-sm">Phone Calls</span>
+                  <span className="text-sm">Phone Clicks</span>
                 </div>
-                <span className="font-semibold">0</span>
+                <span className="font-semibold">{interactionStats?.phoneClicks || 0}</span>
               </div>
             </CardContent>
           </Card>
@@ -441,8 +460,8 @@ const PropertyDetails = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               {property.virtualTour && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start"
                   onClick={() => window.open(property.virtualTour, '_blank')}
                 >
@@ -465,8 +484,8 @@ const PropertyDetails = () => {
                 Share Property
               </Button>
               <Separator />
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 className="w-full justify-start"
                 onClick={handleDelete}
                 disabled={deleteLoading}

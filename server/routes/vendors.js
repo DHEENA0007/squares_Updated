@@ -985,10 +985,31 @@ router.get('/dashboard', requireVendorRole, asyncHandler(async (req, res) => {
       return sum + (isNaN(price) ? 0 : price);
     }, 0);
 
-    // Get phone call count from PropertyView interactions
+    // Get phone call count from PropertyView interactions (current date range)
     const phoneCalls = await PropertyView.countDocuments({
       property: { $in: propertyIds },
+      'interactions.clickedPhone': true,
+      viewedAt: { $gte: startDate }
+    });
+
+    // Get total phone clicks (all time) for reference
+    const totalPhoneCalls = await PropertyView.countDocuments({
+      property: { $in: propertyIds },
       'interactions.clickedPhone': true
+    });
+
+    // Get message click count from PropertyView interactions (current date range)
+    const messageClicks = await PropertyView.countDocuments({
+      property: { $in: propertyIds },
+      'interactions.clickedMessage': true,
+      viewedAt: { $gte: startDate }
+    });
+
+    // Count property inquiry messages received in the date range
+    const dateRangeMessages = await Message.countDocuments({
+      recipient: vendorId,
+      type: { $in: ['inquiry', 'lead', 'property_inquiry'] },
+      createdAt: { $gte: startDate }
     });
 
     // Calculate conversion rate
@@ -1291,12 +1312,15 @@ router.get('/dashboard', requireVendorRole, asyncHandler(async (req, res) => {
         uniqueViewers: dateRangeUniqueViews,
         unreadMessages,
         totalMessages,
+        dateRangeMessages, // Property inquiries in the current date range
+        messageClicks, // Message button clicks in the current date range
         messagesChange: `${unreadMessages} unread`,
         totalRevenue,
         revenueChange: `${revenueChange >= 0 ? '+' : ''}${revenueChange}%`,
         conversionRate: Math.round(conversionRate * 10) / 10,
         conversionChange: `${conversionChange >= 0 ? '+' : ''}${conversionChange}%`,
-        phoneCalls,
+        phoneCalls, // Phone clicks in the current date range
+        totalPhoneCalls, // Total phone clicks all time
         phoneCallsChange: `${phoneCallsChange >= 0 ? '+' : ''}${phoneCallsChange}%`
       },
       recentProperties: formattedProperties,
@@ -4758,9 +4782,9 @@ router.post('/subscription/cleanup', requireVendorRole, asyncHandler(async (req,
 }));
 
 // @desc    Check if vendor has WhatsApp support enabled in their plan
-// @route   GET /api/vendors/:vendorId/enterprise-check
+// @route   GET /api/vendors/:vendorId/whatsapp-check
 // @access  Public (for customer property viewing)
-router.get('/:vendorId/enterprise-check', asyncHandler(async (req, res) => {
+router.get('/:vendorId/whatsapp-check', asyncHandler(async (req, res) => {
   const { vendorId } = req.params;
 
   try {
@@ -4773,20 +4797,20 @@ router.get('/:vendorId/enterprise-check', asyncHandler(async (req, res) => {
       endDate: { $gt: new Date() }
     }).populate('plan').sort({ createdAt: -1 });
 
-    let isEnterprise = false;
+    let whatsappEnabled = false;
     let whatsappNumber = null;
 
     if (activeSubscription && activeSubscription.plan) {
-      // Check if plan has WhatsApp support enabled
+      // Check if plan has WhatsApp support enabled (from plan configuration, not hardcoded plan name)
       const plan = activeSubscription.plan;
-      isEnterprise = plan.whatsappSupport?.enabled === true;
+      whatsappEnabled = plan.whatsappSupport?.enabled === true;
       whatsappNumber = plan.whatsappSupport?.number || null;
     }
 
     res.json({
       success: true,
       data: {
-        isEnterprise,
+        whatsappEnabled,
         whatsappNumber
       }
     });
@@ -4795,7 +4819,7 @@ router.get('/:vendorId/enterprise-check', asyncHandler(async (req, res) => {
     res.json({
       success: true,
       data: {
-        isEnterprise: false,
+        whatsappEnabled: false,
         whatsappNumber: null
       } // Default to false on error
     });

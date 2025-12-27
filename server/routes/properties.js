@@ -1094,6 +1094,93 @@ router.post('/:id/track-interaction', authenticateToken, asyncHandler(async (req
   }
 }));
 
+// @desc    Get property interaction stats (phone clicks, message clicks, shares, favorites)
+// @route   GET /api/properties/:id/interaction-stats
+// @access  Private (property owner or admin)
+router.get('/:id/interaction-stats', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    // Find property
+    const property = await Property.findById(id);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Check if user owns this property or is admin
+    const isOwner = property.owner.toString() === req.user.id.toString();
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view interaction stats for this property'
+      });
+    }
+
+    // Get interaction counts from PropertyView
+    const [phoneClicks, messageClicks, shares, totalViews] = await Promise.all([
+      PropertyView.countDocuments({
+        property: id,
+        'interactions.clickedPhone': true
+      }),
+      PropertyView.countDocuments({
+        property: id,
+        'interactions.clickedMessage': true
+      }),
+      PropertyView.countDocuments({
+        property: id,
+        'interactions.sharedProperty': true
+      }),
+      PropertyView.countDocuments({
+        property: id
+      })
+    ]);
+
+    // Get favorites count
+    const Favorite = require('../models/Favorite');
+    const favorites = await Favorite.countDocuments({ property: id });
+
+    // Get unique viewers
+    const uniqueViewers = await PropertyView.distinct('viewer', {
+      property: id,
+      viewer: { $ne: null }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        propertyId: id,
+        stats: {
+          views: totalViews,
+          uniqueViewers: uniqueViewers.length,
+          phoneClicks,
+          messageClicks,
+          shares,
+          favorites
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get property interaction stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get interaction stats'
+    });
+  }
+}));
+
 // @desc    Delete property
 // @route   DELETE /api/properties/:id
 // @access  Private
