@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Home, Building2, Plus, MessageSquare, BarChart3, Crown, CreditCard, Star, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Home, Building2, Plus, MessageSquare, BarChart3, Crown, CreditCard, Star, Settings, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { useRealtime } from "@/contexts/RealtimeContext";
@@ -74,6 +74,11 @@ const VendorSidebar = ({ sidebarOpen, setSidebarOpen, isCollapsed, onToggle }: V
       label: 'Reviews',
       path: '/vendor/reviews',
       icon: Star
+    },
+    {
+      label: 'Notifications',
+      path: '/vendor/notifications',
+      icon: Bell
     },
     {
       label: 'Profile',
