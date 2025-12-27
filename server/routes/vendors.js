@@ -253,7 +253,53 @@ router.get('/:vendorId/badges', asyncHandler(async (req, res) => {
   }
 }));
 
-// Apply auth middleware to all routes
+// @desc    Check if vendor has WhatsApp support enabled in their plan
+// @route   GET /api/vendors/:vendorId/whatsapp-check
+// @access  Public (for customer property viewing)
+// NOTE: This route must be BEFORE router.use(authenticateToken) to be publicly accessible
+router.get('/:vendorId/whatsapp-check', asyncHandler(async (req, res) => {
+  const { vendorId } = req.params;
+
+  try {
+    const Subscription = require('../models/Subscription');
+
+    // Check if vendor has active subscription with WhatsApp support
+    const activeSubscription = await Subscription.findOne({
+      user: vendorId,
+      status: 'active',
+      endDate: { $gt: new Date() }
+    }).populate('plan').sort({ createdAt: -1 });
+
+    let whatsappEnabled = false;
+    let whatsappNumber = null;
+
+    if (activeSubscription && activeSubscription.plan) {
+      // Check if plan has WhatsApp support enabled (from plan configuration)
+      const plan = activeSubscription.plan;
+      whatsappEnabled = plan.whatsappSupport?.enabled === true;
+      whatsappNumber = plan.whatsappSupport?.number || null;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        whatsappEnabled,
+        whatsappNumber
+      }
+    });
+  } catch (error) {
+    console.error('WhatsApp support check error:', error);
+    res.json({
+      success: true,
+      data: {
+        whatsappEnabled: false,
+        whatsappNumber: null
+      } // Default to false on error
+    });
+  }
+}));
+
+// Apply auth middleware to all routes below this line
 router.use(authenticateToken);
 
 // @desc    Debug endpoint to check vendor profile status
@@ -4777,51 +4823,6 @@ router.post('/subscription/cleanup', requireVendorRole, asyncHandler(async (req,
       success: false,
       message: 'Failed to cleanup subscriptions',
       error: error.message
-    });
-  }
-}));
-
-// @desc    Check if vendor has WhatsApp support enabled in their plan
-// @route   GET /api/vendors/:vendorId/whatsapp-check
-// @access  Public (for customer property viewing)
-router.get('/:vendorId/whatsapp-check', asyncHandler(async (req, res) => {
-  const { vendorId } = req.params;
-
-  try {
-    const Subscription = require('../models/Subscription');
-
-    // Check if vendor has active subscription with WhatsApp support
-    const activeSubscription = await Subscription.findOne({
-      user: vendorId,
-      status: 'active',
-      endDate: { $gt: new Date() }
-    }).populate('plan').sort({ createdAt: -1 });
-
-    let whatsappEnabled = false;
-    let whatsappNumber = null;
-
-    if (activeSubscription && activeSubscription.plan) {
-      // Check if plan has WhatsApp support enabled (from plan configuration, not hardcoded plan name)
-      const plan = activeSubscription.plan;
-      whatsappEnabled = plan.whatsappSupport?.enabled === true;
-      whatsappNumber = plan.whatsappSupport?.number || null;
-    }
-
-    res.json({
-      success: true,
-      data: {
-        whatsappEnabled,
-        whatsappNumber
-      }
-    });
-  } catch (error) {
-    console.error('WhatsApp support check error:', error);
-    res.json({
-      success: true,
-      data: {
-        whatsappEnabled: false,
-        whatsappNumber: null
-      } // Default to false on error
     });
   }
 }));
