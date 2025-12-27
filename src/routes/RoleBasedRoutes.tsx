@@ -32,6 +32,7 @@ const Notifications = lazy(() => import("@/pages/rolebased/Notifications"));
 const Analytics = lazy(() => import("@/pages/rolebased/Analytics"));
 const Settings = lazy(() => import("@/pages/rolebased/Settings"));
 const Reports = lazy(() => import("@/pages/rolebased/Reports"));
+const HeroManagement = lazy(() => import("@/pages/admin/HeroManagement"));
 
 const RoleBasedRoutes = () => {
     const { user } = useAuth();
@@ -74,6 +75,7 @@ const RoleBasedRoutes = () => {
                         <Route path="analytics" element={<Analytics />} />
                         <Route path="reports" element={<Reports />} />
                         <Route path="settings" element={<Settings />} />
+                        <Route path="hero-management" element={<HeroManagement />} />
                         <Route path="*" element={<Navigate to={roleBasePath} replace />} />
                     </Routes>
                 </Suspense>

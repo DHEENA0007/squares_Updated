@@ -1,11 +1,11 @@
-import { 
-    ChevronLeft, 
-    ChevronRight, 
-    Home, 
-    Users, 
-    Shield, 
-    FileText, 
-    ShoppingBag, 
+import {
+    ChevronLeft,
+    ChevronRight,
+    Home,
+    Users,
+    Shield,
+    FileText,
+    ShoppingBag,
     LayoutDashboard,
     Bell,
     BarChart3,
@@ -16,7 +16,8 @@ import {
     Package,
     ChevronDown,
     ChevronUp,
-    MessageSquare
+    MessageSquare,
+    Image
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
@@ -45,21 +46,21 @@ const UniversalSidebar = ({
     const hasPermission = (permission: string) => permissions.includes(permission);
 
     const hasAnyReportablePermission = () => {
-        return permissions.some(p => 
-            p.includes('view') || 
-            p.includes('read') || 
-            p.includes('create') || 
-            p.includes('edit') || 
+        return permissions.some(p =>
+            p.includes('view') ||
+            p.includes('read') ||
+            p.includes('create') ||
+            p.includes('edit') ||
             p.includes('delete')
         );
     };
 
-    const isCustomRole = user?.role && 
+    const isCustomRole = user?.role &&
         !['superadmin', 'admin', 'subadmin', 'agent', 'customer'].includes(user.role.toLowerCase());
 
     const toggleMenu = (label: string) => {
-        setExpandedMenus(prev => 
-            prev.includes(label) 
+        setExpandedMenus(prev =>
+            prev.includes(label)
                 ? prev.filter(item => item !== label)
                 : [...prev, label]
         );
@@ -189,6 +190,12 @@ const UniversalSidebar = ({
             path: `${roleBasePath}/reports`,
             icon: FileText,
             show: isCustomRole && hasAnyReportablePermission()
+        },
+        {
+            label: 'Hero Management',
+            path: `${roleBasePath}/hero-management`,
+            icon: Image,
+            show: hasPermission(PERMISSIONS.HERO_VIEW)
         }
     ];
 

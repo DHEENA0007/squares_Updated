@@ -41,6 +41,7 @@ const reviewRoutes = require('./routes/reviews');
 const userActivityRoutes = require('./routes/userActivity');
 const analyticsRoutes = require('./routes/analytics');
 const trafficRoutes = require('./routes/traffic');
+const heroContentRoutes = require('./routes/heroContent');
 
 // Import middleware
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
@@ -194,6 +195,10 @@ app.use(morgan(logFormat));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Serve static files from uploads directory
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Ensure CORS headers on all responses
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -295,6 +300,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/user-activity', userActivityRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/traffic', trafficRoutes);
+app.use('/api/hero-content', heroContentRoutes);
 
 
 // Import services

@@ -21,3 +21,4 @@ export const AddPropertyPage = lazy(() => import("@/pages/admin/AddProperty"));
 export const AddonManagementPage = lazy(() => import("@/pages/admin/AddonManagement"));
 export const Refund_policy = lazy(() => import("@/pages/admin/Refund_policy"));
 export const SendNotificationsPage = lazy(() => import("@/pages/admin/SendNotifications"));
+export const HeroManagementPage = lazy(() => import("@/pages/admin/HeroManagement"));

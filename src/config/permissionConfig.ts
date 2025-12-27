@@ -104,6 +104,13 @@ export const PERMISSIONS = {
     // Dashboard
     DASHBOARD_VIEW: 'dashboard.view',
     ANALYTICS_VIEW: 'analytics.view',
+
+    // Hero Management
+    HERO_VIEW: 'hero.view',
+    HERO_EDIT_SLIDES: 'hero.editSlides',
+    HERO_EDIT_SETTINGS: 'hero.editSettings',
+    HERO_EDIT_OPTIONS: 'hero.editOptions',
+    HERO_RESET: 'hero.reset',
 } as const;
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
@@ -277,6 +284,17 @@ export const PERMISSION_GROUPS = [
         permissions: [
             { id: PERMISSIONS.ANALYTICS_VIEW, label: 'View Analytics Dashboard' },
             { id: PERMISSIONS.DASHBOARD_VIEW, label: 'View Dashboard' },
+        ]
+    },
+    {
+        id: 'heroManagement',
+        label: 'Hero Section Management',
+        permissions: [
+            { id: PERMISSIONS.HERO_VIEW, label: 'View Hero Management' },
+            { id: PERMISSIONS.HERO_EDIT_SLIDES, label: 'Edit Hero Slides' },
+            { id: PERMISSIONS.HERO_EDIT_SETTINGS, label: 'Edit Hero Settings' },
+            { id: PERMISSIONS.HERO_EDIT_OPTIONS, label: 'Edit Selling Options' },
+            { id: PERMISSIONS.HERO_RESET, label: 'Reset to Defaults' },
         ]
     }
 ];

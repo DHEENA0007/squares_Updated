@@ -121,7 +121,8 @@ roleSchema.statics.getDefaultRoles = function () {
         'plans',
         'addons',
         'privacy_policy',
-        'refund_policy'
+        'refund_policy',
+        'hero_management'
       ],
       isSystemRole: true,
       level: 10
