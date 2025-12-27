@@ -154,6 +154,178 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
   }
 }));
 
+// @desc    Get featured vendors with badges (public endpoint)
+// @route   GET /api/properties/featured-vendors
+// @access  Public
+// NOTE: This route MUST be defined BEFORE the /:id route to avoid route matching conflict
+router.get('/featured-vendors', asyncHandler(async (req, res) => {
+  try {
+    const { limit = 8 } = req.query;
+
+    // Validate limit parameter
+    const parsedLimit = parseInt(limit);
+    if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid limit parameter. Must be a number between 1 and 50.'
+      });
+    }
+
+    // Import models
+    const User = require('../models/User');
+    const Vendor = require('../models/Vendor');
+    const Subscription = require('../models/Subscription');
+
+    // Get active subscriptions count
+    const subscriptionCount = await Subscription.countDocuments({
+      status: 'active',
+      endDate: { $gt: new Date() }
+    });
+
+    if (subscriptionCount === 0) {
+      return res.json({
+        success: true,
+        data: {
+          vendors: [],
+          totalCount: 0
+        }
+      });
+    }
+
+    // Get all active subscriptions first, then filter in code
+    const activeSubscriptions = await Subscription.find({
+      status: 'active',
+      endDate: { $gt: new Date() }
+    })
+      .populate('plan')
+      .populate({
+        path: 'user',
+        select: 'email profile role status',
+        match: {
+          role: 'agent',
+          status: 'active'
+        }
+      })
+      .sort({ updatedAt: -1 });
+
+    // Filter subscriptions where plan and user exist, and plan has any enabled badges
+    const validSubscriptions = activeSubscriptions.filter(sub => {
+      if (!sub.plan || !sub.user) return false;
+
+      const plan = sub.plan;
+
+      // Check if plan has any enabled badges
+      if (Array.isArray(plan.benefits)) {
+        return plan.benefits.some(benefit => benefit.enabled);
+      } else if (plan.benefits && typeof plan.benefits === 'object') {
+        return Object.values(plan.benefits).some(value => value === true);
+      }
+
+      return false;
+    });
+
+    // Get vendor profiles for these users
+    const vendorProfiles = await Promise.all(
+      validSubscriptions.slice(0, parsedLimit).map(async (subscription) => {
+        const vendor = await Vendor.findOne({ user: subscription.user._id })
+          .populate('user', 'email profile');
+
+        if (!vendor || !vendor.user) return null;
+
+        const fullName = `${vendor.user.profile?.firstName || ''} ${vendor.user.profile?.lastName || ''}`.trim();
+
+        return {
+          _id: vendor._id,
+          name: fullName || 'Professional Vendor',
+          email: vendor.user.email,
+          avatar: vendor.user.profile?.avatar || null,
+          phone: vendor.user.profile?.phone || null,
+          bio: vendor.user.profile?.bio || null,
+          companyName: vendor.businessInfo?.companyName || null,
+          specialization: vendor.businessInfo?.specialization || [],
+          location: {
+            city: vendor.user.profile?.address?.city || null,
+            state: vendor.user.profile?.address?.state || null
+          },
+          badges: (() => {
+            if (Array.isArray(subscription.plan.benefits)) {
+              return subscription.plan.benefits
+                .filter(benefit => benefit.enabled)
+                .map(benefit => ({
+                  key: benefit.key,
+                  name: benefit.name,
+                  description: benefit.description || '',
+                  enabled: true,
+                  icon: benefit.icon || 'star'
+                }));
+            } else if (subscription.plan.benefits && typeof subscription.plan.benefits === 'object') {
+              const legacyBadgeMap = {
+                topRated: { name: 'Top Rated', icon: 'star', description: 'Highly rated professional' },
+                verifiedBadge: { name: 'Verified', icon: 'shield-check', description: 'Identity verified' },
+                marketingManager: { name: 'Marketing Pro', icon: 'trending-up', description: 'Advanced marketing tools' },
+                commissionBased: { name: 'Commission Based', icon: 'dollar-sign', description: 'Performance-based pricing' }
+              };
+
+              return Object.entries(subscription.plan.benefits)
+                .filter(([_, isActive]) => isActive === true)
+                .map(([badgeKey, _]) => ({
+                  key: badgeKey,
+                  name: legacyBadgeMap[badgeKey]?.name || badgeKey,
+                  description: legacyBadgeMap[badgeKey]?.description || '',
+                  enabled: true,
+                  icon: legacyBadgeMap[badgeKey]?.icon || 'star'
+                }));
+            }
+            return [];
+          })(),
+          rating: {
+            average: vendor.user.profile?.vendorInfo?.rating?.average || 0,
+            count: vendor.user.profile?.vendorInfo?.rating?.count || 0
+          },
+          responseTime: vendor.user.profile?.vendorInfo?.responseTime || null,
+          planName: subscription.plan.name
+        };
+      })
+    );
+
+    // Filter out null results and sort by badge count, then rating
+    const featuredVendors = vendorProfiles
+      .filter(vendor => vendor !== null)
+      .sort((a, b) => {
+        const aBadgeCount = Array.isArray(a.badges) ? a.badges.length : 0;
+        const bBadgeCount = Array.isArray(b.badges) ? b.badges.length : 0;
+
+        if (aBadgeCount !== bBadgeCount) {
+          return bBadgeCount - aBadgeCount;
+        }
+        return b.rating.average - a.rating.average;
+      });
+
+    res.json({
+      success: true,
+      data: {
+        vendors: featuredVendors,
+        totalCount: featuredVendors.length,
+        message: featuredVendors.length > 0
+          ? `Showing ${featuredVendors.length} premium vendors with active subscriptions and badges`
+          : 'No premium vendors with badges available yet'
+      }
+    });
+  } catch (error) {
+    console.error('Get featured vendors error:', error);
+
+    const isValidationError = error.name === 'ValidationError' ||
+      error.name === 'CastError' ||
+      error.message?.includes('Cast to ObjectId failed');
+
+    res.status(isValidationError ? 400 : 500).json({
+      success: false,
+      message: isValidationError ? 'Invalid request parameters' : 'Failed to fetch featured vendors',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+}));
+
 // @desc    Get single property
 // @route   GET /api/properties/:id
 // @access  Public (with optional auth to track logged-in viewers)
@@ -1229,204 +1401,6 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete property'
-    });
-  }
-}));
-
-// @desc    Get featured vendors with badges (public endpoint)
-// @route   GET /api/properties/featured-vendors
-// @access  Public
-router.get('/featured-vendors', asyncHandler(async (req, res) => {
-  try {
-    const { limit = 8 } = req.query;
-
-    // Validate limit parameter
-    const parsedLimit = parseInt(limit);
-    if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid limit parameter. Must be a number between 1 and 50.'
-      });
-    }
-
-    // Import models - move to top level to avoid potential issues
-    const User = require('../models/User');
-    const Vendor = require('../models/Vendor');
-    const Subscription = require('../models/Subscription');
-
-    console.log('Models loaded successfully');
-
-    // Test basic query first
-    const subscriptionCount = await Subscription.countDocuments({
-      status: 'active',
-      endDate: { $gt: new Date() }
-    });
-
-    console.log(`Found ${subscriptionCount} total active subscriptions`);
-
-    if (subscriptionCount === 0) {
-      return res.json({
-        success: true,
-        data: {
-          vendors: [],
-          totalCount: 0
-        }
-      });
-    }
-
-    // Get all active subscriptions first, then filter in code
-    const activeSubscriptions = await Subscription.find({
-      status: 'active',
-      endDate: { $gt: new Date() }
-    })
-      .populate('plan')
-      .populate({
-        path: 'user',
-        select: 'email profile role status',
-        match: {
-          role: 'agent',
-          status: 'active'
-        }
-      })
-      .sort({ updatedAt: -1 });
-
-    console.log(`Found ${activeSubscriptions.length} active subscriptions`);
-
-    // Filter subscriptions where plan and user exist, and plan has any enabled badges
-    const validSubscriptions = activeSubscriptions.filter(sub => {
-      if (!sub.plan || !sub.user) {
-        console.log('Filtered out subscription: missing plan or user');
-        return false;
-      }
-
-      const plan = sub.plan;
-
-      // Check if plan has any enabled badges
-      if (Array.isArray(plan.benefits)) {
-        // New format: check if any badges are enabled
-        const hasBadges = plan.benefits.some(benefit => benefit.enabled);
-        console.log(`Plan ${plan.name} (array format) has ${plan.benefits.filter(b => b.enabled).length} enabled badges`);
-        return hasBadges;
-      } else if (plan.benefits && typeof plan.benefits === 'object') {
-        // Legacy format: check if any benefits are true
-        const hasBadges = Object.values(plan.benefits).some(value => value === true);
-        console.log(`Plan ${plan.name} (object format) has badges:`, hasBadges);
-        return hasBadges;
-      }
-
-      console.log(`Plan ${plan.name} has no benefits/badges`);
-      return false;
-    });
-
-    console.log(`Filtered to ${validSubscriptions.length} valid subscriptions`);
-
-    // Get vendor profiles for these users
-    const vendorProfiles = await Promise.all(
-      validSubscriptions.slice(0, parsedLimit).map(async (subscription) => {
-        const vendor = await Vendor.findOne({ user: subscription.user._id })
-          .populate('user', 'email profile');
-
-        if (!vendor || !vendor.user) return null;
-
-        const fullName = `${vendor.user.profile?.firstName || ''} ${vendor.user.profile?.lastName || ''}`.trim();
-
-        return {
-          _id: vendor._id,
-          name: fullName || 'Professional Vendor',
-          email: vendor.user.email,
-          avatar: vendor.user.profile?.avatar || null,
-          phone: vendor.user.profile?.phone || null,
-          bio: vendor.user.profile?.bio || null,
-          companyName: vendor.businessInfo?.companyName || null,
-          specialization: vendor.businessInfo?.specialization || [],
-          location: {
-            city: vendor.user.profile?.address?.city || null,
-            state: vendor.user.profile?.address?.state || null
-          },
-          badges: (() => {
-            // Return badges in the new array format for frontend
-            if (Array.isArray(subscription.plan.benefits)) {
-              // New format: return all enabled badges
-              return subscription.plan.benefits
-                .filter(benefit => benefit.enabled)
-                .map(benefit => ({
-                  key: benefit.key,
-                  name: benefit.name,
-                  description: benefit.description || '',
-                  enabled: true,
-                  icon: benefit.icon || 'star'
-                }));
-            } else if (subscription.plan.benefits && typeof subscription.plan.benefits === 'object') {
-              // Legacy format: convert to new array format
-              const legacyBadgeMap = {
-                topRated: { name: 'Top Rated', icon: 'star', description: 'Highly rated professional' },
-                verifiedBadge: { name: 'Verified', icon: 'shield-check', description: 'Identity verified' },
-                marketingManager: { name: 'Marketing Pro', icon: 'trending-up', description: 'Advanced marketing tools' },
-                commissionBased: { name: 'Commission Based', icon: 'dollar-sign', description: 'Performance-based pricing' }
-              };
-
-              return Object.entries(subscription.plan.benefits)
-                .filter(([_, isActive]) => isActive === true)
-                .map(([badgeKey, _]) => ({
-                  key: badgeKey,
-                  name: legacyBadgeMap[badgeKey]?.name || badgeKey,
-                  description: legacyBadgeMap[badgeKey]?.description || '',
-                  enabled: true,
-                  icon: legacyBadgeMap[badgeKey]?.icon || 'star'
-                }));
-            }
-
-            return [];
-          })(),
-          rating: {
-            average: vendor.user.profile?.vendorInfo?.rating?.average || 0,
-            count: vendor.user.profile?.vendorInfo?.rating?.count || 0
-          },
-          responseTime: vendor.user.profile?.vendorInfo?.responseTime || null,
-          planName: subscription.plan.name
-        };
-      })
-    );
-
-    // Filter out null results and sort by badge count, then rating
-    const featuredVendors = vendorProfiles
-      .filter(vendor => vendor !== null)
-      .sort((a, b) => {
-        // Prioritize vendors with more badges
-        const aBadgeCount = Array.isArray(a.badges) ? a.badges.length : 0;
-        const bBadgeCount = Array.isArray(b.badges) ? b.badges.length : 0;
-
-        if (aBadgeCount !== bBadgeCount) {
-          return bBadgeCount - aBadgeCount;
-        }
-
-        // Then by rating
-        return b.rating.average - a.rating.average;
-      });
-
-    res.json({
-      success: true,
-      data: {
-        vendors: featuredVendors,
-        totalCount: featuredVendors.length,
-        message: featuredVendors.length > 0
-          ? `Showing ${featuredVendors.length} premium vendors with active subscriptions and badges`
-          : 'No premium vendors with badges available yet'
-      }
-    });
-  } catch (error) {
-    console.error('Get featured vendors error:', error);
-    console.error('Error stack:', error.stack);
-
-    // Return 400 for validation/input errors, 500 for server errors
-    const isValidationError = error.name === 'ValidationError' ||
-      error.name === 'CastError' ||
-      error.message?.includes('Cast to ObjectId failed');
-
-    res.status(isValidationError ? 400 : 500).json({
-      success: false,
-      message: isValidationError ? 'Invalid request parameters' : 'Failed to fetch featured vendors',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 }));
