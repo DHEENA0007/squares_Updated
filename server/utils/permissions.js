@@ -111,6 +111,16 @@ const PERMISSIONS = {
     MESSAGES_REPLY: 'messages.reply',
     MESSAGES_DELETE: 'messages.delete',
     MESSAGES_MARK_READ: 'messages.markRead',
+
+    // Subscribed Clients
+    SUBSCRIBED_CLIENTS_VIEW: 'subscribedClients.view',
+    SUBSCRIBED_CLIENTS_DETAILS: 'subscribedClients.details',
+    SUBSCRIBED_CLIENTS_CANCEL: 'subscribedClients.cancel',
+    SUBSCRIBED_CLIENTS_EXPORT: 'subscribedClients.export',
+
+    // SuperAdmin Analytics
+    SUPERADMIN_ANALYTICS_VIEW: 'superadminAnalytics.view',
+    SUPERADMIN_ANALYTICS_EXPORT: 'superadminAnalytics.export',
 };
 
 /**

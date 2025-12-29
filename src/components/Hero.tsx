@@ -18,6 +18,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { locaService } from "@/services/locaService";
 import { heroContentService, type HeroSlide, type HeroSettings, type SellingOption } from "@/services/heroContentService";
+import { configurationService } from "@/services/configurationService";
+import type { FilterConfiguration } from "@/types/configuration";
 
 // Icon mapping for dynamic selling options
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -67,6 +69,13 @@ const Hero = () => {
   const [heroSettings, setHeroSettings] = useState<HeroSettings | null>(null);
   const [dynamicSellingOptions, setDynamicSellingOptions] = useState<SellingOption[]>([]);
   const [heroContentLoaded, setHeroContentLoaded] = useState(false);
+
+  // Filter options from configuration
+  const [bedroomOptions, setBedroomOptions] = useState<FilterConfiguration[]>([]);
+  const [propertyTypeOptions, setPropertyTypeOptions] = useState<any[]>([]);
+  const [budgetOptions, setBudgetOptions] = useState<FilterConfiguration[]>([]);
+  const [selectedBudget, setSelectedBudget] = useState<string>("");
+  const [listingTypeOptions, setListingTypeOptions] = useState<FilterConfiguration[]>([]);
 
 
   // Handle post property navigation based on role
@@ -164,11 +173,11 @@ const Hero = () => {
   ];
 
   // Map tabs to listing types
-  const listingTypeMap: Record<string, string> = {
-    buy: "sale",
-    rent: "rent",
-    lease: "lease",
-    commercial: "sale", // Commercial can be both sale/rent, default to sale
+  // Map tabs to listing types dynamically
+  const getListingTypeForTab = (tab: string) => {
+    if (tab === 'commercial') return 'sale'; // Default for commercial
+    const option = listingTypeOptions.find(o => o.displayLabel?.toLowerCase() === tab.toLowerCase() || o.name.toLowerCase() === tab.toLowerCase() || o.value.toLowerCase() === tab.toLowerCase());
+    return option?.value || 'sale';
   };
 
   // Fallback default content for when API hasn't loaded yet
@@ -320,6 +329,45 @@ const Hero = () => {
     };
 
     loadHeroContent();
+  }, []);
+
+  // Fetch filter options from configuration
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        const [bedroomOpts, propertyTypes, budgetOpts, listingTypes] = await Promise.all([
+          configurationService.getFilterConfigurationsByType('bedroom', false),
+          configurationService.getAllPropertyTypes(false),
+          configurationService.getFilterConfigurationsByType('budget', false),
+          configurationService.getFilterConfigurationsByType('listing_type', false),
+        ]);
+
+        // Sort bedroom options by display order and filter out 'any' option for display
+        const sortedBedroomOptions = bedroomOpts
+          .filter(o => o.value !== 'any')
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+        setBedroomOptions(sortedBedroomOptions);
+
+        // Set property types
+        setPropertyTypeOptions(propertyTypes);
+
+        // Sort budget options by display order
+        const sortedBudgetOptions = budgetOpts
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+        setBudgetOptions(sortedBudgetOptions);
+
+        // Sort listing types
+        const sortedListingTypes = listingTypes
+          .filter(l => l.value !== 'all') // Exclude 'all' from tabs
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+        setListingTypeOptions(sortedListingTypes);
+      } catch (error) {
+        console.error('Failed to load filter options:', error);
+        // Fallback to empty - will show defaults
+      }
+    };
+
+    fetchFilterOptions();
   }, []);
 
   // Load recent searches from localStorage
@@ -479,7 +527,7 @@ const Hero = () => {
     try {
       const filters: PropertyFilters = {
         search: searchQuery,
-        listingType: listingTypeMap[activeTab] as 'sale' | 'rent' | 'lease',
+        listingType: getListingTypeForTab(activeTab) as 'sale' | 'rent' | 'lease',
         limit: 9, // Show more results
         page: 1,
         ...additionalFilters
@@ -617,7 +665,7 @@ const Hero = () => {
   const handleViewAllResults = () => {
     const searchParams = new URLSearchParams({
       search: searchQuery,
-      listingType: listingTypeMap[activeTab]
+      listingType: getListingTypeForTab(activeTab)
     });
 
     if (activeTab === 'commercial') {
@@ -700,25 +748,16 @@ const Hero = () => {
             >
               <div className="flex gap-2 mb-4 flex-col xs:flex-row">
                 <Tabs defaultValue="buy" className="flex-1" onValueChange={handleTabChange}>
-                  <TabsList className="grid w-full grid-cols-4 h-10 xs:h-12 p-1">
-                    <TabsTrigger
-                      value="buy"
-                      className="text-xs sm:text-sm font-semibold h-8 xs:h-10 rounded-lg transition-all duration-300 hover:scale-105"
-                    >
-                      Buy
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="rent"
-                      className="text-xs sm:text-sm font-semibold h-8 xs:h-10 rounded-lg transition-all duration-300 hover:scale-105"
-                    >
-                      Rent
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="lease"
-                      className="text-xs sm:text-sm font-semibold h-8 xs:h-10 rounded-lg transition-all duration-300 hover:scale-105"
-                    >
-                      Lease
-                    </TabsTrigger>
+                  <TabsList className="grid w-full h-10 xs:h-12 p-1" style={{ gridTemplateColumns: `repeat(${listingTypeOptions.length + 1}, minmax(0, 1fr))` }}>
+                    {listingTypeOptions.map((type) => (
+                      <TabsTrigger
+                        key={type.id || type._id}
+                        value={type.value}
+                        className="text-xs sm:text-sm font-semibold h-8 xs:h-10 rounded-lg transition-all duration-300 hover:scale-105"
+                      >
+                        {type.displayLabel || type.name}
+                      </TabsTrigger>
+                    ))}
                     <TabsTrigger
                       value="commercial"
                       className="text-xs sm:text-sm font-semibold h-8 xs:h-10 rounded-lg transition-all duration-300 hover:scale-105"
@@ -928,6 +967,7 @@ const Hero = () => {
                               setSelectedState("");
                               setSelectedDistrict("");
                               setSelectedCity("");
+                              setSelectedBudget("");
                             }}
                           >
                             Clear All
@@ -936,56 +976,69 @@ const Hero = () => {
 
                         <div>
                           <label className="text-sm font-medium mb-2 block">Property Type</label>
-                          <Select value={propertyType} onValueChange={(v) => setPropertyType(v)}>
+                          <Select value={propertyType || "all"} onValueChange={(v) => setPropertyType(v === "all" ? "" : v)}>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select type" />
+                              <SelectValue placeholder="All Properties" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="apartment">Apartment</SelectItem>
-                              <SelectItem value="villa">Villa</SelectItem>
-                              <SelectItem value="house">House</SelectItem>
-                              <SelectItem value="commercial">Commercial</SelectItem>
-                              <SelectItem value="plot">Plot</SelectItem>
-                              <SelectItem value="land">Land</SelectItem>
-                              <SelectItem value="office">Office Space</SelectItem>
-                              <SelectItem value="pg">PG (Paying Guest)</SelectItem>
+                              <SelectItem value="all">All Properties</SelectItem>
+                              {propertyTypeOptions.map((type) => (
+                                <SelectItem key={type.id || type._id} value={type.value}>
+                                  {type.name}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
 
                         <div>
                           <label className="text-sm font-medium mb-2 block">Bedrooms</label>
-                          {/* Ensure bedrooms Select is always controlled by using empty string when undefined */}
-                          <Select value={bedrooms?.toString() ?? ""} onValueChange={(value) => setBedrooms(value ? parseInt(value) : undefined)}>
+                          <Select value={bedrooms?.toString() ?? "any"} onValueChange={(value) => setBedrooms(value === "any" ? undefined : parseInt(value))}>
                             <SelectTrigger>
-                              <SelectValue placeholder="Any" />
+                              <SelectValue placeholder="Any BHK" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="1">1 BHK</SelectItem>
-                              <SelectItem value="2">2 BHK</SelectItem>
-                              <SelectItem value="3">3 BHK</SelectItem>
-                              <SelectItem value="4">4 BHK</SelectItem>
-                              <SelectItem value="5">5+ BHK</SelectItem>
+                              <SelectItem value="any">Any BHK</SelectItem>
+                              {bedroomOptions.map((option) => (
+                                <SelectItem key={option.id || option._id} value={option.value}>
+                                  {option.displayLabel || option.name}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium mb-2 block">Price Range</label>
-                          <div className="flex gap-2">
-                            <Input
-                              type="number"
-                              placeholder="Min"
-                              value={priceRange.min || ''}
-                              onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value ? parseInt(e.target.value) : undefined }))}
-                            />
-                            <Input
-                              type="number"
-                              placeholder="Max"
-                              value={priceRange.max || ''}
-                              onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value ? parseInt(e.target.value) : undefined }))}
-                            />
-                          </div>
+                          <label className="text-sm font-medium mb-2 block">Budget</label>
+                          <Select
+                            value={selectedBudget}
+                            onValueChange={(value) => {
+                              setSelectedBudget(value);
+                              if (value === 'any-budget' || value === '') {
+                                setPriceRange({});
+                              } else {
+                                const selectedOption = budgetOptions.find(b => (b.id || b._id) === value);
+                                if (selectedOption) {
+                                  setPriceRange({
+                                    min: selectedOption.minValue,
+                                    max: selectedOption.maxValue
+                                  });
+                                }
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Any Budget" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="any-budget">Any Budget</SelectItem>
+                              {budgetOptions.filter(b => b.value !== 'any-budget').map((option) => (
+                                <SelectItem key={option.id || option._id} value={option.id || option._id}>
+                                  {option.displayLabel || option.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         <Button

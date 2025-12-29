@@ -12,23 +12,24 @@ const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 // @access  Private (Admin role OR CLIENTS_READ permission)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    // Check if user has admin role OR CLIENTS_READ permission
+    // Check if user has admin role OR CLIENTS_READ/SUBSCRIBED_CLIENTS_VIEW permission
     const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
     const hasClientReadPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_READ);
-    
-    if (!hasAdminRole && !hasClientReadPermission) {
+    const hasSubscribedClientsViewPermission = hasPermission(req.user, PERMISSIONS.SUBSCRIBED_CLIENTS_VIEW);
+
+    if (!hasAdminRole && !hasClientReadPermission && !hasSubscribedClientsViewPermission) {
       return res.status(403).json({
         success: false,
-        message: 'Admin access required or CLIENTS_READ permission needed'
+        message: 'Admin access required or CLIENTS_READ/SUBSCRIBED_CLIENTS_VIEW permission needed'
       });
     }
 
-    const { 
-      page = 1, 
-      limit = 10, 
-      search = '', 
-      status = '', 
-      planId = '', 
+    const {
+      page = 1,
+      limit = 10,
+      search = '',
+      status = '',
+      planId = '',
       userId = '',
       startDate = '',
       endDate = ''
@@ -45,7 +46,7 @@ router.get('/', authenticateToken, async (req, res) => {
           { email: { $regex: search, $options: 'i' } }
         ]
       }).select('_id');
-      
+
       const plans = await Plan.find({
         name: { $regex: search, $options: 'i' }
       }).select('_id');
@@ -59,7 +60,7 @@ router.get('/', authenticateToken, async (req, res) => {
     if (status) filter.status = status;
     if (planId) filter.plan = planId;
     if (userId) filter.user = userId;
-    
+
     if (startDate || endDate) {
       filter.startDate = {};
       if (startDate) filter.startDate.$gte = new Date(startDate);
@@ -112,14 +113,15 @@ router.get('/', authenticateToken, async (req, res) => {
 // @access  Private (Admin role OR CLIENTS_READ permission)
 router.get('/all', authenticateToken, async (req, res) => {
   try {
-    // Check if user has admin role OR CLIENTS_READ permission
+    // Check if user has admin role OR CLIENTS_READ/SUBSCRIBED_CLIENTS_VIEW permission
     const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
     const hasClientReadPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_READ);
-    
-    if (!hasAdminRole && !hasClientReadPermission) {
+    const hasSubscribedClientsViewPermission = hasPermission(req.user, PERMISSIONS.SUBSCRIBED_CLIENTS_VIEW);
+
+    if (!hasAdminRole && !hasClientReadPermission && !hasSubscribedClientsViewPermission) {
       return res.status(403).json({
         success: false,
-        message: 'Admin access required or CLIENTS_READ permission needed'
+        message: 'Admin access required or CLIENTS_READ/SUBSCRIBED_CLIENTS_VIEW permission needed'
       });
     }
 
@@ -149,14 +151,15 @@ router.get('/all', authenticateToken, async (req, res) => {
 // @access  Private (Admin role OR CLIENTS_READ permission)
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
-    // Check if user has admin role OR CLIENTS_READ permission
+    // Check if user has admin role OR CLIENTS_READ/SUBSCRIBED_CLIENTS_VIEW permission
     const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
     const hasClientReadPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_READ);
-    
-    if (!hasAdminRole && !hasClientReadPermission) {
+    const hasSubscribedClientsViewPermission = hasPermission(req.user, PERMISSIONS.SUBSCRIBED_CLIENTS_VIEW);
+
+    if (!hasAdminRole && !hasClientReadPermission && !hasSubscribedClientsViewPermission) {
       return res.status(403).json({
         success: false,
-        message: 'Admin access required or CLIENTS_READ permission needed'
+        message: 'Admin access required or CLIENTS_READ/SUBSCRIBED_CLIENTS_VIEW permission needed'
       });
     }
 
@@ -244,8 +247,8 @@ router.get('/revenue-stats', authenticateToken, async (req, res) => {
       .lean();
 
     // Get all successful payments
-    const payments = await Payment.find({ 
-      status: { $in: ['paid', 'completed'] } 
+    const payments = await Payment.find({
+      status: { $in: ['paid', 'completed'] }
     }).lean();
 
     // Create a map for quick payment lookup
@@ -268,14 +271,14 @@ router.get('/revenue-stats', authenticateToken, async (req, res) => {
     // Calculate revenue based on actual payments with proper handling of edge cases
     subscriptions.forEach(subscription => {
       const subscriptionPayments = paymentMap.get(subscription._id.toString()) || [];
-      
+
       let subscriptionRevenue = 0;
       let addonRevenue = 0;
-      
+
       if (subscriptionPayments.length > 0) {
         // Process subscription payments (excluding addons)
         const subPayments = subscriptionPayments.filter(p => p.type !== 'addon_purchase');
-        
+
         // Handle upgrades properly - avoid double counting
         let lastPlanAmount = 0;
         subPayments.forEach(payment => {
@@ -293,24 +296,24 @@ router.get('/revenue-stats', authenticateToken, async (req, res) => {
             lastPlanAmount = newPlanAmount;
           }
         });
-        
+
         // Calculate addon revenue
         addonRevenue = subscriptionPayments
           .filter(p => p.type === 'addon_purchase')
           .reduce((sum, p) => sum + (p.amount || 0), 0);
-        
+
         // Handle cancellations - if cancelled within 1 day of payment, reduce revenue
         if (subscription.status === 'cancelled' && subscription.lastPaymentDate && subscription.updatedAt) {
           const paymentDate = new Date(subscription.lastPaymentDate);
           const cancellationDate = new Date(subscription.updatedAt);
           const daysDiff = (cancellationDate.getTime() - paymentDate.getTime()) / (1000 * 3600 * 24);
-          
+
           if (daysDiff <= 1) {
             subscriptionRevenue *= 0.5; // Reduce revenue for quick cancellations
             addonRevenue *= 0.5;
           }
         }
-        
+
       } else if (subscription.lastPaymentDate && subscription.paymentDetails && subscription.paymentDetails.razorpayPaymentId) {
         // Subscription was paid but no payment history record
         // Only count if not cancelled immediately
@@ -318,7 +321,7 @@ router.get('/revenue-stats', authenticateToken, async (req, res) => {
           const paymentDate = new Date(subscription.lastPaymentDate);
           const cancellationDate = new Date(subscription.updatedAt);
           const daysDiff = (cancellationDate.getTime() - paymentDate.getTime()) / (1000 * 3600 * 24);
-          
+
           if (daysDiff > 1) {
             subscriptionRevenue = subscription.amount || 0;
           }
@@ -414,7 +417,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const isOwnSubscription = subscription.user._id.toString() === req.user.userId;
     const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
     const hasAccessDetailsPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_ACCESS_DETAILS);
-    
+
     if (!isOwnSubscription && !hasAdminRole && !hasAccessDetailsPermission) {
       return res.status(403).json({
         success: false,
@@ -591,8 +594,9 @@ router.patch('/:id/cancel', authenticateToken, async (req, res) => {
     const isOwnSubscription = subscription.user.toString() === req.user.userId;
     const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
     const hasEditDetailsPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_DETAILS_EDIT);
-    
-    if (!isOwnSubscription && !hasAdminRole && !hasEditDetailsPermission) {
+    const hasSubscribedClientsCancelPermission = hasPermission(req.user, PERMISSIONS.SUBSCRIBED_CLIENTS_CANCEL);
+
+    if (!isOwnSubscription && !hasAdminRole && !hasEditDetailsPermission && !hasSubscribedClientsCancelPermission) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
@@ -630,7 +634,7 @@ router.patch('/:id/cancel', authenticateToken, async (req, res) => {
       const emailService = require('../utils/emailService');
       const user = subscription.user;
       const plan = subscription.plan;
-      
+
       await emailService.sendSubscriptionCancellationEmail({
         to: user.email,
         userName: user.name,
@@ -677,7 +681,7 @@ router.patch('/:id/renew', authenticateToken, async (req, res) => {
     const isOwnSubscription = subscription.user.toString() === req.user.userId;
     const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
     const hasAccessActionsPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_ACCESS_ACTIONS);
-    
+
     if (!isOwnSubscription && !hasAdminRole && !hasAccessActionsPermission) {
       return res.status(403).json({
         success: false,
@@ -695,7 +699,7 @@ router.patch('/:id/renew', authenticateToken, async (req, res) => {
     // Calculate new end date
     const startDate = new Date();
     const endDate = new Date(startDate);
-    
+
     // Check if plan exists
     if (!subscription.plan) {
       return res.status(400).json({
@@ -740,7 +744,7 @@ router.patch('/:id/renew', authenticateToken, async (req, res) => {
 router.patch('/:id/upgrade', authenticateToken, async (req, res) => {
   try {
     const { newPlanId } = req.body;
-    
+
     if (!newPlanId) {
       return res.status(400).json({
         success: false,
@@ -762,7 +766,7 @@ router.patch('/:id/upgrade', authenticateToken, async (req, res) => {
     const isOwnSubscription = subscription.user.toString() === req.user.userId;
     const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
     const hasAccessActionsPermission = hasPermission(req.user, PERMISSIONS.CLIENTS_ACCESS_ACTIONS);
-    
+
     if (!isOwnSubscription && !hasAdminRole && !hasAccessActionsPermission) {
       return res.status(403).json({
         success: false,
@@ -791,7 +795,7 @@ router.patch('/:id/upgrade', authenticateToken, async (req, res) => {
     subscription.plan = newPlanId;
     subscription.amount = newPlan.price;
     subscription.updatedAt = new Date();
-    
+
     // Add upgrade to payment history
     if (!subscription.paymentHistory) {
       subscription.paymentHistory = [];

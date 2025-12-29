@@ -196,6 +196,18 @@ const UniversalSidebar = ({
             path: `${roleBasePath}/hero-management`,
             icon: Image,
             show: hasPermission(PERMISSIONS.HERO_VIEW)
+        },
+        {
+            label: 'Subscribed Clients',
+            path: `${roleBasePath}/subscribed-clients`,
+            icon: Users,
+            show: hasPermission(PERMISSIONS.SUBSCRIBED_CLIENTS_VIEW) || hasPermission(PERMISSIONS.CLIENTS_READ)
+        },
+        {
+            label: 'SuperAdmin Analytics',
+            path: `${roleBasePath}/superadmin-analytics`,
+            icon: BarChart3,
+            show: hasPermission(PERMISSIONS.SUPERADMIN_ANALYTICS_VIEW) || hasPermission(PERMISSIONS.ANALYTICS_VIEW)
         }
     ];
 

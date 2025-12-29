@@ -46,6 +46,7 @@ export interface User {
     website?: string;
     address: string;
     city: string;
+    district: string;
     state: string;
     pincode: string;
   };

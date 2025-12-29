@@ -92,8 +92,9 @@ router.post('/recalculate', asyncHandler(async (req, res) => {
 router.get('/snapshot', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
   const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
+  const hasSuperAdminAnalyticsPermission = hasPermission(req.user, PERMISSIONS.SUPERADMIN_ANALYTICS_VIEW);
 
-  if (!isSuperAdmin && !hasAnalyticsPermission) {
+  if (!isSuperAdmin && !hasAnalyticsPermission && !hasSuperAdminAnalyticsPermission) {
     return res.status(403).json({
       success: false,
       message: 'Insufficient permissions to view analytics'
@@ -146,8 +147,9 @@ router.get('/snapshot', asyncHandler(async (req, res) => {
 router.get('/v3/admin', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
   const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
+  const hasSuperAdminAnalyticsPermission = hasPermission(req.user, PERMISSIONS.SUPERADMIN_ANALYTICS_VIEW);
 
-  if (!isSuperAdmin && !hasAnalyticsPermission) {
+  if (!isSuperAdmin && !hasAnalyticsPermission && !hasSuperAdminAnalyticsPermission) {
     return res.status(403).json({
       success: false,
       message: 'Insufficient permissions to view analytics'
@@ -666,8 +668,9 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
 router.get('/property-views', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
   const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
+  const hasSuperAdminAnalyticsPermission = hasPermission(req.user, PERMISSIONS.SUPERADMIN_ANALYTICS_VIEW);
 
-  if (!isSuperAdmin && !hasAnalyticsPermission) {
+  if (!isSuperAdmin && !hasAnalyticsPermission && !hasSuperAdminAnalyticsPermission) {
     return res.status(403).json({
       success: false,
       message: 'Insufficient permissions to view analytics'
@@ -770,8 +773,9 @@ router.get('/property-views', asyncHandler(async (req, res) => {
 router.get('/user-conversion', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
   const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
+  const hasSuperAdminAnalyticsPermission = hasPermission(req.user, PERMISSIONS.SUPERADMIN_ANALYTICS_VIEW);
 
-  if (!isSuperAdmin && !hasAnalyticsPermission) {
+  if (!isSuperAdmin && !hasAnalyticsPermission && !hasSuperAdminAnalyticsPermission) {
     return res.status(403).json({
       success: false,
       message: 'Insufficient permissions to view analytics'

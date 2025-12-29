@@ -111,6 +111,16 @@ export const PERMISSIONS = {
     HERO_EDIT_SETTINGS: 'hero.editSettings',
     HERO_EDIT_OPTIONS: 'hero.editOptions',
     HERO_RESET: 'hero.reset',
+
+    // Subscribed Clients
+    SUBSCRIBED_CLIENTS_VIEW: 'subscribedClients.view',
+    SUBSCRIBED_CLIENTS_DETAILS: 'subscribedClients.details',
+    SUBSCRIBED_CLIENTS_CANCEL: 'subscribedClients.cancel',
+    SUBSCRIBED_CLIENTS_EXPORT: 'subscribedClients.export',
+
+    // SuperAdmin Analytics
+    SUPERADMIN_ANALYTICS_VIEW: 'superadminAnalytics.view',
+    SUPERADMIN_ANALYTICS_EXPORT: 'superadminAnalytics.export',
 } as const;
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
@@ -295,6 +305,24 @@ export const PERMISSION_GROUPS = [
             { id: PERMISSIONS.HERO_EDIT_SETTINGS, label: 'Edit Hero Settings' },
             { id: PERMISSIONS.HERO_EDIT_OPTIONS, label: 'Edit Selling Options' },
             { id: PERMISSIONS.HERO_RESET, label: 'Reset to Defaults' },
+        ]
+    },
+    {
+        id: 'subscribedClients',
+        label: 'Subscribed Clients Management',
+        permissions: [
+            { id: PERMISSIONS.SUBSCRIBED_CLIENTS_VIEW, label: 'View Subscribed Clients' },
+            { id: PERMISSIONS.SUBSCRIBED_CLIENTS_DETAILS, label: 'View Client Details' },
+            { id: PERMISSIONS.SUBSCRIBED_CLIENTS_CANCEL, label: 'Cancel Subscriptions' },
+            { id: PERMISSIONS.SUBSCRIBED_CLIENTS_EXPORT, label: 'Export Client Data' },
+        ]
+    },
+    {
+        id: 'superadminAnalytics',
+        label: 'SuperAdmin Analytics',
+        permissions: [
+            { id: PERMISSIONS.SUPERADMIN_ANALYTICS_VIEW, label: 'View SuperAdmin Analytics' },
+            { id: PERMISSIONS.SUPERADMIN_ANALYTICS_EXPORT, label: 'Export Analytics Reports' },
         ]
     }
 ];

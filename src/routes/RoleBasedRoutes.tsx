@@ -33,6 +33,8 @@ const Analytics = lazy(() => import("@/pages/rolebased/Analytics"));
 const Settings = lazy(() => import("@/pages/rolebased/Settings"));
 const Reports = lazy(() => import("@/pages/rolebased/Reports"));
 const HeroManagement = lazy(() => import("@/pages/admin/HeroManagement"));
+const SubscribedClients = lazy(() => import("@/pages/rolebased/SubscribedClients"));
+const SuperAdminAnalytics = lazy(() => import("@/pages/rolebased/SuperAdminAnalytics"));
 
 const RoleBasedRoutes = () => {
     const { user } = useAuth();
@@ -76,6 +78,8 @@ const RoleBasedRoutes = () => {
                         <Route path="reports" element={<Reports />} />
                         <Route path="settings" element={<Settings />} />
                         <Route path="hero-management" element={<HeroManagement />} />
+                        <Route path="subscribed-clients" element={<SubscribedClients />} />
+                        <Route path="superadmin-analytics" element={<SuperAdminAnalytics />} />
                         <Route path="*" element={<Navigate to={roleBasePath} replace />} />
                     </Routes>
                 </Suspense>

@@ -307,11 +307,15 @@ const HeroManagement = () => {
                                     <div className="aspect-video relative rounded-lg overflow-hidden mb-3 bg-muted">
                                         {slide.imageUrl && (
                                             <img
-                                                src={slide.imageUrl.startsWith('/') ? slide.imageUrl : `/src/assets/${slide.imageUrl.split('/').pop()}`}
+                                                src={slide.imageUrl.startsWith('http') || slide.imageUrl.startsWith('/') ? slide.imageUrl : `/src/assets/${slide.imageUrl.split('/').pop()}`}
                                                 alt={slide.tabKey}
                                                 className="w-full h-full object-cover"
                                                 onError={(e) => {
-                                                    (e.target as HTMLImageElement).src = '/placeholder.jpg';
+                                                    const target = e.target as HTMLImageElement;
+                                                    // Prevent infinite loop if fallback also fails
+                                                    if (!target.src.includes('hero-property.jpg')) {
+                                                        target.src = '/src/assets/hero-property.jpg';
+                                                    }
                                                 }}
                                             />
                                         )}

@@ -34,7 +34,7 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
         const [typesData, listingTypesData, bedroomTypesData, budgetTypesData] = await Promise.all([
           configurationService.getAllPropertyTypes(false),
           configurationService.getFilterConfigurationsByType('listing_type', false),
-          configurationService.getFilterConfigurationsByType('bedrooms', false),
+          configurationService.getFilterConfigurationsByType('bedroom', false),
           configurationService.getFilterConfigurationsByType('budget', false),
         ]);
 
