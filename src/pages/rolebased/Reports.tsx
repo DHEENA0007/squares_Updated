@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Download, 
+import {
+  BarChart3,
+  TrendingUp,
+  Download,
   Users,
   CheckCircle,
   XCircle,
@@ -103,12 +103,18 @@ const RoleBasedReports = () => {
 
   const hasPermission = (permission: string) => permissions.includes(permission);
 
+  // Export permission check - allow if user has analytics view or reports related permissions
+  const canExport = user?.role === 'superadmin' ||
+    hasPermission(PERMISSIONS.ANALYTICS_VIEW) ||
+    hasPermission(PERMISSIONS.SUPERADMIN_ANALYTICS_EXPORT) ||
+    Object.keys(stats).length > 0;
+
   const hasAnyReportableData = () => {
-    return permissions.some(p => 
-      p.includes('view') || 
-      p.includes('read') || 
-      p.includes('create') || 
-      p.includes('edit') || 
+    return permissions.some(p =>
+      p.includes('view') ||
+      p.includes('read') ||
+      p.includes('create') ||
+      p.includes('edit') ||
       p.includes('delete')
     );
   };
@@ -137,7 +143,7 @@ const RoleBasedReports = () => {
       }
 
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Failed to fetch report data');
       }
@@ -323,7 +329,7 @@ const RoleBasedReports = () => {
             {user?.profile?.firstName}'s Activity Report • {formatRoleName(user?.role || '')}
           </p>
         </div>
-        
+
         <div className="flex gap-3">
           <Select value={timeRange} onValueChange={(value: any) => setTimeRange(value)}>
             <SelectTrigger className="w-[180px]">
@@ -336,15 +342,19 @@ const RoleBasedReports = () => {
               <SelectItem value="all">All Time</SelectItem>
             </SelectContent>
           </Select>
-          
-          <Button variant="outline" onClick={() => handleExportReport('pdf')}>
-            <Download className="h-4 w-4 mr-2" />
-            PDF
-          </Button>
-          <Button variant="outline" onClick={() => handleExportReport('csv')}>
-            <Download className="h-4 w-4 mr-2" />
-            CSV
-          </Button>
+
+          {canExport && (
+            <>
+              <Button variant="outline" onClick={() => handleExportReport('pdf')}>
+                <Download className="h-4 w-4 mr-2" />
+                PDF
+              </Button>
+              <Button variant="outline" onClick={() => handleExportReport('csv')}>
+                <Download className="h-4 w-4 mr-2" />
+                CSV
+              </Button>
+            </>
+          )}
         </div>
       </div>
 

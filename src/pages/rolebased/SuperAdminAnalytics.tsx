@@ -50,6 +50,9 @@ const SuperAdminAnalytics = () => {
     return user?.rolePermissions?.includes(permission) || false;
   };
 
+  // Export permission check
+  const canExport = hasPermission(PERMISSIONS.SUPERADMIN_ANALYTICS_EXPORT) || hasPermission(PERMISSIONS.ANALYTICS_VIEW) || user?.role === 'superadmin';
+
   // Comprehensive Report Generation
   const generateComprehensiveReport = () => {
     setExporting(true);
@@ -570,14 +573,16 @@ const SuperAdminAnalytics = () => {
             </Button>
 
             {/* Export Report Button */}
-            <Button
-              onClick={generateComprehensiveReport}
-              disabled={exporting || loading}
-              className="gap-2"
-            >
-              <Download className="h-4 w-4" />
-              {exporting ? 'Generating...' : 'Export Report'}
-            </Button>
+            {canExport && (
+              <Button
+                onClick={generateComprehensiveReport}
+                disabled={exporting || loading}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                {exporting ? 'Generating...' : 'Export Report'}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -614,30 +619,32 @@ const SuperAdminAnalytics = () => {
             </CardTitle>
             <CardDescription>Complete financial overview for the selected period</CardDescription>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const currentDate = format(new Date(), 'yyyy-MM-dd');
-              const formatCurrency = (amt: number) => `₹${(amt || 0).toLocaleString('en-IN')}`;
-              const revenueData = [
-                { 'Metric': 'Total Revenue', 'Value': formatCurrency(overview?.overview?.totalRevenue || 0) },
-                { 'Metric': 'Subscription Revenue', 'Value': formatCurrency(overview?.overview?.subscriptionRevenue || 0) },
-                { 'Metric': 'Addon Revenue', 'Value': formatCurrency(overview?.overview?.addonRevenue || 0) },
-                { 'Metric': 'Active Subscriptions', 'Value': overview?.overview?.activeSubscriptions || 0 },
-                { 'Metric': 'Revenue Period', 'Value': `Last ${dateRange} days` },
-              ];
-              ExportUtils.generateExcelReport(
-                { filename: `revenue_report_${currentDate}`, title: 'Revenue Report', metadata: { 'Generated': currentDate } },
-                [{ name: 'Revenue Summary', data: revenueData, columns: [{ wch: 25 }, { wch: 20 }] }]
-              );
-              toast({ title: 'Revenue Report Downloaded' });
-            }}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Export Revenue
-          </Button>
+          {canExport && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const currentDate = format(new Date(), 'yyyy-MM-dd');
+                const formatCurrency = (amt: number) => `₹${(amt || 0).toLocaleString('en-IN')}`;
+                const revenueData = [
+                  { 'Metric': 'Total Revenue', 'Value': formatCurrency(overview?.overview?.totalRevenue || 0) },
+                  { 'Metric': 'Subscription Revenue', 'Value': formatCurrency(overview?.overview?.subscriptionRevenue || 0) },
+                  { 'Metric': 'Addon Revenue', 'Value': formatCurrency(overview?.overview?.addonRevenue || 0) },
+                  { 'Metric': 'Active Subscriptions', 'Value': overview?.overview?.activeSubscriptions || 0 },
+                  { 'Metric': 'Revenue Period', 'Value': `Last ${dateRange} days` },
+                ];
+                ExportUtils.generateExcelReport(
+                  { filename: `revenue_report_${currentDate}`, title: 'Revenue Report', metadata: { 'Generated': currentDate } },
+                  [{ name: 'Revenue Summary', data: revenueData, columns: [{ wch: 25 }, { wch: 20 }] }]
+                );
+                toast({ title: 'Revenue Report Downloaded' });
+              }}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export Revenue
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -711,12 +718,14 @@ const SuperAdminAnalytics = () => {
         </div>
 
         <TabsContent value="snapshot" className="space-y-4">
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={exportOverviewReport} className="gap-2">
-              <Download className="h-4 w-4" />
-              Export Snapshot
-            </Button>
-          </div>
+          {canExport && (
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={exportOverviewReport} className="gap-2">
+                <Download className="h-4 w-4" />
+                Export Snapshot
+              </Button>
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Conversion Funnel - Prominent */}
             <Card className="lg:col-span-2">
@@ -872,12 +881,14 @@ const SuperAdminAnalytics = () => {
         </TabsContent>
 
         <TabsContent value="acquisition" className="space-y-4">
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={exportTrafficReport} className="gap-2">
-              <Download className="h-4 w-4" />
-              Export Acquisition
-            </Button>
-          </div>
+          {canExport && (
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={exportTrafficReport} className="gap-2">
+                <Download className="h-4 w-4" />
+                Export Acquisition
+              </Button>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader>
@@ -1065,12 +1076,14 @@ const SuperAdminAnalytics = () => {
         </TabsContent>
 
         <TabsContent value="engagement" className="space-y-4">
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={exportPropertyViewsReport} className="gap-2">
-              <Download className="h-4 w-4" />
-              Export Engagement
-            </Button>
-          </div>
+          {canExport && (
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={exportPropertyViewsReport} className="gap-2">
+                <Download className="h-4 w-4" />
+                Export Engagement
+              </Button>
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4">
             <Card>
               <CardHeader>
@@ -1182,12 +1195,14 @@ const SuperAdminAnalytics = () => {
         </TabsContent>
 
         <TabsContent value="retention" className="space-y-4">
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={exportEngagementReport} className="gap-2">
-              <Download className="h-4 w-4" />
-              Export Retention
-            </Button>
-          </div>
+          {canExport && (
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={exportEngagementReport} className="gap-2">
+                <Download className="h-4 w-4" />
+                Export Retention
+              </Button>
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Daily Active Users Chart */}
             <Card className="lg:col-span-2">
