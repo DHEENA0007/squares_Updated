@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Search,
   MapPin,
@@ -304,6 +305,11 @@ const PropertySearch = () => {
     setSelectedAmenities([]);
     setDynamicFilters({});
     setCurrentPage(1);
+  };
+
+  const getListingTypeLabel = (value: string) => {
+    const config = filterConfigurations.find(c => c.value === value && (c.filterType === 'listing_type' || c.filterType === 'listingType'));
+    return config ? (config.displayLabel || config.name) : value.charAt(0).toUpperCase() + value.slice(1);
   };
 
   const formatPrice = (price: number) => {
@@ -606,14 +612,19 @@ const PropertySearch = () => {
                               }`}
                           />
                         </Button>
-
-                        {/* Listing Type Badge */}
-                        <Badge className="absolute top-2 left-2 capitalize">
-                          {property.listingType}
-                        </Badge>
                       </div>
 
                       <CardContent className="p-4" onClick={() => navigate(`/customer/property/${property._id}`)}>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <Badge className="bg-blue-50 text-blue-700 border-blue-100 capitalize">
+                            {getListingTypeLabel(property.listingType).toLowerCase().startsWith('for ')
+                              ? getListingTypeLabel(property.listingType)
+                              : `For ${getListingTypeLabel(property.listingType)}`}
+                          </Badge>
+                          <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">
+                            {property.type}
+                          </Badge>
+                        </div>
                         <div className="mb-2">
                           <h3 className="font-semibold text-lg line-clamp-1">{property.title}</h3>
                           <div className="flex items-center text-sm text-muted-foreground mt-1">

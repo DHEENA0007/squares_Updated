@@ -28,6 +28,9 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
       maxPrice,
       propertyType,
       bedrooms,
+      bedroom,
+      bathrooms,
+      bathroom,
       listingType
     } = req.query;
 
@@ -35,7 +38,7 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
 
     // Debug: Log user info
     console.log('Properties API - User:', req.user ? { id: req.user.id, role: req.user.role } : 'Not authenticated');
-    console.log('Query params:', { page, limit, location, search, propertyType, bedrooms, listingType });
+    console.log('Query params:', { page, limit, location, search, propertyType, bedrooms, bedroom, listingType });
 
     // Admin users can see all properties, customers only see available/active verified properties
     let queryFilter = {};
@@ -94,12 +97,25 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
       }
     }
 
-    if (bedrooms) {
-      const bedroomsNum = parseInt(bedrooms);
+    // Handle bedrooms (accept both 'bedrooms' and 'bedroom')
+    const targetBedrooms = bedrooms || bedroom;
+    if (targetBedrooms) {
+      const bedroomsNum = parseInt(targetBedrooms);
       if (!isNaN(bedroomsNum) && bedroomsNum > 0) {
         queryFilter.bedrooms = bedroomsNum;
       } else {
-        console.warn(`Invalid bedrooms filter value: ${bedrooms}`);
+        console.warn(`Invalid bedrooms filter value: ${targetBedrooms}`);
+      }
+    }
+
+    // Handle bathrooms (accept both 'bathrooms' and 'bathroom')
+    const targetBathrooms = bathrooms || bathroom;
+    if (targetBathrooms) {
+      const bathroomsNum = parseInt(targetBathrooms);
+      if (!isNaN(bathroomsNum) && bathroomsNum > 0) {
+        queryFilter.bathrooms = bathroomsNum;
+      } else {
+        console.warn(`Invalid bathrooms filter value: ${targetBathrooms}`);
       }
     }
 
@@ -384,11 +400,8 @@ router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
       const isPropertyOwner = req.user && property.owner._id.toString() === req.user.id;
       const isPropertyAgent = req.user && property.agent && property.agent._id?.toString() === req.user.id;
 
-      // Only track views from customers and guests (not admins, vendors viewing own properties)
-      const shouldTrackView =
-        userRole === 'guest' ||
-        userRole === 'customer' ||
-        (userRole === 'agent' && !isPropertyOwner && !isPropertyAgent); // Agents can view other properties
+      // Only track views from registered customers (not guests, admins, or vendors)
+      const shouldTrackView = userRole === 'customer';
 
       // Never count views from admin roles
       const isAdminRole = ['admin', 'superadmin', 'subadmin'].includes(userRole);

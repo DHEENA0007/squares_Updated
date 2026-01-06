@@ -258,9 +258,9 @@ const VendorDashboard = () => {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 items-start">
         {/* Performance Chart - Stock Market Style */}
-        <Card>
+        <Card className="h-full">
           <CardHeader className="pb-3 md:pb-6">
             <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-base md:text-lg">
               <span>Views Performance</span>
@@ -360,7 +360,7 @@ const VendorDashboard = () => {
         </Card>
 
         {/* Recent Activities */}
-        <Card>
+        <Card className="h-full flex flex-col">
           <CardHeader className="pb-3 md:pb-6">
             <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-base md:text-lg">
               <span>Recent Activities</span>
@@ -369,8 +369,8 @@ const VendorDashboard = () => {
               </Button>
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
-            <div className="space-y-3 md:space-y-4">
+          <CardContent className="pt-0 flex-1 min-h-0">
+            <div className="space-y-3 md:space-y-4 max-h-[400px] overflow-y-auto pr-2">
               {dashboardState.recentActivities && dashboardState.recentActivities.length > 0 ? (
                 dashboardState.recentActivities.slice(0, 8).map((activity) => {
                   // Determine icon based on activity type
@@ -470,16 +470,16 @@ const VendorDashboard = () => {
                         target.src = "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=300&h=200&fit=crop&auto=format";
                       }}
                     />
-                    <Badge className={`absolute top-1 right-1 md:top-2 md:right-2 text-xs ${vendorDashboardService.getStatusColor(property.status)} text-white`}>
-                      {property.status}
-                    </Badge>
-                    <div className="absolute bottom-1 left-1 md:bottom-2 md:left-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {property.listingType}
-                      </Badge>
-                    </div>
                   </div>
                   <CardContent className="p-3 md:p-4">
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      <Badge className={`text-xs ${vendorDashboardService.getStatusColor(property.status)} text-white border-0`}>
+                        {property.status}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs border-blue-100 bg-blue-50 text-blue-700">
+                        For {property.listingType.charAt(0).toUpperCase() + property.listingType.slice(1)}
+                      </Badge>
+                    </div>
                     <h3 className="font-semibold text-sm md:text-base line-clamp-1 mb-1">{property.title}</h3>
                     <p className="text-xs md:text-sm text-muted-foreground mb-2 flex items-center">
                       <MapPin className="w-3 h-3 mr-1 flex-shrink-0" />

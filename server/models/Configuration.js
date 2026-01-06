@@ -138,10 +138,10 @@ const filterConfigurationSchema = new mongoose.Schema({
   },
   displayLabel: {
     type: String,
-    required: function() {
+    required: function () {
       return !this.name; // Only required if name is not set
     },
-    default: function() {
+    default: function () {
       return this.name; // Default to name if not provided
     },
   },
@@ -172,7 +172,7 @@ const navigationItemSchema = new mongoose.Schema({
   },
   displayLabel: {
     type: String,
-    default: function() {
+    default: function () {
       return this.name;
     },
   },

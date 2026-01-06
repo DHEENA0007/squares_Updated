@@ -7,7 +7,7 @@ export interface Favorite {
   propertyId: string;
   createdAt: string;
   updatedAt: string;
-  
+
   // Populated property data
   property?: {
     _id: string;
@@ -32,7 +32,7 @@ export interface Favorite {
     area: number;
     bedrooms: number;
     bathrooms: number;
-    propertyType: string;
+    type: string;
     listingType: string;
     status: 'available' | 'sold' | 'rented' | 'pending' | 'active' | 'inactive';
     amenities: string[];
@@ -106,7 +106,7 @@ class FavoriteService {
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -126,7 +126,7 @@ class FavoriteService {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
@@ -145,7 +145,7 @@ class FavoriteService {
   async getFavorites(filters: FavoriteFilters = {}): Promise<FavoriteResponse> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           queryParams.append(key, String(value));
@@ -253,16 +253,16 @@ class FavoriteService {
 
   formatDate(dateString: string): string {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-IN', { 
-      day: 'numeric', 
-      month: 'short', 
-      year: 'numeric' 
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
     });
   }
 
   getPropertyStatusBadge(property: any): { variant: string; label: string } {
     const status = property?.status || 'available';
-    
+
     switch (status.toLowerCase()) {
       case 'sold':
         return { variant: "destructive", label: "Sold" };
@@ -285,7 +285,7 @@ class FavoriteService {
     const now = new Date();
     const diffInMs = now.getTime() - date.getTime();
     const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffInDays === 0) return "Today";
     if (diffInDays === 1) return "Yesterday";
     if (diffInDays < 7) return `${diffInDays} days ago`;

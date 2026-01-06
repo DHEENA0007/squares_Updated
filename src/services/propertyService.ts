@@ -117,6 +117,15 @@ export interface Property {
   clientName?: string;
   createdAt: string;
   updatedAt: string;
+  hasReviewed?: boolean;
+  reviewId?: string;
+  review?: {
+    _id: string;
+    rating: number;
+    title: string;
+    comment: string;
+    createdAt: string;
+  };
 }
 
 export interface PropertyFilters {
@@ -404,6 +413,15 @@ class PropertyService {
 
   hasValidArea(area: Property['area']): boolean {
     return !!(area.builtUp || area.plot || area.carpet);
+  }
+
+  async getOwnedProperties(): Promise<PropertyResponse> {
+    try {
+      return await this.makeRequest<PropertyResponse>('/customer/owned-properties');
+    } catch (error) {
+      console.error("Failed to fetch owned properties:", error);
+      throw error;
+    }
   }
 
   // Vendor-specific methods

@@ -62,6 +62,7 @@ export interface PerformanceMetrics {
     propertyId: string;
     title: string;
     status: string;
+    listingType?: string;
     views: number;
     leads: number;
     conversionRate: number;

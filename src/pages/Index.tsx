@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import PropertyFilters from "@/components/PropertyFilters";
 import PropertyCard from "@/components/PropertyCard";
 import VendorCard from "@/components/VendorCard";
@@ -14,6 +14,26 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [vendorsLoading, setVendorsLoading] = useState(true);
   const [filters, setFilters] = useState<PropertyFilterType>({});
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [shouldAnimate, setShouldAnimate] = useState(false);
+
+  // Calculate if animation is needed
+  useEffect(() => {
+    const checkAnimation = () => {
+      if (vendors.length === 0) return;
+
+      const cardWidth = 550; // Fixed card width
+      const gap = 24; // gap-6 is 24px
+      const totalContentWidth = vendors.length * (cardWidth + gap);
+      const containerWidth = window.innerWidth; // Use window width as approximation or ref if available
+
+      setShouldAnimate(totalContentWidth > containerWidth);
+    };
+
+    checkAnimation();
+    window.addEventListener('resize', checkAnimation);
+    return () => window.removeEventListener('resize', checkAnimation);
+  }, [vendors.length]);
 
   const fetchProperties = useCallback(async (currentFilters: PropertyFilterType = {}) => {
     try {
@@ -24,7 +44,7 @@ const Index = () => {
         page: 1,
         ...currentFilters,
       });
-      
+
       if (response.success) {
         setProperties(response.data.properties);
       }
@@ -70,8 +90,8 @@ const Index = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-3xl font-bold">
-              {Object.keys(filters).some(key => filters[key as keyof PropertyFilterType] !== undefined) 
-                ? "Filtered Properties" 
+              {Object.keys(filters).some(key => filters[key as keyof PropertyFilterType] !== undefined)
+                ? "Filtered Properties"
                 : "Latest Properties"}
             </h2>
             <p className="text-muted-foreground mt-1">
@@ -125,37 +145,35 @@ const Index = () => {
           </div>
 
           {/* Horizontal Scrolling Reel Container */}
-          <div className="relative overflow-hidden py-8" style={{
-            maskImage: 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)',
-            WebkitMaskImage: 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)'
-          }}>
-            <div 
-              className="flex gap-6 animate-scroll hover:pause-animation"
+          <div
+            ref={scrollContainerRef}
+            className="relative overflow-hidden py-8"
+            style={{
+              maskImage: shouldAnimate ? 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)' : 'none',
+              WebkitMaskImage: shouldAnimate ? 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)' : 'none'
+            }}
+          >
+            <div
+              className={`flex gap-6 ${shouldAnimate ? 'animate-scroll hover:pause-animation' : 'justify-center flex-wrap'}`}
               style={{
-                width: 'fit-content',
-                animation: 'scroll 60s linear infinite'
+                width: shouldAnimate ? 'fit-content' : '100%',
+                animation: shouldAnimate ? 'scroll 60s linear infinite' : 'none'
               }}
             >
               {/* First set of vendors */}
               {vendors.map((vendor) => (
-                <div 
+                <div
                   key={`vendor-${vendor._id}`}
-                  className="flex-shrink-0 w-[550px]"
-                  style={{
-                    minWidth: '550px'
-                  }}
+                  className="flex-shrink-0 w-[550px] max-w-[90vw]"
                 >
                   <VendorCard vendor={vendor} />
                 </div>
               ))}
-              {/* Duplicate for seamless infinite scroll */}
-              {vendors.map((vendor) => (
-                <div 
+              {/* Duplicate for seamless infinite scroll - only if animating */}
+              {shouldAnimate && vendors.map((vendor) => (
+                <div
                   key={`vendor-dup-${vendor._id}`}
-                  className="flex-shrink-0 w-[550px]"
-                  style={{
-                    minWidth: '550px'
-                  }}
+                  className="flex-shrink-0 w-[550px] max-w-[90vw]"
                 >
                   <VendorCard vendor={vendor} />
                 </div>

@@ -45,6 +45,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { analyticsService, AnalyticsOverviewStats, AnalyticsFilters, PerformanceMetrics } from "@/services/analyticsService";
 import { propertyService } from "@/services/propertyService";
+import { configurationService } from "@/services/configurationService";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import jsPDF from 'jspdf';
@@ -66,6 +67,7 @@ const VendorAnalytics = () => {
   const [exporting, setExporting] = useState(false);
   const [engagementMetric, setEngagementMetric] = useState<'all' | 'views' | 'interactions' | 'conversions'>('all');
   const [engagementChartType, setEngagementChartType] = useState<'area' | 'bar' | 'composed'>('composed');
+  const [listingTypes, setListingTypes] = useState<Array<{ value: string; name: string; displayLabel?: string }>>([]);
 
   const filters: AnalyticsFilters = {
     timeframe,
@@ -75,17 +77,26 @@ const VendorAnalytics = () => {
   const loadAnalyticsData = async () => {
     try {
       setLoading(true);
-      const [statsData, metricsData, propertiesData] = await Promise.all([
+      const [statsData, metricsData, propertiesData, listingTypesData] = await Promise.all([
         analyticsService.getOverviewStats(filters),
         analyticsService.getPerformanceMetrics(filters),
-        propertyService.getVendorProperties({ page: 1, limit: 100 }) // Use vendor-specific endpoint
+        propertyService.getVendorProperties({ page: 1, limit: 100 }),
+        configurationService.getFilterConfigurationsByType('listing_type', false)
       ]);
-      
+
       setOverviewStats(statsData);
       setPerformanceMetrics(metricsData);
       const vendorProperties = propertiesData.success ? propertiesData.data.properties : [];
       setProperties(vendorProperties);
-      
+
+      // Set listing types from admin configuration
+      const mappedListingTypes = listingTypesData.map(type => ({
+        value: type.value,
+        name: type.name,
+        displayLabel: type.displayLabel || type.name
+      }));
+      setListingTypes(mappedListingTypes);
+
       // Reset filter if the selected property no longer exists
       if (propertyFilter !== 'all' && !vendorProperties.find(p => p._id === propertyFilter)) {
         setPropertyFilter('all');
@@ -593,6 +604,40 @@ const VendorAnalytics = () => {
     );
   }
 
+  // Dynamically generate property revenue cards based on listing type (configured from admin portal)
+  const getPropertyListingTypeCards = () => {
+    if (!performanceMetrics?.propertyPerformance?.length) return [];
+
+    // Group properties by listingType and calculate revenue for each
+    const listingTypeGroups: Record<string, { count: number; revenue: number }> = {};
+
+    performanceMetrics.propertyPerformance.forEach((property) => {
+      const listingType = property.listingType?.toLowerCase() || 'sale';
+      if (!listingTypeGroups[listingType]) {
+        listingTypeGroups[listingType] = { count: 0, revenue: 0 };
+      }
+      listingTypeGroups[listingType].count += 1;
+      listingTypeGroups[listingType].revenue += property.revenue || 0;
+    });
+
+    // Convert to cards array - only show listing types that exist in vendor's properties
+    // Use labels from admin-configured listing types
+    return Object.entries(listingTypeGroups).map(([listingTypeValue, data]) => {
+      // Find the matching listing type from admin configuration
+      const configuredType = listingTypes.find(lt => lt.value.toLowerCase() === listingTypeValue);
+      const label = configuredType?.displayLabel || configuredType?.name || listingTypeValue.charAt(0).toUpperCase() + listingTypeValue.slice(1);
+
+      return {
+        title: `${label} Revenue`,
+        value: `₹${analyticsService.formatNumber(data.revenue)}`,
+        change: "0%",
+        changeType: "neutral" as "neutral" | "increase" | "decrease",
+        icon: Home,
+        description: `${data.count} ${data.count === 1 ? 'property' : 'properties'} listed`
+      };
+    });
+  };
+
   const formatOverviewStats = (stats: AnalyticsOverviewStats | null | undefined) => {
     if (!stats) {
       return [
@@ -626,7 +671,7 @@ const VendorAnalytics = () => {
           change: "0%",
           changeType: "neutral" as "neutral" | "increase" | "decrease",
           icon: Star,
-          description: "Customer reviews"
+          description: "All property revenue"
         },
         {
           title: "Avg. Rating",
@@ -652,85 +697,65 @@ const VendorAnalytics = () => {
     };
 
     const viewsChange = formatChange(stats.trends?.views?.growth);
-    const leadsChange = formatChange(stats.trends?.leads?.growth);
-    const propertiesChange = formatChange(stats.trends?.properties?.growth);
     const revenueChange = formatChange(stats.trends?.revenue?.growth);
-    // Note: Sold/Leased/Rented revenue trends not available in stats
-    const soldRevenueChange = { change: "0%", changeType: "neutral" as "neutral" };
-    const leasedRevenueChange = { change: "0%", changeType: "neutral" as "neutral" };
-    const rentedRevenueChange = { change: "0%", changeType: "neutral" as "neutral" };
 
-    return [
-    {
-      title: "Total Views",
-      value: analyticsService.formatNumber(stats.totalViews),
-      change: viewsChange.change,
-      changeType: viewsChange.changeType,
-      icon: Eye,
-      description: "Property page views"
-    },
-    {
-      title: "Phone Calls",
-      value: analyticsService.formatNumber(stats.totalCalls),
-      change: "0%", // Call trends not implemented yet
-      changeType: "neutral" as "neutral" | "increase" | "decrease",
-      icon: Phone,
-      description: "Direct calls"
-    },
-    {
-      title: "Messages",
-      value: analyticsService.formatNumber(stats.totalMessages),
-      change: "0%", // Message trends not implemented yet
-      changeType: "neutral" as "neutral" | "increase" | "decrease",
-      icon: MessageSquare,
-      description: "Chat inquiries"
-    },
-    {
-      title: "Total Revenue",
-      value: `₹${analyticsService.formatNumber(stats.totalRevenue)}`,
-      change: revenueChange.change,
-      changeType: revenueChange.changeType,
-      icon: Star,
-      description: "All property revenue"
-    },
-    {
-      title: "Sold Properties",
-      value: `₹${analyticsService.formatNumber(stats.soldPropertyRevenue)}`,
-      change: soldRevenueChange.change,
-      changeType: soldRevenueChange.changeType,
-      icon: Star,
-      description: "Revenue from sold properties"
-    },
-    {
-      title: "Leased Properties",
-      value: `₹${analyticsService.formatNumber(stats.leasedPropertyRevenue)}`,
-      change: leasedRevenueChange.change,
-      changeType: leasedRevenueChange.changeType,
-      icon: Star,
-      description: "Revenue from leased properties"
-    },
-    {
-      title: "Rented Properties",
-      value: `₹${analyticsService.formatNumber(stats.rentedPropertyRevenue)}`,
-      change: rentedRevenueChange.change,
-      changeType: rentedRevenueChange.changeType,
-      icon: Star,
-      description: "Revenue from rented properties"
-    },
-    {
+    // Base stats that are always shown
+    const baseStats = [
+      {
+        title: "Total Views",
+        value: analyticsService.formatNumber(stats.totalViews),
+        change: viewsChange.change,
+        changeType: viewsChange.changeType,
+        icon: Eye,
+        description: "Property page views"
+      },
+      {
+        title: "Phone Calls",
+        value: analyticsService.formatNumber(stats.totalCalls),
+        change: "0%",
+        changeType: "neutral" as "neutral" | "increase" | "decrease",
+        icon: Phone,
+        description: "Direct calls"
+      },
+      {
+        title: "Messages",
+        value: analyticsService.formatNumber(stats.totalMessages),
+        change: "0%",
+        changeType: "neutral" as "neutral" | "increase" | "decrease",
+        icon: MessageSquare,
+        description: "Chat inquiries"
+      },
+      {
+        title: "Total Revenue",
+        value: `₹${analyticsService.formatNumber(stats.totalRevenue)}`,
+        change: revenueChange.change,
+        changeType: revenueChange.changeType,
+        icon: Star,
+        description: "All property revenue"
+      }
+    ];
+
+    // Get dynamic property listing type cards (sale/rent/lease)
+    const propertyListingCards = getPropertyListingTypeCards();
+
+    // Add rating card at the end
+    const ratingCard = {
       title: "Avg. Rating",
       value: stats.averageRating?.toFixed(1) || "0.0",
-      change: "0%", // Rating trends not implemented yet
+      change: "0%",
       changeType: "neutral" as "neutral" | "increase" | "decrease",
       icon: Star,
       description: "Customer reviews"
-    }
-    ];
-  };  const displayStats = overviewStats ? formatOverviewStats(overviewStats) : [];
+    };
+
+    return [...baseStats, ...propertyListingCards, ratingCard];
+  };
+
+  const displayStats = overviewStats ? formatOverviewStats(overviewStats) : [];
 
   // Use real performance metrics data or fallback to default
-  const viewsData = performanceMetrics?.viewsData?.length ? 
-    performanceMetrics.viewsData : 
+  const viewsData = performanceMetrics?.viewsData?.length ?
+    performanceMetrics.viewsData :
     analyticsService.generateDateRange(timeframe);
 
   const leadsData = performanceMetrics?.leadsData?.length ?
@@ -747,14 +772,14 @@ const VendorAnalytics = () => {
 
   const propertyPerformance = performanceMetrics?.propertyPerformance || [];
 
-  const leadSources = performanceMetrics?.leadSources?.length ? 
+  const leadSources = performanceMetrics?.leadSources?.length ?
     performanceMetrics.leadSources : [];
 
   const demographicsData = performanceMetrics?.demographicsData?.length ?
     performanceMetrics.demographicsData : [];
 
   // Generate engagement data from real metrics or use empty array
-  const engagementData = performanceMetrics?.viewsData?.length ? 
+  const engagementData = performanceMetrics?.viewsData?.length ?
     performanceMetrics.viewsData.slice(0, 7).map((item, index) => ({
       name: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index] || item.name,
       favorites: Math.floor(item.value * 0.1),
@@ -763,7 +788,7 @@ const VendorAnalytics = () => {
     })) : [];
 
   // Prepare comprehensive engagement data with all metrics
-  const comprehensiveEngagementData = performanceMetrics?.viewsData?.length ? 
+  const comprehensiveEngagementData = performanceMetrics?.viewsData?.length ?
     performanceMetrics.viewsData.map((item, index) => ({
       name: item.name,
       views: item.value || 0,
@@ -777,11 +802,11 @@ const VendorAnalytics = () => {
   // Filter engagement data based on selected metric
   const getFilteredEngagementData = () => {
     if (!comprehensiveEngagementData.length) return [];
-    
+
     if (engagementMetric === 'all') {
       return comprehensiveEngagementData;
     }
-    
+
     return comprehensiveEngagementData;
   };
 
@@ -791,7 +816,7 @@ const VendorAnalytics = () => {
   const topProperties = performanceMetrics?.propertyPerformance.slice(0, 3) || [];
 
   return (
-    <div className="space-y-6 mt-6">
+    <div className="space-y-8 p-6 bg-gray-50/50 min-h-screen">
       {/* Header */}
       <div className={`flex ${isMobile ? 'flex-col space-y-4' : 'justify-between items-center'}`}>
         <div>
@@ -842,9 +867,9 @@ const VendorAnalytics = () => {
       </div>
 
       {/* Overview Stats */}
-      <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'}`}>
+      <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-4'}`}>
         {displayStats.map((stat) => (
-          <Card key={stat.title}>
+          <Card key={stat.title} className="shadow-sm hover:shadow-md transition-shadow duration-200 border-0 bg-white">
             <CardContent className={`${isMobile ? 'p-4' : 'p-6'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex-1">
@@ -856,9 +881,8 @@ const VendorAnalytics = () => {
                     ) : stat.changeType === "decrease" ? (
                       <TrendingDown className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} text-red-500 mr-1`} />
                     ) : null}
-                    <span className={`${isMobile ? 'text-xs' : 'text-sm'} ${
-                      stat.changeType === "increase" ? "text-green-500" : stat.changeType === "decrease" ? "text-red-500" : "text-muted-foreground"
-                    }`}>
+                    <span className={`${isMobile ? 'text-xs' : 'text-sm'} ${stat.changeType === "increase" ? "text-green-500" : stat.changeType === "decrease" ? "text-red-500" : "text-muted-foreground"
+                      }`}>
                       {stat.change}
                     </span>
                   </div>
@@ -871,9 +895,10 @@ const VendorAnalytics = () => {
         ))}
       </div>
 
-      <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+      {/* Charts Section - Two Column Grid */}
+      <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
         {/* Property Engagement Overview */}
-        <Card className="lg:col-span-2">
+        <Card className="shadow-sm border-0 bg-white">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -915,33 +940,33 @@ const VendorAnalytics = () => {
                     <ComposedChart data={filteredEngagementData}>
                       <defs>
                         <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
                         </linearGradient>
                         <linearGradient id="colorInteractions" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1}/>
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis 
-                        dataKey="name" 
+                      <XAxis
+                        dataKey="name"
                         stroke="#6b7280"
                         tick={{ fontSize: 12 }}
                       />
-                      <YAxis 
+                      <YAxis
                         stroke="#6b7280"
                         tick={{ fontSize: 12 }}
                       />
-                      <Tooltip 
-                        contentStyle={{ 
+                      <Tooltip
+                        contentStyle={{
                           backgroundColor: 'rgba(255, 255, 255, 0.95)',
                           border: '1px solid #e5e7eb',
                           borderRadius: '8px',
                           boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                         }}
                       />
-                      <Legend 
+                      <Legend
                         wrapperStyle={{ paddingTop: '15px' }}
                         iconType="circle"
                       />
@@ -956,18 +981,18 @@ const VendorAnalytics = () => {
                         />
                       ) : null}
                       {engagementMetric === 'all' || engagementMetric === 'interactions' ? (
-                        <Bar 
-                          dataKey="interactions" 
-                          fill="#8b5cf6" 
+                        <Bar
+                          dataKey="interactions"
+                          fill="#8b5cf6"
                           name="Interactions"
                           radius={[4, 4, 0, 0]}
                         />
                       ) : null}
                       {engagementMetric === 'all' || engagementMetric === 'conversions' ? (
-                        <Line 
-                          type="monotone" 
-                          dataKey="conversions" 
-                          stroke="#10b981" 
+                        <Line
+                          type="monotone"
+                          dataKey="conversions"
+                          stroke="#10b981"
                           strokeWidth={3}
                           dot={{ r: 5, fill: '#10b981' }}
                           name="Conversions"
@@ -975,19 +1000,19 @@ const VendorAnalytics = () => {
                       ) : null}
                       {engagementMetric === 'all' ? (
                         <>
-                          <Line 
-                            type="monotone" 
-                            dataKey="favorites" 
-                            stroke="#f59e0b" 
+                          <Line
+                            type="monotone"
+                            dataKey="favorites"
+                            stroke="#f59e0b"
                             strokeWidth={2}
                             strokeDasharray="5 5"
                             dot={{ r: 4 }}
                             name="Favorites"
                           />
-                          <Line 
-                            type="monotone" 
-                            dataKey="shares" 
-                            stroke="#ec4899" 
+                          <Line
+                            type="monotone"
+                            dataKey="shares"
+                            stroke="#ec4899"
                             strokeWidth={2}
                             strokeDasharray="5 5"
                             dot={{ r: 4 }}
@@ -1000,23 +1025,23 @@ const VendorAnalytics = () => {
                     <AreaChart data={filteredEngagementData}>
                       <defs>
                         <linearGradient id="areaViews" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
                         </linearGradient>
                         <linearGradient id="areaInteractions" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1}/>
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1} />
                         </linearGradient>
                         <linearGradient id="areaConversions" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis dataKey="name" stroke="#6b7280" tick={{ fontSize: 12 }} />
                       <YAxis stroke="#6b7280" tick={{ fontSize: 12 }} />
-                      <Tooltip 
-                        contentStyle={{ 
+                      <Tooltip
+                        contentStyle={{
                           backgroundColor: 'rgba(255, 255, 255, 0.95)',
                           border: '1px solid #e5e7eb',
                           borderRadius: '8px'
@@ -1038,8 +1063,8 @@ const VendorAnalytics = () => {
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis dataKey="name" stroke="#6b7280" tick={{ fontSize: 12 }} />
                       <YAxis stroke="#6b7280" tick={{ fontSize: 12 }} />
-                      <Tooltip 
-                        contentStyle={{ 
+                      <Tooltip
+                        contentStyle={{
                           backgroundColor: 'rgba(255, 255, 255, 0.95)',
                           border: '1px solid #e5e7eb',
                           borderRadius: '8px'
@@ -1058,7 +1083,7 @@ const VendorAnalytics = () => {
                     </BarChart>
                   )}
                 </ResponsiveContainer>
-                
+
                 {/* Engagement Summary Stats */}
                 <div className={`grid gap-3 mt-6 pt-4 border-t ${isMobile ? 'grid-cols-1' : 'grid-cols-3 md:grid-cols-6'}`}>
                   <div className="text-center p-2 bg-blue-50 rounded-lg">
@@ -1118,7 +1143,7 @@ const VendorAnalytics = () => {
         </Card>
 
         {/* Inquiry Response Time */}
-        <Card className="lg:col-span-2">
+        <Card className="shadow-sm border-0 bg-white">
           <CardHeader>
             <CardTitle>Inquiry Response Time</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">Average time to respond to customer inquiries</p>
@@ -1128,36 +1153,36 @@ const VendorAnalytics = () => {
               <AreaChart data={leadsData}>
                 <defs>
                   <linearGradient id="colorResponseTime" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis 
-                  dataKey="name" 
+                <XAxis
+                  dataKey="name"
                   stroke="#6b7280"
                   tick={{ fontSize: 12 }}
                 />
-                <YAxis 
+                <YAxis
                   stroke="#6b7280"
                   tick={{ fontSize: 12 }}
                   label={{ value: 'Hours', angle: -90, position: 'insideLeft' }}
                 />
-                <Tooltip 
-                  contentStyle={{ 
+                <Tooltip
+                  contentStyle={{
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
                     border: '1px solid #e5e7eb',
                     borderRadius: '8px'
                   }}
                   formatter={(value: number) => [`${value.toFixed(1)} hours`, 'Response Time']}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#10b981" 
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#10b981"
                   strokeWidth={2}
-                  fillOpacity={1} 
-                  fill="url(#colorResponseTime)" 
+                  fillOpacity={1}
+                  fill="url(#colorResponseTime)"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -1165,7 +1190,7 @@ const VendorAnalytics = () => {
               <div className="text-center">
                 <div className="text-sm text-muted-foreground">Avg Response</div>
                 <div className="text-2xl font-bold text-green-600">
-                  {leadsData.length > 0 
+                  {leadsData.length > 0
                     ? (leadsData.reduce((acc, curr) => acc + curr.value, 0) / leadsData.length).toFixed(1)
                     : '0.0'
                   }h
@@ -1174,7 +1199,7 @@ const VendorAnalytics = () => {
               <div className="text-center">
                 <div className="text-sm text-muted-foreground">Fastest</div>
                 <div className="text-2xl font-bold text-blue-600">
-                  {leadsData.length > 0 
+                  {leadsData.length > 0
                     ? Math.min(...leadsData.map(d => d.value)).toFixed(1)
                     : '0.0'
                   }h
@@ -1192,7 +1217,7 @@ const VendorAnalytics = () => {
       </div>
 
       {/* Property Performance */}
-      <Card>
+      <Card className="shadow-sm border-0 bg-white">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Property Performance</CardTitle>
@@ -1226,8 +1251,8 @@ const VendorAnalytics = () => {
               <p className="text-muted-foreground max-w-md mb-4">
                 You haven't added any properties yet. Add your first property to start tracking performance analytics.
               </p>
-              <Button 
-                onClick={() => navigate('/vendor/properties/add')} 
+              <Button
+                onClick={() => navigate('/vendor/properties/add')}
                 className="mt-2"
               >
                 Add Your First Property
@@ -1236,31 +1261,31 @@ const VendorAnalytics = () => {
           ) : propertyPerformance.length > 0 ? (
             <div className="space-y-6">
               <ResponsiveContainer width="100%" height={400}>
-                <AreaChart 
+                <AreaChart
                   data={propertyPerformance}
                   margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
                 >
                   <defs>
                     <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
-                  <XAxis 
-                    dataKey="title" 
+                  <XAxis
+                    dataKey="title"
                     angle={-45}
                     textAnchor="end"
                     height={100}
                     tick={{ fontSize: 11, fill: '#6b7280' }}
                     interval={0}
                   />
-                  <YAxis 
+                  <YAxis
                     tick={{ fontSize: 12, fill: '#6b7280' }}
                     label={{ value: 'Views', angle: -90, position: 'insideLeft', style: { fill: '#6b7280' } }}
                   />
-                  <Tooltip 
-                    contentStyle={{ 
+                  <Tooltip
+                    contentStyle={{
                       backgroundColor: 'rgba(255, 255, 255, 0.96)',
                       border: '1px solid #e5e7eb',
                       borderRadius: '8px',
@@ -1268,7 +1293,7 @@ const VendorAnalytics = () => {
                     }}
                     formatter={(value: any, name: string) => [value, name]}
                   />
-                  <Legend 
+                  <Legend
                     wrapperStyle={{ paddingTop: '20px' }}
                     iconType="circle"
                   />
@@ -1282,7 +1307,7 @@ const VendorAnalytics = () => {
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              
+
               {/* Property Performance Table */}
               <div className="mt-6">
                 <div className="overflow-x-auto">
@@ -1327,4 +1352,3 @@ const VendorAnalytics = () => {
 };
 
 export default VendorAnalytics;
-       

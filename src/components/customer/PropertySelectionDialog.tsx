@@ -44,7 +44,7 @@ const PropertySelectionDialog = ({
   // Search only when needed with debounce
   useEffect(() => {
     if (!open || activeTab !== "search") return;
-    
+
     if (searchDebounceTimer) {
       clearTimeout(searchDebounceTimer);
     }
@@ -118,7 +118,7 @@ const PropertySelectionDialog = ({
 
   const handlePropertyClick = useCallback(async (propertyId: string) => {
     if (addingPropertyId) return;
-    
+
     if (selectedPropertyIds.includes(propertyId)) {
       toast({
         title: "Already Selected",
@@ -150,14 +150,14 @@ const PropertySelectionDialog = ({
 
   // Memoized available favorites
   const availableFavorites = useMemo(() => {
-    return favorites.filter(fav => 
+    return favorites.filter(fav =>
       fav.property && !selectedPropertyIds.includes(fav.property._id)
     );
   }, [favorites, selectedPropertyIds]);
 
   // Memoized available search results
   const availableSearchResults = useMemo(() => {
-    return searchResults.filter(prop => 
+    return searchResults.filter(prop =>
       !selectedPropertyIds.includes(prop._id)
     );
   }, [searchResults, selectedPropertyIds]);
@@ -196,17 +196,17 @@ const PropertySelectionDialog = ({
                   <Heart className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                   <h3 className="text-lg font-medium mb-2">No Available Favorites</h3>
                   <p className="text-sm">
-                    {favorites.length === 0 
-                      ? "You haven't favorited any properties yet" 
+                    {favorites.length === 0
+                      ? "You haven't favorited any properties yet"
                       : "All your favorite properties are already in the comparison"}
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {availableFavorites.map((favorite) => (
-                    <PropertyCard 
-                      key={favorite._id} 
-                      property={favorite.property} 
+                    <PropertyCard
+                      key={favorite._id}
+                      property={favorite.property}
                       isAdding={addingPropertyId === favorite.property._id}
                       onClick={() => handlePropertyClick(favorite.property._id)}
                     />
@@ -250,10 +250,10 @@ const PropertySelectionDialog = ({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {availableSearchResults.map((property) => (
-                    <PropertyCard 
-                      key={property._id} 
+                    <PropertyCard
+                      key={property._id}
                       property={property}
                       isAdding={addingPropertyId === property._id}
                       onClick={() => handlePropertyClick(property._id)}
@@ -270,12 +270,12 @@ const PropertySelectionDialog = ({
 };
 
 // Memoized PropertyCard component
-const PropertyCard = memo(({ 
-  property, 
+const PropertyCard = memo(({
+  property,
   isAdding,
-  onClick 
-}: { 
-  property: any; 
+  onClick
+}: {
+  property: any;
   isAdding: boolean;
   onClick: () => void;
 }) => {
@@ -300,7 +300,7 @@ const PropertyCard = memo(({
   };
 
   return (
-    <Card 
+    <Card
       className={`cursor-pointer transition-all hover:shadow-md ${isAdding ? 'opacity-50' : ''}`}
       onClick={isAdding ? undefined : onClick}
     >
@@ -316,10 +316,10 @@ const PropertyCard = memo(({
               }}
             />
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-sm mb-1 line-clamp-2">{property.title}</h3>
-            
+
             <div className="flex items-center text-xs text-muted-foreground mb-2">
               <MapPin className="w-3 h-3 mr-1 flex-shrink-0" />
               <span className="truncate">

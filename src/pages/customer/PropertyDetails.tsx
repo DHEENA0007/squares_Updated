@@ -38,7 +38,23 @@ import { messageService } from '@/services/messageService';
 import { vendorService } from '@/services/vendorService';
 import PropertyMessageDialog from '@/components/PropertyMessageDialog';
 import PropertyContactDialog from '@/components/PropertyContactDialog';
+
 import EnterprisePropertyContactDialog from '@/components/EnterprisePropertyContactDialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from "@/components/ui/carousel";
+import { X } from "lucide-react";
 
 const PropertyDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -59,7 +75,26 @@ const PropertyDetails: React.FC = () => {
   const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
   const [hasWhatsAppSupport, setHasWhatsAppSupport] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
+
   const [checkingWhatsApp, setCheckingWhatsApp] = useState(false);
+
+  // Gallery state
+  const [showGallery, setShowGallery] = useState(false);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+
+  // Update carousel when api is available or selected index changes
+  useEffect(() => {
+    if (!carouselApi) {
+      return;
+    }
+
+    carouselApi.scrollTo(selectedImageIndex);
+  }, [carouselApi, selectedImageIndex, showGallery]);
+
+  const openGallery = (index: number) => {
+    setSelectedImageIndex(index);
+    setShowGallery(true);
+  };
 
   const loadProperty = useCallback(async () => {
     if (!id) return;
@@ -356,430 +391,315 @@ const PropertyDetails: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-20 pb-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold">{property.title}</h1>
-              <div className="flex items-center text-muted-foreground mt-1">
-                <MapPin className="w-4 h-4 mr-1" />
-                <span className="text-sm">{getLocationString(property)}</span>
-              </div>
-            </div>
-          </div>
-
+    <div className="min-h-screen bg-gray-50/50 pb-12">
+      {/* Navigation Bar / Breadcrumb Placeholder */}
+      <div className="bg-white border-b sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="text-muted-foreground hover:text-primary">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Search
+          </Button>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleFavoriteToggle}
-              disabled={favoriteLoading}
-            >
-              <Heart className={`w-4 h-4 mr-2 ${isFavorited ? 'fill-red-500 text-red-500' : ''}`} />
-              {isFavorited ? 'Favorited' : 'Add to Favorites'}
-            </Button>
-            <Button variant="outline" onClick={handleShare}>
+            <Button variant="ghost" size="sm" onClick={handleShare}>
               <Share2 className="w-4 h-4 mr-2" />
               Share
             </Button>
-            <Button onClick={() => {
-              const selected = [property._id];
-              navigate(`/customer/compare?properties=${selected.join(',')}`);
-            }}>
-              <GitCompare className="w-4 h-4 mr-2" />
-              Compare
+            <Button variant="ghost" size="sm" onClick={handleFavoriteToggle} className={isFavorited ? "text-red-500" : ""}>
+              <Heart className={`w-4 h-4 mr-2 ${isFavorited ? 'fill-current' : ''}`} />
+              {isFavorited ? 'Saved' : 'Save'}
             </Button>
           </div>
         </div>
+      </div>
 
-        {/* Status and Price */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-3">
-            <Badge className={`${getStatusColor(property.status)} text-white`}>
-              {property.status}
-            </Badge>
-            {property.featured && (
-              <Badge variant="secondary">
-                <Star className="w-3 h-3 mr-1" />
-                Featured
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        {/* Header Section: Title & Price */}
+        <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+                {property.bedrooms > 0 ? `${property.bedrooms} BHK ` : ''}
+                {property.type} for {property.listingType === 'sale' ? 'Sale' : property.listingType}
+              </h1>
+              <Badge variant="outline" className={`${getStatusColor(property.status)} text-white border-0`}>
+                {property.status}
               </Badge>
-            )}
-            {property.verified && (
-              <Badge className="bg-green-600 text-white">Verified</Badge>
-            )}
+            </div>
+            <div className="flex items-center text-muted-foreground">
+              <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
+              <span className="text-base">{getLocationString(property)}</span>
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-2xl sm:text-3xl font-bold text-primary">
+
+          <div className="text-left md:text-right">
+            <div className="text-3xl font-bold text-gray-900">
               {formatPrice(property.price, property.listingType)}
-            </p>
+            </div>
             {calculatePricePerSqft(property) > 0 && (
-              <p className="text-sm text-muted-foreground">
-                ₹{calculatePricePerSqft(property)}/sq ft
-              </p>
+              <div className="text-sm text-muted-foreground font-medium">
+                ₹{calculatePricePerSqft(property)} / sq ft
+              </div>
             )}
           </div>
         </div>
 
-        {/* Image Gallery */}
-        {property.images && property.images.length > 0 && (
-          <Card>
-            <CardContent className="p-0">
-              <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-                <img
-                  src={typeof property.images[selectedImageIndex] === 'string'
-                    ? property.images[selectedImageIndex]
-                    : (property.images[selectedImageIndex] as any).url
-                  }
-                  alt={property.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = '/placeholder-property.jpg';
-                  }}
-                />
-              </div>
-              {property.images.length > 1 && (
-                <div className="flex gap-2 p-4 overflow-x-auto">
-                  {property.images.map((image, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setSelectedImageIndex(index)}
-                      className={`flex-shrink-0 w-20 h-16 rounded-lg overflow-hidden border-2 ${index === selectedImageIndex ? 'border-primary' : 'border-transparent'
-                        }`}
-                    >
-                      <img
-                        src={typeof image === 'string' ? image : image.url}
-                        alt={`Property image ${index + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = '/placeholder-property.jpg';
-                        }}
-                      />
-                    </button>
-                  ))}
-                </div>
+        {/* Image Gallery - Grid Layout */}
+        {property.images && property.images.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 h-[300px] md:h-[400px] rounded-xl overflow-hidden">
+            {/* Main Image */}
+            <div className="md:col-span-2 h-full relative cursor-pointer group overflow-hidden" onClick={() => openGallery(0)}>
+              <img
+                src={typeof property.images[0] === 'string' ? property.images[0] : (property.images[0] as any).url}
+                alt="Property Main"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                onError={(e) => { e.currentTarget.src = '/placeholder-property.jpg'; }}
+              />
+              <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
+            </div>
+
+            {/* Secondary Images */}
+            <div className="hidden md:grid md:col-span-2 grid-cols-2 gap-2 h-full">
+              {[1, 2, 3, 4].map((offset) => {
+                const img = property.images[offset];
+                if (!img) return null;
+                return (
+                  <div key={offset} className="relative h-full overflow-hidden cursor-pointer group" onClick={() => openGallery(offset)}>
+                    <img
+                      src={typeof img === 'string' ? img : (img as any).url}
+                      alt={`Property ${offset}`}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => { e.currentTarget.src = '/placeholder-property.jpg'; }}
+                    />
+                    {/* Overlay for the last image if there are more */}
+                    {offset === 4 && property.images.length > 5 && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-medium text-lg">
+                        +{property.images.length - 5} more
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {/* Fallback if fewer images */}
+              {property.images.length < 5 && property.images.length > 1 && (
+                property.images.slice(1).map((img, idx) => (
+                  <div key={idx} className="relative h-full overflow-hidden cursor-pointer group" onClick={() => openGallery(idx + 1)}>
+                    <img
+                      src={typeof img === 'string' ? img : (img as any).url}
+                      alt={`Property ${idx + 1}`}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => { e.currentTarget.src = '/placeholder-property.jpg'; }}
+                    />
+                  </div>
+                ))
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+        ) : (
+          <div className="h-[300px] bg-muted rounded-xl flex items-center justify-center">
+            <div className="text-center text-muted-foreground">
+              <Building2 className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No images available</p>
+            </div>
+          </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Property Overview */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Building2 className="w-5 h-5 mr-2" />
-                  Property Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {property.bedrooms && property.bedrooms > 0 && (
-                    <div className="text-center p-4 bg-muted rounded-lg">
-                      <Bed className="w-6 h-6 mx-auto mb-2 text-primary" />
-                      <p className="text-2xl font-bold">{property.bedrooms}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column: Details */}
+          <div className="lg:col-span-2 space-y-8">
+
+            {/* Key Highlights Bar */}
+            <Card className="border-none shadow-sm bg-white">
+              <CardContent className="p-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 rounded-full text-blue-600">
+                      <Bed className="w-5 h-5" />
+                    </div>
+                    <div>
                       <p className="text-sm text-muted-foreground">Bedrooms</p>
+                      <p className="font-semibold text-gray-900">{property.bedrooms || 'N/A'}</p>
                     </div>
-                  )}
-                  {property.bathrooms && property.bathrooms > 0 && (
-                    <div className="text-center p-4 bg-muted rounded-lg">
-                      <Bath className="w-6 h-6 mx-auto mb-2 text-primary" />
-                      <p className="text-2xl font-bold">{property.bathrooms}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 rounded-full text-blue-600">
+                      <Bath className="w-5 h-5" />
+                    </div>
+                    <div>
                       <p className="text-sm text-muted-foreground">Bathrooms</p>
+                      <p className="font-semibold text-gray-900">{property.bathrooms || 'N/A'}</p>
                     </div>
-                  )}
-                  {hasValidArea(property.area) && (
-                    <div className="text-center p-4 bg-muted rounded-lg">
-                      <Maximize className="w-6 h-6 mx-auto mb-2 text-primary" />
-                      <p className="text-2xl font-bold">{formatArea(property.area).split(' ')[0]}</p>
-                      <p className="text-sm text-muted-foreground">Sq Ft</p>
-                    </div>
-                  )}
-                  {property.type && (
-                    <div className="flex flex-col items-center justify-center text-center p-4 bg-muted rounded-lg">
-                      <Building2 className="w-6 h-6 mb-2 text-primary" />
-                      <p className="text-2xl font-bold capitalize">{property.type}</p>
-                      <p className="text-sm text-muted-foreground">Type</p>
-                    </div>
-                  )}
-                </div>
-
-                {property.description && (
-                  <div>
-                    <h3 className="font-semibold mb-2">Description</h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {property.description}
-                    </p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Property Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Property Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    {property.type && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Property Type:</span>
-                        <span className="font-medium capitalize">{property.type}</span>
-                      </div>
-                    )}
-                    {property.listingType && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Listing Type:</span>
-                        <span className="font-medium capitalize">{property.listingType}</span>
-                      </div>
-                    )}
-                    {property.bedrooms && property.bedrooms > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Bedrooms:</span>
-                        <span className="font-medium">{property.bedrooms}</span>
-                      </div>
-                    )}
-                    {property.bathrooms && property.bathrooms > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Bathrooms:</span>
-                        <span className="font-medium">{property.bathrooms}</span>
-                      </div>
-                    )}
-                    {property.floor && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Floor:</span>
-                        <span className="font-medium">{property.floor}</span>
-                      </div>
-                    )}
-                    {property.totalFloors && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Floors:</span>
-                        <span className="font-medium">{property.totalFloors}</span>
-                      </div>
-                    )}
-                    {property.furnishing && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Furnishing:</span>
-                        <span className="font-medium capitalize">{property.furnishing.replace('-', ' ')}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-3">
-                    {hasValidArea(property.area) && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Area:</span>
-                        <span className="font-medium">{formatArea(property.area)}</span>
-                      </div>
-                    )}
-                    {property.status && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Status:</span>
-                        <span className="font-medium capitalize">{property.status}</span>
-                      </div>
-                    )}
-                    {property.facing && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Facing:</span>
-                        <span className="font-medium capitalize">{property.facing}</span>
-                      </div>
-                    )}
-                    {property.parkingSpaces && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Parking:</span>
-                        <span className="font-medium">{property.parkingSpaces}</span>
-                      </div>
-                    )}
-                    {property.age && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Age:</span>
-                        <span className="font-medium">{property.age} years</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Listed On:</span>
-                      <span className="font-medium">{new Date(property.createdAt).toLocaleDateString()}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 rounded-full text-blue-600">
+                      <Maximize className="w-5 h-5" />
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Property ID:</span>
-                      <span className="font-medium text-xs break-all text-right">{property._id}</span>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Area</p>
+                      <p className="font-semibold text-gray-900">{formatArea(property.area)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 rounded-full text-blue-600">
+                      <Home className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Furnishing</p>
+                      <p className="font-semibold text-gray-900 capitalize">{property.furnishing ? property.furnishing.replace('-', ' ') : 'N/A'}</p>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Description */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-gray-900">About this Property</h2>
+              <p className="text-gray-600 leading-relaxed whitespace-pre-line">
+                {property.description}
+              </p>
+            </div>
+
+            <Separator />
+
+            {/* Property Details Grid */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-gray-900">Property Details</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                {[
+                  { label: 'Property Type', value: property.type, capitalize: true },
+                  { label: 'Listing Type', value: property.listingType, capitalize: true },
+                  { label: 'Floor', value: property.floor },
+                  { label: 'Total Floors', value: property.totalFloors },
+                  { label: 'Facing', value: property.facing, capitalize: true },
+                  { label: 'Parking', value: property.parkingSpaces },
+                  { label: 'Age of Building', value: property.age ? `${property.age} Years` : null },
+                  { label: 'Status', value: property.status, capitalize: true },
+                ].map((item, i) => (
+                  item.value ? (
+                    <div key={i} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
+                      <span className="text-gray-500">{item.label}</span>
+                      <span className={`font-medium text-gray-900 ${item.capitalize ? 'capitalize' : ''}`}>{item.value}</span>
+                    </div>
+                  ) : null
+                ))}
+              </div>
+            </div>
+
+            <Separator />
 
             {/* Amenities */}
             {property.amenities && property.amenities.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Amenities</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {property.amenities.map((amenity, index) => (
-                      <div key={index} className="flex items-center p-3 bg-muted rounded-lg">
-                        <div className="w-2 h-2 bg-primary rounded-full mr-3"></div>
-                        <span className="text-sm">{amenity}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-gray-900">Amenities</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {property.amenities.map((amenity, index) => (
+                    <div key={index} className="flex items-center gap-3 text-gray-700">
+                      <div className="w-2 h-2 bg-green-500 rounded-full" />
+                      <span>{amenity}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 
-          {/* Sidebar */}
+          {/* Right Column: Sticky Contact Card */}
           <div className="space-y-6">
-            {/* Contact Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <User className="w-5 h-5 mr-2" />
-                  Contact Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <p className="font-medium">
-                    {getOwnerDisplayName(property.owner)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {getPropertyListingLabel(property)}
-                  </p>
+            <div className="sticky top-24 space-y-6">
+              <Card className="border shadow-lg overflow-hidden">
+                <div className="bg-primary/5 p-4 border-b">
+                  <h3 className="font-semibold text-lg flex items-center">
+                    Contact Seller
+                    {property.verified && <Badge className="ml-2 bg-green-600 h-5">Verified</Badge>}
+                  </h3>
                 </div>
+                <CardContent className="p-6 space-y-6">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
+                      <User className="h-6 w-6 text-gray-500" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-lg">{getOwnerDisplayName(property.owner)}</p>
+                      <p className="text-sm text-muted-foreground">{getPropertyListingLabel(property)}</p>
+                    </div>
+                  </div>
 
-                <Separator />
-
-                <div className="space-y-3">
-                  {!checkingWhatsApp && !hasWhatsAppSupport && (
-                    <>
-                      <Button
-                        className="w-full"
-                        onClick={() => {
-                          // Track phone click (customer interaction)
-                          if (id) propertyService.trackInteraction(id, 'clickedPhone');
-                          setShowContactDialog(true);
-                        }}
-                      >
-                        <Phone className="w-4 h-4 mr-2" />
-                        Call Owner
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => {
-                          // Track message click (customer interaction)
-                          if (id) propertyService.trackInteraction(id, 'clickedMessage');
-                          setShowMessageDialog(true);
-                        }}
-                      >
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        Send Message
-                      </Button>
-                      {isAuthenticated && isCustomer && (
+                  <div className="space-y-3">
+                    {!checkingWhatsApp && !hasWhatsAppSupport && (
+                      <>
+                        <Button
+                          className="w-full h-12 text-base font-semibold shadow-md"
+                          onClick={() => {
+                            if (id) propertyService.trackInteraction(id, 'clickedPhone');
+                            setShowContactDialog(true);
+                          }}
+                        >
+                          <Phone className="w-4 h-4 mr-2" />
+                          View Phone Number
+                        </Button>
                         <Button
                           variant="outline"
-                          className="w-full"
-                          onClick={handleInterestClick}
+                          className="w-full h-12 text-base border-primary text-primary hover:bg-primary/5"
+                          onClick={() => {
+                            if (id) propertyService.trackInteraction(id, 'clickedMessage');
+                            setShowMessageDialog(true);
+                          }}
                         >
-                          <ThumbsUp className="w-4 h-4 mr-2" />
-                          Express Interest
+                          <Mail className="w-4 h-4 mr-2" />
+                          Send Message
                         </Button>
-                      )}
-                    </>
-                  )}
+                      </>
+                    )}
 
-                  {!checkingWhatsApp && hasWhatsAppSupport && (
-                    <Button
-                      className="w-full bg-green-600 hover:bg-green-700 text-white"
-                      onClick={() => setShowWhatsAppDialog(true)}
-                    >
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      WhatsApp Contact
-                    </Button>
-                  )}
+                    {!checkingWhatsApp && hasWhatsAppSupport && (
+                      <Button
+                        className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-semibold shadow-md"
+                        onClick={() => setShowWhatsAppDialog(true)}
+                      >
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        Chat on WhatsApp
+                      </Button>
+                    )}
 
-                  {checkingWhatsApp && (
-                    <Button disabled className="w-full">
-                      <Phone className="w-4 h-4 mr-2" />
-                      Loading...
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    {isAuthenticated && isCustomer && (
+                      <Button
+                        variant="secondary"
+                        className="w-full"
+                        onClick={handleInterestClick}
+                      >
+                        <ThumbsUp className="w-4 h-4 mr-2" />
+                        I'm Interested
+                      </Button>
+                    )}
+                  </div>
 
-            {/* Property Stats */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Eye className="w-5 h-5 mr-2" />
-                  Property Stats
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Views</span>
-                  <span className="font-semibold">{property.views || 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Listed</span>
-                  <span className="font-semibold">
-                    {Math.floor((Date.now() - new Date(property.createdAt).getTime()) / (1000 * 60 * 60 * 24))} days ago
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="text-xs text-center text-muted-foreground">
+                    By contacting, you agree to our Terms & Privacy Policy.
+                  </div>
+                </CardContent>
+              </Card>
 
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {property.virtualTour && (
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => window.open(property.virtualTour, '_blank')}
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Virtual Tour
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={handleFavoriteToggle}
-                  disabled={favoriteLoading}
-                >
-                  <Heart className={`w-4 h-4 mr-2 ${isFavorited ? 'fill-red-500 text-red-500' : ''}`} />
-                  {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => {
-                    const selected = [property._id];
-                    navigate(`/customer/compare?properties=${selected.join(',')}`);
-                  }}
-                >
-                  <GitCompare className="w-4 h-4 mr-2" />
-                  Compare Property
-                </Button>
-                <Button variant="outline" className="w-full justify-start" onClick={handleShare}>
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share Property
-                </Button>
-              </CardContent>
-            </Card>
+              {/* Quick Summary Card */}
+              <Card>
+                <CardContent className="p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Property ID</span>
+                    <span className="font-mono text-sm">{property._id.slice(-8).toUpperCase()}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Posted</span>
+                    <span className="text-sm font-medium">{new Date(property.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Views</span>
+                    <span className="text-sm font-medium">{property.views || 0}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>
@@ -790,7 +710,6 @@ const PropertyDetails: React.FC = () => {
         onOpenChange={setShowMessageDialog}
         property={property}
         onMessageSent={() => {
-          console.log("Message sent for property:", property._id);
           toast({
             title: "Message sent",
             description: "Your inquiry has been sent to the property owner",
@@ -812,6 +731,39 @@ const PropertyDetails: React.FC = () => {
         property={property}
         whatsappNumber={whatsappNumber}
       />
+
+      {/* Full Screen Image Gallery */}
+      <Dialog open={showGallery} onOpenChange={setShowGallery}>
+        <DialogContent className="max-w-screen-xl w-full h-screen md:h-[90vh] p-0 bg-black/95 border-none">
+          <div className="relative w-full h-full flex items-center justify-center">
+            <DialogClose className="absolute top-4 right-4 z-50 rounded-full bg-white/10 p-2 hover:bg-white/20 text-white transition-colors">
+              <X className="h-6 w-6" />
+              <span className="sr-only">Close</span>
+            </DialogClose>
+
+            <Carousel setApi={setCarouselApi} className="w-full max-w-5xl">
+              <CarouselContent>
+                {property.images.map((image, index) => (
+                  <CarouselItem key={index} className="flex items-center justify-center h-[80vh]">
+                    <img
+                      src={typeof image === 'string' ? image : (image as any).url}
+                      alt={`Property image ${index + 1}`}
+                      className="max-w-full max-h-full object-contain"
+                      onError={(e) => { e.currentTarget.src = '/placeholder-property.jpg'; }}
+                    />
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="left-4 bg-white/10 hover:bg-white/20 text-white border-none" />
+              <CarouselNext className="right-4 bg-white/10 hover:bg-white/20 text-white border-none" />
+            </Carousel>
+
+            <div className="absolute bottom-4 left-0 right-0 text-center text-white/80 text-sm">
+              Image {selectedImageIndex + 1} of {property.images.length}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
