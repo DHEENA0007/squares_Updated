@@ -446,6 +446,24 @@ class ConfigurationService {
     await api.delete(`/filters/${id}`);
   }
 
+  // ============= Filter Dependencies =============
+
+  async getFilterDependencies(): Promise<import('@/types/configuration').FilterDependency[]> {
+    try {
+      const { data } = await api.get<{ success: boolean; data: import('@/types/configuration').FilterDependency[] }>(
+        '/filter-dependencies'
+      );
+      return data.data || [];
+    } catch (error) {
+      console.error('Error fetching filter dependencies:', error);
+      return [];
+    }
+  }
+
+  async saveFilterDependencies(dependencies: import('@/types/configuration').FilterDependency[]): Promise<void> {
+    await api.post('/filter-dependencies', dependencies);
+  }
+
   // ============= Configuration Metadata =============
 
   async getConfigurationMetadata(key: string): Promise<ConfigurationMetadata | null> {

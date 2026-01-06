@@ -46,11 +46,11 @@ const PropertySearch = () => {
 
   // Dynamic filter state - will hold all filter values
   const [dynamicFilters, setDynamicFilters] = useState<Record<string, string>>({});
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // Favorites
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
@@ -66,16 +66,46 @@ const PropertySearch = () => {
     return Array.from(new Set(filterConfigurations.map(f => f.filterType)));
   }, [filterConfigurations]);
 
+  const [priceLimits, setPriceLimits] = useState<{ min: number; max: number }>({ min: 0, max: 50000000 }); // Default fallback
+  const [areaLimits, setAreaLimits] = useState<{ min: number; max: number }>({ min: 0, max: 10000 }); // Default fallback
+
+  const [filterDependencies, setFilterDependencies] = useState<import('@/types/configuration').FilterDependency[]>([]);
+
   // Fetch property types and filter configurations on mount
   useEffect(() => {
     const fetchConfigurations = async () => {
       try {
-        const [typesData, filtersData] = await Promise.all([
+        const [typesData, filtersData, dependenciesData] = await Promise.all([
           configurationService.getAllPropertyTypes(false),
-          configurationService.getAllFilterConfigurations(false)
+          configurationService.getAllFilterConfigurations(false),
+          configurationService.getFilterDependencies(),
         ]);
         setPropertyTypes(typesData);
         setFilterConfigurations(filtersData);
+        setFilterDependencies(dependenciesData);
+
+        // Calculate Price Limits from Budget filters
+        const budgetFilters = filtersData.filter(f => f.filterType === 'budget');
+        if (budgetFilters.length > 0) {
+          const min = Math.min(...budgetFilters.map(f => f.minValue || 0));
+          const max = Math.max(...budgetFilters.map(f => f.maxValue || 0));
+          if (max > 0) {
+            setPriceLimits({ min, max });
+            setPriceRange([min, max]);
+          }
+        }
+
+        // Calculate Area Limits from Area filters
+        const areaFilters = filtersData.filter(f => f.filterType === 'area');
+        if (areaFilters.length > 0) {
+          const min = Math.min(...areaFilters.map(f => f.minValue || 0));
+          const max = Math.max(...areaFilters.map(f => f.maxValue || 0));
+          if (max > 0) {
+            setAreaLimits({ min, max });
+            setAreaRange([min, max]);
+          }
+        }
+
       } catch (error) {
         console.error('Error fetching configurations:', error);
       }
@@ -83,6 +113,24 @@ const PropertySearch = () => {
 
     fetchConfigurations();
   }, []);
+
+  // Helper to check if a filter should be shown
+  const shouldShowFilter = (filterType: string) => {
+    const dependency = filterDependencies.find(d => d.targetFilterType === filterType);
+    if (!dependency) return true;
+
+    let sourceValue;
+    if (dependency.sourceFilterType === 'property_type') {
+      sourceValue = propertyType;
+    } else if (dependency.sourceFilterType === 'listing_type') {
+      sourceValue = listingType;
+    } else {
+      sourceValue = dynamicFilters[dependency.sourceFilterType];
+    }
+
+    if (!sourceValue || sourceValue === 'all' || sourceValue === 'any') return false;
+    return dependency.sourceFilterValues.includes(sourceValue);
+  };
 
   // Fetch amenities based on selected property type
   useEffect(() => {
@@ -159,20 +207,20 @@ const PropertySearch = () => {
       });
 
       // Price filters
-      if (priceRange[0] > 0) {
+      if (priceRange[0] > priceLimits.min) {
         filters.minPrice = priceRange[0];
       }
 
-      if (priceRange[1] < 20000000) {
+      if (priceRange[1] < priceLimits.max) {
         filters.maxPrice = priceRange[1];
       }
 
       // Area filters
-      if (areaRange[0] > 0) {
+      if (areaRange[0] > areaLimits.min) {
         filters.minArea = areaRange[0];
       }
 
-      if (areaRange[1] < 10000) {
+      if (areaRange[1] < areaLimits.max) {
         filters.maxArea = areaRange[1];
       }
 
@@ -182,7 +230,7 @@ const PropertySearch = () => {
       }
 
       const response = await propertyService.getProperties(filters);
-      
+
       if (response.success) {
         setProperties(response.data.properties);
         setTotalPages(response.data.pagination.totalPages);
@@ -251,8 +299,8 @@ const PropertySearch = () => {
     setSearchQuery("");
     setListingType("all");
     setPropertyType("all");
-    setPriceRange([0, 20000000]);
-    setAreaRange([0, 10000]);
+    setPriceRange([priceLimits.min, priceLimits.max]);
+    setAreaRange([areaLimits.min, areaLimits.max]);
     setSelectedAmenities([]);
     setDynamicFilters({});
     setCurrentPage(1);
@@ -284,7 +332,7 @@ const PropertySearch = () => {
             <Card className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto">
               <CardContent className="p-6">
                 <h2 className="text-lg font-semibold mb-4">Filters</h2>
-                
+
                 {/* Search Bar */}
                 <div className="mb-4">
                   <label className="text-sm font-medium mb-2 block">Search</label>
@@ -344,18 +392,22 @@ const PropertySearch = () => {
 
                 {/* Dynamic Filters from Admin Configuration */}
                 {filterTypes
-                  .filter(type => type !== 'listing_type') // Exclude listing_type as it's handled separately
+                  .filter(type => !['listing_type', 'budget', 'area'].includes(type)) // Exclude handled types
+                  .filter(type => shouldShowFilter(type)) // Check dependencies
                   .map((filterType) => {
-                    const filtersForType = getFiltersByType(filterType);
-                    if (filtersForType.length === 0) return null;
+                    const options = filterConfigurations
+                      .filter(f => f.filterType === filterType)
+                      .sort((a, b) => a.displayOrder - b.displayOrder);
+
+                    if (options.length === 0) return null;
+
+                    const label = filterType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
                     return (
-                      <div key={filterType} className="mb-4">
-                        <label className="text-sm font-medium mb-2 block capitalize">
-                          {filterType.replace(/_/g, ' ')}
-                        </label>
+                      <div key={filterType} className="space-y-2">
+                        <Label>{label}</Label>
                         <Select
-                          value={dynamicFilters[filterType] || "any"}
+                          value={dynamicFilters[filterType] || 'any'}
                           onValueChange={(value) => {
                             setDynamicFilters(prev => ({
                               ...prev,
@@ -364,13 +416,13 @@ const PropertySearch = () => {
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder={`Select ${filterType.replace(/_/g, ' ')}`} />
+                            <SelectValue placeholder={`Select ${label}`} />
                           </SelectTrigger>
-                          <SelectContent className="max-h-[300px] overflow-y-auto">
-                            <SelectItem value="any">Any</SelectItem>
-                            {filtersForType.map((filter) => (
-                              <SelectItem key={filter._id} value={filter.value}>
-                                {filter.displayLabel?.trim() || filter.name}
+                          <SelectContent>
+                            <SelectItem value="any">Any {label}</SelectItem>
+                            {options.map((option) => (
+                              <SelectItem key={option.id || option._id} value={option.value}>
+                                {option.displayLabel || option.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -380,62 +432,66 @@ const PropertySearch = () => {
                   })}
 
                 {/* Price Range */}
-                <div className="mb-4">
-                  <label className="text-sm font-medium mb-2 block">Price Range</label>
-                  <div className="space-y-4">
-                    <Slider
-                      value={priceRange}
-                      onValueChange={setPriceRange}
-                      min={0}
-                      max={20000000}
-                      step={100000}
-                      className="w-full"
-                    />
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex flex-col">
-                        <span className="text-muted-foreground text-xs">Min Price</span>
-                        <span className="font-semibold text-primary">
-                          {formatPrice(priceRange[0])}
-                        </span>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <span className="text-muted-foreground text-xs">Max Price</span>
-                        <span className="font-semibold text-primary">
-                          {formatPrice(priceRange[1])}
-                        </span>
+                {priceLimits.max > 0 && (
+                  <div className="mb-4">
+                    <label className="text-sm font-medium mb-2 block">Price Range</label>
+                    <div className="space-y-4">
+                      <Slider
+                        value={priceRange}
+                        onValueChange={setPriceRange}
+                        min={priceLimits.min}
+                        max={priceLimits.max}
+                        step={10000}
+                        className="w-full"
+                      />
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex flex-col">
+                          <span className="text-muted-foreground text-xs">Min Price</span>
+                          <span className="font-semibold text-primary">
+                            {formatPrice(priceRange[0])}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="text-muted-foreground text-xs">Max Price</span>
+                          <span className="font-semibold text-primary">
+                            {formatPrice(priceRange[1])}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Area Range */}
-                <div className="mb-4">
-                  <label className="text-sm font-medium mb-2 block">Area (sq ft)</label>
-                  <div className="space-y-4">
-                    <Slider
-                      value={areaRange}
-                      onValueChange={setAreaRange}
-                      min={0}
-                      max={10000}
-                      step={100}
-                      className="w-full"
-                    />
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex flex-col">
-                        <span className="text-muted-foreground text-xs">Min</span>
-                        <span className="font-semibold text-primary">
-                          {areaRange[0]} sqft
-                        </span>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <span className="text-muted-foreground text-xs">Max</span>
-                        <span className="font-semibold text-primary">
-                          {areaRange[1]} sqft
-                        </span>
+                {areaLimits.max > 0 && (
+                  <div className="mb-4">
+                    <label className="text-sm font-medium mb-2 block">Area (sq ft)</label>
+                    <div className="space-y-4">
+                      <Slider
+                        value={areaRange}
+                        onValueChange={setAreaRange}
+                        min={areaLimits.min}
+                        max={areaLimits.max}
+                        step={100}
+                        className="w-full"
+                      />
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex flex-col">
+                          <span className="text-muted-foreground text-xs">Min</span>
+                          <span className="font-semibold text-primary">
+                            {areaRange[0]} sqft
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="text-muted-foreground text-xs">Max</span>
+                          <span className="font-semibold text-primary">
+                            {areaRange[1]} sqft
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Amenities - Dynamic from Admin Configuration */}
                 {amenities.length > 0 && (
@@ -511,11 +567,11 @@ const PropertySearch = () => {
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {properties.map((property) => (
-                    <Card 
-                      key={property._id} 
+                    <Card
+                      key={property._id}
                       className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
                     >
-                      <div 
+                      <div
                         className="relative h-48 bg-muted"
                         onClick={() => navigate(`/property/${property._id}`)}
                       >
@@ -534,7 +590,7 @@ const PropertySearch = () => {
                             <Home className="h-12 w-12 text-muted-foreground" />
                           </div>
                         )}
-                        
+
                         {/* Favorite Button */}
                         <Button
                           size="icon"
@@ -546,9 +602,8 @@ const PropertySearch = () => {
                           }}
                         >
                           <Heart
-                            className={`h-4 w-4 ${
-                              favorites.has(property._id) ? "fill-red-500 text-red-500" : ""
-                            }`}
+                            className={`h-4 w-4 ${favorites.has(property._id) ? "fill-red-500 text-red-500" : ""
+                              }`}
                           />
                         </Button>
 

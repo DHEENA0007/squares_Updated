@@ -25,7 +25,7 @@ const isSuperAdmin = (req, res, next) => {
 router.get('/property-type-categories', async (req, res) => {
   try {
     const propertyTypes = await PropertyType.find({}).select('category').distinct('category');
-    
+
     const categories = propertyTypes.sort();
 
     res.json({
@@ -618,6 +618,63 @@ router.delete('/filters/:id', authenticateToken, isSuperAdmin, async (req, res) 
   }
 });
 
+// ============= Filter Dependencies =============
+
+// Get filter dependencies
+router.get('/filter-dependencies', async (req, res) => {
+  try {
+    const metadata = await ConfigurationMetadata.findOne({ configKey: 'filter_dependencies' });
+    res.json({
+      success: true,
+      data: metadata?.configValue || [],
+    });
+  } catch (error) {
+    console.error('Error fetching filter dependencies:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch filter dependencies',
+      error: error.message,
+    });
+  }
+});
+
+// Update filter dependencies (superadmin only)
+router.post('/filter-dependencies', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const dependencies = req.body;
+
+    if (!Array.isArray(dependencies)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Dependencies must be an array',
+      });
+    }
+
+    const metadata = await ConfigurationMetadata.findOneAndUpdate(
+      { configKey: 'filter_dependencies' },
+      {
+        configKey: 'filter_dependencies',
+        configValue: dependencies,
+        description: 'Configuration for filter visibility dependencies'
+      },
+      { upsert: true, new: true, runValidators: true }
+    );
+
+    res.json({
+      success: true,
+      data: metadata.configValue,
+      message: 'Filter dependencies updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating filter dependencies:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update filter dependencies',
+      error: error.message,
+    });
+  }
+});
+
 // ============= Navigation Items =============
 
 // Get all navigation items
@@ -774,7 +831,7 @@ router.delete('/navigation-items/:id', authenticateToken, isSuperAdmin, async (r
 router.get('/navigation-categories', async (req, res) => {
   try {
     const categories = await ConfigurationMetadata.findOne({ configKey: 'navigation_categories' });
-    
+
     const defaultCategories = [
       { value: 'residential', label: 'Residential', isActive: true, displayOrder: 1 },
       { value: 'commercial', label: 'Commercial', isActive: true, displayOrder: 2 },
@@ -809,8 +866,8 @@ router.post('/navigation-categories', authenticateToken, isSuperAdmin, async (re
 
     const metadata = await ConfigurationMetadata.findOneAndUpdate(
       { configKey: 'navigation_categories' },
-      { 
-        configKey: 'navigation_categories', 
+      {
+        configKey: 'navigation_categories',
         configValue: categories,
         description: 'Navigation item categories for property types'
       },

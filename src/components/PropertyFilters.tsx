@@ -12,17 +12,10 @@ interface PropertyFiltersProps {
 }
 
 const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProps) => {
-  const [filters, setFilters] = useState<PropertyFilterType>({
-    propertyType: undefined,
-    bedrooms: undefined,
-    minPrice: undefined,
-    maxPrice: undefined,
-    listingType: undefined,
-  });
+  const [filters, setFilters] = useState<PropertyFilterType>({});
   const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
-  const [listingTypes, setListingTypes] = useState<FilterConfiguration[]>([]);
-  const [bedroomTypes, setBedroomTypes] = useState<FilterConfiguration[]>([]);
-  const [budgetTypes, setBudgetTypes] = useState<FilterConfiguration[]>([]);
+  const [filterConfigurations, setFilterConfigurations] = useState<FilterConfiguration[]>([]);
+  const [filterDependencies, setFilterDependencies] = useState<import('@/types/configuration').FilterDependency[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch configuration data on component mount
@@ -31,17 +24,15 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
       try {
         setIsLoading(true);
         // Fetch property types and all filter configurations
-        const [typesData, listingTypesData, bedroomTypesData, budgetTypesData] = await Promise.all([
+        const [typesData, filtersData, dependenciesData] = await Promise.all([
           configurationService.getAllPropertyTypes(false),
-          configurationService.getFilterConfigurationsByType('listing_type', false),
-          configurationService.getFilterConfigurationsByType('bedroom', false),
-          configurationService.getFilterConfigurationsByType('budget', false),
+          configurationService.getAllFilterConfigurations(false),
+          configurationService.getFilterDependencies(),
         ]);
 
         setPropertyTypes(typesData);
-        setListingTypes(listingTypesData);
-        setBedroomTypes(bedroomTypesData);
-        setBudgetTypes(budgetTypesData);
+        setFilterConfigurations(filtersData);
+        setFilterDependencies(dependenciesData);
 
       } catch (error) {
         console.error('Error fetching filter data:', error);
@@ -60,43 +51,106 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
     }
   }, [initialFilters]);
 
-  const handleFilterChange = (key: keyof PropertyFilterType, value: any) => {
-    const newFilters = { ...filters, [key]: value === 'all' || value === 'any' || value === 'any-budget' ? undefined : value };
+  const handleFilterChange = (key: string, value: any) => {
+    let newFilters: PropertyFilterType = { ...filters, [key]: value === 'all' || value === 'any' || value === 'any-budget' ? undefined : value };
+
+    // Special handling for budget to set min/max price
+    if (key === 'budget') {
+      if (value === 'any-budget') {
+        newFilters.minPrice = undefined;
+        newFilters.maxPrice = undefined;
+      } else {
+        const selectedBudget = filterConfigurations.find(f => (f.id || f._id) === value);
+        if (selectedBudget) {
+          newFilters.minPrice = selectedBudget.minValue;
+          newFilters.maxPrice = selectedBudget.maxValue;
+        }
+      }
+      // Don't send 'budget' key to API if it's just for UI
+      delete newFilters.budget;
+    }
+
+    // Helper to check dependency with a given set of filters (e.g., newFilters)
+    const checkDependencyWithTempFilters = (filterType: string, currentTempFilters: PropertyFilterType) => {
+      const dependency = filterDependencies.find(d => d.targetFilterType === filterType);
+      if (!dependency) {
+        return true; // No dependency, always show
+      }
+
+      let sourceValue;
+      // Special handling for propertyType which might be stored as 'propertyType' key but dependency refers to 'property_type'
+      if (dependency.sourceFilterType === 'property_type') {
+        sourceValue = currentTempFilters.propertyType;
+      } else {
+        sourceValue = currentTempFilters[dependency.sourceFilterType];
+      }
+
+      if (!sourceValue || sourceValue === 'all' || sourceValue === 'any' || sourceValue === 'any-budget') return false;
+
+      return dependency.sourceFilterValues.includes(sourceValue);
+    };
+
+    // Clear dependent filters if their parent filter's value changes and dependency is no longer met
+    const allFilterTypes = getUniqueFilterTypes(); // Get all possible filter types
+    for (const dependentFilterType of allFilterTypes) {
+      // Skip the filter that just changed
+      if (dependentFilterType === key || (dependentFilterType === 'property_type' && key === 'propertyType')) {
+        continue;
+      }
+
+      // If the dependent filter is currently set, and its dependency is no longer met with the new parent value
+      if (newFilters[dependentFilterType] !== undefined && !checkDependencyWithTempFilters(dependentFilterType, newFilters)) {
+        newFilters[dependentFilterType] = undefined;
+        // If it was a budget filter, clear min/max price too
+        if (dependentFilterType === 'budget') {
+          newFilters.minPrice = undefined;
+          newFilters.maxPrice = undefined;
+        }
+      }
+    }
+
     setFilters(newFilters);
     onFilterChange(newFilters);
   };
 
-  const handleBudgetChange = (budgetId: string) => {
-    if (budgetId === 'any-budget') {
-      const newFilters = { ...filters, minPrice: undefined, maxPrice: undefined };
-      setFilters(newFilters);
-      onFilterChange(newFilters);
-      return;
-    }
-
-    const selectedBudget = budgetTypes.find(b => (b.id || b._id) === budgetId);
-
-    if (selectedBudget) {
-      const newFilters = {
-        ...filters,
-        minPrice: selectedBudget.minValue,
-        maxPrice: selectedBudget.maxValue
-      };
-      setFilters(newFilters);
-      onFilterChange(newFilters);
-    }
+  const resetFilters = () => {
+    setFilters({});
+    onFilterChange({});
   };
 
-  const resetFilters = () => {
-    const emptyFilters: PropertyFilterType = {
-      propertyType: undefined,
-      bedrooms: undefined,
-      minPrice: undefined,
-      maxPrice: undefined,
-      listingType: undefined,
-    };
-    setFilters(emptyFilters);
-    onFilterChange(emptyFilters);
+  // Helper to get unique filter types
+  const getUniqueFilterTypes = () => {
+    const types = new Set(filterConfigurations.map(f => f.filterType));
+    return Array.from(types).sort();
+  };
+
+  // Helper to get options for a filter type
+  const getOptionsForType = (type: string) => {
+    return filterConfigurations.filter(f => f.filterType === type).sort((a, b) => a.displayOrder - b.displayOrder);
+  };
+
+  // Helper to check if a filter should be shown
+  const shouldShowFilter = (filterType: string) => {
+    // Check if there are any dependencies for this filter type
+    const dependency = filterDependencies.find(d => d.targetFilterType === filterType);
+
+    if (!dependency) {
+      return true; // No dependency, always show
+    }
+
+    // Check if the source filter has the required value
+    let sourceValue;
+    // Special handling for propertyType which might be stored as 'propertyType' key but dependency refers to 'property_type'
+    // In our dependency UI we used 'property_type' as the source key for Property Type
+    if (dependency.sourceFilterType === 'property_type') {
+      sourceValue = filters.propertyType;
+    } else {
+      sourceValue = filters[dependency.sourceFilterType];
+    }
+
+    if (!sourceValue || sourceValue === 'all' || sourceValue === 'any' || sourceValue === 'any-budget') return false;
+
+    return dependency.sourceFilterValues.includes(sourceValue);
   };
 
   if (isLoading) {
@@ -110,6 +164,8 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
     );
   }
 
+  const uniqueFilterTypes = getUniqueFilterTypes();
+
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-[var(--shadow-soft)]">
       <div className="flex items-center gap-4 flex-wrap">
@@ -118,90 +174,91 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
           <span>Filters:</span>
         </div>
 
-        <Select
-          value={filters.listingType || 'all'}
-          onValueChange={(value) => handleFilterChange('listingType', value)}
-          disabled={isLoading}
-        >
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder={isLoading ? "Loading..." : "Listing Type"} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            {listingTypes.map((type) => (
-              <SelectItem key={type.id || type._id} value={type.value}>
-                {type.displayLabel || type.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Listing Type (Special handling for display order if needed, or just part of dynamic loop) */}
+        {/* We'll prioritize Listing Type and Property Type if they exist */}
 
-        <Select
-          value={filters.propertyType ? propertyTypes.find(t => t.value.toLowerCase() === filters.propertyType?.toLowerCase())?.id || propertyTypes.find(t => t.value.toLowerCase() === filters.propertyType?.toLowerCase())?._id || 'all' : 'all'}
-          onValueChange={(value) => {
-            if (value === 'all') {
-              handleFilterChange('propertyType', 'all');
-            } else {
-              const type = propertyTypes.find(t => (t.id || t._id) === value);
-              if (type) {
-                handleFilterChange('propertyType', type.value);
+        {getOptionsForType('listing_type').length > 0 && shouldShowFilter('listing_type') && (
+          <Select
+            value={filters.listingType || 'all'}
+            onValueChange={(value) => handleFilterChange('listingType', value)}
+          >
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Listing Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {getOptionsForType('listing_type').map((type) => (
+                <SelectItem key={type.id || type._id} value={type.value}>
+                  {type.displayLabel || type.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {propertyTypes.length > 0 && shouldShowFilter('property_type') && (
+          <Select
+            value={filters.propertyType ? propertyTypes.find(t => t.value.toLowerCase() === filters.propertyType?.toLowerCase())?.id || propertyTypes.find(t => t.value.toLowerCase() === filters.propertyType?.toLowerCase())?._id || 'all' : 'all'}
+            onValueChange={(value) => {
+              if (value === 'all') {
+                handleFilterChange('propertyType', 'all');
+              } else {
+                const type = propertyTypes.find(t => (t.id || t._id) === value);
+                if (type) {
+                  handleFilterChange('propertyType', type.value);
+                }
               }
-            }
-          }}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Property Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Properties</SelectItem>
-            {propertyTypes.map((type) => (
-              <SelectItem key={type.id || type._id} value={type.id || type._id}>
-                {type.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Property Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Properties</SelectItem>
+              {propertyTypes.map((type) => (
+                <SelectItem key={type.id || type._id} value={type.id || type._id}>
+                  {type.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
-        <Select
-          value={filters.bedrooms?.toString() || 'any'}
-          onValueChange={(value) => {
-            const bedroomValue = value === 'any' ? undefined : parseInt(value);
-            handleFilterChange('bedrooms', bedroomValue && !isNaN(bedroomValue) ? bedroomValue : undefined);
-          }}
-        >
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="BHK" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="any">Any BHK</SelectItem>
-            {bedroomTypes.map((type) => (
-              <SelectItem key={type.id || type._id} value={type.value}>
-                {type.displayLabel || type.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Dynamic Filters */}
+        {uniqueFilterTypes
+          .filter(type => type !== 'listing_type' && type !== 'property_type') // Already handled or special case
+          .filter(type => shouldShowFilter(type)) // Check dependencies
+          .map(filterType => {
+            const options = getOptionsForType(filterType);
+            if (options.length === 0) return null;
 
-        <Select
-          value={
-            budgetTypes.find(b => b.minValue === filters.minPrice && b.maxValue === filters.maxPrice)?.id ||
-            budgetTypes.find(b => b.minValue === filters.minPrice && b.maxValue === filters.maxPrice)?._id ||
-            'any-budget'
-          }
-          onValueChange={handleBudgetChange}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Budget" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="any-budget">Any Budget</SelectItem>
-            {budgetTypes.map((type) => (
-              <SelectItem key={type.id || type._id} value={type.id || type._id}>
-                {type.displayLabel || type.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            // Determine label
+            const label = filterType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+            // Determine value
+            // For budget, we might store the ID to look up min/max later
+            const currentValue = filters[filterType] || (filterType === 'budget' ? 'any-budget' : 'any');
+
+            return (
+              <Select
+                key={filterType}
+                value={currentValue}
+                onValueChange={(value) => handleFilterChange(filterType, value)}
+              >
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder={label} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={filterType === 'budget' ? 'any-budget' : 'any'}>Any {label}</SelectItem>
+                  {options.map((option) => (
+                    <SelectItem key={option.id || option._id} value={filterType === 'budget' ? (option.id || option._id) : option.value}>
+                      {option.displayLabel || option.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          })}
 
         <Button variant="secondary" className="ml-auto" onClick={resetFilters}>
           Reset Filters

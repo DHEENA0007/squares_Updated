@@ -27,11 +27,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Link } from "react-router-dom";
 import { useRealtime, usePropertyRealtime, useRealtimeEvent } from "@/contexts/RealtimeContext";
-import { 
-  customerPropertiesService, 
-  CustomerProperty, 
-  CustomerPropertyStats, 
-  PropertyFilters 
+import {
+  customerPropertiesService,
+  CustomerProperty,
+  CustomerPropertyStats,
+  PropertyFilters
 } from "@/services/customerPropertiesService";
 import { toast } from "@/hooks/use-toast";
 
@@ -42,7 +42,7 @@ const MyProperties = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // State for real data
   const [properties, setProperties] = useState<CustomerProperty[]>([]);
   const [stats, setStats] = useState<CustomerPropertyStats>({
@@ -74,7 +74,7 @@ const MyProperties = () => {
   const loadProperties = useCallback(async (filters: PropertyFilters = {}) => {
     try {
       setLoading(true);
-      
+
       const response = await customerPropertiesService.getCustomerProperties({
         search: searchQuery || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
@@ -121,9 +121,22 @@ const MyProperties = () => {
     setRefreshing(false);
   }, [loadProperties]);
 
+  const [propertyTypes, setPropertyTypes] = useState<any[]>([]);
+
   // Load properties on component mount and filter changes
   useEffect(() => {
     loadProperties();
+
+    // Fetch property types
+    const fetchPropertyTypes = async () => {
+      try {
+        const types = await import("@/services/configurationService").then(m => m.configurationService.getAllPropertyTypes());
+        setPropertyTypes(types);
+      } catch (error) {
+        console.error("Failed to fetch property types", error);
+      }
+    };
+    fetchPropertyTypes();
   }, [loadProperties]);
 
   // Realtime property updates
@@ -141,8 +154,8 @@ const MyProperties = () => {
   // Listen to specific realtime events for immediate updates
   useRealtimeEvent('property_viewed', (data) => {
     if (data.propertyId) {
-      setProperties(prev => prev.map(prop => 
-        prop._id === data.propertyId 
+      setProperties(prev => prev.map(prop =>
+        prop._id === data.propertyId
           ? { ...prop, views: prop.views + 1, analytics: { ...prop.analytics, weeklyViews: prop.analytics.weeklyViews + 1 } }
           : prop
       ));
@@ -152,8 +165,8 @@ const MyProperties = () => {
 
   useRealtimeEvent('property_inquiry', (data) => {
     if (data.propertyId) {
-      setProperties(prev => prev.map(prop => 
-        prop._id === data.propertyId 
+      setProperties(prev => prev.map(prop =>
+        prop._id === data.propertyId
           ? { ...prop, inquiries: prop.inquiries + 1, analytics: { ...prop.analytics, weeklyInquiries: prop.analytics.weeklyInquiries + 1 } }
           : prop
       ));
@@ -164,8 +177,8 @@ const MyProperties = () => {
   useRealtimeEvent('property_favorited', (data) => {
     if (data.propertyId && data.action) {
       const increment = data.action === 'add' ? 1 : -1;
-      setProperties(prev => prev.map(prop => 
-        prop._id === data.propertyId 
+      setProperties(prev => prev.map(prop =>
+        prop._id === data.propertyId
           ? { ...prop, favorites: Math.max(0, prop.favorites + increment) }
           : prop
       ));
@@ -196,7 +209,7 @@ const MyProperties = () => {
   const handleToggleStatus = async (propertyId: string, newStatus: CustomerProperty['status']) => {
     try {
       await customerPropertiesService.togglePropertyStatus(propertyId, newStatus);
-      setProperties(prev => prev.map(prop => 
+      setProperties(prev => prev.map(prop =>
         prop._id === propertyId ? { ...prop, status: newStatus } : prop
       ));
       toast({
@@ -215,14 +228,14 @@ const MyProperties = () => {
 
   // Filter properties
   const filteredProperties = properties.filter(property => {
-    const locationString = property.address.district 
-      ? `${property.address.city}, ${property.address.district}, ${property.address.state}` 
+    const locationString = property.address.district
+      ? `${property.address.city}, ${property.address.district}, ${property.address.state}`
       : `${property.address.city}, ${property.address.state}`;
     const matchesSearch = property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         locationString.toLowerCase().includes(searchQuery.toLowerCase());
+      locationString.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || property.status === statusFilter;
     const matchesType = typeFilter === 'all' || property.type === typeFilter;
-    
+
     return matchesSearch && matchesStatus && matchesType;
   });
 
@@ -239,7 +252,7 @@ const MyProperties = () => {
             Properties you are selling or renting out
           </p>
         </div>
-        
+
         <div className="flex gap-2">
           <Button variant="outline">
             <BarChart3 className="w-4 h-4 mr-2" />
@@ -250,9 +263,9 @@ const MyProperties = () => {
 
       {/* Refresh Button */}
       <div className="flex justify-end">
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           onClick={refreshProperties}
           disabled={refreshing}
         >
@@ -272,7 +285,7 @@ const MyProperties = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
@@ -281,7 +294,7 @@ const MyProperties = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
@@ -290,7 +303,7 @@ const MyProperties = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
@@ -299,7 +312,7 @@ const MyProperties = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
@@ -308,7 +321,7 @@ const MyProperties = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
@@ -317,7 +330,7 @@ const MyProperties = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
@@ -343,7 +356,7 @@ const MyProperties = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            
+
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-40">
                 <SelectValue placeholder="Status" />
@@ -358,21 +371,18 @@ const MyProperties = () => {
                 <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
-            
+
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="w-full sm:w-40">
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="apartment">Apartment</SelectItem>
-                <SelectItem value="villa">Villa</SelectItem>
-                <SelectItem value="house">House</SelectItem>
-                <SelectItem value="plot">Plot</SelectItem>
-                <SelectItem value="land">Land</SelectItem>
-                <SelectItem value="commercial">Commercial</SelectItem>
-                <SelectItem value="office">Office</SelectItem>
-                <SelectItem value="pg">PG (Paying Guest)</SelectItem>
+                {propertyTypes.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -389,7 +399,7 @@ const MyProperties = () => {
                   {/* Property Image */}
                   <div className="lg:w-64 h-48 lg:h-auto bg-muted relative">
                     {property.images.length > 0 ? (
-                      <img 
+                      <img
                         src={customerPropertiesService.getPrimaryImage(property)}
                         alt={property.title}
                         className="w-full h-full object-cover"
@@ -442,7 +452,7 @@ const MyProperties = () => {
                           <span className="capitalize">{property.listingType}</span>
                         </div>
                       </div>
-                      
+
                       <div className="text-right">
                         <p className="text-2xl font-bold text-primary mb-2">
                           {customerPropertiesService.formatPrice(property.price, property.listingType)}
@@ -470,7 +480,7 @@ const MyProperties = () => {
                               <TrendingUp className="w-4 h-4 mr-2" />
                               Promote
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="text-red-600"
                               onClick={() => handleDeleteProperty(property._id)}
                             >
@@ -553,12 +563,12 @@ const MyProperties = () => {
                         <BarChart3 className="w-4 h-4 mr-2" />
                         Analytics
                       </Button>
-                        {property.status === 'active' && (
+                      {property.status === 'active' && (
                         <Button size="sm" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
                           <TrendingUp className="w-4 h-4 mr-2" />
                           Promote
                         </Button>
-                        )}
+                      )}
                     </div>
                   </div>
                 </div>
@@ -589,15 +599,15 @@ const MyProperties = () => {
               {properties.length === 0 ? 'No properties found' : 'No properties match your filters'}
             </h3>
             <p className="text-muted-foreground mb-4">
-              {properties.length === 0 
+              {properties.length === 0
                 ? 'Start by adding your first property to get started.'
                 : 'Try adjusting your search criteria or clear some filters.'
               }
             </p>
             <div className="flex gap-2 justify-center">
               {properties.length === 0 ? (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setSearchQuery("");
                     setStatusFilter("all");
@@ -607,8 +617,8 @@ const MyProperties = () => {
                   Clear Filters
                 </Button>
               ) : (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setSearchQuery("");
                     setStatusFilter("all");

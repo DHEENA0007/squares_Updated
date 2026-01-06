@@ -86,6 +86,12 @@ export interface ConfigurationMetadata {
   updatedAt: string;
 }
 
+export interface FilterDependency {
+  targetFilterType: string;
+  sourceFilterType: string;
+  sourceFilterValues: string[];
+}
+
 // DTOs for API operations (camelCase for MongoDB)
 export interface CreatePropertyTypeDTO {
   name: string;

@@ -130,6 +130,7 @@ export interface PropertyFilters {
   listingType?: 'sale' | 'rent' | 'lease';
   search?: string;
   amenities?: string[];
+  [key: string]: any;
 }
 
 export interface PropertyResponse {

@@ -30,7 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { configurationService } from '@/services/configurationService';
-import type { FilterConfiguration, CreateFilterConfigurationDTO } from '@/types/configuration';
+import type { FilterConfiguration, CreateFilterConfigurationDTO, FilterDependency } from '@/types/configuration';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { PERMISSIONS } from '@/config/permissionConfig';
@@ -39,10 +39,10 @@ const FiltersTab: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const permissions = user?.rolePermissions || [];
-  
+
   // Check if user has admin role
   const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
-  
+
   // Permission checks - support both old role-based AND new permission-based
   const hasPermission = (permission: string) => permissions.includes(permission);
   const canCreateFilterType = hasAdminRole || hasPermission(PERMISSIONS.FILTER_CREATE_NTP);
@@ -51,7 +51,7 @@ const FiltersTab: React.FC = () => {
   const canDeleteFilter = hasAdminRole || hasPermission(PERMISSIONS.FILTER_DELETE);
   const canToggleStatus = hasAdminRole || hasPermission(PERMISSIONS.FILTER_STATUS);
   const canChangeOrder = hasAdminRole || hasPermission(PERMISSIONS.FILTER_ORDER);
-  
+
   const [filters, setFilters] = useState<FilterConfiguration[]>([]);
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,28 +71,119 @@ const FiltersTab: React.FC = () => {
     display_order: 0,
   });
 
+  const [dependencies, setDependencies] = useState<FilterDependency[]>([]);
+  const [isDependencyDialogOpen, setIsDependencyDialogOpen] = useState(false);
+  const [newDependency, setNewDependency] = useState<FilterDependency>({
+    targetFilterType: '',
+    sourceFilterType: '',
+    sourceFilterValues: [],
+  });
+  const [availableSourceValues, setAvailableSourceValues] = useState<any[]>([]);
+
   useEffect(() => {
     fetchFilters();
+    fetchDependencies();
   }, []);
+
+  const fetchDependencies = async () => {
+    try {
+      const deps = await configurationService.getFilterDependencies();
+      setDependencies(deps);
+    } catch (error) {
+      console.error('Failed to fetch dependencies', error);
+    }
+  };
+
+  // ... existing fetchFilters ...
+
+  const handleSaveDependency = async () => {
+    if (!newDependency.targetFilterType || !newDependency.sourceFilterType || newDependency.sourceFilterValues.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'Please fill all fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const updatedDependencies = [...dependencies, newDependency];
+    try {
+      await configurationService.saveFilterDependencies(updatedDependencies);
+      setDependencies(updatedDependencies);
+      setIsDependencyDialogOpen(false);
+      setNewDependency({
+        targetFilterType: '',
+        sourceFilterType: '',
+        sourceFilterValues: [],
+      });
+      toast({
+        title: 'Success',
+        description: 'Dependency saved successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to save dependency',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteDependency = async (index: number) => {
+    const updatedDependencies = dependencies.filter((_, i) => i !== index);
+    try {
+      await configurationService.saveFilterDependencies(updatedDependencies);
+      setDependencies(updatedDependencies);
+      toast({
+        title: 'Success',
+        description: 'Dependency deleted successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete dependency',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Helper to get source values when source filter type changes
+  useEffect(() => {
+    const fetchSourceValues = async () => {
+      if (!newDependency.sourceFilterType) {
+        setAvailableSourceValues([]);
+        return;
+      }
+
+      if (newDependency.sourceFilterType === 'property_type') {
+        const types = await configurationService.getAllPropertyTypes(false);
+        setAvailableSourceValues(types.map(t => ({ label: t.name, value: t.value })));
+      } else {
+        const options = getFiltersByType(newDependency.sourceFilterType);
+        setAvailableSourceValues(options.map(o => ({ label: o.displayLabel || o.name, value: o.value })));
+      }
+    };
+    fetchSourceValues();
+  }, [newDependency.sourceFilterType, filters]);
 
   const fetchFilters = async () => {
     try {
       setIsLoading(true);
-      const data = await configurationService.getAllFilterConfigurations(true);
+      const data = await configurationService.getAllFilterConfigurations(true); // Include inactive
       setFilters(data);
 
       // Extract unique filter types
-      const types = Array.from(new Set(data.map(f => f.filterType))).sort();
-      setFilterTypes(types);
+      const types = Array.from(new Set(data.map(f => f.filterType)));
+      setFilterTypes(types.sort());
 
-      // Set active filter type to first one if not set
-      if (!activeFilterType && types.length > 0) {
+      if (types.length > 0 && !activeFilterType) {
         setActiveFilterType(types[0]);
       }
     } catch (error) {
+      console.error('Error fetching filters:', error);
       toast({
         title: 'Error',
-        description: 'Failed to fetch filters',
+        description: 'Failed to fetch filter configurations',
         variant: 'destructive',
       });
     } finally {
@@ -100,42 +191,32 @@ const FiltersTab: React.FC = () => {
     }
   };
 
-  const getFiltersByType = (filterType: string) => {
-    return filters.filter((f) => f.filterType === filterType);
+  const getFiltersByType = (type: string) => {
+    return filters.filter(f => f.filterType === type).sort((a, b) => a.displayOrder - b.displayOrder);
   };
 
   const handleCreateNewFilterType = () => {
-    if (!newFilterTypeName.trim()) {
+    if (!newFilterTypeName.trim()) return;
+
+    const formattedType = newFilterTypeName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+
+    if (filterTypes.includes(formattedType)) {
       toast({
         title: 'Error',
-        description: 'Please enter a filter type name',
+        description: 'Filter type already exists',
         variant: 'destructive',
       });
       return;
     }
 
-    // Convert to lowercase with underscores
-    const filterTypeValue = newFilterTypeName.toLowerCase().replace(/\s+/g, '_');
-
-    // Check if already exists
-    if (filterTypes.includes(filterTypeValue)) {
-      toast({
-        title: 'Error',
-        description: 'This filter type already exists',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Add to filter types and set as active
-    setFilterTypes([...filterTypes, filterTypeValue].sort());
-    setActiveFilterType(filterTypeValue);
-    setNewFilterTypeName('');
+    setFilterTypes([...filterTypes, formattedType].sort());
+    setActiveFilterType(formattedType);
     setIsNewFilterTypeDialogOpen(false);
+    setNewFilterTypeName('');
 
     toast({
       title: 'Success',
-      description: `Filter type "${newFilterTypeName}" created. You can now add filter options for it.`,
+      description: `Filter type "${formattedType}" created. You can now add options to it.`,
     });
   };
 
@@ -153,15 +234,14 @@ const FiltersTab: React.FC = () => {
       });
     } else {
       setEditingFilter(null);
-      const currentFilters = getFiltersByType(activeFilterType);
       setFormData({
-        filter_type: activeFilterType as any,
+        filter_type: activeFilterType,
         name: '',
         value: '',
         min_value: undefined,
         max_value: undefined,
         display_label: '',
-        display_order: currentFilters.length,
+        display_order: 0,
       });
     }
     setIsDialogOpen(true);
@@ -171,7 +251,7 @@ const FiltersTab: React.FC = () => {
     setIsDialogOpen(false);
     setEditingFilter(null);
     setFormData({
-      filter_type: 'bedroom',
+      filter_type: '',
       name: '',
       value: '',
       min_value: undefined,
@@ -183,8 +263,17 @@ const FiltersTab: React.FC = () => {
 
   const handleSave = async () => {
     try {
+      if (!formData.filter_type || !formData.name || !formData.value) {
+        toast({
+          title: 'Error',
+          description: 'Please fill in all required fields',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       if (editingFilter) {
-        await configurationService.updateFilterConfiguration(editingFilter._id, formData);
+        await configurationService.updateFilterConfiguration(editingFilter.id!, formData);
         toast({
           title: 'Success',
           description: 'Filter updated successfully',
@@ -196,38 +285,21 @@ const FiltersTab: React.FC = () => {
           description: 'Filter created successfully',
         });
       }
+
       fetchFilters();
       handleCloseDialog();
     } catch (error) {
+      console.error('Error saving filter:', error);
       toast({
         title: 'Error',
-        description: editingFilter ? 'Failed to update filter' : 'Failed to create filter',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleToggleActive = async (id: string, currentStatus: boolean) => {
-    try {
-      await configurationService.updateFilterConfiguration(id, { isActive: !currentStatus });
-      toast({
-        title: 'Success',
-        description: `Filter ${!currentStatus ? 'activated' : 'deactivated'} successfully`,
-      });
-      fetchFilters();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update filter status',
+        description: 'Failed to save filter configuration',
         variant: 'destructive',
       });
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this filter? This action cannot be undone.')) {
-      return;
-    }
+    if (!confirm('Are you sure you want to delete this filter option?')) return;
 
     try {
       await configurationService.deleteFilterConfiguration(id);
@@ -237,6 +309,7 @@ const FiltersTab: React.FC = () => {
       });
       fetchFilters();
     } catch (error) {
+      console.error('Error deleting filter:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete filter',
@@ -245,144 +318,77 @@ const FiltersTab: React.FC = () => {
     }
   };
 
-  const handleReorder = async (id: string, direction: 'up' | 'down', filterType: string) => {
-    const typeFilters = getFiltersByType(filterType);
-    const index = typeFilters.findIndex((f) => f._id === id);
-
-    if (
-      (direction === 'up' && index === 0) ||
-      (direction === 'down' && index === typeFilters.length - 1)
-    ) {
-      return;
-    }
-
-    const newOrder = [...typeFilters];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
-
+  const handleToggleStatus = async (filter: FilterConfiguration) => {
     try {
-      await Promise.all(
-        newOrder.map((filter, idx) =>
-          configurationService.updateFilterConfiguration(filter._id, { display_order: idx })
-        )
-      );
-      fetchFilters();
+      await configurationService.updateFilterConfiguration(filter.id!, {
+        isActive: !filter.isActive
+      });
       toast({
         title: 'Success',
-        description: 'Filters reordered successfully',
+        description: `Filter ${filter.isActive ? 'deactivated' : 'activated'} successfully`,
       });
+      fetchFilters();
     } catch (error) {
+      console.error('Error updating filter status:', error);
       toast({
         title: 'Error',
-        description: 'Failed to reorder filters',
+        description: 'Failed to update filter status',
         variant: 'destructive',
       });
     }
   };
 
-  const renderFilterTable = (filterType: string) => {
-    const typeFilters = getFiltersByType(filterType);
-    const filteredTypeFilters = typeFilters.filter(filter =>
-      filter.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      filter.displayLabel?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      filter.value.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    // Get user-friendly label from filter type
-    const getFilterTypeLabel = () => {
-      return filterType.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
-    };
+  const renderFilterTable = (type: string) => {
+    const typeFilters = getFiltersByType(type);
 
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <p className="text-sm text-muted-foreground">
-            Manage {getFilterTypeLabel()} filter options
-          </p>
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground">
+              {typeFilters.length} options configured
+            </h4>
+          </div>
           {canCreateFilterOption && (
-            <Button onClick={() => handleOpenDialog()}>
+            <Button size="sm" onClick={() => handleOpenDialog()}>
               <Plus className="h-4 w-4 mr-2" />
-              Add {getFilterTypeLabel()} Option
+              Add Option
             </Button>
           )}
         </div>
 
-        <div className="flex items-center space-x-2">
-          <Input
-            placeholder="Search filter options..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-sm"
-          />
-        </div>
-
-        <div className="border rounded-lg">
+        <div className="border rounded-md">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Order</TableHead>
+                <TableHead>Display Order</TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>Display Label</TableHead>
                 <TableHead>Value</TableHead>
-                {filterType === 'budget' && (
-                  <>
-                    <TableHead>Min Value</TableHead>
-                    <TableHead>Max Value</TableHead>
-                  </>
-                )}
+                <TableHead>Display Label</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTypeFilters.length === 0 ? (
+              {typeFilters.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={filterType === 'budget' ? 8 : 6} className="text-center py-8 text-muted-foreground">
-                    {searchTerm ? 'No filter options match your search.' : 'No filter options found. Create your first filter option to get started.'}
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No options found for this filter type.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredTypeFilters.map((filter, index) => {
-                  const originalIndex = typeFilters.findIndex(f => f._id === filter._id);
-                  return (
-                  <TableRow key={filter._id}>
-                    <TableCell>
-                      {canChangeOrder && (
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleReorder(filter._id, 'up', filterType)}
-                            disabled={originalIndex === 0}
-                          >
-                            <ChevronUp className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleReorder(filter._id, 'down', filterType)}
-                            disabled={originalIndex === typeFilters.length - 1}
-                          >
-                            <ChevronDown className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </TableCell>
+                typeFilters.map((filter) => (
+                  <TableRow key={filter.id}>
+                    <TableCell>{filter.displayOrder}</TableCell>
                     <TableCell className="font-medium">{filter.name}</TableCell>
-                    <TableCell>{filter.displayLabel || '-'}</TableCell>
                     <TableCell>
-                      <code className="text-sm bg-muted px-2 py-1 rounded">{filter.value}</code>
+                      <Badge variant="outline">{filter.value}</Badge>
                     </TableCell>
-                    {filterType === 'budget' && (
-                      <>
-                        <TableCell>{filter.minValue || '-'}</TableCell>
-                        <TableCell>{filter.maxValue || '-'}</TableCell>
-                      </>
-                    )}
+                    <TableCell>{filter.displayLabel || '-'}</TableCell>
                     <TableCell>
                       <Switch
                         checked={filter.isActive}
-                        onCheckedChange={() => handleToggleActive(filter._id, filter.isActive)}
+                        onCheckedChange={() => canToggleStatus && handleToggleStatus(filter)}
                         disabled={!canToggleStatus}
                       />
                     </TableCell>
@@ -391,7 +397,7 @@ const FiltersTab: React.FC = () => {
                         {canEditFilter && (
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             onClick={() => handleOpenDialog(filter)}
                           >
                             <Pencil className="h-4 w-4" />
@@ -400,17 +406,17 @@ const FiltersTab: React.FC = () => {
                         {canDeleteFilter && (
                           <Button
                             variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(filter._id)}
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(filter.id!)}
                           >
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
                     </TableCell>
                   </TableRow>
-                );
-                })
+                ))
               )}
             </TableBody>
           </Table>
@@ -418,10 +424,6 @@ const FiltersTab: React.FC = () => {
       </div>
     );
   };
-
-  if (isLoading) {
-    return <div className="text-center py-8">Loading filters...</div>;
-  }
 
   return (
     <div className="space-y-4">
@@ -432,14 +434,20 @@ const FiltersTab: React.FC = () => {
             Manage filter options for property search and filtering
           </p>
         </div>
-        {canCreateFilterType && (
-          <Button onClick={() => setIsNewFilterTypeDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Filter Type
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsDependencyDialogOpen(true)}>
+            Manage Dependencies
           </Button>
-        )}
+          {canCreateFilterType && (
+            <Button onClick={() => setIsNewFilterTypeDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Filter Type
+            </Button>
+          )}
+        </div>
       </div>
 
+      {/* ... existing Tabs ... */}
       {filterTypes.length === 0 ? (
         <div className="border rounded-lg p-8 text-center">
           <p className="text-muted-foreground mb-4">No filter types found. Create your first filter type to get started.</p>
@@ -470,7 +478,143 @@ const FiltersTab: React.FC = () => {
         </Tabs>
       )}
 
+      {/* Dependency Dialog */}
+      <Dialog open={isDependencyDialogOpen} onOpenChange={setIsDependencyDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Manage Filter Dependencies</DialogTitle>
+            <DialogDescription>
+              Configure which filters should appear based on other filter selections.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="grid grid-cols-3 gap-4 items-end border p-4 rounded-lg bg-muted/20">
+              <div className="space-y-2">
+                <Label>Target Filter (Show this...)</Label>
+                <Select
+                  value={newDependency.targetFilterType}
+                  onValueChange={(val) => setNewDependency({ ...newDependency, targetFilterType: val })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filterTypes.map(t => (
+                      <SelectItem key={t} value={t}>
+                        {t.replace(/_/g, ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Source Filter (...when this is selected)</Label>
+                <Select
+                  value={newDependency.sourceFilterType}
+                  onValueChange={(val) => setNewDependency({ ...newDependency, sourceFilterType: val, sourceFilterValues: [] })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select parent filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="property_type">Property Type</SelectItem>
+                    {filterTypes.filter(t => t !== newDependency.targetFilterType).map(t => (
+                      <SelectItem key={t} value={t}>
+                        {t.replace(/_/g, ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Trigger Values (Matches any)</Label>
+                <Select
+                  disabled={!newDependency.sourceFilterType}
+                  onValueChange={(val) => {
+                    if (!newDependency.sourceFilterValues.includes(val)) {
+                      setNewDependency({
+                        ...newDependency,
+                        sourceFilterValues: [...newDependency.sourceFilterValues, val]
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Add value..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSourceValues.map((opt: any) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {newDependency.sourceFilterValues.map(val => (
+                    <Badge key={val} variant="secondary" className="cursor-pointer" onClick={() => {
+                      setNewDependency({
+                        ...newDependency,
+                        sourceFilterValues: newDependency.sourceFilterValues.filter(v => v !== val)
+                      });
+                    }}>
+                      {availableSourceValues.find((o: any) => o.value === val)?.label || val} ×
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <Button onClick={handleSaveDependency} className="w-full">Add Rule</Button>
+
+            <div className="border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Target Filter</TableHead>
+                    <TableHead>Depends On</TableHead>
+                    <TableHead>Values</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dependencies.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground">No dependencies configured</TableCell>
+                    </TableRow>
+                  ) : (
+                    dependencies.map((dep, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">{dep.targetFilterType}</TableCell>
+                        <TableCell>{dep.sourceFilterType}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {dep.sourceFilterValues.map(v => (
+                              <Badge key={v} variant="outline" className="text-xs">{v}</Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => handleDeleteDependency(idx)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ... existing Dialogs ... */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        {/* ... existing content ... */}
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -537,10 +681,10 @@ const FiltersTab: React.FC = () => {
               />
             </div>
 
-            {formData.filter_type === 'budget' && (
+            {['budget', 'area'].includes(formData.filter_type) && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="min_value">Min Value (₹)</Label>
+                  <Label htmlFor="min_value">Min Value {formData.filter_type === 'budget' ? '(₹)' : '(sq ft)'}</Label>
                   <Input
                     id="min_value"
                     type="number"
@@ -548,12 +692,12 @@ const FiltersTab: React.FC = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, min_value: e.target.value ? parseFloat(e.target.value) : undefined })
                     }
-                    placeholder="e.g., 2000000"
+                    placeholder={formData.filter_type === 'budget' ? "e.g., 2000000" : "e.g., 1000"}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="max_value">Max Value (₹)</Label>
+                  <Label htmlFor="max_value">Max Value {formData.filter_type === 'budget' ? '(₹)' : '(sq ft)'}</Label>
                   <Input
                     id="max_value"
                     type="number"
@@ -561,7 +705,7 @@ const FiltersTab: React.FC = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, max_value: e.target.value ? parseFloat(e.target.value) : undefined })
                     }
-                    placeholder="e.g., 4000000"
+                    placeholder={formData.filter_type === 'budget' ? "e.g., 4000000" : "e.g., 2000"}
                   />
                 </div>
               </>
