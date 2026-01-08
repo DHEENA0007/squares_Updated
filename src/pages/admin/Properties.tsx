@@ -46,7 +46,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { adminPropertyService } from "@/services/adminPropertyService";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -597,21 +597,50 @@ const Properties = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 mb-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <SearchFilter
-                  searchTerm={searchTerm}
-                  onSearchChange={setSearchTerm}
-                />
+          <div className="flex flex-col xl:flex-row gap-4 items-end mb-6">
+            <div className="flex-1 w-full">
+              <SearchFilter
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+              />
+            </div>
+
+            <div className="flex gap-4 flex-wrap xl:flex-nowrap w-full xl:w-auto">
+              {/* Price Range */}
+              <div className="flex gap-2">
+                <div className="w-28 sm:w-32">
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Min Price</Label>
+                  <Input
+                    type="number"
+                    value={priceRange[0]}
+                    onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])}
+                    min={0}
+                    max={50000000}
+                    className="h-10"
+                    placeholder="Min"
+                  />
+                </div>
+                <div className="w-28 sm:w-32">
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Max Price</Label>
+                  <Input
+                    type="number"
+                    value={priceRange[1]}
+                    onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
+                    min={0}
+                    max={50000000}
+                    className="h-10"
+                    placeholder="Max"
+                  />
+                </div>
               </div>
+
               <div className="w-full sm:w-48">
-                <Label htmlFor="type-filter" className="text-sm font-medium">Property Type</Label>
+                <Label htmlFor="type-filter" className="text-xs text-muted-foreground mb-1.5 block">Property Type</Label>
                 <select
                   id="type-filter"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="w-full p-2 border rounded-md mt-1"
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={isLoadingPropertyTypes}
                 >
                   <option value="all">{isLoadingPropertyTypes ? "Loading..." : "All Types"}</option>
@@ -623,12 +652,12 @@ const Properties = () => {
                 </select>
               </div>
               <div className="w-full sm:w-48">
-                <Label htmlFor="status-filter" className="text-sm font-medium">Property Status</Label>
+                <Label htmlFor="status-filter" className="text-xs text-muted-foreground mb-1.5 block">Property Status</Label>
                 <select
                   id="status-filter"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full p-2 border rounded-md mt-1"
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="all">All Statuses</option>
                   <option value="available">Available</option>
@@ -638,21 +667,6 @@ const Properties = () => {
                   <option value="rented">Rented</option>
                   <option value="leased">Leased</option>
                 </select>
-              </div>
-            </div>
-            <div className="w-full">
-              <Label className="text-sm font-medium">Price Range</Label>
-              <div className="flex items-center gap-4 mt-2">
-                <span className="text-sm font-medium">₹{priceRange[0].toLocaleString()}</span>
-                <Slider
-                  min={0}
-                  max={50000000}
-                  step={100000}
-                  value={priceRange}
-                  onValueChange={value => setPriceRange([value[0], value[1]])}
-                  className="flex-1"
-                />
-                <span className="text-sm font-medium">₹{priceRange[1].toLocaleString()}</span>
               </div>
             </div>
           </div>

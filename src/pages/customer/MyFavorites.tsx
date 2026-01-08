@@ -197,12 +197,12 @@ const MyFavorites: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 pb-12 pt-20">
+    <div className="min-h-screen bg-background pb-12 pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Saved Properties</h1>
+            <h1 className="text-3xl font-bold text-foreground">Saved Properties</h1>
             <p className="text-muted-foreground mt-1">
               {filteredFavorites.length} properties saved
             </p>
@@ -233,40 +233,40 @@ const MyFavorites: React.FC = () => {
         {/* Stats Cards */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="border-none shadow-sm bg-white">
+            <Card className="border-none shadow-sm bg-card">
               <CardContent className="p-6 flex items-center gap-4">
-                <div className="p-3 bg-red-50 rounded-full">
-                  <Heart className="w-6 h-6 text-red-500" />
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-full">
+                  <Heart className="w-6 h-6 text-red-500 dark:text-red-400" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Total Saved</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalFavorites}</p>
+                  <p className="text-2xl font-bold text-foreground">{stats.totalFavorites}</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-sm bg-white">
+            <Card className="border-none shadow-sm bg-card">
               <CardContent className="p-6 flex items-center gap-4">
-                <div className="p-3 bg-green-50 rounded-full">
-                  <SortAsc className="w-6 h-6 text-green-600" />
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-full">
+                  <SortAsc className="w-6 h-6 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Average Price</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-2xl font-bold text-foreground">
                     {stats?.avgPrice ? favoriteService.formatPrice(stats.avgPrice) : '₹0'}
                   </p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-sm bg-white">
+            <Card className="border-none shadow-sm bg-card">
               <CardContent className="p-6 flex items-center gap-4">
-                <div className="p-3 bg-blue-50 rounded-full">
-                  <Filter className="w-6 h-6 text-blue-600" />
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-full">
+                  <Filter className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Available Now</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats?.availableProperties || 0}</p>
+                  <p className="text-2xl font-bold text-foreground">{stats?.availableProperties || 0}</p>
                 </div>
               </CardContent>
             </Card>
@@ -274,14 +274,14 @@ const MyFavorites: React.FC = () => {
         )}
 
         {/* Search & Filter Bar */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border flex flex-col md:flex-row gap-4">
+        <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search by location, title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 border-gray-200"
+              className="pl-9 border-input bg-background"
             />
           </div>
           <div className="flex gap-2">
@@ -322,7 +322,7 @@ const MyFavorites: React.FC = () => {
 
         {/* Helper Tip */}
         {filteredFavorites.length > 0 && selectedProperties.length === 0 && (
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-center gap-2 text-sm text-blue-700">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 rounded-lg p-3 flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
             <GitCompare className="w-4 h-4" />
             <span>Select multiple properties to compare them side-by-side.</span>
           </div>
@@ -330,9 +330,9 @@ const MyFavorites: React.FC = () => {
 
         {/* Properties Grid */}
         {filteredFavorites.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-xl border border-dashed">
+          <div className="text-center py-20 bg-card rounded-xl border border-dashed border-border">
             <Heart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">No saved properties</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-1">No saved properties</h3>
             <p className="text-muted-foreground mb-6">
               {searchQuery || filterType !== 'all'
                 ? "No properties match your filters."
@@ -363,7 +363,7 @@ const MyFavorites: React.FC = () => {
                     }`}
                 >
                   {/* Image Section */}
-                  <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
+                  <div className="relative aspect-[4/3] bg-muted overflow-hidden">
                     {firstImage ? (
                       <img
                         src={firstImage}
@@ -397,16 +397,16 @@ const MyFavorites: React.FC = () => {
                         <Badge className={`${statusInfo.variant === 'default' ? 'bg-green-500' : 'bg-gray-500'} border-0`}>
                           {statusInfo.label}
                         </Badge>
-                        <Badge className="bg-blue-50 text-blue-700 border-blue-100 capitalize">
+                        <Badge className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-100 dark:border-blue-900/50 capitalize">
                           {getListingTypeLabel(property.listingType).toLowerCase().startsWith('for ')
                             ? getListingTypeLabel(property.listingType)
                             : `For ${getListingTypeLabel(property.listingType)}`}
                         </Badge>
-                        <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">
+                        <Badge variant="outline" className="border-border text-muted-foreground capitalize">
                           {property.type}
                         </Badge>
                       </div>
-                      <h3 className="font-semibold text-lg text-gray-900 line-clamp-1 mb-1">
+                      <h3 className="font-semibold text-lg text-foreground line-clamp-1 mb-1">
                         {property.title}
                       </h3>
                       <div className="flex items-center text-muted-foreground text-sm">
@@ -418,20 +418,20 @@ const MyFavorites: React.FC = () => {
                     </div>
 
                     {/* Key Specs */}
-                    <div className="flex items-center justify-between py-3 border-t border-b border-gray-50">
+                    <div className="flex items-center justify-between py-3 border-t border-b border-border">
                       <div className="text-center">
                         <p className="text-xs text-muted-foreground uppercase tracking-wider">Bed</p>
-                        <p className="font-semibold text-gray-900">{property.bedrooms || '-'}</p>
+                        <p className="font-semibold text-foreground">{property.bedrooms || '-'}</p>
                       </div>
-                      <div className="w-px h-8 bg-gray-100" />
+                      <div className="w-px h-8 bg-border" />
                       <div className="text-center">
                         <p className="text-xs text-muted-foreground uppercase tracking-wider">Bath</p>
-                        <p className="font-semibold text-gray-900">{property.bathrooms || '-'}</p>
+                        <p className="font-semibold text-foreground">{property.bathrooms || '-'}</p>
                       </div>
-                      <div className="w-px h-8 bg-gray-100" />
+                      <div className="w-px h-8 bg-border" />
                       <div className="text-center">
                         <p className="text-xs text-muted-foreground uppercase tracking-wider">Area</p>
-                        <p className="font-semibold text-gray-900">
+                        <p className="font-semibold text-foreground">
                           {property.area && typeof property.area === 'object'
                             ? ((property.area as any).builtUp || (property.area as any).plot || '-')
                             : '-'}
@@ -471,7 +471,7 @@ const MyFavorites: React.FC = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100"
+                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-100 dark:border-red-900/50"
                           onClick={() => removeFavorite(property._id)}
                         >
                           <Trash2 className="w-4 h-4 mr-2" />

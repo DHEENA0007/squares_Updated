@@ -151,6 +151,25 @@ const PropertyDetails: React.FC = () => {
     loadProperty();
   }, [loadProperty]);
 
+  // Track view duration
+  useEffect(() => {
+    if (!property?._id) return;
+
+    const startTime = Date.now();
+
+    const sendDuration = () => {
+      const duration = Math.round((Date.now() - startTime) / 1000);
+      if (duration > 0) {
+        propertyService.updateViewDuration(property._id, duration);
+      }
+    };
+
+    // Send duration when component unmounts or property changes
+    return () => {
+      sendDuration();
+    };
+  }, [property?._id]);
+
   // Listen for updates
   useRealtimeEvent('property_updated', useCallback((data) => {
     if (data.propertyId === id) {

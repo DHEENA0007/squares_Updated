@@ -37,6 +37,23 @@ interface SupportTicket {
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   category?: string;
   ticketNumber?: string;
+  assignedTo?: {
+    _id: string;
+    email: string;
+    profile: {
+      firstName: string;
+      lastName: string;
+    };
+  };
+  lockedBy?: {
+    _id: string;
+    email: string;
+    profile: {
+      firstName: string;
+      lastName: string;
+    };
+  };
+  lockedAt?: string;
   attachments?: Array<{
     filename: string;
     url: string;
@@ -45,6 +62,7 @@ interface SupportTicket {
   responses?: Array<{
     message: string;
     author: string;
+    authorId?: string;
     isAdmin: boolean;
     createdAt: string;
   }>;

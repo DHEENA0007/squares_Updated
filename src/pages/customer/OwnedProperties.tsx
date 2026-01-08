@@ -262,12 +262,12 @@ const OwnedProperties: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50 pb-12 pt-20">
+    <div className="min-h-screen bg-background pb-12 pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Owned Properties</h1>
+            <h1 className="text-3xl font-bold text-foreground">Owned Properties</h1>
             <p className="text-muted-foreground mt-1">
               Manage your purchased and rented properties
             </p>
@@ -287,40 +287,40 @@ const OwnedProperties: React.FC = () => {
         {/* Stats Cards */}
         {!loading && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="border-none shadow-sm bg-white">
+            <Card className="border-none shadow-sm bg-card">
               <CardContent className="p-6 flex items-center gap-4">
                 <div className="p-3 bg-primary/10 rounded-full">
                   <Home className="w-6 h-6 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Total Owned</p>
-                  <p className="text-2xl font-bold text-gray-900">{properties.length}</p>
+                  <p className="text-2xl font-bold text-foreground">{properties.length}</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-sm bg-white">
+            <Card className="border-none shadow-sm bg-card">
               <CardContent className="p-6 flex items-center gap-4">
-                <div className="p-3 bg-purple-100 rounded-full">
-                  <CheckCircle className="w-6 h-6 text-purple-600" />
+                <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-full">
+                  <CheckCircle className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Purchased</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-2xl font-bold text-foreground">
                     {properties.filter(p => p.status === 'sold').length}
                   </p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-sm bg-white">
+            <Card className="border-none shadow-sm bg-card">
               <CardContent className="p-6 flex items-center gap-4">
-                <div className="p-3 bg-blue-100 rounded-full">
-                  <TrendingUp className="w-6 h-6 text-blue-600" />
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-full">
+                  <TrendingUp className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Rented</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-2xl font-bold text-foreground">
                     {properties.filter(p => p.status === 'rented').length}
                   </p>
                 </div>
@@ -330,14 +330,14 @@ const OwnedProperties: React.FC = () => {
         )}
 
         {/* Search & Filter Bar */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border flex flex-col md:flex-row gap-4">
+        <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search by location, title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 border-gray-200"
+              className="pl-9 border-input bg-background"
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -366,9 +366,9 @@ const OwnedProperties: React.FC = () => {
         {!loading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProperties.map((property) => (
-              <Card key={property._id} className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300">
+              <Card key={property._id} className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 bg-card">
                 {/* Image Section */}
-                <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
+                <div className="relative aspect-[4/3] bg-muted overflow-hidden">
                   {property.images.length > 0 ? (
                     <img
                       src={getPrimaryImage(property)}
@@ -399,20 +399,20 @@ const OwnedProperties: React.FC = () => {
                 <CardContent className="p-4 space-y-4">
                   <div>
                     <div className="flex flex-wrap gap-2 mb-2">
-                      <Badge className={`${property.status === 'sold' ? 'bg-purple-600' : 'bg-blue-600'} border-0`}>
+                      <Badge className={`${property.status === 'sold' ? 'bg-purple-600 dark:bg-purple-900/50' : 'bg-blue-600 dark:bg-blue-900/50'} border-0`}>
                         {property.status === 'sold' ? 'Purchased' : getListingTypeLabel(property.listingType)}
                       </Badge>
-                      <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">
+                      <Badge variant="outline" className="border-border text-muted-foreground capitalize">
                         {property.type}
                       </Badge>
                       {property.hasReviewed && (
-                        <Badge className="bg-green-600 border-0">
+                        <Badge className="bg-green-600 dark:bg-green-900/50 border-0">
                           <Star className="w-3 h-3 mr-1 fill-white" />
                           Reviewed
                         </Badge>
                       )}
                     </div>
-                    <h3 className="font-semibold text-lg text-gray-900 line-clamp-1 mb-1">
+                    <h3 className="font-semibold text-lg text-foreground line-clamp-1 mb-1">
                       {property.title}
                     </h3>
                     <div className="flex items-center text-muted-foreground text-sm">
@@ -424,20 +424,20 @@ const OwnedProperties: React.FC = () => {
                   </div>
 
                   {/* Key Specs */}
-                  <div className="flex items-center justify-between py-3 border-t border-b border-gray-50">
+                  <div className="flex items-center justify-between py-3 border-t border-b border-border">
                     <div className="text-center">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider">Bed</p>
-                      <p className="font-semibold text-gray-900">{property.bedrooms || '-'}</p>
+                      <p className="font-semibold text-foreground">{property.bedrooms || '-'}</p>
                     </div>
-                    <div className="w-px h-8 bg-gray-100" />
+                    <div className="w-px h-8 bg-border" />
                     <div className="text-center">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider">Bath</p>
-                      <p className="font-semibold text-gray-900">{property.bathrooms || '-'}</p>
+                      <p className="font-semibold text-foreground">{property.bathrooms || '-'}</p>
                     </div>
-                    <div className="w-px h-8 bg-gray-100" />
+                    <div className="w-px h-8 bg-border" />
                     <div className="text-center">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider">Area</p>
-                      <p className="font-semibold text-gray-900">
+                      <p className="font-semibold text-foreground">
                         {property.area && typeof property.area === 'object'
                           ? ((property.area as any).builtUp || (property.area as any).plot || '-')
                           : '-'}
@@ -447,13 +447,13 @@ const OwnedProperties: React.FC = () => {
 
                   {/* Review Section */}
                   {property.hasReviewed && property.review ? (
-                    <div className="bg-green-50 rounded-lg p-3 border border-green-100">
+                    <div className="bg-green-50 dark:bg-green-900/10 rounded-lg p-3 border border-green-100 dark:border-green-900/30">
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex gap-0.5">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <Star
                               key={star}
-                              className={`w-3 h-3 ${star <= property.review!.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                              className={`w-3 h-3 ${star <= property.review!.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`}
                             />
                           ))}
                         </div>
@@ -466,7 +466,7 @@ const OwnedProperties: React.FC = () => {
                           <Edit3 className="w-3 h-3" />
                         </Button>
                       </div>
-                      <p className="text-xs text-green-800 line-clamp-1 font-medium">{property.review.title}</p>
+                      <p className="text-xs text-green-800 dark:text-green-300 line-clamp-1 font-medium">{property.review.title}</p>
                     </div>
                   ) : (
                     <Button

@@ -156,10 +156,26 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
     });
   }
 
-  const { dateRange = '30' } = req.query;
-  const days = parseInt(dateRange);
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
+  const { dateRange = '30', startDate: queryStartDate, endDate: queryEndDate } = req.query;
+
+  let startDate = new Date();
+  let endDate = new Date();
+
+  if (dateRange === 'custom' && queryStartDate && queryEndDate) {
+    startDate = new Date(queryStartDate);
+    endDate = new Date(queryEndDate);
+    // Set end date to end of day
+    endDate.setHours(23, 59, 59, 999);
+  } else {
+    const days = parseInt(dateRange);
+    if (!isNaN(days)) {
+      startDate.setDate(startDate.getDate() - days);
+    } else {
+      startDate.setDate(startDate.getDate() - 30);
+    }
+  }
+
+  const dateFilter = { $gte: startDate, $lte: endDate };
 
   try {
     // ========== OVERVIEW DATA ==========
@@ -178,10 +194,10 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
     ] = await Promise.all([
       User.countDocuments(),
       Property.countDocuments(),
-      PropertyView.countDocuments({ viewedAt: { $gte: startDate } }),
-      User.countDocuments({ createdAt: { $gte: startDate } }),
+      PropertyView.countDocuments({ viewedAt: dateFilter }),
+      User.countDocuments({ createdAt: dateFilter }),
       Payment.aggregate([
-        { $match: { status: 'paid', createdAt: { $gte: startDate } } },
+        { $match: { status: 'paid', createdAt: dateFilter } },
         {
           $lookup: {
             from: 'subscriptions',
@@ -234,7 +250,7 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
         .select('email profile.firstName profile.lastName role createdAt'),
       // Count unique viewers (by sessionId or viewer)
       PropertyView.aggregate([
-        { $match: { viewedAt: { $gte: startDate } } },
+        { $match: { viewedAt: dateFilter } },
         {
           $group: {
             _id: { $ifNull: ['$viewer', '$sessionId'] }
@@ -244,7 +260,7 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
       ]),
       // Calculate average view duration
       PropertyView.aggregate([
-        { $match: { viewedAt: { $gte: startDate }, viewDuration: { $gt: 0 } } },
+        { $match: { viewedAt: dateFilter, viewDuration: { $gt: 0 } } },
         {
           $group: {
             _id: null,
@@ -274,7 +290,7 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
     ]);
 
     // ========== PROPERTY VIEWS DATA ==========
-    const matchCondition = { viewedAt: { $gte: startDate } };
+    const matchCondition = { viewedAt: dateFilter };
     const [viewsByProperty, viewsByDate, viewerTypes, interactionsData] = await Promise.all([
       PropertyView.aggregate([
         { $match: matchCondition },
@@ -351,15 +367,15 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
     // ========== USER CONVERSION DATA ==========
     const [guestViews, registeredViews, newRegistrationsData] = await Promise.all([
       PropertyView.countDocuments({
-        viewedAt: { $gte: startDate },
+        viewedAt: dateFilter,
         viewer: null
       }),
       PropertyView.countDocuments({
-        viewedAt: { $gte: startDate },
+        viewedAt: dateFilter,
         viewer: { $ne: null }
       }),
       User.aggregate([
-        { $match: { createdAt: { $gte: startDate } } },
+        { $match: { createdAt: dateFilter } },
         {
           $group: {
             _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
@@ -379,12 +395,12 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
     // ========== TRAFFIC DATA ==========
     let trafficBySource, trafficByDevice, peakHours, trafficByCountry, trafficByBrowser;
 
-    const pageVisitCount = await PageVisit.countDocuments({ visitedAt: { $gte: startDate } });
+    const pageVisitCount = await PageVisit.countDocuments({ visitedAt: dateFilter });
 
     if (pageVisitCount > 0) {
       [trafficBySource, trafficByDevice, peakHours, trafficByCountry, trafficByBrowser] = await Promise.all([
         PageVisit.aggregate([
-          { $match: { visitedAt: { $gte: startDate } } },
+          { $match: { visitedAt: dateFilter } },
           {
             $group: {
               _id: '$referrerDomain',
@@ -403,7 +419,7 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
           { $limit: 10 }
         ]),
         PageVisit.aggregate([
-          { $match: { visitedAt: { $gte: startDate } } },
+          { $match: { visitedAt: dateFilter } },
           {
             $group: {
               _id: '$deviceType',
@@ -413,7 +429,7 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
           { $sort: { count: -1 } }
         ]),
         PageVisit.aggregate([
-          { $match: { visitedAt: { $gte: startDate } } },
+          { $match: { visitedAt: dateFilter } },
           {
             $group: {
               _id: { $hour: '$visitedAt' },
@@ -448,7 +464,7 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
     } else {
       [trafficBySource, trafficByDevice, peakHours] = await Promise.all([
         PropertyView.aggregate([
-          { $match: { viewedAt: { $gte: startDate } } },
+          { $match: { viewedAt: dateFilter } },
           {
             $project: {
               referrerDomain: {
@@ -477,7 +493,7 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
           { $limit: 10 }
         ]),
         PropertyView.aggregate([
-          { $match: { viewedAt: { $gte: startDate } } },
+          { $match: { viewedAt: dateFilter } },
           {
             $group: {
               _id: {
@@ -523,7 +539,7 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
       User.aggregate([
         {
           $match: {
-            'profile.lastLogin': { $gte: startDate },
+            'profile.lastLogin': dateFilter,
             role: { $in: ['customer', 'vendor'] }
           }
         },
@@ -570,7 +586,7 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
         }
       ]),
       Message.aggregate([
-        { $match: { createdAt: { $gte: startDate } } },
+        { $match: { createdAt: dateFilter } },
         {
           $group: {
             _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
@@ -580,7 +596,7 @@ router.get('/v3/admin', asyncHandler(async (req, res) => {
         { $sort: { '_id': 1 } }
       ]),
       Review.aggregate([
-        { $match: { createdAt: { $gte: startDate } } },
+        { $match: { createdAt: dateFilter } },
         {
           $group: {
             _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
@@ -1373,6 +1389,88 @@ router.get('/all-property-viewers', asyncHandler(async (req, res) => {
       }
     }
   });
+}));
+
+// Property Report Endpoint
+router.get('/v3/admin/property-report', asyncHandler(async (req, res) => {
+  const isSuperAdmin = req.user.role === 'superadmin';
+  const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
+  const hasSuperAdminAnalyticsPermission = hasPermission(req.user, PERMISSIONS.SUPERADMIN_ANALYTICS_VIEW);
+
+  if (!isSuperAdmin && !hasAnalyticsPermission && !hasSuperAdminAnalyticsPermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view analytics'
+    });
+  }
+
+  try {
+    const properties = await Property.aggregate([
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'owner',
+          foreignField: '_id',
+          as: 'ownerDetails'
+        }
+      },
+      { $unwind: { path: '$ownerDetails', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'subscriptions',
+          let: { ownerId: '$owner' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$user', '$$ownerId'] }, status: 'active' } },
+            { $sort: { endDate: -1 } },
+            { $limit: 1 }
+          ],
+          as: 'subscriptionDetails'
+        }
+      },
+      {
+        $unwind: {
+          path: '$subscriptionDetails',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          type: 1,
+          listingType: 1,
+          price: 1,
+          status: 1,
+          address: 1,
+          owner: {
+            name: { $concat: [{ $ifNull: ['$ownerDetails.profile.firstName', ''] }, ' ', { $ifNull: ['$ownerDetails.profile.lastName', ''] }] },
+            email: '$ownerDetails.email',
+            phone: '$ownerDetails.profile.phone'
+          },
+          subscription: {
+            status: { $ifNull: ['$subscriptionDetails.status', 'No Active Subscription'] },
+            planName: '$subscriptionDetails.planSnapshot.name',
+            endDate: '$subscriptionDetails.endDate'
+          },
+          createdAt: 1,
+          views: 1
+        }
+      },
+      { $sort: { createdAt: -1 } }
+    ]);
+
+    res.json({
+      success: true,
+      data: properties
+    });
+  } catch (error) {
+    console.error('Error fetching property report:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch property report',
+      error: error.message
+    });
+  }
 }));
 
 module.exports = router;

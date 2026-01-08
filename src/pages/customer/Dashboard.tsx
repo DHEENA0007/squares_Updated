@@ -58,6 +58,7 @@ const Dashboard = () => {
       icon: Eye,
       color: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
+      link: "/customer/search"
     },
     {
       title: "Saved Favorites",
@@ -66,6 +67,7 @@ const Dashboard = () => {
       icon: Heart,
       color: "text-red-600 dark:text-red-400",
       bgColor: "bg-red-100 dark:bg-red-900/20",
+      link: "/customer/favorites"
     },
     {
       title: "Active Inquiries",
@@ -74,6 +76,7 @@ const Dashboard = () => {
       icon: MessageSquare,
       color: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-100 dark:bg-green-900/20",
+      link: "/customer/messages"
     },
     {
       title: "My Properties",
@@ -82,6 +85,7 @@ const Dashboard = () => {
       icon: Home,
       color: "text-orange-600 dark:text-orange-400",
       bgColor: "bg-orange-100 dark:bg-orange-900/20",
+      link: "/customer/owned-properties"
     },
   ];
 
@@ -238,9 +242,11 @@ const Dashboard = () => {
       {/* Header Section */}
       <div className="dashboard-header-responsive flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="dashboard-title-responsive text-3xl font-bold tracking-tight">
-            Welcome back{user?.profile?.firstName ? `, ${user.profile.firstName}` : ''}!
-          </h1>
+          <Link to="/customer/dashboard">
+            <h1 className="dashboard-title-responsive text-3xl font-bold tracking-tight hover:underline cursor-pointer">
+              Welcome back{user?.profile?.firstName ? `, ${user.profile.firstName}` : ''}!
+            </h1>
+          </Link>
           <p className="text-body-responsive text-muted-foreground mt-2">
             Here's what's happening with your property journey today.
           </p>
@@ -284,27 +290,29 @@ const Dashboard = () => {
           {displayStats.map((stat) => {
             const Icon = stat.icon;
             return (
-              <Card key={stat.title} className="stats-card-responsive hover:shadow-lg hover:border-primary/20 transition-all duration-300 group">
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                    {stat.title}
-                  </CardTitle>
-                  <div className={`p-2.5 rounded-xl ${stat.bgColor} group-hover:scale-110 transition-transform duration-300`}>
-                    <Icon className={`w-5 h-5 ${stat.color}`} />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold tracking-tight">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground mt-2 font-medium flex items-center gap-1">
-                    {stat.change.includes('+') ? (
-                      <TrendingUp className="w-3 h-3 text-green-500" />
-                    ) : null}
-                    <span className={stat.change.includes('+') ? 'text-green-600' : ''}>
-                      {stat.change}
-                    </span>
-                  </p>
-                </CardContent>
-              </Card>
+              <Link to={stat.link} key={stat.title}>
+                <Card className="stats-card-responsive hover:shadow-lg hover:border-primary/20 transition-all duration-300 group cursor-pointer">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                    <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                      {stat.title}
+                    </CardTitle>
+                    <div className={`p-2.5 rounded-xl ${stat.bgColor} group-hover:scale-110 transition-transform duration-300`}>
+                      <Icon className={`w-5 h-5 ${stat.color}`} />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold tracking-tight">{stat.value}</div>
+                    <p className="text-xs text-muted-foreground mt-2 font-medium flex items-center gap-1">
+                      {stat.change.includes('+') ? (
+                        <TrendingUp className="w-3 h-3 text-green-500" />
+                      ) : null}
+                      <span className={stat.change.includes('+') ? 'text-green-600' : ''}>
+                        {stat.change}
+                      </span>
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
             );
           })}
         </div>

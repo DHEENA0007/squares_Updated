@@ -164,6 +164,18 @@ export interface SinglePropertyResponse {
 }
 
 class PropertyService {
+  private getDeviceId(): string {
+    let deviceId = localStorage.getItem('device_id');
+    if (!deviceId) {
+      deviceId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+      localStorage.setItem('device_id', deviceId);
+    }
+    return deviceId;
+  }
+
   private async makeRequest<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -173,6 +185,7 @@ class PropertyService {
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
+        "x-device-id": this.getDeviceId(),
         ...options.headers,
       },
       ...options,
@@ -208,6 +221,17 @@ class PropertyService {
     } catch (error) {
       console.error("API request failed:", error);
       throw error;
+    }
+  }
+
+  async updateViewDuration(propertyId: string, duration: number): Promise<void> {
+    try {
+      await this.makeRequest(`/properties/${propertyId}/view-duration`, {
+        method: 'POST',
+        body: JSON.stringify({ duration })
+      });
+    } catch (error) {
+      console.error('Failed to update view duration:', error);
     }
   }
 

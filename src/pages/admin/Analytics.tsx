@@ -389,6 +389,67 @@ const Analytics = () => {
     toast({ title: 'Engagement Report Downloaded' });
   };
 
+  // Export Comprehensive Property Report
+  const exportPropertyReport = async () => {
+    setExporting(true);
+    try {
+      const response = await analyticsService.getPropertyReport();
+      if (response.success && response.data) {
+        const currentDate = format(new Date(), 'yyyy-MM-dd');
+        const formatCurrency = (amount: number) => `₹${(amount || 0).toLocaleString('en-IN')}`;
+
+        const reportData = response.data.map((prop: any) => ({
+          'Property Title': prop.title,
+          'Type': prop.type,
+          'Listing Type': prop.listingType,
+          'Price': formatCurrency(prop.price),
+          'Status': prop.status,
+          'Views': prop.views || 0,
+          'City': prop.address?.city || 'N/A',
+          'State': prop.address?.state || 'N/A',
+          'Pincode': prop.address?.pincode || 'N/A',
+          'Owner Name': prop.owner?.name || 'N/A',
+          'Owner Email': prop.owner?.email || 'N/A',
+          'Owner Phone': prop.owner?.phone || 'N/A',
+          'Subscription Status': prop.subscription?.status || 'N/A',
+          'Plan Name': prop.subscription?.planName || 'N/A',
+          'Subscription End Date': prop.subscription?.endDate ? format(new Date(prop.subscription.endDate), 'yyyy-MM-dd') : 'N/A',
+          'Created At': format(new Date(prop.createdAt), 'yyyy-MM-dd')
+        }));
+
+        ExportUtils.generateExcelReport(
+          {
+            filename: `comprehensive_property_report_${currentDate}`,
+            title: 'Comprehensive Property Report',
+            metadata: { 'Generated': currentDate, 'Total Properties': reportData.length.toString() }
+          },
+          [
+            {
+              name: 'Property Details',
+              data: reportData,
+              columns: [
+                { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+                { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 10 },
+                { wch: 20 }, { wch: 25 }, { wch: 15 },
+                { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }
+              ]
+            }
+          ]
+        );
+        toast({ title: 'Property Report Downloaded' });
+      }
+    } catch (error) {
+      console.error('Failed to export property report:', error);
+      toast({
+        title: 'Export Failed',
+        description: 'Failed to generate property report',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   useEffect(() => {
     if (!hasPermission(PERMISSIONS.ANALYTICS_VIEW)) {
       toast({
@@ -406,7 +467,11 @@ const Analytics = () => {
     setLoading(true);
     try {
       // Use the consolidated V3 admin analytics endpoint - single API call for all data
-      const response = await analyticsService.getConsolidatedAdminAnalytics(dateRange);
+      const response = await analyticsService.getConsolidatedAdminAnalytics(
+        dateRange,
+        dateRange === 'custom' ? customStartDate : undefined,
+        dateRange === 'custom' ? customEndDate : undefined
+      );
 
       if (response.success && response.data) {
         setOverview({
@@ -574,6 +639,17 @@ const Analytics = () => {
             >
               <Download className="h-4 w-4" />
               {exporting ? 'Generating...' : 'Export Report'}
+            </Button>
+
+            {/* Property Report Button */}
+            <Button
+              onClick={exportPropertyReport}
+              disabled={exporting || loading}
+              variant="secondary"
+              className="gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              Property Report
             </Button>
           </div>
         </div>

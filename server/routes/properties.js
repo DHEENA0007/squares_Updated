@@ -407,7 +407,9 @@ router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
       const isAdminRole = ['admin', 'superadmin', 'subadmin'].includes(userRole);
 
       if (shouldTrackView && !isAdminRole) {
-        const sessionId = req.sessionID || req.ip + '-' + Date.now();
+        // Use device ID from header if available, otherwise fallback to IP
+        // Remove timestamp from fallback to allow grouping of guest views by IP
+        const sessionId = req.headers['x-device-id'] || req.sessionID || req.ip;
         const viewerId = req.user?.id || req.user?._id || null;
 
         const viewData = {
@@ -425,7 +427,7 @@ router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
           propertyTitle: property.title,
           viewerId: viewerId,
           userRole: userRole,
-          sessionId: sessionId.substring(0, 20) + '...'
+          sessionId: sessionId.toString().substring(0, 20) + '...'
         });
 
         // Create view record
@@ -434,6 +436,9 @@ router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
 
         // Increment view count in property
         await Property.findByIdAndUpdate(id, { $inc: { views: 1 } });
+
+        // Return viewId in response header for duration tracking
+        res.set('X-View-Id', createdView._id.toString());
       } else {
         console.log('⏭️ Skipping view tracking for:', {
           propertyId: property._id,
@@ -474,6 +479,58 @@ router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
       success: false,
       message: 'Failed to fetch property',
       error: error.message
+    });
+  }
+}));
+
+// @desc    Update view duration
+// @route   POST /api/properties/:id/view-duration
+// @access  Public
+router.post('/:id/view-duration', optionalAuth, asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { duration, viewId } = req.body;
+
+    if (!duration || isNaN(duration)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid duration'
+      });
+    }
+
+    // If viewId is provided, update that specific view
+    if (viewId) {
+      await PropertyView.findByIdAndUpdate(viewId, {
+        $set: { viewDuration: duration }
+      });
+    } else {
+      // Fallback: update the most recent view for this session/IP
+      const sessionId = req.headers['x-device-id'] || req.sessionID || req.ip;
+      const viewerId = req.user?.id || null;
+
+      const query = {
+        property: id,
+        sessionId: sessionId,
+        viewedAt: { $gte: new Date(Date.now() - 3600000) } // Within last hour
+      };
+
+      if (viewerId) {
+        query.viewer = viewerId;
+      }
+
+      await PropertyView.findOneAndUpdate(
+        query,
+        { $set: { viewDuration: duration } },
+        { sort: { viewedAt: -1 } }
+      );
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update view duration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update view duration'
     });
   }
 }));

@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Plus, Eye, Search, Calendar, Mail, User } from "lucide-react";
+import { Package, Eye, Search, Calendar, User, Clock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,21 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +35,8 @@ import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/config/permissionConfig";
 import { useNavigate } from "react-router-dom";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // Helper functions
 const formatPrice = (price: number, currency: string = 'INR'): string => {
@@ -142,7 +159,7 @@ const AddonServices = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");
   const [selectedVendor, setSelectedVendor] = useState<VendorAddon | null>(null);
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedAddon, setSelectedAddon] = useState<AddonService | null>(null);
@@ -250,7 +267,7 @@ const AddonServices = () => {
     }
 
     // Get the subscription ID from the vendor's subscriptions
-    const subscription = selectedVendor.subscriptions.find(sub => 
+    const subscription = selectedVendor.subscriptions.find(sub =>
       sub.addons.some(a => a._id === selectedAddon._id)
     );
 
@@ -278,7 +295,7 @@ const AddonServices = () => {
           scheduledDate: scheduledServiceDate
         })
       });
-      
+
       const data = await handleApiResponse(response);
       toast({
         title: "Success",
@@ -331,15 +348,15 @@ const AddonServices = () => {
           cancellationReason: scheduleStatus === 'cancelled' ? cancellationReason : undefined
         })
       });
-      
+
       await handleApiResponse(response);
       toast({
         title: "Success",
-        description: scheduleStatus === 'cancelled' 
-          ? "Service cancelled successfully" 
-          : scheduleStatus === 'completed' 
-          ? "Service marked as completed" 
-          : "Schedule status updated successfully",
+        description: scheduleStatus === 'cancelled'
+          ? "Service cancelled successfully"
+          : scheduleStatus === 'completed'
+            ? "Service marked as completed"
+            : "Schedule status updated successfully",
       });
       setStatusDialogOpen(false);
       setSelectedSchedule(null);
@@ -375,19 +392,19 @@ const AddonServices = () => {
           message: newNote
         })
       });
-      
+
       const data = await handleApiResponse<{ data: { schedule: Schedule } }>(response);
       toast({
         title: "Success",
         description: "Note added successfully",
       });
       setNewNote("");
-      
+
       // Update the selected schedule with the new data
       if (data.data?.schedule) {
         setSelectedSchedule(data.data.schedule);
       }
-      
+
       fetchVendorAddons();
     } catch (error: any) {
       toast({
@@ -437,6 +454,11 @@ const AddonServices = () => {
     }
   };
 
+  const handleViewDetails = (vendor: VendorAddon) => {
+    setSelectedVendor(vendor);
+    setSheetOpen(true);
+  };
+
   if (loading && vendorAddons.length === 0) {
     return (
       <div className="space-y-6">
@@ -456,10 +478,10 @@ const AddonServices = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Addon Services</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Addon Services</h1>
           <p className="text-muted-foreground mt-1">
             View vendors who have purchased addon services and schedule appointments
           </p>
@@ -467,7 +489,7 @@ const AddonServices = () => {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Vendors</CardTitle>
@@ -510,7 +532,7 @@ const AddonServices = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -522,7 +544,7 @@ const AddonServices = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="col-span-2 md:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Categories</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
@@ -535,796 +557,373 @@ const AddonServices = () => {
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search vendors..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
+          <TabsList className="grid w-full grid-cols-3 sm:w-auto">
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="expired">Expired</TabsTrigger>
+            <TabsTrigger value="all">All</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search vendors..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="active">Active Subscriptions</TabsTrigger>
-          <TabsTrigger value="expired">Expired</TabsTrigger>
-          <TabsTrigger value="all">All Vendors</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={activeTab} className="space-y-4 mt-6">
-          {vendorAddons.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold">No Addon Services Found</h3>
-                <p className="text-muted-foreground text-center">
-                  {activeTab === 'active' 
-                    ? 'No vendors with active addon subscriptions'
-                    : `No vendors with ${activeTab} addon subscriptions`
-                  }
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            vendorAddons.map((vendor) => (
-              <Card key={vendor._id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">
-                          {vendor.user.profile.firstName} {vendor.user.profile.lastName}
-                        </CardTitle>
-                        <Badge variant="outline">
-                          {vendor.totalAddons} Addon{vendor.totalAddons !== 1 ? 's' : ''}
-                        </Badge>
-                      </div>
-                      <div className="space-y-2">
-                        <CardDescription className="text-sm">
-                          {vendor.user.email}
-                        </CardDescription>
-                        <div className="flex items-center gap-2 text-sm">
-                          {vendor.activeAddons.slice(0, 3).map((addon) => (
-                            <Badge 
-                              key={addon._id} 
-                              className={getAddonCategoryColor(addon.category)}
-                            >
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead className="hidden md:table-cell">Email</TableHead>
+                  <TableHead className="hidden lg:table-cell">Active Addons</TableHead>
+                  <TableHead>Total Value</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {vendorAddons.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                      No vendors found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  vendorAddons.map((vendor) => (
+                    <TableRow key={vendor._id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleViewDetails(vendor)}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback>{vendor.user.profile.firstName[0]}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col">
+                            <span>{vendor.user.profile.firstName} {vendor.user.profile.lastName}</span>
+                            <span className="text-xs text-muted-foreground md:hidden">{vendor.user.email}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">{vendor.user.email}</TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {vendor.activeAddons.slice(0, 2).map((addon) => (
+                            <Badge key={addon._id} variant="secondary" className="text-xs">
                               {addon.name}
                             </Badge>
                           ))}
-                          {vendor.activeAddons.length > 3 && (
-                            <Badge variant="outline">
-                              +{vendor.activeAddons.length - 3} more
+                          {vendor.activeAddons.length > 2 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{vendor.activeAddons.length - 2} more
                             </Badge>
                           )}
                         </div>
-                      </div>
-                    </div>
-                    <div className="text-right ml-4">
-                      <div className="text-sm text-muted-foreground">
-                        Total Value
-                      </div>
-                      <div className="text-xl font-bold text-primary">
+                      </TableCell>
+                      <TableCell className="font-medium">
                         {formatPrice(vendor.activeAddons.reduce((sum, addon) => sum + addon.price, 0))}
-                      </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewDetails(vendor);
+                        }}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
+
+      {/* View Vendor Details Sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="w-full sm:max-w-2xl flex flex-col p-0 gap-0">
+          <SheetHeader className="p-6 border-b">
+            <SheetTitle>Vendor Addon Services</SheetTitle>
+            <SheetDescription>
+              Detailed information about vendor's purchased addon services
+            </SheetDescription>
+          </SheetHeader>
+
+          <ScrollArea className="flex-1 p-6">
+            {selectedVendor && (
+              <div className="space-y-8">
+                {/* Vendor Info */}
+                <div className="flex items-center gap-4 bg-muted/50 p-4 rounded-lg">
+                  <Avatar className="h-12 w-12">
+                    <AvatarFallback className="text-lg">{selectedVendor.user.profile.firstName[0]}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="font-semibold text-lg">
+                      {selectedVendor.user.profile.firstName} {selectedVendor.user.profile.lastName}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">{selectedVendor.user.email}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline">{selectedVendor.totalAddons} Addons</Badge>
+                      <Badge variant="secondary" className="text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400">
+                        Total Value: {formatPrice(selectedVendor.activeAddons.reduce((sum, addon) => sum + addon.price, 0))}
+                      </Badge>
                     </div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {/* Display existing schedules */}
-                  {vendor.schedules && vendor.schedules.length > 0 && (
-                    <div className="mb-4 space-y-2">
-                      <h4 className="text-sm font-semibold mb-2">Scheduled Services ({vendor.schedules.length})</h4>
-                      <div className="space-y-2">
-                        {vendor.schedules.map((schedule) => (
-                          <div 
-                            key={schedule._id} 
-                            className="bg-muted/50 p-3 rounded-md border border-border hover:bg-muted transition-colors"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-sm">{schedule.addon.name}</span>
-                                  <Badge className={getAddonCategoryColor(schedule.addon.category)} variant="outline">
-                                    {schedule.addon.category}
+                </div>
+
+                {/* Active Addons */}
+                <div>
+                  <h4 className="font-semibold text-sm uppercase text-muted-foreground mb-4">Active Services</h4>
+                  <div className="grid grid-cols-1 gap-4">
+                    {selectedVendor.activeAddons.map((addon) => {
+                      const existingSchedule = selectedVendor.schedules?.find(
+                        schedule => schedule.addon._id === addon._id &&
+                          ['scheduled', 'in_progress'].includes(schedule.status)
+                      );
+
+                      return (
+                        <Card key={addon._id} className="overflow-hidden border-l-4 border-l-primary">
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h5 className="font-semibold">{addon.name}</h5>
+                                  <Badge className={getAddonCategoryColor(addon.category)} variant="secondary">
+                                    {addon.category}
                                   </Badge>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge className={getStatusColor(schedule.status)}>
+                                <p className="text-sm text-muted-foreground mb-2">{addon.description}</p>
+                                <p className="font-medium text-primary">{formatPrice(addon.price)}</p>
+                              </div>
+                              {canScheduleServices && !existingSchedule && (
+                                <Button size="sm" onClick={() => handleScheduleService(addon)}>
+                                  Schedule Service
+                                </Button>
+                              )}
+                              {existingSchedule && (
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                  {existingSchedule.status === 'in_progress' ? 'In Progress' : 'Scheduled'}
+                                </Badge>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Schedules */}
+                {selectedVendor.schedules && selectedVendor.schedules.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-sm uppercase text-muted-foreground mb-4">Service History</h4>
+                    <div className="space-y-4">
+                      {selectedVendor.schedules.map((schedule) => (
+                        <div key={schedule._id} className="relative pl-6 border-l-2 border-muted pb-6 last:pb-0">
+                          <div className={`absolute -left-[9px] top-0 h-4 w-4 rounded-full border-2 border-background ${schedule.status === 'completed' ? 'bg-green-500' :
+                            schedule.status === 'cancelled' ? 'bg-red-500' :
+                              schedule.status === 'in_progress' ? 'bg-blue-500' : 'bg-purple-500'
+                            }`} />
+
+                          <div className="bg-muted/30 rounded-lg p-4 border">
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <h5 className="font-medium">{schedule.addon.name}</h5>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge className={getStatusColor(schedule.status)} variant="secondary">
                                     {schedule.status.replace('_', ' ')}
                                   </Badge>
-                                  <Badge className={getPriorityColor(schedule.priority)}>
+                                  <Badge className={getPriorityColor(schedule.priority)} variant="outline">
                                     {schedule.priority}
                                   </Badge>
                                 </div>
-                                {schedule.scheduledDate && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Scheduled: {new Date(schedule.scheduledDate).toLocaleString()}
-                                  </p>
+                              </div>
+                              <div className="flex gap-2">
+                                {canManageSchedules && (
+                                  <Button size="sm" variant="ghost" onClick={() => openStatusDialog(schedule)}>
+                                    Manage
+                                  </Button>
                                 )}
-                                <p className="text-xs text-muted-foreground">
-                                  Created: {new Date(schedule.createdAt).toLocaleDateString()}
-                                </p>
+                                {!canManageSchedules && canUpdateStatus && (
+                                  <Button size="sm" variant="ghost" onClick={() => openStatusDialog(schedule)}>
+                                    Update
+                                  </Button>
+                                )}
                               </div>
-                              {canManageSchedules && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => openStatusDialog(schedule)}
-                                >
-                                  Manage
-                                </Button>
-                              )}
-                              {!canManageSchedules && canUpdateStatus && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => openStatusDialog(schedule)}
-                                >
-                                  Update Status
-                                </Button>
-                              )}
-                              {!canManageSchedules && !canUpdateStatus && canAddNotes && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => openStatusDialog(schedule)}
-                                >
-                                  Add Notes
-                                </Button>
-                              )}
                             </div>
-                            
-                            {/* Show notes if any */}
-                            {schedule.notes && schedule.notes.length > 0 && (
-                              <div className="mt-2 pt-2 border-t border-border/50">
-                                <p className="text-xs font-medium mb-1">Latest Note:</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {schedule.notes[schedule.notes.length - 1].message}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  - {schedule.notes[schedule.notes.length - 1].author.profile.firstName} on {new Date(schedule.notes[schedule.notes.length - 1].createdAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {canViewAddonServices && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedVendor(vendor);
-                        setViewDialogOpen(true);
-                      }}
-                      className="w-full"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View All Details{canScheduleServices ? ' & Schedule' : ''}
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ))
-          )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </Button>
-                ))}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {/* View Vendor Details Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Vendor Addon Services</DialogTitle>
-            <DialogDescription>
-              Detailed information about vendor's purchased addon services
-            </DialogDescription>
-          </DialogHeader>
-          {selectedVendor && (
-            <div className="space-y-6">
-              <div>
-                <h4 className="font-semibold mb-2">Vendor Information</h4>
-                <div className="bg-muted p-4 rounded-lg">
-                  <p className="font-medium">
-                    {selectedVendor.user.profile.firstName} {selectedVendor.user.profile.lastName}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{selectedVendor.user.email}</p>
-                  <p className="text-sm mt-2">
-                    <strong>Total Addons:</strong> {selectedVendor.totalAddons}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-semibold mb-4">Active Addon Services</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {selectedVendor.activeAddons.map((addon) => {
-                    // Check if this addon is scheduled
-                    const existingSchedule = selectedVendor.schedules?.find(
-                      schedule => schedule.addon._id === addon._id && 
-                      ['scheduled', 'in_progress'].includes(schedule.status)
-                    );
-                    const isScheduled = !!existingSchedule;
-                    
-                    // Check if addon subscription is active
-                    const addonSubscription = selectedVendor.subscriptions.find(sub => 
-                      sub.addons.some(a => a._id === addon._id)
-                    );
-                    const isSubscriptionActive = addonSubscription && 
-                      addonSubscription.status === 'active' && 
-                      new Date(addonSubscription.endDate) > new Date();
-                    
-                    return (
-                    <Card key={addon._id} className="hover:shadow-md transition-shadow">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-sm">{addon.name}</CardTitle>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge className={getAddonCategoryColor(addon.category)}>
-                                {addon.category}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {addon.billingType.replace('_', ' ')}
-                              </span>
-                              {isScheduled && (
-                                <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                  Scheduled
-                                </Badge>
-                              )}
-                              {!isSubscriptionActive && (
-                                <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                                  Expired
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold text-primary">
-                              {formatPrice(addon.price, addon.currency)}
-                            </div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <p className="text-xs text-muted-foreground mb-3">
-                          {addon.description}
-                        </p>
-                        {canScheduleServices && isSubscriptionActive && (
-                          <>
-                            {isScheduled ? (
-                              <Button
-                                size="sm"
-                                className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-                                onClick={() => {
-                                  setViewDialogOpen(false);
-                                  handleScheduleService(addon);
-                                }}
-                              >
-                                <Calendar className="h-3 w-3 mr-2" />
-                                Re-schedule Service
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                className="w-full"
-                                onClick={() => {
-                                  setViewDialogOpen(false);
-                                  handleScheduleService(addon);
-                                }}
-                              >
-                                <Calendar className="h-3 w-3 mr-2" />
-                                Schedule This Service
-                              </Button>
-                            )}
-                          </>
-                        )}
-                        {!isSubscriptionActive && (
-                          <div className="text-xs text-red-600 dark:text-red-400 text-center py-2">
-                            Subscription expired - Cannot schedule
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )})}
-                </div>
-              </div>
-
-              {/* Service Schedules */}
-              {selectedVendor.schedules && selectedVendor.schedules.length > 0 && (
-                <div>
-                  <h4 className="font-semibold mb-4">Service Schedules ({selectedVendor.schedules.length})</h4>
-                  <div className="space-y-3">
-                    {selectedVendor.schedules.map((schedule) => (
-                      <Card key={schedule._id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{schedule.addon.name}</span>
-                                <Badge className={getStatusColor(schedule.status)}>
-                                  {schedule.status.replace('_', ' ')}
-                                </Badge>
-                                <Badge className={getPriorityColor(schedule.priority)} variant="outline">
-                                  {schedule.priority}
-                                </Badge>
-                              </div>
-                              
+                            <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground mb-3">
                               {schedule.scheduledDate && (
-                                <p className="text-sm text-muted-foreground">
-                                  📅 {new Date(schedule.scheduledDate).toLocaleString()}
-                                </p>
-                              )}
-                              
-                              <p className="text-xs text-muted-foreground">
-                                Created: {new Date(schedule.createdAt).toLocaleDateString()}
-                              </p>
-                              
-                              {schedule.notes && schedule.notes.length > 0 && (
-                                <div className="mt-2 pt-2 border-t">
-                                  <p className="text-xs font-medium">Latest Note:</p>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {schedule.notes[schedule.notes.length - 1].message.substring(0, 100)}
-                                    {schedule.notes[schedule.notes.length - 1].message.length > 100 ? '...' : ''}
-                                  </p>
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-4 w-4" />
+                                  <span>{new Date(schedule.scheduledDate).toLocaleString()}</span>
                                 </div>
                               )}
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4" />
+                                <span>Created: {new Date(schedule.createdAt).toLocaleDateString()}</span>
+                              </div>
                             </div>
-                            
-                            {canManageSchedules && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setViewDialogOpen(false);
-                                  openStatusDialog(schedule);
-                                }}
-                              >
-                                Manage
-                              </Button>
-                            )}
-                            {!canManageSchedules && canUpdateStatus && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setViewDialogOpen(false);
-                                  openStatusDialog(schedule);
-                                }}
-                              >
-                                Update Status
-                              </Button>
-                            )}
-                            {!canManageSchedules && !canUpdateStatus && canAddNotes && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setViewDialogOpen(false);
-                                  openStatusDialog(schedule);
-                                }}
-                              >
-                                Add Notes
-                              </Button>
+
+                            {/* Notes Section */}
+                            {schedule.notes && schedule.notes.length > 0 && (
+                              <div className="bg-background rounded p-3 text-sm border">
+                                <p className="font-medium text-xs uppercase text-muted-foreground mb-2">Latest Note</p>
+                                <p className="mb-1">{schedule.notes[schedule.notes.length - 1].message}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  — {schedule.notes[schedule.notes.length - 1].author?.profile?.firstName || 'Unknown'}, {new Date(schedule.notes[schedule.notes.length - 1].createdAt).toLocaleDateString()}
+                                </p>
+                              </div>
                             )}
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedVendor.subscriptions.length > 0 && (
-                <div>
-                  <h4 className="font-semibold mb-4">Subscription History</h4>
-                  <div className="space-y-2">
-                    {selectedVendor.subscriptions.map((subscription) => (
-                      <div key={subscription._id} className="bg-muted p-3 rounded-lg text-sm">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">
-                            Status: <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'}>
-                              {subscription.status}
-                            </Badge>
-                          </span>
-                          <span className="text-muted-foreground">
-                            {new Date(subscription.startDate).toLocaleDateString()} - {new Date(subscription.endDate).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Schedule Service Dialog */}
-      <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Schedule Addon Service</DialogTitle>
-            <DialogDescription>
-              Send a scheduling email to the vendor for their purchased addon service
-            </DialogDescription>
-          </DialogHeader>
-          {selectedVendor && selectedAddon && (
-            <div className="space-y-4">
-              <div className="bg-muted p-4 rounded-lg">
-                <p className="font-medium">
-                  Vendor: {selectedVendor.user.profile.firstName} {selectedVendor.user.profile.lastName}
-                </p>
-                <p className="text-sm text-muted-foreground">{selectedVendor.user.email}</p>
-                <p className="text-sm mt-1">
-                  <strong>Service:</strong> {selectedAddon.name}
-                </p>
-              </div>
-              
-              <div>
-                <Label htmlFor="subject">Email Subject</Label>
-                <Input
-                  id="subject"
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  placeholder="Enter email subject"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="priority">Priority</Label>
-                <select
-                  id="priority"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high' | 'urgent')}
-                  className="w-full p-2 border rounded-md"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </div>
-              
-              <div>
-                <Label htmlFor="scheduledDate">Scheduled Service Date & Time *</Label>
-                <Input
-                  id="scheduledDate"
-                  type="datetime-local"
-                  value={scheduledServiceDate}
-                  onChange={(e) => setScheduledServiceDate(e.target.value)}
-                  min={new Date().toISOString().slice(0, 16)}
-                  className="w-full"
-                  required
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Select when this service will be performed
-                </p>
-              </div>
-              
-              <div>
-                <Label htmlFor="message">Email Message</Label>
-                <Textarea
-                  id="message"
-                  value={emailMessage}
-                  onChange={(e) => setEmailMessage(e.target.value)}
-                  placeholder="Enter email message"
-                  rows={8}
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setScheduleDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={sendSchedulingEmail}
-              disabled={actionLoading.email || !emailSubject || !emailMessage || !scheduledServiceDate}
-            >
-              {actionLoading.email ? "Scheduling..." : "Schedule & Send Email"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Status Update Dialog */}
-      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Manage Service Schedule</DialogTitle>
-            <DialogDescription>
-              Update status, add notes, and track service progress
-            </DialogDescription>
-          </DialogHeader>
-          {selectedSchedule && (
-            <div className="space-y-6">
-              {/* Schedule Info */}
-              <div className="bg-muted p-4 rounded-lg space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="font-medium text-lg">{selectedSchedule.addon.name}</p>
-                  <div className="flex items-center gap-2">
-                    <Badge className={getStatusColor(selectedSchedule.status)}>
-                      {selectedSchedule.status.replace('_', ' ')}
-                    </Badge>
-                    <Badge className={getPriorityColor(selectedSchedule.priority)}>
-                      {selectedSchedule.priority}
-                    </Badge>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Scheduled by: {selectedSchedule.scheduledBy.profile.firstName} {selectedSchedule.scheduledBy.profile.lastName} ({selectedSchedule.scheduledBy.email})
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Created: {new Date(selectedSchedule.createdAt).toLocaleString()}
-                </p>
-                {selectedSchedule.scheduledDate && (
-                  <p className="text-sm font-semibold text-green-600 dark:text-green-400">
-                    🗓️ Service Date: {new Date(selectedSchedule.scheduledDate).toLocaleString()}
-                  </p>
-                )}
-                {selectedSchedule.inProgressAt && (
-                  <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                    🔄 Started: {new Date(selectedSchedule.inProgressAt).toLocaleString()}
-                  </p>
-                )}
-                {selectedSchedule.completedAt && (
-                  <p className="text-sm font-semibold text-green-700 dark:text-green-300">
-                    ✓ Completed: {new Date(selectedSchedule.completedAt).toLocaleString()}
-                  </p>
-                )}
-                {selectedSchedule.cancelledAt && (
-                  <div className="mt-2">
-                    <p className="text-sm font-semibold text-red-600 dark:text-red-400">
-                      ✗ Cancelled: {new Date(selectedSchedule.cancelledAt).toLocaleString()}
-                    </p>
-                    {selectedSchedule.cancellationReason && (
-                      <p className="text-sm text-red-600 dark:text-red-400 mt-1 p-2 bg-red-50 dark:bg-red-950 rounded">
-                        Reason: {selectedSchedule.cancellationReason}
-                      </p>
-                    )}
-                  </div>
-                )}
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 p-2 bg-amber-50 dark:bg-amber-950 rounded">
-                  ⚠️ Status updates will automatically send email notifications to the vendor
-                </p>
-              </div>
-
-              {/* Original Email */}
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm">Original Email</h4>
-                <div className="bg-muted/50 p-3 rounded-md space-y-2 border">
-                  <p className="font-medium text-sm">{selectedSchedule.emailSubject}</p>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                    {selectedSchedule.emailMessage}
-                  </p>
-                </div>
-              </div>
-
-              {/* Status Update Section - Only for users with MANAGE permission */}
-              {canManageSchedules && (
-                <div className="space-y-4 pt-4 border-t">
-                  <h4 className="font-semibold">Update Status</h4>
-                
-                <div>
-                  <Label htmlFor="status">Status</Label>
-                  <select
-                    id="status"
-                    value={scheduleStatus}
-                    onChange={(e) => setScheduleStatus(e.target.value)}
-                    className="w-full p-2 border rounded-md"
-                    disabled={selectedSchedule?.status === 'completed' || selectedSchedule?.status === 'cancelled'}
-                  >
-                    <option value="scheduled">Scheduled</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                  {(selectedSchedule?.status === 'completed' || selectedSchedule?.status === 'cancelled') && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      ⚠️ Cannot change status from {selectedSchedule.status}
-                    </p>
-                  )}
-                  {selectedSchedule?.scheduledDate && (scheduleStatus === 'in_progress' || scheduleStatus === 'completed') && (
-                    new Date(selectedSchedule.scheduledDate) > new Date() ? (
-                      <p className="text-xs text-red-600 dark:text-red-400 mt-1 p-2 bg-red-50 dark:bg-red-950 rounded">
-                        ⚠️ Cannot mark as "{scheduleStatus.replace('_', ' ')}" before scheduled date ({new Date(selectedSchedule.scheduledDate).toLocaleString()})
-                      </p>
-                    ) : (
-                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                        ✓ Service date has passed, can proceed
-                      </p>
-                    )
-                  )}
-                </div>
-
-                {scheduleStatus === 'cancelled' && (
-                  <div>
-                    <Label htmlFor="cancellationReason">Cancellation Reason *</Label>
-                    <Textarea
-                      id="cancellationReason"
-                      value={cancellationReason}
-                      onChange={(e) => setCancellationReason(e.target.value)}
-                      placeholder="Please provide the reason for cancellation..."
-                      rows={3}
-                      required
-                      className="border-red-300 focus:border-red-500"
-                    />
-                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                      * Cancellation reason is required. Email will be sent to vendor.
-                    </p>
-                  </div>
-                )}
-
-                {scheduleStatus === 'in_progress' && (
-                  <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-md border border-blue-200 dark:border-blue-800">
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      🔄 "In Progress" timestamp will be automatically recorded and vendor will be notified via email
-                    </p>
-                    {selectedSchedule?.inProgressAt && (
-                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                        Started on: {new Date(selectedSchedule.inProgressAt).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {scheduleStatus === 'completed' && (
-                  <div className="bg-green-50 dark:bg-green-950 p-3 rounded-md border border-green-200 dark:border-green-800">
-                    <p className="text-sm text-green-700 dark:text-green-300">
-                      ✓ Completion date will be automatically set and vendor will receive completion email
-                    </p>
-                    {selectedSchedule?.completedAt && (
-                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                        Completed on: {new Date(selectedSchedule.completedAt).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {scheduleStatus !== 'completed' && scheduleStatus !== 'cancelled' && (
-                  <>
-                    <div>
-                      <Label htmlFor="scheduledDate">
-                        {scheduleStatus === 'in_progress' ? 'In Progress Since' : 'Scheduled Date & Time'}
-                      </Label>
-                      <Input
-                        id="scheduledDate"
-                        type="datetime-local"
-                        value={scheduleDate}
-                        onChange={(e) => setScheduleDate(e.target.value)}
-                        className="w-full"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {selectedSchedule?.scheduledDate 
-                          ? `Current: ${new Date(selectedSchedule.scheduledDate).toLocaleString()}`
-                          : 'Not set'
-                        }
-                      </p>
-                      {scheduleDate && scheduleDate !== new Date(selectedSchedule?.scheduledDate || '').toISOString().slice(0, 16) && (
-                        <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 p-2 bg-orange-50 dark:bg-orange-950 rounded">
-                          📧 Re-scheduling email will be sent to vendor with new date
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="vendorResponse">Vendor Response/Notes</Label>
-                      <Textarea
-                        id="vendorResponse"
-                        value={vendorResponse}
-                        onChange={(e) => setVendorResponse(e.target.value)}
-                        placeholder="Enter vendor response or status update notes..."
-                        rows={3}
-                      />
-                    </div>
-                  </>
-                )}
-                
-                <Button 
-                  onClick={handleUpdateScheduleStatus}
-                  disabled={
-                    actionLoading.status || 
-                    selectedSchedule?.status === 'completed' || 
-                    selectedSchedule?.status === 'cancelled' ||
-                    (scheduleStatus === 'cancelled' && !cancellationReason.trim())
-                  }
-                  className="w-full"
-                >
-                  {actionLoading.status ? "Updating..." : "Update Status & Send Email"}
-                </Button>
-              </div>
-              )}
-
-              {/* Notes Section - Only for users with MANAGE permission */}
-              {canManageSchedules && (
-                <div className="space-y-3 pt-4 border-t">
-                  <h4 className="font-semibold">Communication Notes</h4>
-                
-                {/* Existing Notes */}
-                {selectedSchedule.notes && selectedSchedule.notes.length > 0 && (
-                  <div className="space-y-2 mb-4">
-                    <p className="text-sm text-muted-foreground">Previous notes:</p>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {selectedSchedule.notes.map((note, idx) => (
-                        <div key={idx} className="bg-muted/50 p-3 rounded-md border text-sm">
-                          <p className="whitespace-pre-wrap">{note.message}</p>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            - {note.author.profile.firstName} {note.author.profile.lastName} on {new Date(note.createdAt).toLocaleString()}
-                          </p>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
-                
-                {/* Add New Note */}
-                <div className="space-y-2">
-                  <Label htmlFor="newNote">Add New Note</Label>
-                  <Textarea
-                    id="newNote"
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
-                    placeholder="Add a communication note or update..."
-                    rows={3}
-                  />
-                  <Button
-                    onClick={handleAddNote}
-                    disabled={actionLoading.note || !newNote.trim()}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    {actionLoading.note ? "Adding..." : "Add Note"}
-                  </Button>
-                </div>
               </div>
-              )}
+            )}
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+
+      {/* Schedule Service Dialog */}
+      <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Schedule Service</DialogTitle>
+            <DialogDescription>
+              Set a date and time for the {selectedAddon?.name} service.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Service Date & Time</Label>
+              <Input
+                type="datetime-local"
+                value={scheduledServiceDate}
+                onChange={(e) => setScheduledServiceDate(e.target.value)}
+              />
             </div>
-          )}
+            <div className="space-y-2">
+              <Label>Priority</Label>
+              <Tabs value={priority} onValueChange={(v) => setPriority(v as any)}>
+                <TabsList className="grid grid-cols-4">
+                  <TabsTrigger value="low">Low</TabsTrigger>
+                  <TabsTrigger value="medium">Med</TabsTrigger>
+                  <TabsTrigger value="high">High</TabsTrigger>
+                  <TabsTrigger value="urgent">Urg</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            <div className="space-y-2">
+              <Label>Email Subject</Label>
+              <Input
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email Message</Label>
+              <Textarea
+                value={emailMessage}
+                onChange={(e) => setEmailMessage(e.target.value)}
+                rows={5}
+              />
+            </div>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>
-              Close
+            <Button variant="outline" onClick={() => setScheduleDialogOpen(false)}>Cancel</Button>
+            <Button onClick={sendSchedulingEmail} disabled={actionLoading.email}>
+              {actionLoading.email ? "Sending..." : "Schedule & Send Email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Update Status Dialog */}
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Service Status</DialogTitle>
+            <DialogDescription>
+              Manage the status of this scheduled service.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Tabs value={scheduleStatus} onValueChange={setScheduleStatus}>
+                <TabsList className="grid grid-cols-4">
+                  <TabsTrigger value="scheduled">Sched</TabsTrigger>
+                  <TabsTrigger value="in_progress">Active</TabsTrigger>
+                  <TabsTrigger value="completed">Done</TabsTrigger>
+                  <TabsTrigger value="cancelled">Cancel</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+
+            {scheduleStatus === 'cancelled' && (
+              <div className="space-y-2">
+                <Label>Cancellation Reason</Label>
+                <Textarea
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  placeholder="Why is this service being cancelled?"
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Add Note</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  placeholder="Add a note about this service..."
+                />
+                <Button size="sm" onClick={handleAddNote} disabled={!newNote.trim() || actionLoading.note}>
+                  Add
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>Close</Button>
+            <Button onClick={handleUpdateScheduleStatus} disabled={actionLoading.status}>
+              {actionLoading.status ? "Updating..." : "Update Status"}
             </Button>
           </DialogFooter>
         </DialogContent>

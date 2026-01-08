@@ -387,7 +387,11 @@ class AnalyticsService {
   }
 
   // V3 Consolidated Admin Analytics - fetches all analytics data in one call
-  async getConsolidatedAdminAnalytics(dateRange: string = '30') {
+  async getConsolidatedAdminAnalytics(dateRange: string = '30', startDate?: Date, endDate?: Date) {
+    let query = `/analytics/v3/admin?dateRange=${dateRange}`;
+    if (startDate) query += `&startDate=${startDate.toISOString()}`;
+    if (endDate) query += `&endDate=${endDate.toISOString()}`;
+
     return this.makeRequest<{
       success: boolean;
       data: {
@@ -425,7 +429,7 @@ class AnalyticsService {
           reviewActivity: any[];
         };
       };
-    }>(`/analytics/v3/admin?dateRange=${dateRange}`);
+    }>(query);
   }
 
   async getOverview(dateRange: string = '30') {
@@ -579,6 +583,38 @@ class AnalyticsService {
         devices: any[];
       };
     }>('/traffic/realtime');
+  }
+  // Get comprehensive property report
+  async getPropertyReport() {
+    return this.makeRequest<{
+      success: boolean;
+      data: Array<{
+        _id: string;
+        title: string;
+        type: string;
+        listingType: string;
+        price: number;
+        status: string;
+        address: {
+          city: string;
+          state: string;
+          pincode: string;
+          street?: string;
+        };
+        owner: {
+          name: string;
+          email: string;
+          phone?: string;
+        };
+        subscription: {
+          status: string;
+          planName?: string;
+          endDate?: string;
+        };
+        createdAt: string;
+        views: number;
+      }>;
+    }>('/analytics/v3/admin/property-report');
   }
 }
 

@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Slider } from "@/components/ui/slider";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
@@ -441,27 +441,33 @@ const PropertySearch = () => {
                 {priceLimits.max > 0 && (
                   <div className="mb-4">
                     <label className="text-sm font-medium mb-2 block">Price Range</label>
-                    <div className="space-y-4">
-                      <Slider
-                        value={priceRange}
-                        onValueChange={setPriceRange}
-                        min={priceLimits.min}
-                        max={priceLimits.max}
-                        step={10000}
-                        className="w-full"
-                      />
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex flex-col">
-                          <span className="text-muted-foreground text-xs">Min Price</span>
-                          <span className="font-semibold text-primary">
-                            {formatPrice(priceRange[0])}
-                          </span>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">Min Price</label>
+                        <Input
+                          type="number"
+                          value={priceRange[0]}
+                          onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])}
+                          min={priceLimits.min}
+                          max={priceLimits.max}
+                          className="w-full"
+                        />
+                        <div className="text-xs text-muted-foreground">
+                          {formatPrice(priceRange[0])}
                         </div>
-                        <div className="flex flex-col items-end">
-                          <span className="text-muted-foreground text-xs">Max Price</span>
-                          <span className="font-semibold text-primary">
-                            {formatPrice(priceRange[1])}
-                          </span>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">Max Price</label>
+                        <Input
+                          type="number"
+                          value={priceRange[1]}
+                          onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
+                          min={priceLimits.min}
+                          max={priceLimits.max}
+                          className="w-full"
+                        />
+                        <div className="text-xs text-muted-foreground text-right">
+                          {formatPrice(priceRange[1])}
                         </div>
                       </div>
                     </div>
@@ -472,27 +478,33 @@ const PropertySearch = () => {
                 {areaLimits.max > 0 && (
                   <div className="mb-4">
                     <label className="text-sm font-medium mb-2 block">Area (sq ft)</label>
-                    <div className="space-y-4">
-                      <Slider
-                        value={areaRange}
-                        onValueChange={setAreaRange}
-                        min={areaLimits.min}
-                        max={areaLimits.max}
-                        step={100}
-                        className="w-full"
-                      />
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex flex-col">
-                          <span className="text-muted-foreground text-xs">Min</span>
-                          <span className="font-semibold text-primary">
-                            {areaRange[0]} sqft
-                          </span>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">Min Area</label>
+                        <Input
+                          type="number"
+                          value={areaRange[0]}
+                          onChange={(e) => setAreaRange([Number(e.target.value), areaRange[1]])}
+                          min={areaLimits.min}
+                          max={areaLimits.max}
+                          className="w-full"
+                        />
+                        <div className="text-xs text-muted-foreground">
+                          {areaRange[0]} sqft
                         </div>
-                        <div className="flex flex-col items-end">
-                          <span className="text-muted-foreground text-xs">Max</span>
-                          <span className="font-semibold text-primary">
-                            {areaRange[1]} sqft
-                          </span>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">Max Area</label>
+                        <Input
+                          type="number"
+                          value={areaRange[1]}
+                          onChange={(e) => setAreaRange([areaRange[0], Number(e.target.value)])}
+                          min={areaLimits.min}
+                          max={areaLimits.max}
+                          className="w-full"
+                        />
+                        <div className="text-xs text-muted-foreground text-right">
+                          {areaRange[1]} sqft
                         </div>
                       </div>
                     </div>
