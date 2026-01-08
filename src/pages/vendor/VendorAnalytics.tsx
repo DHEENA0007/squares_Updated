@@ -43,6 +43,15 @@ import {
   Loader2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { analyticsService, AnalyticsOverviewStats, AnalyticsFilters, PerformanceMetrics } from "@/services/analyticsService";
 import { propertyService } from "@/services/propertyService";
 import { configurationService } from "@/services/configurationService";
@@ -794,9 +803,9 @@ const VendorAnalytics = () => {
       views: item.value || 0,
       interactions: Math.floor((item.value || 0) * 0.15), // 15% interaction rate
       conversions: Math.floor((item.value || 0) * 0.03), // 3% conversion rate
-      favorites: Math.floor((item.value || 0) * 0.08),
-      shares: Math.floor((item.value || 0) * 0.04),
-      inquiries: Math.floor((item.value || 0) * 0.06)
+      favorites: Math.floor((item.value || 0) * 0.12),
+      shares: item.shares || 0,
+      inquiries: item.inquiries || 0
     })) : [];
 
   // Filter engagement data based on selected metric
@@ -816,7 +825,7 @@ const VendorAnalytics = () => {
   const topProperties = performanceMetrics?.propertyPerformance.slice(0, 3) || [];
 
   return (
-    <div className="space-y-8 p-6 bg-gray-50/50 min-h-screen">
+    <div className="space-y-8 p-6 bg-gray-50/50 dark:bg-background min-h-screen">
       {/* Header */}
       <div className={`flex ${isMobile ? 'flex-col space-y-4' : 'justify-between items-center'}`}>
         <div>
@@ -869,7 +878,7 @@ const VendorAnalytics = () => {
       {/* Overview Stats */}
       <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-4'}`}>
         {displayStats.map((stat) => (
-          <Card key={stat.title} className="shadow-sm hover:shadow-md transition-shadow duration-200 border-0 bg-white">
+          <Card key={stat.title} className="shadow-sm hover:shadow-md transition-shadow duration-200 border-0 bg-white dark:bg-card dark:border dark:border-border">
             <CardContent className={`${isMobile ? 'p-4' : 'p-6'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex-1">
@@ -898,7 +907,7 @@ const VendorAnalytics = () => {
       {/* Charts Section - Two Column Grid */}
       <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
         {/* Property Engagement Overview */}
-        <Card className="shadow-sm border-0 bg-white">
+        <Card className="shadow-sm border-0 bg-white dark:bg-card dark:border dark:border-border">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -916,7 +925,7 @@ const VendorAnalytics = () => {
                     <SelectItem value="all">All Metrics</SelectItem>
                     <SelectItem value="views">Views Only</SelectItem>
                     <SelectItem value="interactions">Interactions</SelectItem>
-                    <SelectItem value="conversions">Conversions</SelectItem>
+
                   </SelectContent>
                 </Select>
                 <Select value={engagementChartType} onValueChange={(value) => setEngagementChartType(value as any)}>
@@ -963,7 +972,8 @@ const VendorAnalytics = () => {
                           backgroundColor: 'rgba(255, 255, 255, 0.95)',
                           border: '1px solid #e5e7eb',
                           borderRadius: '8px',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                          color: '#1f2937'
                         }}
                       />
                       <Legend
@@ -1044,7 +1054,8 @@ const VendorAnalytics = () => {
                         contentStyle={{
                           backgroundColor: 'rgba(255, 255, 255, 0.95)',
                           border: '1px solid #e5e7eb',
-                          borderRadius: '8px'
+                          borderRadius: '8px',
+                          color: '#1f2937'
                         }}
                       />
                       <Legend wrapperStyle={{ paddingTop: '15px' }} />
@@ -1067,7 +1078,8 @@ const VendorAnalytics = () => {
                         contentStyle={{
                           backgroundColor: 'rgba(255, 255, 255, 0.95)',
                           border: '1px solid #e5e7eb',
-                          borderRadius: '8px'
+                          borderRadius: '8px',
+                          color: '#1f2937'
                         }}
                       />
                       <Legend wrapperStyle={{ paddingTop: '15px' }} />
@@ -1086,45 +1098,39 @@ const VendorAnalytics = () => {
 
                 {/* Engagement Summary Stats */}
                 <div className={`grid gap-3 mt-6 pt-4 border-t ${isMobile ? 'grid-cols-1' : 'grid-cols-3 md:grid-cols-6'}`}>
-                  <div className="text-center p-2 bg-blue-50 rounded-lg">
-                    <Eye className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} mx-auto text-blue-600 mb-1`} />
-                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-blue-600 font-medium`}>Views</div>
-                    <div className={`${isMobile ? 'text-sm' : 'text-lg'} font-bold text-blue-700`}>
+                  <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <Eye className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} mx-auto text-blue-600 dark:text-blue-400 mb-1`} />
+                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-blue-600 dark:text-blue-400 font-medium`}>Views</div>
+                    <div className={`${isMobile ? 'text-sm' : 'text-lg'} font-bold text-blue-700 dark:text-blue-300`}>
                       {filteredEngagementData.reduce((acc, curr) => acc + (curr.views || 0), 0).toLocaleString()}
                     </div>
                   </div>
-                  <div className="text-center p-2 bg-purple-50 rounded-lg">
-                    <Users className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} mx-auto text-purple-600 mb-1`} />
-                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-purple-600 font-medium`}>Interactions</div>
-                    <div className={`${isMobile ? 'text-sm' : 'text-lg'} font-bold text-purple-700`}>
+                  <div className="text-center p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <Users className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} mx-auto text-purple-600 dark:text-purple-400 mb-1`} />
+                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-purple-600 dark:text-purple-400 font-medium`}>Interactions</div>
+                    <div className={`${isMobile ? 'text-sm' : 'text-lg'} font-bold text-purple-700 dark:text-purple-300`}>
                       {filteredEngagementData.reduce((acc, curr) => acc + (curr.interactions || 0), 0).toLocaleString()}
                     </div>
                   </div>
-                  <div className="text-center p-2 bg-green-50 rounded-lg">
-                    <TrendingUp className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} mx-auto text-green-600 mb-1`} />
-                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-green-600 font-medium`}>Conversions</div>
-                    <div className={`${isMobile ? 'text-sm' : 'text-lg'} font-bold text-green-700`}>
-                      {filteredEngagementData.reduce((acc, curr) => acc + (curr.conversions || 0), 0).toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="text-center p-2 bg-amber-50 rounded-lg">
-                    <Heart className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} mx-auto text-amber-600 mb-1`} />
-                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-amber-600 font-medium`}>Favorites</div>
-                    <div className={`${isMobile ? 'text-sm' : 'text-lg'} font-bold text-amber-700`}>
+
+                  <div className="text-center p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                    <Heart className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} mx-auto text-amber-600 dark:text-amber-400 mb-1`} />
+                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-amber-600 dark:text-amber-400 font-medium`}>Favorites</div>
+                    <div className={`${isMobile ? 'text-sm' : 'text-lg'} font-bold text-amber-700 dark:text-amber-300`}>
                       {filteredEngagementData.reduce((acc, curr) => acc + (curr.favorites || 0), 0).toLocaleString()}
                     </div>
                   </div>
-                  <div className="text-center p-2 bg-pink-50 rounded-lg">
-                    <Share className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} mx-auto text-pink-600 mb-1`} />
-                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-pink-600 font-medium`}>Shares</div>
-                    <div className={`${isMobile ? 'text-sm' : 'text-lg'} font-bold text-pink-700`}>
+                  <div className="text-center p-2 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
+                    <Share className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} mx-auto text-pink-600 dark:text-pink-400 mb-1`} />
+                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-pink-600 dark:text-pink-400 font-medium`}>Shares</div>
+                    <div className={`${isMobile ? 'text-sm' : 'text-lg'} font-bold text-pink-700 dark:text-pink-300`}>
                       {filteredEngagementData.reduce((acc, curr) => acc + (curr.shares || 0), 0).toLocaleString()}
                     </div>
                   </div>
-                  <div className="text-center p-2 bg-cyan-50 rounded-lg">
-                    <MessageSquare className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} mx-auto text-cyan-600 mb-1`} />
-                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-cyan-600 font-medium`}>Inquiries</div>
-                    <div className={`${isMobile ? 'text-sm' : 'text-lg'} font-bold text-cyan-700`}>
+                  <div className="text-center p-2 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg">
+                    <MessageSquare className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} mx-auto text-cyan-600 dark:text-cyan-400 mb-1`} />
+                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-cyan-600 dark:text-cyan-400 font-medium`}>Inquiries</div>
+                    <div className={`${isMobile ? 'text-sm' : 'text-lg'} font-bold text-cyan-700 dark:text-cyan-300`}>
                       {filteredEngagementData.reduce((acc, curr) => acc + (curr.inquiries || 0), 0).toLocaleString()}
                     </div>
                   </div>
@@ -1143,7 +1149,7 @@ const VendorAnalytics = () => {
         </Card>
 
         {/* Inquiry Response Time */}
-        <Card className="shadow-sm border-0 bg-white">
+        <Card className="shadow-sm border-0 bg-white dark:bg-card dark:border dark:border-border">
           <CardHeader>
             <CardTitle>Inquiry Response Time</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">Average time to respond to customer inquiries</p>
@@ -1172,7 +1178,8 @@ const VendorAnalytics = () => {
                   contentStyle={{
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
                     border: '1px solid #e5e7eb',
-                    borderRadius: '8px'
+                    borderRadius: '8px',
+                    color: '#1f2937'
                   }}
                   formatter={(value: number) => [`${value.toFixed(1)} hours`, 'Response Time']}
                 />
@@ -1189,7 +1196,7 @@ const VendorAnalytics = () => {
             <div className={`grid gap-4 mt-6 pt-4 border-t ${isMobile ? 'grid-cols-1' : 'grid-cols-3'}`}>
               <div className="text-center">
                 <div className="text-sm text-muted-foreground">Avg Response</div>
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {leadsData.length > 0
                     ? (leadsData.reduce((acc, curr) => acc + curr.value, 0) / leadsData.length).toFixed(1)
                     : '0.0'
@@ -1198,7 +1205,7 @@ const VendorAnalytics = () => {
               </div>
               <div className="text-center">
                 <div className="text-sm text-muted-foreground">Fastest</div>
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                   {leadsData.length > 0
                     ? Math.min(...leadsData.map(d => d.value)).toFixed(1)
                     : '0.0'
@@ -1207,7 +1214,7 @@ const VendorAnalytics = () => {
               </div>
               <div className="text-center">
                 <div className="text-sm text-muted-foreground">Total Inquiries</div>
-                <div className="text-2xl font-bold text-purple-600">
+                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                   {overviewStats?.totalMessages || 0}
                 </div>
               </div>
@@ -1217,12 +1224,15 @@ const VendorAnalytics = () => {
       </div>
 
       {/* Property Performance */}
-      <Card className="shadow-sm border-0 bg-white">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Property Performance</CardTitle>
+      <Card className="shadow-sm border-0 bg-white dark:bg-card dark:border dark:border-border overflow-hidden">
+        <CardHeader className="border-b bg-gray-50/40 dark:bg-muted/40 px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <CardTitle>Property Performance</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Detailed metrics per property</p>
+            </div>
             <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-[250px] bg-white dark:bg-background">
                 <SelectValue placeholder="Filter by property" />
               </SelectTrigger>
               <SelectContent>
@@ -1243,103 +1253,158 @@ const VendorAnalytics = () => {
             </Select>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {properties.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-[400px] text-center">
-              <Home className="w-16 h-16 text-muted-foreground mb-4" />
+            <div className="flex flex-col items-center justify-center h-[400px] text-center p-6">
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                <Home className="w-8 h-8 text-muted-foreground" />
+              </div>
               <h3 className="text-lg font-semibold mb-2">No Properties Found</h3>
-              <p className="text-muted-foreground max-w-md mb-4">
+              <p className="text-muted-foreground max-w-md mb-6">
                 You haven't added any properties yet. Add your first property to start tracking performance analytics.
               </p>
               <Button
                 onClick={() => navigate('/vendor/properties/add')}
-                className="mt-2"
+                className="bg-primary hover:bg-primary/90"
               >
                 Add Your First Property
               </Button>
             </div>
           ) : propertyPerformance.length > 0 ? (
-            <div className="space-y-6">
-              <ResponsiveContainer width="100%" height={400}>
-                <AreaChart
-                  data={propertyPerformance}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
-                >
-                  <defs>
-                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
-                  <XAxis
-                    dataKey="title"
-                    angle={-45}
-                    textAnchor="end"
-                    height={100}
-                    tick={{ fontSize: 11, fill: '#6b7280' }}
-                    interval={0}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                    label={{ value: 'Views', angle: -90, position: 'insideLeft', style: { fill: '#6b7280' } }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.96)',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                    formatter={(value: any, name: string) => [value, name]}
-                  />
-                  <Legend
-                    wrapperStyle={{ paddingTop: '20px' }}
-                    iconType="circle"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="views"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorViews)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="space-y-0">
+              <div className="p-6 border-b">
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={propertyPerformance}
+                      margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                      <XAxis
+                        dataKey="title"
+                        hide
+                      />
+                      <YAxis
+                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={40}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.96)',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                          color: '#1f2937'
+                        }}
+                        cursor={{ stroke: '#3b82f6', strokeWidth: 1, strokeDasharray: '4 4' }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="views"
+                        stroke="#3b82f6"
+                        strokeWidth={3}
+                        fillOpacity={1}
+                        fill="url(#colorViews)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
 
               {/* Property Performance Table */}
-              <div className="mt-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="text-left p-3 text-sm font-semibold">Property</th>
-                        <th className="text-right p-3 text-sm font-semibold">Views</th>
-                        <th className="text-right p-3 text-sm font-semibold">Favorites</th>
-                        <th className="text-right p-3 text-sm font-semibold">Conv. Rate</th>
-                        <th className="text-right p-3 text-sm font-semibold">Revenue</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {propertyPerformance.map((property, index) => (
-                        <tr key={index} className="border-b hover:bg-muted/30 transition-colors">
-                          <td className="p-3 text-sm font-medium">{property.title}</td>
-                          <td className="p-3 text-sm text-right">{analyticsService.formatNumber(property.views || 0)}</td>
-                          <td className="p-3 text-sm text-right">{analyticsService.formatNumber(property.favorites || 0)}</td>
-                          <td className="p-3 text-sm text-right">{property.conversionRate || 0}%</td>
-                          <td className="p-3 text-sm text-right font-semibold">₹{analyticsService.formatNumber(property.revenue || 0)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50/50 dark:bg-muted/40 hover:bg-gray-50/50 dark:hover:bg-muted/40">
+                      <TableHead className="pl-6 w-[300px]">Property</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Views</TableHead>
+                      <TableHead className="text-right">Favorites</TableHead>
+                      <TableHead className="text-right">Conv. Rate</TableHead>
+                      <TableHead className="text-right pr-6">Revenue</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {propertyPerformance.map((property, index) => {
+                      // Find matching property from state to get image if available
+                      // This is a best-effort match since propertyPerformance might not have IDs
+                      const fullProperty = properties.find(p => p.title === property.title);
+                      const statusColor =
+                        property.status?.toLowerCase() === 'sold' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800' :
+                          property.status?.toLowerCase() === 'leased' ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800' :
+                            property.status?.toLowerCase() === 'rented' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800' :
+                              property.status?.toLowerCase() === 'available' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' :
+                                'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700';
+
+                      return (
+                        <TableRow key={index} className="hover:bg-gray-50/50 dark:hover:bg-muted/20 transition-colors group">
+                          <TableCell className="pl-6 font-medium">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10 rounded-lg border bg-muted">
+                                <AvatarImage src={fullProperty?.images?.[0]} alt={property.title} className="object-cover" />
+                                <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-semibold">
+                                  {property.title.substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-col">
+                                <span className="truncate max-w-[200px] text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary transition-colors">
+                                  {property.title}
+                                </span>
+                                <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                  {fullProperty?.location?.address || "Location not available"}
+                                </span>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={`${statusColor} capitalize shadow-sm`}>
+                              {property.status || 'Unknown'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex flex-col items-end">
+                              <span className="font-medium">{analyticsService.formatNumber(property.views || 0)}</span>
+                              <span className="text-[10px] text-muted-foreground">views</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex flex-col items-end">
+                              <span className="font-medium">{analyticsService.formatNumber(property.favorites || 0)}</span>
+                              <span className="text-[10px] text-muted-foreground">saves</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <span className={`font-medium ${(property.conversionRate || 0) > 2 ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                                {property.conversionRate || 0}%
+                              </span>
+                              {(property.conversionRate || 0) > 2 && <TrendingUp className="w-3 h-3 text-green-600" />}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right pr-6">
+                            <span className="font-bold text-gray-900 dark:text-gray-100">₹{analyticsService.formatNumber(property.revenue || 0)}</span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-[400px] text-center">
-              <BarChart3 className="w-16 h-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Performance Data</h3>
+            <div className="flex flex-col items-center justify-center h-[400px] text-center p-6">
+              <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
+                <BarChart3 className="w-8 h-8 text-muted-foreground/50" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">No Performance Data</h3>
               <p className="text-muted-foreground max-w-md">
                 Performance data for your properties will appear here once they receive views and interactions.
               </p>

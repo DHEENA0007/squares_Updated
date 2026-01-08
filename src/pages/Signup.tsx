@@ -14,7 +14,7 @@ import { validateEmail, validateIndianPhone, validatePassword } from "@/utils/sa
 
 const Signup = () => {
   const navigate = useNavigate();
-  
+
   // Auto-scroll to top on step change
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
@@ -121,7 +121,7 @@ const Signup = () => {
     try {
       // Send OTP first (includes phone validation on backend)
       const otpResponse = await authService.sendOTP(formData.email, formData.firstName, formData.phone);
-      
+
       if (otpResponse.success) {
         setStep("otp");
         setOtpExpiry(otpResponse.expiryMinutes || 10);
@@ -141,7 +141,7 @@ const Signup = () => {
     }
 
     setPhoneValidation({ checking: true, available: null, message: "" });
-    
+
     try {
       const result = await authService.checkPhoneAvailability(phone);
       setPhoneValidation({
@@ -236,7 +236,7 @@ const Signup = () => {
               <div className="text-center mb-8">
                 <h1 className="text-3xl font-bold mb-2">Create Account</h1>
                 <p className="text-muted-foreground">
-                  {step === "form" 
+                  {step === "form"
                     ? "Sign up to get started with BuildHomeMart"
                     : "Enter the OTP sent to your email"}
                 </p>
@@ -291,7 +291,7 @@ const Signup = () => {
                       onChange={(e) => {
                         const newPhone = e.target.value.replace(/\D/g, '').slice(0, 10);
                         setFormData({ ...formData, phone: newPhone });
-                        
+
                         // Debounce phone validation
                         if (newPhone.length === 10) {
                           setTimeout(() => checkPhoneAvailability(newPhone), 500);
@@ -302,7 +302,7 @@ const Signup = () => {
                       required
                       className={
                         phoneValidation.available === false ? "border-red-500" :
-                        phoneValidation.available === true ? "border-green-500" : ""
+                          phoneValidation.available === true ? "border-green-500" : ""
                       }
                     />
                     {phoneValidation.checking && (
@@ -342,7 +342,7 @@ const Signup = () => {
                     </div>
 
                     <p className="text-xs text-muted-foreground">
-                      Must be 8+ characters with uppercase, lowercase, number, and special character (!@#$%^&*)
+                      Must be 12+ characters with uppercase, lowercase, number, and special character (!@#$%^&*)
                     </p>
                   </div>
 
@@ -378,7 +378,7 @@ const Signup = () => {
 
                   <p className="text-center text-sm text-muted-foreground">
                     Already have an account?{" "}
-                                        <a href="/login" className="text-primary font-medium hover:underline">
+                    <a href="/login" className="text-primary font-medium hover:underline">
                       Login here
                     </a>
                   </p>
@@ -412,10 +412,10 @@ const Signup = () => {
                     <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
                       {isLoading ? "Verifying..." : "Register"}
                     </Button>
-                    
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+
+                    <Button
+                      type="button"
+                      variant="outline"
                       className="w-full"
                       onClick={resendOtp}
                       disabled={isLoading}
@@ -423,9 +423,9 @@ const Signup = () => {
                       Resend OTP
                     </Button>
 
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
+                    <Button
+                      type="button"
+                      variant="ghost"
                       className="w-full"
                       onClick={() => setStep("form")}
                     >
@@ -446,8 +446,8 @@ const Signup = () => {
                       Your account has been created and email verified. Redirecting to login page...
                     </p>
                   </div>
-                  <Button 
-                                        onClick={() => navigate("/login")} 
+                  <Button
+                    onClick={() => navigate("/login")}
                     className="w-full"
                   >
                     Continue to Login

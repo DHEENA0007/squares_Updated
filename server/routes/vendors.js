@@ -2395,7 +2395,7 @@ router.get('/properties', requireVendorRole, asyncHandler(async (req, res) => {
     .sort(sort)
     .skip(skip)
     .limit(parseInt(limit))
-    .populate('owner', 'profile.firstName profile.lastName email');
+    .populate('owner', 'profile.firstName profile.lastName email profile.phone');
 
   // Get favorites and ratings for each property
   const Favorite = require('../models/Favorite');
@@ -3365,9 +3365,28 @@ router.get('/analytics/performance', requireVendorRole, asyncHandler(async (req,
         createdAt: { $gte: date, $lt: nextDate }
       });
 
+      // Get real daily shares
+      const dailyShares = await PropertyView.countDocuments({
+        property: { $in: propertyIds },
+        'interactions.sharedProperty': true,
+        viewedAt: { $gte: date, $lt: nextDate }
+      });
+
+      // Get real daily inquiries (clicks on phone/message)
+      const dailyInquiries = await PropertyView.countDocuments({
+        property: { $in: propertyIds },
+        $or: [
+          { 'interactions.clickedPhone': true },
+          { 'interactions.clickedMessage': true }
+        ],
+        viewedAt: { $gte: date, $lt: nextDate }
+      });
+
       viewsData.push({
         name: dateStr,
-        value: dailyViews
+        value: dailyViews,
+        shares: dailyShares,
+        inquiries: dailyInquiries
       });
 
       leadsData.push({

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -11,60 +11,38 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
+  AreaChart,
+  Area,
 } from "recharts";
 import {
-  Home,
-  Eye,
-  MessageSquare,
-  TrendingUp,
-  TrendingDown,
-  Calendar,
-  Filter,
-  MoreHorizontal,
+  Search,
   Bell,
+  MoreHorizontal,
   MapPin,
-  Heart,
-  Star,
-  Phone,
-  Mail,
-  Activity,
-  Target,
-  BarChart3,
-  RefreshCw,
+  ArrowUpRight,
   Loader2,
-  IndianRupee,
+  RefreshCw,
+  Plus,
 } from "lucide-react";
 import { useVendorDashboard } from "@/hooks/useVendorDashboard";
 import { vendorDashboardService } from "@/services/vendorDashboardService";
 import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const VendorDashboard = () => {
+  const { user } = useAuth();
   const [dateRange, setDateRange] = useState("7d");
-  const [activeTab, setActiveTab] = useState("overview");
 
   // Real-time dashboard data
   const [dashboardState, dashboardActions] = useVendorDashboard({
     autoRefresh: true,
-    refreshInterval: 30000, // 30 seconds
+    refreshInterval: 30000,
     enableRealtime: true,
   });
 
@@ -76,449 +54,353 @@ const VendorDashboard = () => {
     notifications,
     isLoading,
     error,
-    lastUpdated,
   } = dashboardState;
 
-  const {
-    refreshData,
-    refreshStats,
-    updateFilters,
-    markNotificationAsRead,
-    updateLeadStatus,
-  } = dashboardActions;
+  // Slideshow logic for Hero Banner
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const slideProperties = recentProperties.filter((p: any) => p.images && p.images.length > 0);
 
-  // Handle date range changes
+  useEffect(() => {
+    if (slideProperties.length > 1) {
+      const timer = setInterval(() => {
+        setCurrentSlide((prev) => (prev + 1) % slideProperties.length);
+      }, 4000);
+      return () => clearInterval(timer);
+    }
+  }, [slideProperties.length]);
+
+  const { refreshData, updateFilters } = dashboardActions;
+
   useEffect(() => {
     updateFilters({ dateRange });
   }, [dateRange, updateFilters]);
 
-  // Handle manual refresh
   const handleRefresh = () => {
     refreshData();
     toast({
       title: "Dashboard Refreshed",
-      description: "All data has been updated with the latest information.",
+      description: "Latest data loaded successfully.",
     });
   };
 
-  // Loading state
   if (isLoading && !stats) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading your dashboard...</p>
-        </div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  // Error state
   if (error && !stats) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-red-500 mb-4">{error}</p>
-          <Button onClick={handleRefresh}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Try Again
-          </Button>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <p className="text-destructive">{error}</p>
+        <Button onClick={handleRefresh}>
+          <RefreshCw className="mr-2 h-4 w-4" /> Try Again
+        </Button>
       </div>
     );
   }
 
-  const unreadNotifications = notifications.filter(n => !n.isRead).length;
-
-  // Create stats cards from real-time data
-  const statsCards = [
-    {
-      title: "Total Properties",
-      value: stats?.totalProperties || 0,
-      change: stats?.totalPropertiesChange || "+0",
-      icon: Home,
-      color: "text-blue-600",
-    },
-    {
-      title: "Property Views",
-      value: stats?.propertyViews || 0,
-      change: stats?.propertyViewsChange || "+0%",
-      icon: Eye,
-      color: "text-purple-600",
-    },
-    {
-      title: "Messages",
-      value: stats?.dateRangeMessages || stats?.totalMessages || 0,
-      change: stats?.messagesChange || "0 unread",
-      icon: MessageSquare,
-      color: "text-orange-600",
-    },
-    {
-      title: "Total Revenue",
-      value: vendorDashboardService.formatPrice(stats?.totalRevenue || 0),
-      change: stats?.revenueChange || "+0%",
-      icon: IndianRupee,
-      color: "text-emerald-600",
-    },
-    {
-      title: "Avg. Rating",
-      value: stats?.averageRating ? stats.averageRating.toFixed(1) : "0.0",
-      change: stats?.ratingChange || "+0%",
-      icon: Star,
-      color: "text-yellow-600",
-    },
-    {
-      title: "Phone Clicks",
-      value: stats?.totalPhoneCalls || stats?.phoneCalls || 0,
-      change: stats?.phoneCallsChange || "+0%",
-      icon: Phone,
-      color: "text-green-600",
-    },
-  ];
-
-  // Use real-time performance data or fallback
-  // Use real performance data only, no fallback to mock data
-  const chartData = performanceData.length > 0 ? performanceData : [];
-
+  // Use real performance data
+  const revenueData = performanceData;
 
   return (
-    <div className="space-y-4 md:space-y-6 mt-6 px-4 md:px-0">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Vendor Dashboard</h1>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-            <p className="text-sm md:text-base text-muted-foreground">Manage your properties and track your performance</p>
-            {lastUpdated && (
-              <span className="text-xs text-muted-foreground">
-                • Last updated: {lastUpdated.toLocaleTimeString()}
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleRefresh} disabled={isLoading} className="flex-1 sm:flex-none">
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            {unreadNotifications > 0 && (
-              <Button variant="outline" className="flex-1 sm:flex-none">
-                <Bell className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Notifications ({unreadNotifications})</span>
-                <span className="sm:hidden">({unreadNotifications})</span>
-              </Button>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Link to="/vendor/analytics" className="flex-1 sm:flex-none">
-              <Button variant="outline" className="w-full">
-                <BarChart3 className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">View Analytics</span>
-                <span className="sm:hidden">Analytics</span>
-              </Button>
-            </Link>
-            <Link to="/vendor/properties/add" className="flex-1 sm:flex-none">
-              <Button className="w-full">
-                <Home className="w-4 h-4 mr-2" />
-                Add Property
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
+    <div className="p-6 space-y-8 max-w-[1600px] mx-auto">
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 md:gap-6">
-        {statsCards.map((stat) => {
-          const changeData = vendorDashboardService.formatPercentageChange(stat.change);
-          return (
-            <Card key={stat.title}>
-              <CardContent className="p-3 md:p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">{stat.title}</p>
-                    <p className="text-lg md:text-2xl font-bold truncate">{stat.value}</p>
-                    <div className="flex items-center mt-1">
-                      {changeData.isPositive ? (
-                        <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-500 mr-1 flex-shrink-0" />
-                      ) : (
-                        <TrendingDown className="h-3 w-3 md:h-4 md:w-4 text-red-500 mr-1 flex-shrink-0" />
-                      )}
-                      <p className={`text-xs truncate ${changeData.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                        {stat.change}
-                      </p>
-                    </div>
-                  </div>
-                  <stat.icon className={`h-6 w-6 md:h-8 md:w-8 ${stat.color} flex-shrink-0 ml-2`} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column (Main Content) */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Hero Banner */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#1a1f3c] to-[#2d325a] text-white p-8 md:p-12 shadow-lg">
+            <div className="relative z-10 max-w-lg">
+              <h2 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">
+                Your Real Estate Success<br />is All Yours.
+              </h2>
+            </div>
+            {/* Decorative House Image Slideshow */}
+            <div className="absolute right-0 bottom-0 w-1/2 h-full hidden md:block">
+              {slideProperties.length > 0 ? (
+                <div className="absolute right-[-50px] bottom-[-50px] w-[400px] h-[400px] rounded-full border-8 border-white/10 shadow-2xl transform rotate-[-10deg] overflow-hidden bg-background">
+                  {slideProperties.map((property: any, index: number) => (
+                    <Link
+                      key={property._id}
+                      to={`/vendor/properties/edit/${property._id}`}
+                      className={`absolute inset-0 transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+                      title={`View ${property.title}`}
+                    >
+                      <img
+                        src={vendorDashboardService.getImageUrl(property.images[0])}
+                        alt={property.title}
+                        className="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform duration-700"
+                      />
+                    </Link>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 items-start">
-        {/* Performance Chart - Stock Market Style */}
-        <Card className="h-full">
-          <CardHeader className="pb-3 md:pb-6">
-            <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-base md:text-lg">
-              <span>Views Performance</span>
-              <div className="flex gap-1 sm:gap-2">
-                {["7d", "30d", "90d"].map((range) => (
-                  <Button
-                    key={range}
-                    variant={dateRange === range ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setDateRange(range)}
-                    className="text-xs px-2 py-1 h-7"
-                  >
-                    {range}
-                  </Button>
-                ))}
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250} className="md:h-[300px]">
-                <LineChart
-                  data={chartData}
-                  margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
-                >
-                  <defs>
-                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(var(--border))"
-                    opacity={0.3}
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="date"
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `${value}`}
-                    width={30}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--popover))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px',
-                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                      color: 'hsl(var(--popover-foreground))',
-                      fontSize: '12px',
-                      padding: '8px'
-                    }}
-                    labelStyle={{
-                      color: 'hsl(var(--popover-foreground))',
-                      fontWeight: 600,
-                      marginBottom: '4px'
-                    }}
-                    cursor={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="views"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{
-                      r: 4,
-                      fill: '#10b981',
-                      stroke: '#fff',
-                      strokeWidth: 2
-                    }}
-                    name="Views"
-                    fill="url(#colorViews)"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-[200px] md:h-[300px] text-center px-4">
-                <Activity className="w-12 h-12 md:w-16 md:h-16 text-muted-foreground mb-3 md:mb-4" />
-                <h3 className="text-base md:text-lg font-semibold text-muted-foreground mb-2">No Performance Data</h3>
-                <p className="text-xs md:text-sm text-muted-foreground max-w-md">
-                  Performance metrics will appear here once your properties start receiving views.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Recent Activities */}
-        <Card className="h-full flex flex-col">
-          <CardHeader className="pb-3 md:pb-6">
-            <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-base md:text-lg">
-              <span>Recent Activities</span>
-              <Button variant="ghost" size="sm" className="self-start sm:self-auto" asChild>
-                <Link to="/vendor/analytics">View All</Link>
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 flex-1 min-h-0">
-            <div className="space-y-3 md:space-y-4 max-h-[400px] overflow-y-auto pr-2">
-              {dashboardState.recentActivities && dashboardState.recentActivities.length > 0 ? (
-                dashboardState.recentActivities.slice(0, 8).map((activity) => {
-                  // Determine icon based on activity type
-                  const getActivityIcon = () => {
-                    switch (activity.type) {
-                      case 'property_listed':
-                        return <Home className="w-4 h-4 md:w-5 md:h-5" />;
-                      case 'property_updated':
-                        return <Activity className="w-4 h-4 md:w-5 md:h-5" />;
-                      case 'inquiry_received':
-                        return <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />;
-                      case 'property_viewed':
-                        return <Eye className="w-4 h-4 md:w-5 md:h-5" />;
-                      default:
-                        return <Activity className="w-4 h-4 md:w-5 md:h-5" />;
-                    }
-                  };
-
-                  const getActivityColor = () => {
-                    switch (activity.type) {
-                      case 'property_listed':
-                        return 'bg-green-100 dark:bg-green-900';
-                      case 'property_updated':
-                        return 'bg-blue-100 dark:bg-blue-900';
-                      case 'inquiry_received':
-                        return 'bg-orange-100 dark:bg-orange-900';
-                      case 'property_viewed':
-                        return 'bg-purple-100 dark:bg-purple-900';
-                      default:
-                        return 'bg-gray-100 dark:bg-gray-900';
-                    }
-                  };
-
-                  return (
-                    <div key={activity._id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-lg gap-3 hover:bg-accent/50 transition-colors">
-                      <div className="flex items-center space-x-3 flex-1 min-w-0">
-                        <div className={`w-8 h-8 md:w-10 md:h-10 ${getActivityColor()} rounded-full flex items-center justify-center flex-shrink-0`}>
-                          {getActivityIcon()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{activity.message}</p>
-                          {activity.property && (
-                            <p className="text-sm text-muted-foreground truncate">{activity.property}</p>
-                          )}
-                          {activity.metadata?.customerName && (
-                            <p className="text-xs text-muted-foreground truncate">
-                              From: {activity.metadata.customerName}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-col sm:items-end gap-2">
-                        <p className="text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(activity.time).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
               ) : (
-                <div className="text-center py-6 md:py-8 text-muted-foreground">
-                  <Activity className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-3 md:mb-4 opacity-50" />
-                  <p className="text-sm md:text-base">No recent activities</p>
-                  <p className="text-xs md:text-sm">Property inquiries and updates will appear here</p>
-                </div>
+                <img
+                  src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=800&q=80"
+                  alt="House"
+                  className="absolute right-[-50px] bottom-[-50px] w-[400px] h-[400px] object-cover rounded-full border-8 border-white/10 shadow-2xl transform rotate-[-10deg]"
+                />
               )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
 
-      {/* Recent Properties */}
-      <Card>
-        <CardHeader className="pb-3 md:pb-6">
-          <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-base md:text-lg">
-            <span>Recent Properties</span>
-            <Button variant="ghost" size="sm" className="self-start sm:self-auto">View All</Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+          {/* Stats & Chart Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Stats Column */}
+            <div className="space-y-6">
+              {/* Total Revenue Card */}
+              <Card className="bg-card border-none shadow-sm rounded-2xl">
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-2 bg-primary/10 rounded-full">
+                      <div className="text-xs font-semibold text-primary">Total Revenue</div>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-3xl font-bold">
+                      {vendorDashboardService.formatPrice(stats?.totalRevenue || 0)}
+                    </h3>
+                    <div className="flex items-center text-sm">
+                      <span className={`font-medium flex items-center ${stats?.revenueChange?.startsWith('+') ? 'text-green-500' : 'text-red-500'}`}>
+                        {stats?.revenueChange || '0%'} <ArrowUpRight className="h-4 w-4 ml-1" />
+                      </span>
+                      <span className="text-muted-foreground ml-2">From last period</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Total Views Card (Replaced Maintenance Cost) */}
+              <Card className="bg-card border-none shadow-sm rounded-2xl">
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-2 bg-orange-500/10 rounded-full">
+                      <div className="text-xs font-semibold text-orange-600">Total Views</div>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-3xl font-bold">
+                      {stats?.propertyViews || 0}
+                    </h3>
+                    <div className="flex items-center text-sm">
+                      <span className={`font-medium flex items-center ${stats?.propertyViewsChange?.startsWith('+') ? 'text-green-500' : 'text-red-500'}`}>
+                        {stats?.propertyViewsChange || '0%'} <ArrowUpRight className="h-4 w-4 ml-1" />
+                      </span>
+                      <span className="text-muted-foreground ml-2">From last period</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Chart Column */}
+            <div className="md:col-span-2">
+              <Card className="h-full border-none shadow-sm rounded-2xl">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <div>
+                    <CardTitle className="text-lg font-bold">Performance Overview</CardTitle>
+                    <div className="flex items-center gap-4 mt-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-primary" />
+                        <span className="text-muted-foreground">Views</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Select value={dateRange} onValueChange={setDateRange}>
+                    <SelectTrigger className="w-[120px] rounded-full h-8 text-xs">
+                      <SelectValue placeholder="Select range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7d">Last 7 Days</SelectItem>
+                      <SelectItem value="30d">Last 30 Days</SelectItem>
+                      <SelectItem value="90d">Last 90 Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[250px] w-full">
+                    {revenueData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={revenueData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
+                              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis
+                            dataKey="date"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                            dy={10}
+                          />
+                          <YAxis
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                          />
+                          <Tooltip
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="views"
+                            stroke="hsl(var(--primary))"
+                            strokeWidth={3}
+                            fillOpacity={1}
+                            fill="url(#colorViews)"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        No performance data available
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Recent Leads / Inquiries */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold">Recent Inquiries</h3>
+              <Button variant="ghost" className="text-sm text-muted-foreground" asChild>
+                <Link to="/vendor/messages">View All</Link>
+              </Button>
+            </div>
+            <div className="bg-card rounded-2xl shadow-sm overflow-hidden border border-border/50">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border/50 bg-muted/30">
+                      <th className="text-left p-4 text-sm font-medium text-muted-foreground">Customer</th>
+                      <th className="text-left p-4 text-sm font-medium text-muted-foreground">Contact</th>
+                      <th className="text-left p-4 text-sm font-medium text-muted-foreground">Property</th>
+                      <th className="text-left p-4 text-sm font-medium text-muted-foreground">Date</th>
+                      <th className="text-left p-4 text-sm font-medium text-muted-foreground">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentLeads.length > 0 ? (
+                      recentLeads.map((lead: any, i: number) => (
+                        <tr key={lead._id || i} className="group hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0">
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${lead.email || i}`} />
+                                <AvatarFallback>{lead.name?.[0] || 'U'}</AvatarFallback>
+                              </Avatar>
+                              <span className="font-medium">{lead.name || 'Unknown User'}</span>
+                            </div>
+                          </td>
+                          <td className="p-4 text-sm text-muted-foreground">
+                            {lead.email || lead.phone || 'No contact info'}
+                          </td>
+                          <td className="p-4 text-sm truncate max-w-[150px]">
+                            {lead.propertyTitle || 'General Inquiry'}
+                          </td>
+                          <td className="p-4 text-sm font-medium">
+                            {new Date(lead.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="p-4">
+                            <Badge variant="secondary" className={`border-none ${lead.status === 'new' ? 'bg-blue-100 text-blue-700' :
+                              lead.status === 'contacted' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-green-100 text-green-700'
+                              }`}>
+                              {lead.status || 'new'}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                          No recent inquiries found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+
+        </div>
+
+        {/* Right Column (Property List) */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold">Your Properties</h3>
+            <Link to="/vendor/properties" className="text-sm text-primary hover:underline">See All</Link>
+          </div>
+
+          <div className="space-y-4">
             {recentProperties.length > 0 ? (
-              recentProperties.map((property) => (
-                <Card key={property._id} className="overflow-hidden">
-                  <div className="relative">
+              recentProperties.slice(0, 3).map((property: any, i: number) => (
+                <Card key={property._id || i} className="overflow-hidden border-none shadow-sm rounded-2xl group cursor-pointer hover:shadow-md transition-shadow">
+                  <div className="relative h-48">
                     <img
                       src={vendorDashboardService.getImageUrl(property.images?.[0])}
                       alt={property.title}
-                      className="w-full h-24 md:h-32 object-cover"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.src = "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=300&h=200&fit=crop&auto=format";
+                        target.src = "https://images.unsplash.com/photo-1600596542815-e32cb141d3ad?auto=format&fit=crop&w=600&q=80";
                       }}
                     />
+
                   </div>
-                  <CardContent className="p-3 md:p-4">
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      <Badge className={`text-xs ${vendorDashboardService.getStatusColor(property.status)} text-white border-0`}>
+                  <CardContent className="p-4">
+                    <div className="mb-2">
+                      <Badge className={`border-none shadow-sm font-medium ${vendorDashboardService.getStatusColor(property.status)} text-white`}>
                         {property.status}
                       </Badge>
-                      <Badge variant="secondary" className="text-xs border-blue-100 bg-blue-50 text-blue-700">
-                        For {property.listingType.charAt(0).toUpperCase() + property.listingType.slice(1)}
-                      </Badge>
                     </div>
-                    <h3 className="font-semibold text-sm md:text-base line-clamp-1 mb-1">{property.title}</h3>
-                    <p className="text-xs md:text-sm text-muted-foreground mb-2 flex items-center">
-                      <MapPin className="w-3 h-3 mr-1 flex-shrink-0" />
-                      <span className="truncate">{property.location}</span>
+                    <h4 className="font-bold text-lg mb-1 truncate" title={property.title}>
+                      {property.title}
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-3 truncate" title={property.location}>
+                      <MapPin className="inline h-3 w-3 mr-1" />
+                      {property.location}
                     </p>
-                    <p className="text-base md:text-lg font-bold text-primary mb-2 md:mb-3 truncate">
-                      {vendorDashboardService.formatPrice(property.price, property.currency)}
-                    </p>
-                    <div className="flex justify-between text-xs md:text-sm gap-1">
-                      <span className="flex items-center flex-1 min-w-0">
-                        <Eye className="w-3 h-3 md:w-4 md:h-4 mr-1 flex-shrink-0" />
-                        <span className="truncate">{property.views} views</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xl font-bold text-primary">
+                        {vendorDashboardService.formatPrice(property.price)}
                       </span>
-                      <span className="flex items-center flex-1 min-w-0">
-                        <Heart className="w-3 h-3 md:w-4 md:h-4 mr-1 flex-shrink-0" />
-                        <span className="truncate">{property.favorites} fav</span>
-                      </span>
-                      <span className="flex items-center flex-1 min-w-0">
-                        <Star className="w-3 h-3 md:w-4 md:h-4 mr-1 flex-shrink-0" />
-                        <span className="truncate">{property.rating || 0}</span>
-                      </span>
+                      <div className="text-xs text-muted-foreground">
+                        {property.views || 0} views
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
               ))
             ) : (
-              <div className="col-span-full text-center py-6 md:py-8 text-muted-foreground">
-                <Home className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-3 md:mb-4 opacity-50" />
-                <p className="text-sm md:text-base">No properties found</p>
-                <p className="text-xs md:text-sm">Add your first property to get started</p>
-                <Button className="mt-3 md:mt-4" size="sm">
-                  <Home className="w-4 h-4 mr-2" />
-                  Add Property
+              <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-2xl">
+                <p>No properties listed yet.</p>
+                <Button variant="link" asChild>
+                  <Link to="/vendor/properties/add">Add your first property</Link>
                 </Button>
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

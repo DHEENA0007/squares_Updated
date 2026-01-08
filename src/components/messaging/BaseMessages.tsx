@@ -485,35 +485,40 @@ export const BaseMessages = ({
   return (
     <div className="flex h-full pt-0 bg-background overflow-hidden">
       {/* Sidebar - Conversation List */}
-      <div className={`${isMobile ? (showConversationList ? 'flex' : 'hidden') : 'flex'} w-full md:w-80 lg:w-96 flex-col border-r bg-muted/10`}>
+      <div className={`${isMobile ? (showConversationList ? 'flex' : 'hidden') : 'flex'} w-full md:w-80 lg:w-96 flex-col border-r bg-background`}>
         {/* Sidebar Header */}
-        <div className="p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="flex items-center justify-between mb-4">
+        <div className="px-4 pt-2 pb-2 bg-background z-10">
+          <div className="flex items-center justify-between mb-2">
             <h1 className="text-xl font-bold flex items-center gap-2">
-              Messages
+              {user?.name || "Messages"}
               {totalUnreadCount > 0 && (
-                <Badge className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
+                <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                   {totalUnreadCount}
-                </Badge>
+                </span>
               )}
             </h1>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[110px] h-8 text-xs bg-background">
-                <SelectValue placeholder="Filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="unread">Unread</SelectItem>
-                <SelectItem value="read">Read</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[90px] h-8 text-xs bg-transparent border-none focus:ring-0 font-semibold text-muted-foreground hover:text-foreground p-0">
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="unread">Unread</SelectItem>
+                  <SelectItem value="read">Read</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="w-5 h-5" />
+              </Button>
+            </div>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search conversations..."
-              className="pl-9 bg-muted/50 border-none rounded-full h-9 focus-visible:ring-1 focus-visible:ring-primary/20"
+              placeholder="Search"
+              className="pl-9 bg-muted/50 border-none rounded-lg h-9 focus-visible:ring-0 placeholder:text-muted-foreground/70"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -559,62 +564,50 @@ export const BaseMessages = ({
                 return (
                   <div
                     key={conversationId}
-                    className={`group flex items-start gap-3 p-4 cursor-pointer transition-all border-b border-border/40 hover:bg-muted/50 ${isSelected ? 'bg-primary/5 border-l-4 border-l-primary' : 'border-l-4 border-l-transparent'
+                    className={`group flex items-center gap-3 p-3 cursor-pointer transition-all hover:bg-muted/30 ${isSelected ? 'bg-muted/50' : ''
                       }`}
                     onClick={() => setSelectedConversation(conversationId)}
                   >
                     <div className="relative flex-shrink-0">
-                      <Avatar className="w-12 h-12 border-2 border-background shadow-sm">
+                      <Avatar className="w-14 h-14 border border-border/10">
                         <AvatarImage src={undefined} />
-                        <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                        <AvatarFallback className="bg-muted text-foreground font-medium text-lg">
                           {participantName.split(' ').map(n => n[0]).join('').substring(0, 2)}
                         </AvatarFallback>
                       </Avatar>
                       {userStatuses[otherParticipant._id]?.isOnline && (
-                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-background rounded-full"></span>
+                        <span className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-green-500 border-[3px] border-background rounded-full"></span>
                       )}
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className={`text-sm truncate ${conversation.unreadCount > 0 ? 'font-bold text-foreground' : 'font-semibold text-foreground/90'} ${isSelected ? 'text-primary' : ''}`}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <h3 className={`text-sm truncate ${conversation.unreadCount > 0 ? 'font-bold text-foreground' : 'font-normal text-foreground'}`}>
                           {participantName}
-                          {conversation.unreadCount > 0 && (
-                            <span className="ml-1.5 text-xs text-primary font-bold">
-                              ({conversation.unreadCount})
-                            </span>
-                          )}
                         </h3>
-                        <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                      </div>
+
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <p className={`truncate max-w-[180px] ${conversation.unreadCount > 0 ? 'font-bold text-foreground' : ''}`}>
+                          {conversation.lastMessage.isFromMe && "You: "}
+                          {conversation.lastMessage.message}
+                        </p>
+                        <span className="text-muted-foreground/60 mx-1">·</span>
+                        <span className="text-xs flex-shrink-0">
                           {unifiedMessageService.formatTime(conversation.lastMessage.createdAt)}
                         </span>
                       </div>
 
                       {showPropertyInfo && conversation.property && (
-                        <div className="flex items-center gap-1 mb-1 text-xs text-muted-foreground/80">
-                          <MapPin className="w-3 h-3" />
-                          <span className="truncate">{conversation.property.title}</span>
+                        <div className="text-[10px] text-muted-foreground/60 truncate mt-0.5">
+                          {conversation.property.title}
                         </div>
                       )}
-
-                      <div className="flex flex-col gap-1">
-                        <p className={`text-sm truncate ${conversation.unreadCount > 0 ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
-                          {conversation.lastMessage.isFromMe && <span className="mr-1">You:</span>}
-                          {conversation.lastMessage.message}
-                        </p>
-
-                        {/* Last Active Status */}
-                        <div className="text-[10px] text-muted-foreground/70">
-                          {userStatuses[otherParticipant._id]?.isOnline ? (
-                            <span className="text-green-600 font-medium">Active now</span>
-                          ) : userStatuses[otherParticipant._id]?.lastSeen ? (
-                            <span>Active {unifiedMessageService.formatTime(userStatuses[otherParticipant._id].lastSeen)}</span>
-                          ) : (
-                            <span>Offline</span>
-                          )}
-                        </div>
-                      </div>
                     </div>
+
+                    {conversation.unreadCount > 0 && (
+                      <div className="w-2.5 h-2.5 bg-primary rounded-full flex-shrink-0"></div>
+                    )}
                   </div>
                 );
               })
@@ -628,8 +621,8 @@ export const BaseMessages = ({
         {activeConversation ? (
           <>
             {/* Chat Header */}
-            <div className="h-16 border-b flex items-center justify-between px-4 md:px-6 bg-background/95 backdrop-blur z-10 shadow-sm">
-              <div className="flex items-center gap-3">
+            <div className="h-[64px] border-b flex items-center justify-between px-5 bg-background/95 backdrop-blur z-10">
+              <div className="flex items-center gap-4">
                 {isMobile && (
                   <Button
                     variant="ghost"
@@ -637,38 +630,32 @@ export const BaseMessages = ({
                     onClick={() => setShowConversationList(true)}
                     className="-ml-2 hover:bg-muted/50 rounded-full"
                   >
-                    <ArrowLeft className="w-5 h-5" />
+                    <ArrowLeft className="w-6 h-6" />
                   </Button>
                 )}
                 <div className="relative">
-                  <Avatar className="w-10 h-10 border shadow-sm">
+                  <Avatar className="w-11 h-11 border border-border/10">
                     <AvatarImage src={undefined} />
-                    <AvatarFallback className="bg-primary/10 text-primary">
+                    <AvatarFallback className="bg-muted text-foreground font-medium">
                       {getOtherParticipant(activeConversation).name.split(' ').map(n => n[0]).join('').substring(0, 2)}
                     </AvatarFallback>
                   </Avatar>
                   {userStatuses[getOtherParticipant(activeConversation)._id]?.isOnline && (
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full"></span>
+                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-background rounded-full"></span>
                   )}
                 </div>
 
                 <div>
-                  <h3 className="font-semibold text-sm md:text-base leading-none mb-1">
+                  <h3 className="font-semibold text-base leading-tight">
                     {getOtherParticipant(activeConversation).name}
                   </h3>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground mt-0.5">
                     {userStatuses[getOtherParticipant(activeConversation)._id]?.isOnline ? (
-                      <span className="text-green-600 font-medium">Active now</span>
+                      <span className="text-muted-foreground">Active now</span>
                     ) : userStatuses[getOtherParticipant(activeConversation)._id]?.lastSeen ? (
-                      <span>Last seen {unifiedMessageService.formatTime(userStatuses[getOtherParticipant(activeConversation)._id].lastSeen)}</span>
+                      <span>Active {unifiedMessageService.formatTime(userStatuses[getOtherParticipant(activeConversation)._id].lastSeen)}</span>
                     ) : (
                       <span>Offline</span>
-                    )}
-                    {showPropertyInfo && activeConversation.property && (
-                      <>
-                        <span className="w-1 h-1 bg-muted-foreground/30 rounded-full"></span>
-                        <span className="truncate max-w-[150px]">{activeConversation.property.title}</span>
-                      </>
                     )}
                   </div>
                 </div>
@@ -734,7 +721,7 @@ export const BaseMessages = ({
             </div>
 
             {/* Messages */}
-            <ScrollArea className="flex-1 bg-muted/5" ref={scrollAreaRef}>
+            <ScrollArea className="flex-1 bg-background" ref={scrollAreaRef}>
               <div className="p-4 space-y-6">
                 {messages.map((message, index) => {
                   const senderId = typeof message.sender === 'string' ? message.sender : message.sender._id;
@@ -744,33 +731,33 @@ export const BaseMessages = ({
                   return (
                     <div
                       key={message._id}
-                      className={`flex w-full ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                      className={`flex w-full mb-1 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className={`flex max-w-[80%] md:max-w-[70%] gap-2 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
+                      <div className={`flex max-w-[75%] md:max-w-[65%] gap-2 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
                         {!isOwnMessage && (
-                          <div className="w-8 flex-shrink-0 flex flex-col justify-end">
+                          <div className="w-8 flex-shrink-0 flex flex-col justify-end mb-1">
                             {showAvatar ? (
-                              <Avatar className="w-8 h-8 border">
+                              <Avatar className="w-7 h-7 border border-border/10">
                                 <AvatarImage src={undefined} />
-                                <AvatarFallback className="text-[10px]">
+                                <AvatarFallback className="text-[9px] bg-muted">
                                   {getOtherParticipant(activeConversation).name.split(' ').map(n => n[0]).join('').substring(0, 2)}
                                 </AvatarFallback>
                               </Avatar>
-                            ) : <div className="w-8" />}
+                            ) : <div className="w-7" />}
                           </div>
                         )}
 
-                        <div className={`group relative px-4 py-3 shadow-sm ${isOwnMessage
-                          ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-sm'
-                          : 'bg-card border text-foreground rounded-2xl rounded-tl-sm'
+                        <div className={`group relative px-4 py-2.5 ${isOwnMessage
+                          ? 'bg-primary text-primary-foreground rounded-[22px]'
+                          : 'bg-muted dark:bg-muted/20 text-foreground rounded-[22px]'
                           }`}>
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                          <p className="text-[15px] leading-snug whitespace-pre-wrap">
                             {unifiedMessageService.getMessageContent(message)}
                           </p>
 
                           {/* Attachments */}
                           {message.attachments && message.attachments.length > 0 && (
-                            <div className="mt-3 space-y-2">
+                            <div className="mt-2 space-y-1">
                               {message.attachments.map((attachment, idx) => (
                                 <div key={idx}>
                                   {attachment.type === 'image' ? (
@@ -778,7 +765,7 @@ export const BaseMessages = ({
                                       <img
                                         src={attachment.url}
                                         alt={attachment.name}
-                                        className="max-w-full rounded-lg border border-border/20 cursor-pointer hover:opacity-95 transition-opacity"
+                                        className="max-w-full rounded-xl cursor-pointer hover:opacity-95 transition-opacity"
                                         style={{ maxHeight: '250px' }}
                                       />
                                     </a>
@@ -787,15 +774,15 @@ export const BaseMessages = ({
                                       href={attachment.url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className={`flex items-center gap-3 p-3 rounded-lg border ${isOwnMessage
-                                        ? 'border-primary-foreground/20 bg-primary-foreground/10 hover:bg-primary-foreground/20'
-                                        : 'border-border bg-muted/50 hover:bg-muted'
+                                      className={`flex items-center gap-3 p-3 rounded-xl border ${isOwnMessage
+                                        ? 'border-white/20 bg-white/10 hover:bg-white/20'
+                                        : 'border-black/5 bg-black/5 hover:bg-black/10'
                                         } transition-colors`}
                                     >
-                                      <div className="bg-background p-2 rounded-md">
-                                        <Paperclip className={`w-4 h-4 ${isOwnMessage ? 'text-primary' : 'text-muted-foreground'}`} />
+                                      <div className="bg-background/20 p-2 rounded-md">
+                                        <Paperclip className={`w-4 h-4 ${isOwnMessage ? 'text-white' : 'text-foreground'}`} />
                                       </div>
-                                      <span className="text-sm truncate font-medium underline decoration-dotted underline-offset-4">
+                                      <span className="text-sm truncate font-medium">
                                         {attachment.name}
                                       </span>
                                     </a>
@@ -805,7 +792,7 @@ export const BaseMessages = ({
                             </div>
                           )}
 
-                          <div className={`flex items-center justify-end gap-1 mt-1 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                          <div className={`flex items-center justify-end gap-1 mt-1 select-none ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground/60'}`}>
                             <span className="text-[10px]">
                               {unifiedMessageService.formatTime(message.createdAt || message.timestamp)}
                             </span>
@@ -813,21 +800,21 @@ export const BaseMessages = ({
                               message.read ? (
                                 <CheckCheck className="w-3 h-3" />
                               ) : (
-                                <CheckCheck className="w-3 h-3 opacity-50" />
+                                <CheckCheck className="w-3 h-3 opacity-70" />
                               )
                             )}
                           </div>
 
                           {enableDeletion && isOwnMessage && (
-                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="absolute top-1/2 -translate-y-1/2 -left-8 opacity-0 group-hover:opacity-100 transition-opacity">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-black/10 rounded-full"
+                                    className="h-6 w-6 p-0 hover:bg-muted/20 rounded-full"
                                   >
-                                    <MoreVertical className="w-3 h-3" />
+                                    <MoreVertical className="w-3 h-3 text-muted-foreground" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
@@ -852,13 +839,13 @@ export const BaseMessages = ({
                 {otherUserTyping && (
                   <div className="flex justify-start">
                     <div className="flex items-end gap-2">
-                      <Avatar className="w-8 h-8 border mb-1">
+                      <Avatar className="w-7 h-7 border border-border/10 mb-1">
                         <AvatarImage src={undefined} />
-                        <AvatarFallback className="text-[10px]">
+                        <AvatarFallback className="text-[9px] bg-muted">
                           {getOtherParticipant(activeConversation).name.split(' ').map(n => n[0]).join('').substring(0, 2)}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="bg-card border p-3 rounded-2xl rounded-tl-sm shadow-sm">
+                      <div className="bg-muted dark:bg-muted/20 px-4 py-3 rounded-[22px]">
                         <div className="flex gap-1.5 items-center h-4">
                           <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                           <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
@@ -872,7 +859,7 @@ export const BaseMessages = ({
             </ScrollArea>
 
             {/* Input Area */}
-            <div className="p-4 bg-background border-t">
+            <div className="p-4 bg-background">
               {selectedFiles.length > 0 && (
                 <div className="mb-3 flex flex-wrap gap-2">
                   {selectedFiles.map((file, index) => (
@@ -898,7 +885,30 @@ export const BaseMessages = ({
                 </div>
               )}
 
-              <div className="flex items-end gap-2 bg-muted/30 p-2 rounded-[24px] border focus-within:ring-1 focus-within:ring-primary/20 focus-within:border-primary/20 transition-all shadow-sm">
+              <div className="flex items-center gap-2 bg-background p-1.5 rounded-[26px] border border-border/40 focus-within:border-border/80 transition-all">
+                <div className="flex gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-9 w-9 rounded-full text-foreground hover:bg-muted"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={isUploading || sending}
+                    title="Attach image"
+                  >
+                    <ImageIcon className="w-6 h-6" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-9 w-9 rounded-full text-foreground hover:bg-muted"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading || sending}
+                    title="Attach document"
+                  >
+                    <Paperclip className="w-5 h-5" />
+                  </Button>
+                </div>
+
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -916,31 +926,8 @@ export const BaseMessages = ({
                   multiple
                 />
 
-                <div className="flex gap-1 mb-1 ml-1">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading || sending}
-                    title="Attach document"
-                  >
-                    <Paperclip className="w-5 h-5" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
-                    onClick={() => imageInputRef.current?.click()}
-                    disabled={isUploading || sending}
-                    title="Attach image"
-                  >
-                    <ImageIcon className="w-5 h-5" />
-                  </Button>
-                </div>
-
                 <Textarea
-                  placeholder="Type a message..."
+                  placeholder="Message..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyDown={(e) => {
@@ -949,33 +936,39 @@ export const BaseMessages = ({
                       sendMessage();
                     }
                   }}
-                  className="flex-1 min-h-[40px] max-h-[120px] py-2.5 px-2 bg-transparent border-none shadow-none resize-none focus-visible:ring-0 text-base"
+                  className="flex-1 min-h-[44px] max-h-[120px] py-2.5 px-3 bg-transparent border-none shadow-none resize-none focus-visible:ring-0 text-[15px] placeholder:text-muted-foreground/60"
                   disabled={sending || isUploading}
                 />
 
-                <Button
-                  onClick={sendMessage}
-                  disabled={(!newMessage.trim() && selectedFiles.length === 0) || sending || isUploading}
-                  size="icon"
-                  className="h-10 w-10 rounded-full shrink-0 mb-0.5"
-                >
-                  {sending || isUploading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Send className="w-5 h-5 ml-0.5" />
-                  )}
-                </Button>
+                {newMessage.trim() || selectedFiles.length > 0 ? (
+                  <Button
+                    onClick={sendMessage}
+                    disabled={sending || isUploading}
+                    size="sm"
+                    className="h-auto px-4 py-2 rounded-full font-semibold text-sm bg-transparent text-primary hover:bg-transparent hover:text-primary/80 transition-colors"
+                  >
+                    {sending || isUploading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      "Send"
+                    )}
+                  </Button>
+                ) : (
+                  <div className="mr-2">
+                    {/* Placeholder for Heart or other icon if empty */}
+                  </div>
+                )}
               </div>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center flex-col text-muted-foreground bg-muted/5">
-            <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
-              <MessageSquare className="w-10 h-10 opacity-20" />
+          <div className="flex-1 flex items-center justify-center flex-col text-muted-foreground bg-background">
+            <div className="w-24 h-24 border-2 border-black/5 dark:border-white/10 rounded-full flex items-center justify-center mb-4">
+              <Send className="w-10 h-10 text-foreground" />
             </div>
-            <h3 className="text-xl font-semibold mb-2 text-foreground">Your Messages</h3>
-            <p className="max-w-xs text-center text-sm">
-              Select a conversation from the list to start chatting or send a new message.
+            <h3 className="text-xl font-medium mb-1 text-foreground">Your Messages</h3>
+            <p className="max-w-xs text-center text-sm text-muted-foreground">
+              Send private photos and messages to a friend or group.
             </p>
           </div>
         )}

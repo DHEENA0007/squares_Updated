@@ -469,124 +469,127 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent className="p-6">
             {recommendedProperties.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 {recommendedProperties.map((property) => (
                   <Link
                     key={property._id}
                     to={`/customer/property/${property._id}`}
-                    className="group border rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 bg-card flex flex-col h-full relative"
+                    className="group bg-card border border-border/60 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col sm:flex-row h-auto"
                   >
-                    <div className="aspect-video bg-muted relative overflow-hidden">
+                    {/* Image Section */}
+                    <div className="w-full sm:w-56 h-48 sm:h-auto relative shrink-0 bg-muted overflow-hidden">
                       {property.image ? (
                         <img
                           src={property.image}
                           alt={property.title}
-                          className="absolute top-0 left-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          className="absolute top-0 left-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
                             e.currentTarget.parentElement?.classList.add('flex', 'items-center', 'justify-center');
                             const icon = document.createElement('div');
-                            icon.innerHTML = '<svg class="w-12 h-12 text-muted-foreground/50" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
+                            icon.innerHTML = '<svg class="w-12 h-12 text-muted-foreground/20" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
                             e.currentTarget.parentElement?.appendChild(icon);
                           }}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-muted/50">
-                          <Home className="w-12 h-12 text-muted-foreground/30" />
+                          <Home className="w-12 h-12 text-muted-foreground/20" />
                         </div>
                       )}
 
-
-
-                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <div className="absolute top-2 right-2 sm:hidden">
                         <Button
                           size="icon"
                           variant="secondary"
-                          className="rounded-full h-8 w-8 shadow-sm hover:bg-white hover:text-red-500"
+                          className="rounded-full h-7 w-7 shadow-sm bg-white/90 hover:bg-white text-muted-foreground hover:text-red-500"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            // Add favorite logic here if needed
                           }}
                         >
-                          <Heart className="w-4 h-4" />
+                          <Heart className="w-3.5 h-3.5" />
                         </Button>
-                      </div>
-
-                      <div className="absolute bottom-3 left-3">
-                        <Badge variant="secondary" className="bg-background/80 backdrop-blur-md border-none text-xs font-medium">
-                          {property.propertyType}
-                        </Badge>
                       </div>
                     </div>
 
-                    <div className="p-4 flex flex-col flex-1 gap-3">
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-none shadow-none capitalize px-2.5 py-0.5 h-5 text-[10px] font-medium">
-                          For {property.listingType}
-                        </Badge>
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-base leading-tight line-clamp-2 group-hover:text-primary transition-colors mb-1.5">
-                          {property.title}
-                        </h3>
-                        <div className="flex items-center text-xs text-muted-foreground">
-                          <MapPin className="w-3.5 h-3.5 mr-1 text-primary/70 shrink-0" />
-                          <span className="truncate">{property.location}</span>
+                    {/* Content Section */}
+                    <div className="flex-1 p-3.5 flex flex-col justify-between min-w-0">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-start gap-3">
+                          <div className="space-y-1 min-w-0">
+                            <h3 className="font-bold text-base sm:text-lg text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                              {property.title}
+                            </h3>
+                            <div className="flex items-center text-xs text-muted-foreground">
+                              <MapPin className="w-3 h-3 mr-1 text-muted-foreground/70 shrink-0" />
+                              <span className="truncate">{property.location}</span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-lg font-bold text-primary">{property.price}</div>
+                          </div>
+                        </div>
+
+                        {/* Badges Row */}
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px] px-1.5 py-0 h-5">
+                            {property.listingType === 'sale' ? 'Sale' : 'Rent'}
+                          </Badge>
+                          {property.propertyType && (
+                            <Badge variant="secondary" className="bg-muted text-muted-foreground text-[10px] px-1.5 py-0 h-5">
+                              {property.propertyType}
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="border-green-200 text-green-700 bg-green-50 text-[10px] px-1.5 py-0 h-5">
+                            Verified
+                          </Badge>
+                        </div>
+
+                        {/* Specs Grid */}
+                        <div className="grid grid-cols-3 gap-2 py-2 border-y border-border/40">
+                          <div className="flex flex-col items-center justify-center text-center">
+                            <span className="text-[9px] text-muted-foreground uppercase font-bold">Beds</span>
+                            <span className="text-xs font-semibold text-foreground">{property.bedrooms}</span>
+                          </div>
+                          <div className="flex flex-col items-center justify-center text-center border-l border-border/40">
+                            <span className="text-[9px] text-muted-foreground uppercase font-bold">Baths</span>
+                            <span className="text-xs font-semibold text-foreground">{property.bathrooms}</span>
+                          </div>
+                          <div className="flex flex-col items-center justify-center text-center border-l border-border/40">
+                            <span className="text-[9px] text-muted-foreground uppercase font-bold">Area</span>
+                            <span className="text-xs font-semibold text-foreground">{property.area}</span>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Features Grid */}
-                      {(() => {
-                        const features = [
-                          {
-                            label: 'Beds',
-                            value: property.bedrooms,
-                            icon: <Home className="w-3.5 h-3.5 text-muted-foreground" />,
-                            show: property.bedrooms > 0
-                          },
-                          {
-                            label: 'Baths',
-                            value: property.bathrooms,
-                            icon: <div className="w-3.5 h-3.5 rounded-[1px] border border-current text-muted-foreground flex items-center justify-center text-[8px]"></div>,
-                            show: property.bathrooms > 0
-                          },
-                          {
-                            label: 'Area',
-                            value: property.area,
-                            icon: <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />,
-                            show: property.area > 0
-                          }
-                        ].filter(item => item.show);
-
-                        if (features.length === 0) return null;
-
-                        return (
-                          <div className={`grid grid-cols-${features.length} gap-2 py-2 border-y border-border/50`}>
-                            {features.map((feature, index) => (
-                              <div
-                                key={feature.label}
-                                className={`flex flex-col items-center justify-center text-center ${index > 0 ? 'border-l border-border/50' : ''}`}
-                              >
-                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{feature.label}</span>
-                                <div className="flex items-center gap-1 font-medium text-sm">
-                                  {feature.icon}
-                                  {feature.value} {feature.label === 'Area' ? 'sq ft' : ''}
-                                </div>
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex -space-x-1.5">
+                            {[1, 2, 3].map((i) => (
+                              <div key={i} className="w-5 h-5 rounded-full border border-background bg-muted flex items-center justify-center text-[8px] font-medium text-muted-foreground">
+                                U{i}
                               </div>
                             ))}
                           </div>
-                        );
-                      })()}
-
-                      <div className="mt-auto flex items-center justify-between pt-1">
-                        <div>
-                          <p className="text-[10px] text-muted-foreground">Price</p>
-                          <span className="font-bold text-lg text-primary">{property.price}</span>
+                          <span className="text-[10px] text-muted-foreground font-medium">+12</span>
                         </div>
-                        <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-primary/5 hover:text-primary">
-                          View Details
-                        </Button>
+
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 rounded-md border-border hover:bg-muted hover:text-red-500 hidden sm:flex"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                          >
+                            <Heart className="w-4 h-4" />
+                          </Button>
+                          <Button className="h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-xs font-medium rounded-md">
+                            Details
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </Link>

@@ -6,6 +6,7 @@ import { notificationService } from '@/services/notificationService';
 interface User {
   id: string;
   email: string;
+  name?: string;
   role: string;
   rolePages?: string[];
   rolePermissions?: string[];

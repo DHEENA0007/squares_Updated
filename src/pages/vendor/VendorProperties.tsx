@@ -493,18 +493,29 @@ const VendorProperties = () => {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <Link to={`/vendor/properties/edit/${property._id}`}>
-                    <Button size="sm" variant="outline" className="w-full h-9">
-                      <Edit3 className="w-3.5 h-3.5 mr-2" />
-                      Edit
-                    </Button>
-                  </Link>
-                  <Link to={`/vendor/properties/details/${property._id}`}>
-                    <Button size="sm" className="w-full h-9">
-                      View
-                    </Button>
-                  </Link>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Link to={`/vendor/properties/edit/${property._id}`}>
+                      <Button size="sm" variant="outline" className="w-full h-9">
+                        <Edit3 className="w-3.5 h-3.5 mr-2" />
+                        Edit
+                      </Button>
+                    </Link>
+                    <Link to={`/vendor/properties/details/${property._id}`}>
+                      <Button size="sm" className="w-full h-9">
+                        View
+                      </Button>
+                    </Link>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="w-full h-9"
+                    onClick={() => openStatusDialog(property)}
+                  >
+                    <Users className="w-3.5 h-3.5 mr-2" />
+                    Update Status
+                  </Button>
                 </div>
               </div>
             </CardContent>

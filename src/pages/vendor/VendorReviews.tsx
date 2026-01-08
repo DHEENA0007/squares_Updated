@@ -18,16 +18,27 @@ import {
   TrendingUp
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogFooter,
   DialogDescription
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { propertyService, Property } from "@/services/propertyService";
+import { Edit } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface PropertyReview {
   _id: string;
@@ -95,6 +106,9 @@ const VendorReviews = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
 
+  const [properties, setProperties] = useState<Property[]>([]);
+  const navigate = useNavigate();
+
   const baseUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
 
   const loadReviews = useCallback(async () => {
@@ -139,6 +153,17 @@ const VendorReviews = () => {
     }
   }, [baseUrl, ratingFilter, typeFilter, searchQuery, sortBy]);
 
+  const loadProperties = useCallback(async () => {
+    try {
+      const response = await propertyService.getVendorProperties();
+      if (response.success) {
+        setProperties(response.data.properties);
+      }
+    } catch (error) {
+      console.error('Failed to load properties:', error);
+    }
+  }, []);
+
   const loadStats = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
@@ -162,24 +187,25 @@ const VendorReviews = () => {
 
   const refreshReviews = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadReviews(), loadStats()]);
+    await Promise.all([loadReviews(), loadStats(), loadProperties()]);
     setRefreshing(false);
-  }, [loadReviews, loadStats]);
+  }, [loadReviews, loadStats, loadProperties]);
 
   useEffect(() => {
     loadReviews();
     loadStats();
-  }, [loadReviews, loadStats]);
+    loadProperties();
+  }, [loadReviews, loadStats, loadProperties]);
 
   const formatDate = (dateString: string | undefined): string => {
     if (!dateString) return 'N/A';
-    
+
     const date = new Date(dateString);
-    
+
     if (isNaN(date.getTime())) {
       return 'N/A';
     }
-    
+
     return date.toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'long',
@@ -205,7 +231,7 @@ const VendorReviews = () => {
   const filteredReviews = reviews;
 
   return (
-    <div className="space-y-6 pt-16">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -216,9 +242,9 @@ const VendorReviews = () => {
             Manage customer feedback and maintain your reputation
           </p>
         </div>
-        
-        <Button 
-          variant="outline" 
+
+        <Button
+          variant="outline"
           onClick={refreshReviews}
           disabled={refreshing}
         >
@@ -227,268 +253,205 @@ const VendorReviews = () => {
         </Button>
       </div>
 
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-primary">{stats.totalReviews}</p>
-                <p className="text-sm text-muted-foreground">Total Reviews</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-                  <p className="text-2xl font-bold text-yellow-600">
-                    {stats.averageRating.toFixed(1)}
-                  </p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Stats Grid */}
+        <div className="lg:col-span-2 space-y-6">
+          {stats && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Card className="bg-primary text-primary-foreground border-none shadow-md">
+                <CardContent className="p-6 flex flex-col justify-between h-32">
+                  <p className="text-sm font-medium opacity-90">Total Reviews</p>
+                  <p className="text-4xl font-bold">{stats.totalReviews}</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card border-border shadow-md">
+                <CardContent className="p-6 flex flex-col justify-between h-32">
+                  <p className="text-sm font-medium text-muted-foreground">Average Rating</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-4xl font-bold text-foreground">{stats.averageRating.toFixed(1)}</p>
+                    <Star className="w-6 h-6 fill-primary text-primary" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card border-border shadow-md">
+                <CardContent className="p-6 flex flex-col justify-between h-32">
+                  <p className="text-sm font-medium text-muted-foreground">Positive Reviews</p>
+                  <p className="text-4xl font-bold text-green-600">{stats.ratingDistribution[5] + stats.ratingDistribution[4]}</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card border-border shadow-md">
+                <CardContent className="p-6 flex flex-col justify-between h-32">
+                  <p className="text-sm font-medium text-muted-foreground">Public Reviews</p>
+                  <p className="text-4xl font-bold text-foreground">{reviews.filter(r => r.isPublic).length}</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Ratings List Panel */}
+        <div className="lg:col-span-1">
+          <Card className="h-full bg-secondary/30 dark:bg-muted/20 border-none shadow-inner min-h-[300px]">
+            <CardContent className="p-4 h-full flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-lg">Ratings List</h3>
+                <div className="flex gap-2">
+                  <Select value={ratingFilter} onValueChange={setRatingFilter}>
+                    <SelectTrigger className="w-[100px] h-8 text-xs bg-background">
+                      <SelectValue placeholder="Rating" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="5">5 Stars</SelectItem>
+                      <SelectItem value="4">4 Stars</SelectItem>
+                      <SelectItem value="3">3 Stars</SelectItem>
+                      <SelectItem value="2">2 Stars</SelectItem>
+                      <SelectItem value="1">1 Star</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <p className="text-sm text-muted-foreground">Average Rating</p>
               </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">
-                  {stats.ratingDistribution[5] + stats.ratingDistribution[4]}
-                </p>
-                <p className="text-sm text-muted-foreground">Positive Reviews</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-blue-600">
-                  {reviews.filter(r => r.isPublic).length}
-                </p>
-                <p className="text-sm text-muted-foreground">Public Reviews</p>
+
+              <div className="flex-1 overflow-y-auto pr-2 space-y-3 max-h-[400px] custom-scrollbar">
+                {!loading && filteredReviews.length > 0 ? (
+                  filteredReviews.map((review) => (
+                    <div key={review._id} className="bg-card p-3 rounded-lg shadow-sm border border-border">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="w-8 h-8">
+                            <AvatarImage src={review.client?.avatar} />
+                            <AvatarFallback>{review.client ? getInitials(review.client.name) : 'U'}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium">{review.client?.name || 'Anonymous'}</p>
+                            <div className="flex">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`w-3 h-3 ${star <= review.rating ? 'fill-primary text-primary' : 'text-muted'}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-xs text-muted-foreground">{formatDate(review.createdAt)}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 line-clamp-2">{review.comment}</p>
+                      {review.property && (
+                        <p className="text-xs text-muted-foreground mt-2 truncate">
+                          For: {review.property.title}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No reviews found</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
-      )}
+      </div>
 
-      {stats && stats.totalReviews > 0 && (
-        <Card>
-          <CardContent className="p-6">
-            <h3 className="font-semibold mb-4 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" />
-              Rating Distribution
-            </h3>
-            <div className="space-y-3">
-              {[5, 4, 3, 2, 1].map((rating) => (
-                <div key={rating} className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 w-16">
-                    <span className="text-sm font-medium">{rating}</span>
-                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                  </div>
-                  <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
-                    <div 
-                      className="bg-yellow-400 h-full transition-all"
-                      style={{ 
-                        width: `${stats.totalReviews > 0 ? (stats.ratingDistribution[rating as keyof typeof stats.ratingDistribution] / stats.totalReviews) * 100 : 0}%` 
-                      }}
-                    />
-                  </div>
-                  <span className="text-sm text-muted-foreground w-12 text-right">
-                    {stats.ratingDistribution[rating as keyof typeof stats.ratingDistribution]}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search reviews..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            
-            <Select value={ratingFilter} onValueChange={setRatingFilter}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Rating" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Ratings</SelectItem>
-                <SelectItem value="5">5 Stars</SelectItem>
-                <SelectItem value="4">4 Stars</SelectItem>
-                <SelectItem value="3">3 Stars</SelectItem>
-                <SelectItem value="2">2 Stars</SelectItem>
-                <SelectItem value="1">1 Star</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="property">Property</SelectItem>
-                <SelectItem value="service">Service</SelectItem>
-                <SelectItem value="general">General</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Sort By" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Newest First</SelectItem>
-                <SelectItem value="oldest">Oldest First</SelectItem>
-                <SelectItem value="rating-high">Rating: High to Low</SelectItem>
-                <SelectItem value="rating-low">Rating: Low to High</SelectItem>
-              </SelectContent>
-            </Select>
+      {/* Bottom Section: Active Property Table */}
+      <Card className="border-none shadow-md overflow-hidden">
+        <div className="p-6 border-b flex items-center justify-between bg-card">
+          <div>
+            <h3 className="text-lg font-semibold">Active Property</h3>
+            <p className="text-sm text-muted-foreground">Overview of your listed properties</p>
           </div>
-        </CardContent>
-      </Card>
-
-      {!loading && filteredReviews.length > 0 && (
-        <div className="space-y-4">
-          {filteredReviews.map((review) => (
-            <Card key={review._id} className="overflow-hidden">
-              <CardContent className="p-0">
-                <div className="flex flex-col lg:flex-row">
-                  {review.property && (
-                    <div className="lg:w-48 h-48 lg:h-auto bg-muted relative">
-                      <img 
-                        src={getPrimaryImage(review.property.images)}
-                        alt={review.property.title}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute top-3 left-3 flex gap-2">
-                        <Badge className={review.property.status === 'sold' ? 'bg-purple-600 text-white' : review.property.status === 'rented' ? 'bg-blue-600 text-white' : 'bg-green-600 text-white'}>
-                          {review.property.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex-1 p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-start gap-3">
-                        <Avatar className="w-10 h-10">
-                          <AvatarImage src={review.client?.avatar} />
-                          <AvatarFallback>
-                            {review.client ? getInitials(review.client.name) : 'U'}
-                          </AvatarFallback>
-                        </Avatar>
+          <Button variant="outline" size="sm" onClick={() => loadProperties()}>
+            <Filter className="w-4 h-4 mr-2" />
+            Filter
+          </Button>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="w-[300px]">Property</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Engagement</TableHead>
+                <TableHead>Price</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {properties.length > 0 ? (
+                properties.map((property) => (
+                  <TableRow key={property._id} className="hover:bg-muted/50">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                          <img
+                            src={getPrimaryImage(property.images)}
+                            alt={property.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
                         <div>
-                          <p className="font-semibold">{review.client?.name || 'Anonymous'}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDate(review.createdAt)}
+                          <p className="font-medium text-sm truncate max-w-[200px]">{property.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {property.bedrooms} beds • {property.bathrooms} bath • {property.area?.builtUp || property.area?.plot || 0} {property.area?.unit}
                           </p>
                         </div>
                       </div>
-                      <Badge variant="secondary" className="capitalize">
-                        {review.reviewType}
-                      </Badge>
-                    </div>
-
-                    {review.property && (
-                      <div className="mb-3">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Home className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium">{review.property.title}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                          <MapPin className="w-4 h-4" />
-                          {review.property.address.district ? `${review.property.address.city}, ${review.property.address.district}, ${review.property.address.state}` : `${review.property.address.city}, ${review.property.address.state}`}
-                        </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="text-sm">{property.address.city}</span>
+                        <span className="text-xs text-muted-foreground">{property.address.state}</span>
                       </div>
-                    )}
-
-                    <div className="mb-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              className={`w-5 h-5 ${
-                                star <= review.rating
-                                  ? 'fill-yellow-400 text-yellow-400'
-                                  : 'text-gray-300'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <span className="font-semibold text-lg">{review.rating}.0</span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {property.owner?.profile?.phone || 'N/A'}
                       </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <h4 className="font-semibold mb-1">{review.title}</h4>
-                      <p className="text-muted-foreground">{review.comment}</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">{formatDate(property.createdAt)}</span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm">
+                        <TrendingUp className="w-3 h-3 text-green-500" />
+                        <span>{property.views || 0} Views</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-medium text-sm">
+                        {propertyService.formatPrice(property.price, property.listingType)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => navigate(`/vendor/properties/edit/${property._id}`)}
+                      >
+                        <Edit className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No active properties found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </div>
-      )}
-
-      {loading && (
-        <Card>
-          <CardContent className="flex items-center justify-center h-32">
-            <div className="flex items-center gap-2">
-              <RefreshCw className="w-5 h-5 animate-spin" />
-              <span>Loading reviews...</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {!loading && filteredReviews.length === 0 && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Star className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">
-              {reviews.length === 0 ? 'No reviews yet' : 'No reviews match your filters'}
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              {reviews.length === 0 
-                ? 'Reviews from customers will appear here once they submit feedback on your properties.'
-                : 'Try adjusting your search criteria or clear some filters.'
-              }
-            </p>
-            {reviews.length > 0 && (
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setSearchQuery("");
-                  setRatingFilter("all");
-                  setTypeFilter("all");
-                  setSortBy("newest");
-                }}
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Clear Filters
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      </Card>
     </div>
   );
 };
