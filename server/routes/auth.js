@@ -53,12 +53,23 @@ const mapDocumentType = (type) => {
 // @route   POST /api/auth/send-otp
 // @access  Public
 router.post('/send-otp', asyncHandler(async (req, res) => {
-  const { email, firstName, phone } = req.body;
+  const { email, firstName, phone, role } = req.body;
 
   if (!email) {
     return res.status(400).json({
       success: false,
       message: 'Email is required'
+    });
+  }
+
+  // Block OTP requests for vendor and customer registrations
+  if (role === 'customer' || role === 'agent') {
+    return res.status(403).json({
+      success: false,
+      message: role === 'customer' 
+        ? 'Customer registrations are currently closed. Please contact support for more information.'
+        : 'Vendor registrations are currently closed. Please contact support for more information.',
+      registrationBlocked: true
     });
   }
 
@@ -282,6 +293,17 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
     documents,
     otp // OTP verification code
   } = req.body;
+
+  // Block vendor and customer registrations
+  if (role === 'customer' || role === 'agent') {
+    return res.status(403).json({
+      success: false,
+      message: role === 'customer' 
+        ? 'Customer registrations are currently closed. Please contact support for more information.'
+        : 'Vendor registrations are currently closed. Please contact support for more information.',
+      registrationBlocked: true
+    });
+  }
 
   if (!agreeToTerms) {
     return res.status(400).json({
