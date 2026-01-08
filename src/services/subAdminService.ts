@@ -1,3 +1,5 @@
+import { handleAuthError } from "@/utils/apiUtils";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
 
 interface Property {
@@ -169,6 +171,9 @@ class SubAdminService {
 
     try {
       const response = await fetch(url, config);
+
+      // Check for auth error
+      handleAuthError(response);
 
       if (!response.ok) {
         const contentType = response.headers.get('content-type');

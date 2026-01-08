@@ -1,5 +1,6 @@
 import { authService } from './authService';
 import { toast } from "@/hooks/use-toast";
+import { handleAuthError } from "@/utils/apiUtils";
 
 export interface User {
   _id: string;
@@ -112,6 +113,9 @@ class UserService {
 
     try {
       const response = await fetch(url, config);
+
+      // Check for auth error
+      handleAuthError(response);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({

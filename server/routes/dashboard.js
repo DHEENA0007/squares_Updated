@@ -16,7 +16,7 @@ router.use(authenticateToken);
 // @access  Private
 router.get('/customer', asyncHandler(async (req, res) => {
   const userId = req.user.id;
-  
+
   // Get current date and first day of current month
   const now = new Date();
   const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -39,51 +39,51 @@ router.get('/customer', asyncHandler(async (req, res) => {
     totalMessages
   ] = await Promise.all([
     // Current month favorites
-    Favorite.countDocuments({ 
+    Favorite.countDocuments({
       user: userId,
       createdAt: { $gte: firstDayOfMonth }
     }),
     // Last month favorites
-    Favorite.countDocuments({ 
+    Favorite.countDocuments({
       user: userId,
-      createdAt: { 
+      createdAt: {
         $gte: firstDayOfLastMonth,
         $lte: lastDayOfLastMonth
       }
     }),
     // Current month properties
-    Property.countDocuments({ 
+    Property.countDocuments({
       owner: userId,
       createdAt: { $gte: firstDayOfMonth }
     }),
     // Last month properties
-    Property.countDocuments({ 
+    Property.countDocuments({
       owner: userId,
-      createdAt: { 
+      createdAt: {
         $gte: firstDayOfLastMonth,
         $lte: lastDayOfLastMonth
       }
     }),
     // Current month inquiries
-    Message.countDocuments({ 
+    Message.countDocuments({
       sender: userId,
       createdAt: { $gte: firstDayOfMonth }
     }),
     // Last month inquiries
-    Message.countDocuments({ 
+    Message.countDocuments({
       sender: userId,
-      createdAt: { 
+      createdAt: {
         $gte: firstDayOfLastMonth,
         $lte: lastDayOfLastMonth
       }
     }),
     // Unread messages
-    Message.countDocuments({ 
+    Message.countDocuments({
       recipient: userId,
       isRead: false
     }),
     // Total messages
-    Message.countDocuments({ 
+    Message.countDocuments({
       $or: [{ sender: userId }, { recipient: userId }]
     })
   ]);
@@ -295,7 +295,8 @@ router.get('/', asyncHandler(async (req, res) => {
     // Revenue calculations from subscriptions
     totalRevenue,
     revenueThisMonth,
-    revenueLastMonth
+    revenueLastMonth,
+    dailyRevenue
   ] = await Promise.all([
     // Exclude admin users from total count
     User.countDocuments({ role: { $nin: ['admin', 'superadmin', 'subadmin'] } }),
@@ -306,24 +307,24 @@ router.get('/', asyncHandler(async (req, res) => {
     Property.countDocuments({ status: 'pending' }),
     Property.countDocuments({ status: { $in: ['sold', 'rented', 'leased'] } }),
     // Exclude admin users from this month count
-    User.countDocuments({ 
+    User.countDocuments({
       createdAt: { $gte: firstDayOfMonth },
       role: { $nin: ['admin', 'superadmin', 'subadmin'] }
     }),
     Property.countDocuments({ createdAt: { $gte: firstDayOfMonth } }),
     // Exclude admin users from last month count
-    User.countDocuments({ 
-      createdAt: { 
-        $gte: firstDayOfLastMonth, 
-        $lte: lastDayOfLastMonth 
+    User.countDocuments({
+      createdAt: {
+        $gte: firstDayOfLastMonth,
+        $lte: lastDayOfLastMonth
       },
       role: { $nin: ['admin', 'superadmin', 'subadmin'] }
     }),
-    Property.countDocuments({ 
-      createdAt: { 
-        $gte: firstDayOfLastMonth, 
-        $lte: lastDayOfLastMonth 
-      } 
+    Property.countDocuments({
+      createdAt: {
+        $gte: firstDayOfLastMonth,
+        $lte: lastDayOfLastMonth
+      }
     }),
     // Calculate total revenue - sum subscription amounts + addon payments
     Subscription.aggregate([
@@ -493,7 +494,54 @@ router.get('/', asyncHandler(async (req, res) => {
           totalAmount: { $add: ['$totalSubscriptionRevenue', '$totalAddonRevenue'] }
         }
       }
-    ]).then(result => result.length > 0 ? result[0].totalAmount : 0)
+    ]).then(result => result.length > 0 ? result[0].totalAmount : 0),
+    // Calculate daily revenue for the last 30 days
+    Subscription.aggregate([
+      {
+        $match: {
+          status: { $in: ['active', 'expired'] }
+        }
+      },
+      {
+        $project: {
+          payments: {
+            $concatArrays: [
+              // Subscription payments
+              [{
+                amount: '$amount',
+                date: { $ifNull: ['$lastPaymentDate', '$createdAt'] },
+                type: 'subscription'
+              }],
+              // Addon payments
+              {
+                $map: {
+                  input: { $ifNull: ['$paymentHistory', []] },
+                  as: 'payment',
+                  in: {
+                    amount: { $ifNull: ['$$payment.amount', 0] },
+                    date: '$$payment.date',
+                    type: 'addon'
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      { $unwind: '$payments' },
+      {
+        $match: {
+          'payments.date': { $gte: firstDayOfLastMonth } // Fetch enough data
+        }
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$payments.date' } },
+          amount: { $sum: '$payments.amount' }
+        }
+      },
+      { $sort: { '_id': 1 } }
+    ])
   ]);
 
   // Calculate engagement rate (favorites per property)
@@ -600,15 +648,19 @@ router.get('/', asyncHandler(async (req, res) => {
     revenueThisMonth: revenueThisMonth || 0,
     engagementRate: Math.round(engagementRate * 10) / 10, // Round to 1 decimal
     // Growth percentages
-    userGrowth: newUsersLastMonth > 0 ? 
-      Math.round(((newUsersThisMonth - newUsersLastMonth) / newUsersLastMonth) * 100 * 10) / 10 : 
+    userGrowth: newUsersLastMonth > 0 ?
+      Math.round(((newUsersThisMonth - newUsersLastMonth) / newUsersLastMonth) * 100 * 10) / 10 :
       (newUsersThisMonth > 0 ? 100 : 0),
-    propertyGrowth: newPropertiesLastMonth > 0 ? 
-      Math.round(((newPropertiesThisMonth - newPropertiesLastMonth) / newPropertiesLastMonth) * 100 * 10) / 10 : 
+    propertyGrowth: newPropertiesLastMonth > 0 ?
+      Math.round(((newPropertiesThisMonth - newPropertiesLastMonth) / newPropertiesLastMonth) * 100 * 10) / 10 :
       (newPropertiesThisMonth > 0 ? 100 : 0),
-    revenueGrowth: revenueLastMonth > 0 ? 
-      Math.round(((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100 * 10) / 10 : 
-      (revenueThisMonth > 0 ? 100 : 0)
+    revenueGrowth: revenueLastMonth > 0 ?
+      Math.round(((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100 * 10) / 10 :
+      (revenueThisMonth > 0 ? 100 : 0),
+    dailyRevenue: dailyRevenue.map(item => ({
+      date: item._id,
+      amount: item.amount
+    }))
   };
 
   res.json({

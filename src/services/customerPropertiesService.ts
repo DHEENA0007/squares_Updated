@@ -1,4 +1,5 @@
 import { authService } from './authService';
+import { handleAuthError } from "@/utils/apiUtils";
 
 export interface CustomerProperty {
   _id: string;
@@ -163,6 +164,9 @@ class CustomerPropertiesService {
 
     try {
       const response = await fetch(url, config);
+
+      // Check for auth error
+      handleAuthError(response);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({

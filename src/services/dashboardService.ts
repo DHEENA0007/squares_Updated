@@ -1,5 +1,6 @@
 import { authService } from './authService';
 import { toast } from "@/hooks/use-toast";
+import { handleAuthError } from "@/utils/apiUtils";
 
 export interface DashboardStats {
   totalUsers: number;
@@ -15,6 +16,7 @@ export interface DashboardStats {
   userGrowth: number;
   propertyGrowth: number;
   revenueGrowth: number;
+  dailyRevenue: Array<{ date: string; amount: number }>;
 }
 
 export interface RecentActivity {
@@ -38,7 +40,7 @@ class DashboardService {
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -58,7 +60,10 @@ class DashboardService {
 
     try {
       const response = await fetch(url, config);
-      
+
+      // Check for auth error
+      handleAuthError(response);
+
       if (!response.ok) {
         let errorData;
         try {
@@ -73,12 +78,12 @@ class DashboardService {
       }
 
       const result = await response.json();
-      
+
       // Validate that the result is not null or undefined
       if (result === null || result === undefined) {
         throw new Error('Received null or undefined response from server');
       }
-      
+
       return result;
     } catch (error) {
       console.error('API request failed:', error);
@@ -89,16 +94,16 @@ class DashboardService {
   async getDashboardData(): Promise<DashboardResponse> {
     try {
       const response = await this.makeRequest<DashboardResponse>('/dashboard');
-      
+
       // Validate response structure
       if (!response || typeof response !== 'object') {
         throw new Error('Invalid response format');
       }
-      
+
       return response;
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
-      
+
       // Return mock data as fallback while real API is being implemented
       const mockData: DashboardResponse = {
         success: true,
@@ -116,12 +121,13 @@ class DashboardService {
             engagementRate: 0,
             userGrowth: 0,
             propertyGrowth: 0,
-            revenueGrowth: 0
+            revenueGrowth: 0,
+            dailyRevenue: []
           },
           recentActivities: []
         }
       };
-      
+
       return mockData;
     }
   }
@@ -140,7 +146,7 @@ class DashboardService {
   // Helper method to format percentage change
   formatPercentageChange(current: number, previous: number): string {
     if (previous === 0) return '+0%';
-    
+
     const change = ((current - previous) / previous) * 100;
     const sign = change >= 0 ? '+' : '';
     return `${sign}${change.toFixed(1)}%`;

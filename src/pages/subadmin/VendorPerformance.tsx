@@ -48,6 +48,11 @@ const VendorPerformance = () => {
   const [selectedVendor, setSelectedVendor] = useState<VendorMetrics | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [sortBy, setSortBy] = useState<'performanceScore' | 'totalProperties' | 'averageRating'>('performanceScore');
+  const [overallStats, setOverallStats] = useState<{
+    totalVendors: number;
+    topPerformers: number;
+    averageRating: number;
+  } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -59,7 +64,19 @@ const VendorPerformance = () => {
       setLoading(true);
       const response = await fetchWithAuth(`/subadmin/vendors/performance?search=${searchTerm}&sortBy=${sortBy}`);
       const data = await handleApiResponse<{ data: { vendors: VendorMetrics[] } }>(response);
-      setVendors(data.data.vendors || []);
+      const fetchedVendors = data.data.vendors || [];
+      setVendors(fetchedVendors);
+
+      // Only update overall stats when not searching to keep them static during search
+      if (!searchTerm) {
+        setOverallStats({
+          totalVendors: fetchedVendors.length,
+          topPerformers: fetchedVendors.filter(v => v.performanceScore >= 80).length,
+          averageRating: fetchedVendors.length > 0
+            ? fetchedVendors.reduce((sum, v) => sum + v.averageRating, 0) / fetchedVendors.length
+            : 0
+        });
+      }
     } catch (error: any) {
       console.error('Error fetching vendor metrics:', error);
       toast({
@@ -126,7 +143,7 @@ const VendorPerformance = () => {
             <Building className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{vendors.length}</div>
+            <div className="text-2xl font-bold">{overallStats?.totalVendors || 0}</div>
             <p className="text-xs text-muted-foreground">
               Active property vendors
             </p>
@@ -140,7 +157,7 @@ const VendorPerformance = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {vendors.filter(v => v.performanceScore >= 80).length}
+              {overallStats?.topPerformers || 0}
             </div>
             <p className="text-xs text-muted-foreground">
               Excellent performance (80%+)
@@ -155,10 +172,7 @@ const VendorPerformance = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {vendors.length > 0
-                ? (vendors.reduce((sum, v) => sum + v.averageRating, 0) / vendors.length).toFixed(1)
-                : '0.0'
-              }
+              {overallStats?.averageRating.toFixed(1) || '0.0'}
             </div>
             <p className="text-xs text-muted-foreground">
               Overall vendor ratings

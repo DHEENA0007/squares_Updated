@@ -1,5 +1,6 @@
 import { authService } from './authService';
 import { toast } from "@/hooks/use-toast";
+import { handleAuthError } from "@/utils/apiUtils";
 
 export interface GeneralSettings {
   siteName: string;
@@ -115,7 +116,7 @@ class SettingsService {
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -135,7 +136,10 @@ class SettingsService {
 
     try {
       const response = await fetch(url, config);
-      
+
+      // Check for auth error
+      handleAuthError(response);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,

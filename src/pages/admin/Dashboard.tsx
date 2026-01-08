@@ -45,6 +45,21 @@ const Dashboard = () => {
     );
   }
 
+  // Calculate Today's Revenue
+  const today = new Date().toISOString().split('T')[0];
+  const todayData = stats.dailyRevenue?.find(item => item.date === today);
+  const todayAmount = todayData ? todayData.amount : 0;
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const yesterdayData = stats.dailyRevenue?.find(item => item.date === yesterdayStr);
+  const yesterdayAmount = yesterdayData ? yesterdayData.amount : 0;
+
+  const revenueChange = yesterdayAmount === 0
+    ? (todayAmount > 0 ? "+100%" : "0%")
+    : `${((todayAmount - yesterdayAmount) / yesterdayAmount * 100).toFixed(1)}%`;
+
   const statsCards = [
     {
       title: "Total Revenue",
@@ -53,6 +68,15 @@ const Dashboard = () => {
       icon: IndianRupee,
       color: "text-emerald-500 dark:text-emerald-400",
       bgColor: "bg-emerald-500/10",
+      onClick: () => navigate('/admin/revenue-details'),
+    },
+    {
+      title: "Today's Revenue",
+      value: dashboardService.formatRevenue(todayAmount),
+      change: `${revenueChange.startsWith('-') ? '' : '+'}${revenueChange} from yesterday`,
+      icon: IndianRupee,
+      color: "text-indigo-500 dark:text-indigo-400",
+      bgColor: "bg-indigo-500/10",
       onClick: () => navigate('/admin/revenue-details'),
     },
     {
@@ -95,7 +119,7 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {statsCards.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -123,6 +147,8 @@ const Dashboard = () => {
         })}
       </div>
 
+
+
       {/* Recent Activity */}
       <Card>
         <CardHeader>
@@ -137,11 +163,11 @@ const Dashboard = () => {
               activities.map((activity) => (
                 <div key={activity._id} className="flex items-center gap-4 pb-4 border-b last:border-0 last:pb-0">
                   <div className={`w-2 h-2 rounded-full ${activity.type === 'user_registered' ? 'bg-blue-500' :
-                      activity.type === 'property_listed' ? 'bg-green-500' :
-                        activity.type === 'property_sold' ? 'bg-emerald-500' :
-                          activity.type === 'property_rented' ? 'bg-purple-500' :
-                            activity.type === 'subscription_purchased' ? 'bg-yellow-500' :
-                              'bg-primary'
+                    activity.type === 'property_listed' ? 'bg-green-500' :
+                      activity.type === 'property_sold' ? 'bg-emerald-500' :
+                        activity.type === 'property_rented' ? 'bg-purple-500' :
+                          activity.type === 'subscription_purchased' ? 'bg-yellow-500' :
+                            'bg-primary'
                     }`} />
                   <div className="flex-1">
                     <p className="text-sm font-medium">

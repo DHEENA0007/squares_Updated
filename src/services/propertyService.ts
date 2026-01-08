@@ -1,6 +1,7 @@
 import { authService } from './authService';
 import { toast } from "@/hooks/use-toast";
 import { DEFAULT_PROPERTY_IMAGE } from '@/utils/imageUtils';
+import { handleAuthError } from "@/utils/apiUtils";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "https://app.buildhomemartsquares.com/api";
 
@@ -202,6 +203,9 @@ class PropertyService {
 
     try {
       const response = await fetch(url, config);
+
+      // Check for auth error
+      handleAuthError(response);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
