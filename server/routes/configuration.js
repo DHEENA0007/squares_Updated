@@ -147,6 +147,29 @@ router.post('/property-types', authenticateToken, isSuperAdmin, async (req, res)
     const propertyType = new PropertyType(req.body);
     await propertyType.save();
 
+    // Auto-create Filter Configuration for Property Type
+    try {
+      const existingFilter = await FilterConfiguration.findOne({
+        filterType: 'property_type',
+        value: propertyType.value
+      });
+
+      if (!existingFilter) {
+        await new FilterConfiguration({
+          filterType: 'property_type',
+          name: propertyType.name,
+          value: propertyType.value,
+          displayLabel: propertyType.name,
+          displayOrder: propertyType.displayOrder,
+          isActive: propertyType.isActive
+        }).save();
+        console.log(`Auto-created filter configuration for property type: ${propertyType.name}`);
+      }
+    } catch (filterError) {
+      console.error('Error auto-creating filter for property type:', filterError);
+      // Don't fail the request if filter creation fails
+    }
+
     res.status(201).json({
       success: true,
       data: propertyType,
@@ -176,6 +199,22 @@ router.put('/property-types/:id', authenticateToken, isSuperAdmin, async (req, r
         success: false,
         message: 'Property type not found',
       });
+    }
+
+    // Auto-update Filter Configuration
+    try {
+      await FilterConfiguration.findOneAndUpdate(
+        { filterType: 'property_type', value: propertyType.value },
+        {
+          name: propertyType.name,
+          displayLabel: propertyType.name,
+          isActive: propertyType.isActive,
+          displayOrder: propertyType.displayOrder
+        }
+      );
+      console.log(`Auto-updated filter configuration for property type: ${propertyType.name}`);
+    } catch (filterError) {
+      console.error('Error auto-updating filter for property type:', filterError);
     }
 
     res.json({
@@ -208,6 +247,17 @@ router.delete('/property-types/:id', authenticateToken, isSuperAdmin, async (req
     // Also delete related fields and mappings
     await PropertyTypeField.deleteMany({ propertyTypeId: req.params.id });
     await PropertyTypeAmenity.deleteMany({ propertyTypeId: req.params.id });
+
+    // Auto-delete Filter Configuration
+    try {
+      await FilterConfiguration.findOneAndDelete({
+        filterType: 'property_type',
+        value: propertyType.value
+      });
+      console.log(`Auto-deleted filter configuration for property type: ${propertyType.name}`);
+    } catch (filterError) {
+      console.error('Error auto-deleting filter for property type:', filterError);
+    }
 
     res.json({
       success: true,
