@@ -30,10 +30,12 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { configurationService } from '@/services/configurationService';
+import { locaService, type PincodeSuggestion } from '@/services/locaService';
 import type { FilterConfiguration, CreateFilterConfigurationDTO, FilterDependency } from '@/types/configuration';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { PERMISSIONS } from '@/config/permissionConfig';
+import { Loader2 } from 'lucide-react';
 
 const FiltersTab: React.FC = () => {
   const { user } = useAuth();
@@ -80,9 +82,19 @@ const FiltersTab: React.FC = () => {
   });
   const [availableSourceValues, setAvailableSourceValues] = useState<any[]>([]);
 
+  // Location Search State
+  const [locationQuery, setLocationQuery] = useState('');
+  const [locationSuggestions, setLocationSuggestions] = useState<PincodeSuggestion[]>([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [isLocaReady, setIsLocaReady] = useState(locaService.isReady());
+
   useEffect(() => {
     fetchFilters();
     fetchDependencies();
+    // Initialize location service
+    locaService.initialize().then(() => {
+      setIsLocaReady(true);
+    }).catch(console.error);
   }, []);
 
   const fetchDependencies = async () => {
@@ -232,6 +244,10 @@ const FiltersTab: React.FC = () => {
         display_label: filter.displayLabel,
         display_order: filter.displayOrder,
       });
+      // Initialize location query if it's a location filter
+      if (filter.filterType === 'location') {
+        setLocationQuery(filter.name);
+      }
     } else {
       setEditingFilter(null);
       setFormData({
@@ -243,6 +259,7 @@ const FiltersTab: React.FC = () => {
         display_label: '',
         display_order: 0,
       });
+      setLocationQuery('');
     }
     setIsDialogOpen(true);
   };
@@ -259,6 +276,8 @@ const FiltersTab: React.FC = () => {
       display_label: '',
       display_order: 0,
     });
+    setLocationQuery('');
+    setLocationSuggestions([]);
   };
 
   const handleSave = async () => {
@@ -632,7 +651,13 @@ const FiltersTab: React.FC = () => {
               <Label htmlFor="filter_type">Filter Type</Label>
               <Select
                 value={formData.filter_type}
-                onValueChange={(value: any) => setFormData({ ...formData, filter_type: value })}
+                onValueChange={(value: any) => {
+                  setFormData({ ...formData, filter_type: value });
+                  if (value !== 'location') {
+                    setLocationQuery('');
+                    setLocationSuggestions([]);
+                  }
+                }}
                 disabled={!!editingFilter}
               >
                 <SelectTrigger>
@@ -648,28 +673,130 @@ const FiltersTab: React.FC = () => {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., For Sale"
-                required
-              />
-            </div>
+            {formData.filter_type === 'location' ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="location_search">Search Location</Label>
+                  <div className="relative">
+                    <Input
+                      id="location_search"
+                      value={locationQuery}
+                      onChange={(e) => {
+                        const query = e.target.value;
+                        setLocationQuery(query);
+                        if (query.length > 2) {
+                          setIsSearchingLocation(true);
+                          // Small timeout to allow UI to update before heavy search
+                          setTimeout(() => {
+                            const results = locaService.searchLocations(query);
+                            setLocationSuggestions(results);
+                            setIsSearchingLocation(false);
+                          }, 100);
+                        } else {
+                          setLocationSuggestions([]);
+                        }
+                      }}
+                      placeholder={locaService.isReady() ? "Search city, district, or pincode..." : "Initializing location database..."}
+                      className="pr-10"
+                      disabled={!locaService.isReady()}
+                    />
+                    {(!locaService.isReady() || isSearchingLocation) && (
+                      <div className="absolute right-3 top-2.5">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
 
-            <div className="space-y-2">
-              <Label htmlFor="value">Value (Unique ID) *</Label>
-              <Input
-                id="value"
-                value={formData.value}
-                onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                placeholder="e.g., sale"
-                disabled={!!editingFilter}
-                required
-              />
-            </div>
+                    {locationQuery.length > 2 && locationSuggestions.length === 0 && !isSearchingLocation && locaService.isReady() && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md p-4 text-sm text-center text-muted-foreground">
+                        No locations found matching "{locationQuery}"
+                      </div>
+                    )}
+
+                    {locationSuggestions.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-60 overflow-y-auto">
+                        {locationSuggestions.map((suggestion, index) => (
+                          <div
+                            key={`${suggestion.pincode}-${index}`}
+                            className="px-4 py-2 hover:bg-accent hover:text-accent-foreground cursor-pointer text-sm border-b last:border-0"
+                            onClick={() => {
+                              const locationName = suggestion.city;
+                              const locationValue = suggestion.city.toLowerCase().replace(/\s+/g, '-');
+
+                              setFormData({
+                                ...formData,
+                                name: locationName,
+                                value: locationValue,
+                                display_label: locationName
+                              });
+                              setLocationQuery(locationName);
+                              setLocationSuggestions([]);
+                            }}
+                          >
+                            <div className="font-medium text-foreground">{suggestion.city}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {suggestion.district}, {suggestion.state} - {suggestion.pincode}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {!locaService.isReady() && (
+                    <p className="text-xs text-muted-foreground">
+                      Please wait while we load the location database (approx. 20MB)...
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Selected Name</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      readOnly
+                      className="bg-muted"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="value">Selected Value</Label>
+                    <Input
+                      id="value"
+                      value={formData.value}
+                      onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                      readOnly
+                      className="bg-muted"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="e.g., For Sale"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="value">Value (Unique ID) *</Label>
+                  <Input
+                    id="value"
+                    value={formData.value}
+                    onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                    placeholder="e.g., sale"
+                    disabled={!!editingFilter}
+                    required
+                  />
+                </div>
+              </>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="display_label">Display Label (Optional)</Label>
