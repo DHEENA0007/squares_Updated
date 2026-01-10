@@ -85,10 +85,10 @@ const Navbar = () => {
   }, []);
 
   const handlePostPropertyClick = async () => {
-    console.log('Post Property clicked - Auth State:', { 
-      isAuthenticated, 
+    console.log('Post Property clicked - Auth State:', {
+      isAuthenticated,
       userRole: user?.role,
-      user: user 
+      user: user
     });
 
     // Re-check authentication to ensure fresh state
@@ -97,7 +97,7 @@ const Navbar = () => {
     // Get fresh user data after auth check
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    
+
     if (!token || !storedUser) {
       console.log('Not authenticated, redirecting to vendor login');
       navigate('/vendor/login');
@@ -147,7 +147,7 @@ const Navbar = () => {
     // Get fresh user data after auth check
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    
+
     if (!token || !storedUser) {
       console.log('Not authenticated, redirecting to vendor login');
       navigate('/vendor/login');
@@ -214,21 +214,22 @@ const Navbar = () => {
 
   return (
     <>
-      {/* Logo - Responsive positioning */}
-      <Link
-        to="/"
-        className="fixed top-0 left-0 xs:top-0 xs:left-4 sm:left-6 md:-top-8 md:left-8 z-[60] transition-transform hover:scale-105 duration-300"
-      >
-        <img
-          src={theme === "dark" ? logoDark : logoLight}
-          alt="BuildHomeMart"
-          className="w-[120px] h-[60px] xs:w-[140px] xs:h-[70px] sm:w-[160px] sm:h-[80px] md:w-[180px] md:h-[90px] lg:w-[200px] lg:h-[100px] object-contain"
-        />
-      </Link>
-      
+
+
       <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-colors duration-300">
         <div className="container mx-auto px-4 sm:px-6 md:px-8">
-          <div className="flex h-14 xs:h-16 items-center justify-between">
+          <div className="relative flex h-20 xs:h-24 md:h-20 items-center justify-between">
+            {/* Logo */}
+            <Link
+              to="/"
+              className="relative z-[60] flex items-center transition-transform hover:scale-105 duration-300 md:absolute md:-top-4 md:left-0"
+            >
+              <img
+                src={theme === "dark" ? logoDark : logoLight}
+                alt="BuildHomeMart"
+                className="h-16 w-auto xs:h-20 sm:h-24 md:h-[90px] lg:h-[110px] object-contain"
+              />
+            </Link>
             {/* Desktop Navigation */}
             <div className="flex items-center gap-4 md:gap-8 flex-1">
               <div className="hidden md:flex items-center gap-4 lg:gap-6 ml-[180px] lg:ml-[220px]">
@@ -281,18 +282,18 @@ const Navbar = () => {
             {/* Right Side Actions */}
             <div className="flex items-center gap-2 xs:gap-3 sm:gap-4 mr-2 xs:mr-0">
               {shouldShowPostPropertyButton() && (
-                <Button 
+                <Button
                   onClick={handlePostPropertyClick}
                   className="hidden md:block bg-primary text-primary-foreground hover:bg-primary/90 text-xs sm:text-sm whitespace-nowrap px-3 sm:px-4"
                 >
                   Post Property
                 </Button>
               )}
-              
+
               {isAuthenticated ? (
                 <UnifiedProfileDropdown />
               ) : (
-                <Link to="/login" className="hidden xs:block">
+                <Link to="/login" className="hidden md:block">
                   <Button variant="ghost" className="hover:bg-accent/10 text-xs sm:text-sm px-2 sm:px-4">
                     <User className="h-4 w-4 sm:h-5 sm:w-5" />
                     <span className="hidden sm:inline ml-2">Login / Register</span>
@@ -300,14 +301,14 @@ const Navbar = () => {
                   </Button>
                 </Link>
               )}
-              
-              <div className="hidden xs:block">
+
+              <div className="hidden md:block">
                 <ThemeToggle />
               </div>
-              
-              <Button 
-                variant="ghost" 
-                size="icon" 
+
+              <Button
+                variant="ghost"
+                size="icon"
                 className="md:hidden h-8 w-8 sm:h-10 sm:w-10"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               >
@@ -320,110 +321,110 @@ const Navbar = () => {
             </div>
           </div>
 
-        {/* Mobile Menu - Responsive */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t border-border bg-background">
-            <div className="px-4 py-3 sm:py-4 space-y-2 sm:space-y-3">
-              {/* Home Link */}
-              <Link
-                to="/"
-                className="flex items-center gap-2 py-2 text-sm font-medium hover:text-primary transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <Home className="h-4 w-4" /> Home
-              </Link>
-              
-              {/* Dynamic Listing Type Sections */}
-              {listingTypes.map((listingType) => (
-                <div key={listingType.id} className="space-y-1">
-                  <button
-                    onClick={() => setExpandedStates(prev => ({ ...prev, [listingType.value]: !prev[listingType.value] }))}
-                    className="flex items-center justify-between w-full text-left py-2 text-sm font-medium hover:text-primary transition-colors"
-                  >
-                    <span className="text-xs font-semibold text-muted-foreground uppercase">
-                      {listingType.displayLabel || listingType.name}
-                    </span>
-                    {expandedStates[listingType.value] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </button>
-                  {expandedStates[listingType.value] && (
-                    <div className="space-y-1 pl-4">
-                      <button
-                        onClick={() => {
-                          handlePropertyTypeClick(listingType.value, undefined, listingType.queryParams);
-                          setMobileMenuOpen(false);
-                        }}
-                        className="block w-full text-left py-2 text-sm hover:text-primary transition-colors"
-                      >
-                        All {listingType.displayLabel || listingType.name}
-                      </button>
-                      {listingType.children && listingType.children.length > 0 && listingType.children.map((child: any) => (
-                        <button
-                          key={child.id}
-                          onClick={() => {
-                            handlePropertyTypeClick(listingType.value, child.value, child.queryParams);
-                            setMobileMenuOpen(false);
-                          }}
-                          className="block w-full text-left py-1 pl-2 text-sm hover:text-primary transition-colors"
-                        >
-                          {child.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {/* Sell Section */}
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase">Sell</p>
-                <button
-                  onClick={() => {
-                    handlePostPropertyClick();
-                    setMobileMenuOpen(false);
-                  }}
-                  className="block w-full text-left py-2 text-sm hover:text-primary transition-colors"
-                >
-                  Post Property for Free
-                </button>
-                <button
-                  onClick={() => {
-                    handleMyListedPropertiesClick();
-                    setMobileMenuOpen(false);
-                  }}
-                  className="block w-full text-left py-2 text-sm hover:text-primary transition-colors"
-                >
-                  My Listed Properties
-                </button>
-              </div>
-
-              <Link
-                to="/contact"
-                className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Support
-              </Link>
-
-              {!isAuthenticated && (
+          {/* Mobile Menu - Responsive */}
+          {mobileMenuOpen && (
+            <div className="md:hidden border-t border-border bg-background">
+              <div className="px-4 py-3 sm:py-4 space-y-2 sm:space-y-3">
+                {/* Home Link */}
                 <Link
-                  to="/login"
-                  className="block xs:hidden"
+                  to="/"
+                  className="flex items-center gap-2 py-2 text-sm font-medium hover:text-primary transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <Button variant="ghost" className="w-full justify-center hover:bg-accent/10">
-                    <User className="h-5 w-5 mr-2" />
-                    Login / Register
-                  </Button>
+                  <Home className="h-4 w-4" /> Home
                 </Link>
-              )}
-              <div className="xs:hidden pt-2">
-                <ThemeToggle />
+
+                {/* Dynamic Listing Type Sections */}
+                {listingTypes.map((listingType) => (
+                  <div key={listingType.id} className="space-y-1">
+                    <button
+                      onClick={() => setExpandedStates(prev => ({ ...prev, [listingType.value]: !prev[listingType.value] }))}
+                      className="flex items-center justify-between w-full text-left py-2 text-sm font-medium hover:text-primary transition-colors"
+                    >
+                      <span className="text-xs font-semibold text-muted-foreground uppercase">
+                        {listingType.displayLabel || listingType.name}
+                      </span>
+                      {expandedStates[listingType.value] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </button>
+                    {expandedStates[listingType.value] && (
+                      <div className="space-y-1 pl-4">
+                        <button
+                          onClick={() => {
+                            handlePropertyTypeClick(listingType.value, undefined, listingType.queryParams);
+                            setMobileMenuOpen(false);
+                          }}
+                          className="block w-full text-left py-2 text-sm hover:text-primary transition-colors"
+                        >
+                          All {listingType.displayLabel || listingType.name}
+                        </button>
+                        {listingType.children && listingType.children.length > 0 && listingType.children.map((child: any) => (
+                          <button
+                            key={child.id}
+                            onClick={() => {
+                              handlePropertyTypeClick(listingType.value, child.value, child.queryParams);
+                              setMobileMenuOpen(false);
+                            }}
+                            className="block w-full text-left py-1 pl-2 text-sm hover:text-primary transition-colors"
+                          >
+                            {child.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Sell Section */}
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">Sell</p>
+                  <button
+                    onClick={() => {
+                      handlePostPropertyClick();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="block w-full text-left py-2 text-sm hover:text-primary transition-colors"
+                  >
+                    Post Property for Free
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleMyListedPropertiesClick();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="block w-full text-left py-2 text-sm hover:text-primary transition-colors"
+                  >
+                    My Listed Properties
+                  </button>
+                </div>
+
+                <Link
+                  to="/contact"
+                  className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Support
+                </Link>
+
+                {!isAuthenticated && (
+                  <Link
+                    to="/login"
+                    className="block md:hidden"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Button variant="ghost" className="w-full justify-center hover:bg-accent/10">
+                      <User className="h-5 w-5 mr-2" />
+                      Login / Register
+                    </Button>
+                  </Link>
+                )}
+                <div className="md:hidden pt-2 flex justify-center">
+                  <ThemeToggle />
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-    </nav>
+          )}
+        </div>
+      </nav>
     </>
   );
 };

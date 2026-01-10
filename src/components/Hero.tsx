@@ -175,7 +175,7 @@ const Hero = () => {
   // Map tabs to listing types
   // Map tabs to listing types dynamically
   const getListingTypeForTab = (tab: string) => {
-    if (tab === 'commercial') return 'sale'; // Default for commercial
+    // if (tab === 'commercial') return 'sale'; // Default for commercial - REMOVED for dynamic config
     const option = listingTypeOptions.find(o => o.displayLabel?.toLowerCase() === tab.toLowerCase() || o.name.toLowerCase() === tab.toLowerCase() || o.value.toLowerCase() === tab.toLowerCase());
     return option?.value || 'sale';
   };
@@ -539,10 +539,10 @@ const Hero = () => {
 
       console.log('Search filters:', filters);
 
-      // Add property type filter for commercial
-      if (activeTab === 'commercial') {
-        filters.propertyType = 'commercial';
-      }
+      // Add property type filter for commercial - REMOVED for dynamic config
+      // if (activeTab === 'commercial') {
+      //   filters.propertyType = 'commercial';
+      // }
 
       // Add additional filters
       if (propertyType && activeTab !== 'commercial') {
@@ -672,9 +672,9 @@ const Hero = () => {
       listingType: getListingTypeForTab(activeTab)
     });
 
-    if (activeTab === 'commercial') {
-      searchParams.set('propertyType', 'commercial');
-    }
+    // if (activeTab === 'commercial') {
+    //   searchParams.set('propertyType', 'commercial');
+    // }
 
     navigate(`/products?${searchParams.toString()}`);
   };
@@ -708,7 +708,7 @@ const Hero = () => {
 
   return (
     <>
-      <section className="relative h-[500px] flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-[500px] h-auto flex items-center justify-center overflow-hidden pb-12 sm:pb-0">
         <div
           className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out transform"
           style={{
@@ -743,31 +743,28 @@ const Hero = () => {
       </section>
 
       {/* Overlapping Search Box */}
-      <div className="relative -mt-20 z-30 px-4 sm:px-6 md:px-8">
+      <div className="relative -mt-20 z-30 px-2 sm:px-6 md:px-8">
         <div className="container mx-auto">
           <div className="max-w-4xl mx-auto">
             <div
               ref={searchContainerRef}
-              className="bg-white/60 dark:bg-card/80 backdrop-blur-lg rounded-xl p-4 sm:p-6 shadow-2xl border border-white/20 dark:border-border/30 transform hover:scale-[1.02] transition-all duration-300"
+              className="bg-white/60 dark:bg-card/80 backdrop-blur-lg rounded-xl p-3 sm:p-6 shadow-2xl border border-white/20 dark:border-border/30 transform hover:scale-[1.02] transition-all duration-300"
             >
-              <div className="flex gap-2 mb-4 flex-col xs:flex-row">
-                <Tabs defaultValue="buy" className="flex-1" onValueChange={handleTabChange}>
-                  <TabsList className="grid w-full h-10 xs:h-12 p-1" style={{ gridTemplateColumns: `repeat(${listingTypeOptions.length + 1}, minmax(0, 1fr))` }}>
+              <div className="flex gap-3 mb-4 flex-col sm:flex-row items-center sm:items-start">
+                <Tabs defaultValue="buy" className="w-full sm:flex-1" onValueChange={handleTabChange}>
+                  <TabsList
+                    className="flex w-full sm:w-fit max-w-full mx-auto sm:mx-0 h-12 xs:h-14 p-1.5 overflow-x-auto gap-2 justify-start items-center bg-white/10 dark:bg-black/20 backdrop-blur-md border border-white/20 rounded-full shadow-lg"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                  >
                     {listingTypeOptions.map((type) => (
                       <TabsTrigger
                         key={type.id || type._id}
                         value={type.value}
-                        className="text-xs sm:text-sm font-semibold h-8 xs:h-10 rounded-lg transition-all duration-300 hover:scale-105"
+                        className="flex-shrink-0 px-6 h-9 xs:h-11 text-sm font-medium rounded-full transition-all duration-300 hover:bg-white/10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:scale-105 whitespace-nowrap"
                       >
                         {type.displayLabel || type.name}
                       </TabsTrigger>
                     ))}
-                    <TabsTrigger
-                      value="commercial"
-                      className="text-xs sm:text-sm font-semibold h-8 xs:h-10 rounded-lg transition-all duration-300 hover:scale-105"
-                    >
-                      Commercial
-                    </TabsTrigger>
                   </TabsList>
                 </Tabs>
 
@@ -776,7 +773,7 @@ const Hero = () => {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
-                      className="h-10 xs:h-12 px-3 xs:px-4 text-xs sm:text-sm bg-white/80 dark:bg-card/80 backdrop-blur-md border border-white/20 dark:border-border/30 hover:bg-white/90 dark:hover:bg-card/90 transition-all duration-300 hover:scale-105"
+                      className="w-full sm:w-auto h-12 xs:h-14 px-4 xs:px-6 text-sm font-medium bg-white/10 dark:bg-black/20 backdrop-blur-md border border-white/20 dark:border-border/30 hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300 hover:scale-105 rounded-full shadow-lg"
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Sell
@@ -863,8 +860,8 @@ const Hero = () => {
                 */}
 
                 {/* Search Input and Buttons Row */}
-                <div className="flex gap-2 sm:gap-3">
-                  <div className="flex-1 relative group">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1 relative group w-full">
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
                     <Input
                       placeholder="Search by locality, project, or landmark"
@@ -945,131 +942,133 @@ const Hero = () => {
                   </div>
 
                   {/* Quick Filters */}
-                  <Popover open={showFilters} onOpenChange={setShowFilters}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm shadow-lg hover:shadow-xl transition-all duration-300"
-                      >
-                        <Filter className="mr-2 h-5 w-5" />
-                        Filters
-                        <ChevronDown className="ml-2 h-4 w-4" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 p-4" align="end">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium">Quick Filters</h4>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setPriceRange({});
-                              setBedrooms(undefined);
-                              setPropertyType("");
-                              setSelectedState("");
-                              setSelectedDistrict("");
-                              setSelectedCity("");
-                              setSelectedBudget("");
-                            }}
-                          >
-                            Clear All
-                          </Button>
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">Property Type</label>
-                          <Select value={propertyType || "all"} onValueChange={(v) => setPropertyType(v === "all" ? "" : v)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="All Properties" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Properties</SelectItem>
-                              {propertyTypeOptions.map((type) => (
-                                <SelectItem key={type.id || type._id} value={type.value}>
-                                  {type.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">Bedrooms</label>
-                          <Select value={bedrooms?.toString() ?? "any"} onValueChange={(value) => setBedrooms(value === "any" ? undefined : parseInt(value))}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Any BHK" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="any">Any BHK</SelectItem>
-                              {bedroomOptions.map((option) => (
-                                <SelectItem key={option.id || option._id} value={option.value}>
-                                  {option.displayLabel || option.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">Budget</label>
-                          <Select
-                            value={selectedBudget}
-                            onValueChange={(value) => {
-                              setSelectedBudget(value);
-                              if (value === 'any-budget' || value === '') {
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <Popover open={showFilters} onOpenChange={setShowFilters}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          className="flex-1 sm:flex-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm shadow-lg hover:shadow-xl transition-all duration-300"
+                        >
+                          <Filter className="mr-2 h-5 w-5" />
+                          Filters
+                          <ChevronDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-4" align="end">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium">Quick Filters</h4>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
                                 setPriceRange({});
-                              } else {
-                                const selectedOption = budgetOptions.find(b => (b.id || b._id) === value);
-                                if (selectedOption) {
-                                  setPriceRange({
-                                    min: selectedOption.minValue,
-                                    max: selectedOption.maxValue
-                                  });
+                                setBedrooms(undefined);
+                                setPropertyType("");
+                                setSelectedState("");
+                                setSelectedDistrict("");
+                                setSelectedCity("");
+                                setSelectedBudget("");
+                              }}
+                            >
+                              Clear All
+                            </Button>
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Property Type</label>
+                            <Select value={propertyType || "all"} onValueChange={(v) => setPropertyType(v === "all" ? "" : v)}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="All Properties" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Properties</SelectItem>
+                                {propertyTypeOptions.map((type) => (
+                                  <SelectItem key={type.id || type._id} value={type.value}>
+                                    {type.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Bedrooms</label>
+                            <Select value={bedrooms?.toString() ?? "any"} onValueChange={(value) => setBedrooms(value === "any" ? undefined : parseInt(value))}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Any BHK" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="any">Any BHK</SelectItem>
+                                {bedroomOptions.map((option) => (
+                                  <SelectItem key={option.id || option._id} value={option.value}>
+                                    {option.displayLabel || option.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Budget</label>
+                            <Select
+                              value={selectedBudget}
+                              onValueChange={(value) => {
+                                setSelectedBudget(value);
+                                if (value === 'any-budget' || value === '') {
+                                  setPriceRange({});
+                                } else {
+                                  const selectedOption = budgetOptions.find(b => (b.id || b._id) === value);
+                                  if (selectedOption) {
+                                    setPriceRange({
+                                      min: selectedOption.minValue,
+                                      max: selectedOption.maxValue
+                                    });
+                                  }
                                 }
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Any Budget" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="any-budget">Any Budget</SelectItem>
+                                {budgetOptions.filter(b => b.value !== 'any-budget').map((option) => (
+                                  <SelectItem key={option.id || option._id} value={option.id || option._id}>
+                                    {option.displayLabel || option.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <Button
+                            className="w-full"
+                            onClick={() => {
+                              setShowFilters(false);
+                              if (searchQuery.trim()) {
+                                searchProperties(searchQuery);
                               }
                             }}
                           >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Any Budget" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="any-budget">Any Budget</SelectItem>
-                              {budgetOptions.filter(b => b.value !== 'any-budget').map((option) => (
-                                <SelectItem key={option.id || option._id} value={option.id || option._id}>
-                                  {option.displayLabel || option.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            Apply Filters
+                          </Button>
                         </div>
+                      </PopoverContent>
+                    </Popover>
 
-                        <Button
-                          className="w-full"
-                          onClick={() => {
-                            setShowFilters(false);
-                            if (searchQuery.trim()) {
-                              searchProperties(searchQuery);
-                            }
-                          }}
-                        >
-                          Apply Filters
-                        </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-
-                  <Button
-                    size="lg"
-                    className="h-10 sm:h-12 px-4 sm:px-8 text-xs sm:text-sm shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95"
-                    onClick={handleSearchClick}
-                    disabled={isLoading}
-                  >
-                    <Search className="mr-1 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                    <span className="hidden xs:inline">Search Properties</span>
-                    <span className="xs:hidden">Search</span>
-                  </Button>
+                    <Button
+                      size="lg"
+                      className="flex-1 sm:flex-none h-10 sm:h-12 px-4 sm:px-8 text-xs sm:text-sm shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95"
+                      onClick={handleSearchClick}
+                      disabled={isLoading}
+                    >
+                      <Search className="mr-1 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                      <span className="hidden xs:inline">Search Properties</span>
+                      <span className="xs:hidden">Search</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
 

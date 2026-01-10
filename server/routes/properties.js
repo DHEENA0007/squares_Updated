@@ -60,7 +60,32 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
     // Admin users: show all properties (no status filter)
 
     // Apply search filter (searches in title, description, city, district, state, locality)
+    // Apply search filter (searches in title, description, city, district, state, locality, property type, and navigation items)
     if (search) {
+      const { PropertyType, NavigationItem } = require('../models/Configuration');
+
+      // 1. Find matching Property Types (by name or category)
+      const matchingTypes = await PropertyType.find({
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { category: { $regex: search, $options: 'i' } }
+        ]
+      }).select('value');
+
+      // 2. Find matching Navigation Items (by name)
+      const matchingNavItems = await NavigationItem.find({
+        name: { $regex: search, $options: 'i' }
+      }).select('value');
+
+      // Collect all unique type values
+      const typeValues = [
+        ...matchingTypes.map(t => t.value),
+        ...matchingNavItems.map(n => n.value)
+      ];
+
+      // Deduplicate
+      const uniqueTypeValues = [...new Set(typeValues)];
+
       queryFilter.$or = [
         { title: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
@@ -68,7 +93,9 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
         { 'address.district': { $regex: search, $options: 'i' } },
         { 'address.state': { $regex: search, $options: 'i' } },
         { 'address.locality': { $regex: search, $options: 'i' } },
-        { 'address.locationName': { $regex: search, $options: 'i' } }
+        { 'address.locationName': { $regex: search, $options: 'i' } },
+        { type: { $regex: search, $options: 'i' } }, // Direct type match
+        ...(uniqueTypeValues.length > 0 ? [{ type: { $in: uniqueTypeValues } }] : []) // Match by mapped type values
       ];
     }
 

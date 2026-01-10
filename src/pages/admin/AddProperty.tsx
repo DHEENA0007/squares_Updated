@@ -1744,8 +1744,8 @@ const AddProperty = () => {
             {steps.map((step, index) => (
               <div key={step.id} className="flex flex-col items-center min-w-[120px] flex-shrink-0">
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 mb-3 ${currentStep >= step.id
-                    ? 'bg-primary border-primary text-primary-foreground'
-                    : 'border-muted-foreground text-muted-foreground'
+                  ? 'bg-primary border-primary text-primary-foreground'
+                  : 'border-muted-foreground text-muted-foreground'
                   }`}>
                   {currentStep > step.id ? (
                     <Check className="w-6 h-6" />

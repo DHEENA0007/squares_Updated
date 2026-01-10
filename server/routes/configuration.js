@@ -407,6 +407,25 @@ router.get('/amenities', async (req, res) => {
   }
 });
 
+// Get all property type amenity mappings
+router.get('/property-type-amenities', async (req, res) => {
+  try {
+    const mappings = await PropertyTypeAmenity.find({});
+
+    res.json({
+      success: true,
+      data: mappings,
+    });
+  } catch (error) {
+    console.error('Error fetching all property type amenities:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch property type amenities',
+      error: error.message,
+    });
+  }
+});
+
 // Get amenities for a property type
 router.get('/property-types/:id/amenities', async (req, res) => {
   try {

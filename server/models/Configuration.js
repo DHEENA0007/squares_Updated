@@ -222,7 +222,7 @@ propertyTypeFieldSchema.index({ propertyTypeId: 1, isActive: 1 });
 amenitySchema.index({ category: 1, isActive: 1 });
 filterConfigurationSchema.index({ filterType: 1, isActive: 1 });
 navigationItemSchema.index({ category: 1, isActive: 1 });
-navigationItemSchema.index({ category: 1, value: 1 }, { unique: true });
+navigationItemSchema.index({ category: 1, value: 1, parentId: 1 }, { unique: true });
 
 // Export models
 const PropertyType = mongoose.model('PropertyType', propertyTypeSchema);

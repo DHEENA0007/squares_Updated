@@ -303,6 +303,13 @@ class ConfigurationService {
 
   // ============= Property Type Amenities Mapping =============
 
+  async getAllPropertyTypeAmenities(): Promise<any[]> {
+    const { data } = await api.get<{ success: boolean; data: any[] }>(
+      '/property-type-amenities'
+    );
+    return data.data;
+  }
+
   async getPropertyTypeAmenities(propertyTypeId: string): Promise<Amenity[]> {
     const { data } = await api.get<{ success: boolean; data: Amenity[] }>(
       `/property-types/${propertyTypeId}/amenities`
