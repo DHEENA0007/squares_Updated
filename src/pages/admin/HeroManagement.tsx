@@ -35,6 +35,8 @@ import {
     type HeroSettings,
     type SellingOption,
 } from "@/services/heroContentService";
+import { configurationService } from "@/services/configurationService";
+import type { FilterConfiguration } from "@/types/configuration";
 
 const iconOptions = [
     { value: 'Plus', label: 'Plus', icon: Plus },
@@ -72,18 +74,36 @@ const HeroManagement = () => {
     const [editingOption, setEditingOption] = useState<SellingOption | null>(null);
     const [optionDialogOpen, setOptionDialogOpen] = useState(false);
 
+    // Listing types state
+    const [listingTypes, setListingTypes] = useState<FilterConfiguration[]>([]);
+
+    // Helper to get image URL
+    const getImageUrl = (url: string) => {
+        if (!url) return '';
+        if (url.startsWith('http')) return url;
+        if (url.startsWith('/uploads')) {
+            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+            const baseUrl = apiBase.replace(/\/api\/?$/, '');
+            return `${baseUrl}${url}`;
+        }
+        if (url.startsWith('/')) return url;
+        return `/src/assets/${url.split('/').pop()}`;
+    };
+
     // Load all data
     const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [slidesData, settingsData, optionsData] = await Promise.all([
+            const [slidesData, settingsData, optionsData, listingTypesData] = await Promise.all([
                 heroContentService.getSlides(true),
                 heroContentService.getSettings(),
                 heroContentService.getSellingOptions(true),
+                configurationService.getFilterConfigurationsByType('listing_type', false),
             ]);
             setSlides(slidesData);
             setSettings(settingsData);
             setSellingOptions(optionsData);
+            setListingTypes(listingTypesData);
         } catch (error) {
             console.error('Error loading hero content:', error);
             toast.error('Failed to load hero content');
@@ -100,23 +120,45 @@ const HeroManagement = () => {
     const handleSaveSlide = async () => {
         if (!editingSlide) return;
 
+        // Validation
+        if (!editingSlide.title?.trim()) {
+            toast.error('Title is required');
+            return;
+        }
+        if (!editingSlide.imageUrl?.trim()) {
+            toast.error('Image is required');
+            return;
+        }
+
         setIsSaving(true);
         try {
-            await heroContentService.createOrUpdateSlide({
+            const payload: any = {
                 tabKey: editingSlide.tabKey,
                 title: editingSlide.title,
-                description: editingSlide.description,
+                description: editingSlide.description || '',
                 imageUrl: editingSlide.imageUrl,
-                badge: editingSlide.badge,
                 isActive: editingSlide.isActive,
-                displayOrder: editingSlide.displayOrder,
-            });
+                displayOrder: editingSlide.displayOrder || 0,
+            };
+
+            // Only include badge if it has text or we want to show/hide it explicitly
+            if (editingSlide.badge) {
+                payload.badge = {
+                    text: editingSlide.badge.text || '',
+                    isVisible: editingSlide.badge.isVisible
+                };
+            }
+
+            console.log('Saving slide payload:', payload);
+
+            await heroContentService.createOrUpdateSlide(payload);
             toast.success('Slide saved successfully');
             setSlideDialogOpen(false);
             loadData();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving slide:', error);
-            toast.error('Failed to save slide');
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to save slide';
+            toast.error(`Error: ${errorMessage}`);
         } finally {
             setIsSaving(false);
         }
@@ -282,57 +324,94 @@ const HeroManagement = () => {
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2">
-                        {slides.map((slide) => (
-                            <Card key={slide._id} className={!slide.isActive ? 'opacity-60' : ''}>
-                                <CardHeader className="pb-2">
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="text-lg capitalize flex items-center gap-2">
-                                            {slide.tabKey}
-                                            {!slide.isActive && (
-                                                <Badge variant="secondary">Inactive</Badge>
-                                            )}
-                                        </CardTitle>
-                                        <Button
-                                            size="sm"
-                                            onClick={() => {
-                                                setEditingSlide(slide);
-                                                setSlideDialogOpen(true);
-                                            }}
-                                        >
-                                            Edit
-                                        </Button>
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="aspect-video relative rounded-lg overflow-hidden mb-3 bg-muted">
-                                        {slide.imageUrl && (
-                                            <img
-                                                src={slide.imageUrl.startsWith('http') || slide.imageUrl.startsWith('/') ? slide.imageUrl : `/src/assets/${slide.imageUrl.split('/').pop()}`}
-                                                alt={slide.tabKey}
-                                                className="w-full h-full object-cover"
-                                                onError={(e) => {
-                                                    const target = e.target as HTMLImageElement;
-                                                    // Prevent infinite loop if fallback also fails
-                                                    if (!target.src.includes('hero-property.jpg')) {
-                                                        target.src = '/src/assets/hero-property.jpg';
-                                                    }
-                                                }}
-                                            />
-                                        )}
-                                        <div className="absolute inset-0 bg-black/50 flex flex-col justify-center items-center text-white p-4">
-                                            {slide.badge?.isVisible && (
-                                                <span className="bg-primary/20 text-primary-foreground px-3 py-1 rounded-full text-xs mb-2">
-                                                    <Sparkles className="inline w-3 h-3 mr-1" />
-                                                    {slide.badge.text}
-                                                </span>
-                                            )}
-                                            <h3 className="text-lg font-bold text-center">{slide.title}</h3>
-                                            <p className="text-sm text-center mt-1 line-clamp-2">{slide.description}</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
+                        {(() => {
+                            // Combine listing types and commercial to get all expected tabs
+                            const expectedTabs = [
+                                ...listingTypes.map(lt => ({ key: lt.value, label: lt.displayLabel || lt.name })),
+                                { key: 'commercial', label: 'Commercial' }
+                            ];
+
+                            // Filter out duplicates if commercial is in listing types
+                            const uniqueTabs = expectedTabs.filter((tab, index, self) =>
+                                index === self.findIndex((t) => t.key === tab.key)
+                            );
+
+                            return uniqueTabs.map((tab) => {
+                                const slide = slides.find(s => s.tabKey === tab.key) || {
+                                    _id: `temp-${tab.key}`,
+                                    tabKey: tab.key,
+                                    title: '',
+                                    description: '',
+                                    imageUrl: '',
+                                    badge: { text: '', isVisible: true },
+                                    isActive: false,
+                                    displayOrder: 0,
+                                    createdAt: '',
+                                    updatedAt: ''
+                                } as HeroSlide;
+
+                                const isTemp = slide._id.startsWith('temp-');
+
+                                return (
+                                    <Card key={slide.tabKey} className={!slide.isActive && !isTemp ? 'opacity-60' : ''}>
+                                        <CardHeader className="pb-2">
+                                            <div className="flex items-center justify-between">
+                                                <CardTitle className="text-lg capitalize flex items-center gap-2">
+                                                    {tab.label}
+                                                    {!slide.isActive && !isTemp && (
+                                                        <Badge variant="secondary">Inactive</Badge>
+                                                    )}
+                                                    {isTemp && (
+                                                        <Badge variant="outline" className="border-dashed">Not Configured</Badge>
+                                                    )}
+                                                </CardTitle>
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setEditingSlide(slide);
+                                                        setSlideDialogOpen(true);
+                                                    }}
+                                                >
+                                                    {isTemp ? 'Create' : 'Edit'}
+                                                </Button>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="aspect-video relative rounded-lg overflow-hidden mb-3 bg-muted">
+                                                {slide.imageUrl ? (
+                                                    <img
+                                                        src={getImageUrl(slide.imageUrl)}
+                                                        alt={slide.tabKey}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            const target = e.target as HTMLImageElement;
+                                                            // Prevent infinite loop if fallback also fails
+                                                            if (!target.src.includes('hero-property.jpg')) {
+                                                                target.src = '/src/assets/hero-property.jpg';
+                                                            }
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
+                                                        <ImageIcon className="w-8 h-8 opacity-50" />
+                                                    </div>
+                                                )}
+                                                <div className="absolute inset-0 bg-black/50 flex flex-col justify-center items-center text-white p-4">
+                                                    {slide.badge?.isVisible && slide.badge.text && (
+                                                        <span className="bg-primary/20 text-primary-foreground px-3 py-1 rounded-full text-xs mb-2">
+                                                            <Sparkles className="inline w-3 h-3 mr-1" />
+                                                            {slide.badge.text}
+                                                        </span>
+                                                    )}
+                                                    <h3 className="text-lg font-bold text-center">{slide.title || 'No Title'}</h3>
+                                                    <p className="text-sm text-center mt-1 line-clamp-2">{slide.description || 'No Description'}</p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            });
+                        })()}
                     </div>
                 </TabsContent>
 

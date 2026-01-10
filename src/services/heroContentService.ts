@@ -22,7 +22,7 @@ api.interceptors.request.use((config) => {
 // Types
 export interface HeroSlide {
     _id: string;
-    tabKey: 'buy' | 'rent' | 'lease' | 'commercial';
+    tabKey: string;
     title: string;
     description: string;
     imageUrl: string;

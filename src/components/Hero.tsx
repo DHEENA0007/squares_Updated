@@ -226,8 +226,13 @@ const Hero = () => {
       const images: Record<string, string> = {};
       heroSlides.forEach(slide => {
         // Handle both absolute URLs and relative paths
-        if (slide.imageUrl.startsWith('http') || slide.imageUrl.startsWith('/uploads')) {
+        if (slide.imageUrl.startsWith('http')) {
           images[slide.tabKey] = slide.imageUrl;
+        } else if (slide.imageUrl.startsWith('/uploads')) {
+          // Construct full URL for backend uploads
+          const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+          const baseUrl = apiBase.replace(/\/api\/?$/, '');
+          images[slide.tabKey] = `${baseUrl}${slide.imageUrl}`;
         } else if (slide.imageUrl.startsWith('/assets')) {
           // For asset paths, we need to use the imported images
           const assetMap: Record<string, string> = {
@@ -708,7 +713,7 @@ const Hero = () => {
         <div
           className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out transform"
           style={{
-            backgroundImage: `url(${backgroundImages[activeTab]})`,
+            backgroundImage: `url(${backgroundImages[activeTab] || buyImage})`,
           }}
         >
           <div className="absolute inset-0 dark:bg-gradient-to-r dark:from-background/60 dark:via-background/40 dark:to-background/20" />

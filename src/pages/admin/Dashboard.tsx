@@ -68,7 +68,7 @@ const Dashboard = () => {
       icon: IndianRupee,
       color: "text-emerald-500 dark:text-emerald-400",
       bgColor: "bg-emerald-500/10",
-      onClick: () => navigate('/admin/revenue-details'),
+      onClick: () => navigate('/admin/analytics'),
     },
     {
       title: "Today's Revenue",
@@ -77,7 +77,7 @@ const Dashboard = () => {
       icon: IndianRupee,
       color: "text-indigo-500 dark:text-indigo-400",
       bgColor: "bg-indigo-500/10",
-      onClick: () => navigate('/admin/revenue-details'),
+      onClick: () => navigate('/admin/analytics'),
     },
     {
       title: "Total Users",
@@ -86,7 +86,7 @@ const Dashboard = () => {
       icon: Users,
       color: "text-blue-500 dark:text-blue-400",
       bgColor: "bg-blue-500/10",
-      onClick: () => navigate('/admin/users-details'),
+      onClick: () => navigate('/admin/users'),
     },
     {
       title: "Total Properties",
@@ -95,7 +95,7 @@ const Dashboard = () => {
       icon: TrendingUp,
       color: "text-accent",
       bgColor: "bg-accent/10",
-      onClick: () => navigate('/admin/properties-details'),
+      onClick: () => navigate('/admin/properties'),
     },
     {
       title: "Engagement Rate",
@@ -104,7 +104,7 @@ const Dashboard = () => {
       icon: Activity,
       color: "text-primary",
       bgColor: "bg-primary/10",
-      onClick: () => navigate('/admin/engagement-details'),
+      onClick: () => navigate('/admin/analytics'),
     },
   ];
 

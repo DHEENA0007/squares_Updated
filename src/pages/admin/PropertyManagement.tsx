@@ -16,10 +16,10 @@ const PropertyManagement: React.FC = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('property-types');
   const permissions = user?.rolePermissions || [];
-  
+
   // Check if user has admin role
   const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
-  
+
   // Permission checks - support both old role-based AND new permission-based
   const hasPermission = (permission: string) => permissions.includes(permission);
   const canViewPropertyManagement = hasAdminRole || hasPermission(PERMISSIONS.PM_READ);
@@ -70,7 +70,7 @@ const PropertyManagement: React.FC = () => {
 
             <TabsContent value="property-types" className="mt-6">
               <div className="space-y-4">
-                <Alert className="bg-blue-50 border-blue-200">
+                <Alert className="bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-900">
                   <AlertDescription>
                     <strong>Property Type Fields:</strong> Click the <Settings className="h-3 w-3 inline mx-1" /> icon next to each property type to configure which fields vendors must fill when adding that type of property.
                   </AlertDescription>

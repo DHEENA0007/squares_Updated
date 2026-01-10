@@ -159,9 +159,6 @@ const VendorDashboard = () => {
                     <div className="p-2 bg-primary/10 rounded-full">
                       <div className="text-xs font-semibold text-primary">Total Revenue</div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
                   </div>
                   <div className="space-y-1">
                     <h3 className="text-3xl font-bold">
@@ -184,9 +181,6 @@ const VendorDashboard = () => {
                     <div className="p-2 bg-orange-500/10 rounded-full">
                       <div className="text-xs font-semibold text-orange-600">Total Views</div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
                   </div>
                   <div className="space-y-1">
                     <h3 className="text-3xl font-bold">

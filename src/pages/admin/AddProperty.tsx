@@ -59,7 +59,7 @@ const uploadToCloudinary = async (file: File, folder: string): Promise<string> =
     if (!data.success) {
       throw new Error(data.message || 'Upload failed');
     }
-    
+
     return data.data.url;
   } catch (error) {
     console.error('File upload error:', error);
@@ -81,7 +81,7 @@ const AddProperty = () => {
     description: "",
     propertyType: "",
     listingType: "",
-    
+
     // Location
     address: "",
     country: "India",
@@ -95,7 +95,7 @@ const AddProperty = () => {
     taluk: "",
     locationName: "",
     pincode: "",
-    
+
     // Property Details
     bedrooms: "",
     bathrooms: "",
@@ -106,36 +106,36 @@ const AddProperty = () => {
     builtUpArea: "",
     carpetArea: "",
     plotArea: "",
-    
+
     // Pricing
     price: "",
     priceNegotiable: false,
     maintenanceCharges: "",
     securityDeposit: "",
-    
+
     // Amenities
     amenities: [],
-    
+
     // Media
     images: [],
     videos: [],
     virtualTour: "",
-    
+
     // Additional
     availability: "",
     possession: "",
     facing: "",
     parkingSpaces: "",
-    
+
     // Land/Plot specific
     roadWidth: "",
     cornerPlot: "",
-    
+
     // Admin specific
     isVerified: true, // Admin properties are verified by default
     isFeatured: false,
     status: "active",
-    
+
     // Owner information
     ownerType: "admin", // "admin" or "client"
     clientName: ""
@@ -148,6 +148,10 @@ const AddProperty = () => {
   const [selectedPropertyTypeId, setSelectedPropertyTypeId] = useState<string>('');
   const [dynamicFields, setDynamicFields] = useState<Record<string, any>>({});
   const [dynamicFieldErrors, setDynamicFieldErrors] = useState<Record<string, string>>({});
+
+  // Dynamic facing and parking options from admin configuration
+  const [facingOptions, setFacingOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [parkingOptions, setParkingOptions] = useState<Array<{ value: string; label: string }>>([]);
 
   // Get property type configuration
   const { getAmenities } = usePropertyTypeConfig(formData.propertyType);
@@ -164,7 +168,7 @@ const AddProperty = () => {
   const [states, setStates] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
-  
+
   // Loading states for location fields
   const [locationLoading, setLocationLoading] = useState({
     states: false,
@@ -184,15 +188,17 @@ const AddProperty = () => {
         setStates(statesData);
         console.log(`Loaded ${statesData.length} states from loca.json`);
 
-        // Fetch property types, amenities, and listing types from configuration
-        const [typesData, amenitiesData, listingTypesData] = await Promise.all([
+        // Fetch property types, amenities, listing types, facing, and parking options from configuration
+        const [typesData, amenitiesData, listingTypesData, facingData, parkingData] = await Promise.all([
           configurationService.getAllPropertyTypes(false), // Only active
           configurationService.getAllAmenities(false), // Only active
           configurationService.getFilterConfigurationsByType('listing_type', false), // Only active
+          configurationService.getFilterConfigurationsByType('facing', false), // Only active
+          configurationService.getFilterConfigurationsByType('parking_spaces', false), // Only active
         ]);
         setPropertyTypes(typesData);
         setAmenitiesList(amenitiesData);
-        
+
         // Map listing types to include id
         const mappedListingTypes = listingTypesData.map(type => ({
           id: type._id,
@@ -201,8 +207,40 @@ const AddProperty = () => {
           displayLabel: type.displayLabel
         }));
         setListingTypes(mappedListingTypes);
-        
-        console.log(`Loaded ${typesData.length} property types, ${amenitiesData.length} amenities, and ${mappedListingTypes.length} listing types from configuration`);
+
+        // Map facing options
+        const mappedFacing = facingData
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map(f => ({
+            value: f.value,
+            label: f.displayLabel || f.name
+          }));
+        setFacingOptions(mappedFacing.length > 0 ? mappedFacing : [
+          { value: "north", label: "North" },
+          { value: "south", label: "South" },
+          { value: "east", label: "East" },
+          { value: "west", label: "West" },
+          { value: "north-east", label: "North-East" },
+          { value: "north-west", label: "North-West" },
+          { value: "south-east", label: "South-East" },
+          { value: "south-west", label: "South-West" }
+        ]);
+
+        // Map parking options
+        const mappedParking = parkingData
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map(p => ({
+            value: p.value,
+            label: p.displayLabel || p.name
+          }));
+        setParkingOptions(mappedParking.length > 0 ? mappedParking : [
+          { value: "0", label: "No Parking" },
+          { value: "1", label: "1 Car" },
+          { value: "2", label: "2 Cars" },
+          { value: "3", label: "3+ Cars" }
+        ]);
+
+        console.log(`Loaded ${typesData.length} property types, ${amenitiesData.length} amenities, ${mappedListingTypes.length} listing types, ${mappedFacing.length} facing options, and ${mappedParking.length} parking options from configuration`);
         console.log('AddProperty - Listing types data:', mappedListingTypes);
       } catch (error) {
         console.error('Error initializing data:', error);
@@ -232,13 +270,13 @@ const AddProperty = () => {
       const districtsData = locaService.getDistricts(formData.state);
       setDistricts(districtsData);
       console.log(`Loaded ${districtsData.length} districts for ${formData.state}`);
-      
+
       // Reset dependent fields
-      setFormData(prev => ({ 
-        ...prev, 
+      setFormData(prev => ({
+        ...prev,
         district: '',
-        city: '', 
-        pincode: '' 
+        city: '',
+        pincode: ''
       }));
       setSelectedLocationNames(prev => ({
         ...prev,
@@ -270,12 +308,12 @@ const AddProperty = () => {
       const citiesData = locaService.getCities(formData.state, formData.district);
       setCities(citiesData);
       console.log(`Loaded ${citiesData.length} cities for ${formData.district}`);
-      
+
       // Reset dependent fields
-      setFormData(prev => ({ 
-        ...prev, 
-        city: '', 
-        pincode: '' 
+      setFormData(prev => ({
+        ...prev,
+        city: '',
+        pincode: ''
       }));
       setSelectedLocationNames(prev => ({
         ...prev,
@@ -380,7 +418,7 @@ const AddProperty = () => {
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
-    
+
     // Validate required fields
     const requiredFields = {
       title: formData.title?.trim(),
@@ -492,7 +530,7 @@ const AddProperty = () => {
         isFeatured: formData.isFeatured,
         status: formData.status,
         isAdminProperty: true,
-        
+
         // Owner information
         ownerType: formData.ownerType,
         clientName: formData.ownerType === 'client' ? formData.clientName : undefined
@@ -515,7 +553,7 @@ const AddProperty = () => {
       // Add dynamic fields from configuration as customFields
       if (Object.keys(dynamicFields).length > 0) {
         propertyData.customFields = dynamicFields;
-        
+
         // Map common fields to top-level for backward compatibility
         if (dynamicFields.builtUpArea) {
           propertyData.area = propertyData.area || {};
@@ -543,7 +581,7 @@ const AddProperty = () => {
 
       // Submit property to backend using admin endpoint
       const response = await propertyService.createProperty(propertyData);
-      
+
       toast({
         title: "Success!",
         description: "Property created successfully by admin.",
@@ -552,12 +590,12 @@ const AddProperty = () => {
       navigate("/admin/properties");
     } catch (error) {
       console.error("Error submitting property:", error);
-      
+
       let errorMessage = "Failed to submit property. Please try again.";
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
+
       toast({
         title: "Error",
         description: errorMessage,
@@ -581,7 +619,7 @@ const AddProperty = () => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
       setUploadingImages(true);
-      
+
       try {
         const newImages = files.map((file) => {
           return {
@@ -591,7 +629,7 @@ const AddProperty = () => {
             file: file
           };
         });
-        
+
         setUploadedImages(prev => [...prev, ...newImages]);
       } catch (error) {
         console.error('Error processing images:', error);
@@ -605,7 +643,7 @@ const AddProperty = () => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
       setUploadingVideos(true);
-      
+
       try {
         const newVideos = files.map((file) => {
           return {
@@ -615,7 +653,7 @@ const AddProperty = () => {
             file: file
           };
         });
-        
+
         setUploadedVideos(prev => [...prev, ...newVideos]);
       } catch (error) {
         console.error('Error processing videos:', error);
@@ -645,7 +683,7 @@ const AddProperty = () => {
                   className="h-12 text-base"
                 />
               </div>
-              
+
               <div className="space-y-3">
                 <Label htmlFor="propertyType" className="text-base font-medium">Property Type *</Label>
                 <Select
@@ -727,91 +765,91 @@ const AddProperty = () => {
                 </p>
               </CardHeader>
               <CardContent className="pt-0">
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* State Selection */}
-                <div className="space-y-2">
-                  <Label htmlFor="state">State *</Label>
-                  <Select 
-                    value={formData.state} 
-                    onValueChange={(value) => {
-                      setFormData(prev => ({ ...prev, state: value, stateCode: value }));
-                    }}
-                    disabled={locationLoading.states}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={locationLoading.states ? "Loading states..." : "Select state"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {states.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                {/* District Selection */}
-                <div className="space-y-2">
-                  <Label htmlFor="district">District *</Label>
-                  <Select 
-                    value={formData.district} 
-                    onValueChange={(value) => {
-                      setFormData(prev => ({ ...prev, district: value, districtCode: value }));
-                    }}
-                    disabled={!formData.state || locationLoading.districts}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={
-                        !formData.state 
-                          ? "Select state first" 
-                          : locationLoading.districts 
-                            ? "Loading districts..." 
-                            : "Select district"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {districts.map((district) => (
-                        <SelectItem key={district} value={district}>
-                          {district}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* State Selection */}
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State *</Label>
+                    <Select
+                      value={formData.state}
+                      onValueChange={(value) => {
+                        setFormData(prev => ({ ...prev, state: value, stateCode: value }));
+                      }}
+                      disabled={locationLoading.states}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={locationLoading.states ? "Loading states..." : "Select state"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {states.map((state) => (
+                          <SelectItem key={state} value={state}>
+                            {state}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* City Selection */}
-                <div className="space-y-2">
-                  <Label htmlFor="city">City *</Label>
-                  <Select 
-                    value={formData.city} 
-                    onValueChange={(value) => {
-                      setFormData(prev => ({ ...prev, city: value, cityCode: value }));
-                    }}
-                    disabled={!formData.district || locationLoading.cities}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={
-                        !formData.district 
-                          ? "Select district first" 
-                          : locationLoading.cities 
-                            ? "Loading cities..." 
-                            : "Select city"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cities.map((city) => (
-                        <SelectItem key={city} value={city}>
-                          {city}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {/* District Selection */}
+                  <div className="space-y-2">
+                    <Label htmlFor="district">District *</Label>
+                    <Select
+                      value={formData.district}
+                      onValueChange={(value) => {
+                        setFormData(prev => ({ ...prev, district: value, districtCode: value }));
+                      }}
+                      disabled={!formData.state || locationLoading.districts}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={
+                          !formData.state
+                            ? "Select state first"
+                            : locationLoading.districts
+                              ? "Loading districts..."
+                              : "Select district"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {districts.map((district) => (
+                          <SelectItem key={district} value={district}>
+                            {district}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* City Selection */}
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City *</Label>
+                    <Select
+                      value={formData.city}
+                      onValueChange={(value) => {
+                        setFormData(prev => ({ ...prev, city: value, cityCode: value }));
+                      }}
+                      disabled={!formData.district || locationLoading.cities}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={
+                          !formData.district
+                            ? "Select district first"
+                            : locationLoading.cities
+                              ? "Loading cities..."
+                              : "Select city"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cities.map((city) => (
+                          <SelectItem key={city} value={city}>
+                            {city}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
             <div className="space-y-3">
               <Label htmlFor="pincode" className="text-base font-medium">PIN Code *</Label>
@@ -820,11 +858,11 @@ const AddProperty = () => {
                 onChange={(pincode, locationData) => {
                   console.log('Pincode selected:', pincode, locationData);
                   setFormData(prev => ({ ...prev, pincode }));
-                  
+
                   // Auto-fill location fields if suggestion provides data
                   if (locationData) {
                     console.log('Auto-filling location from pincode:', locationData);
-                    
+
                     // Set state if available
                     if (locationData.state && states.includes(locationData.state.toUpperCase())) {
                       setFormData(prev => ({
@@ -832,35 +870,35 @@ const AddProperty = () => {
                         state: locationData.state.toUpperCase(),
                         stateCode: locationData.state.toUpperCase()
                       }));
-                      
+
                       // Load districts for the selected state
                       setTimeout(() => {
                         // Set district if available
                         if (locationData.district) {
                           const districtsForState = locaService.getDistricts(locationData.state.toUpperCase());
-                          const matchingDistrict = districtsForState.find(d => 
+                          const matchingDistrict = districtsForState.find(d =>
                             d.toUpperCase() === locationData.district.toUpperCase()
                           );
-                          
+
                           if (matchingDistrict) {
                             setFormData(prev => ({
                               ...prev,
                               district: matchingDistrict,
                               districtCode: matchingDistrict
                             }));
-                            
+
                             // Load cities for the selected district
                             setTimeout(() => {
                               // Set city if available
                               if (locationData.city) {
                                 const citiesForDistrict = locaService.getCities(
-                                  locationData.state.toUpperCase(), 
+                                  locationData.state.toUpperCase(),
                                   matchingDistrict
                                 );
-                                const matchingCity = citiesForDistrict.find(c => 
+                                const matchingCity = citiesForDistrict.find(c =>
                                   c.toUpperCase() === locationData.city.toUpperCase()
                                 );
-                                
+
                                 if (matchingCity) {
                                   setFormData(prev => ({
                                     ...prev,
@@ -874,7 +912,7 @@ const AddProperty = () => {
                         }
                       }, 100);
                     }
-                    
+
                     toast({
                       title: "Location Auto-filled ✓",
                       description: `${locationData.city}, ${locationData.district}, ${locationData.state}`,
@@ -1017,7 +1055,7 @@ const AddProperty = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 Select all amenities available in your property
               </p>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {isLoadingConfig ? (
                   <div className="col-span-full text-center py-8">
@@ -1048,34 +1086,66 @@ const AddProperty = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="facing">Facing</Label>
-                <Select value={formData.facing} onValueChange={(value) => setFormData(prev => ({ ...prev, facing: value }))}>
+                <Select
+                  value={formData.facing}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, facing: value }))}
+                  disabled={isLoadingConfig}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select" />
+                    <SelectValue placeholder={isLoadingConfig ? "Loading..." : "Select"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="north">North</SelectItem>
-                    <SelectItem value="south">South</SelectItem>
-                    <SelectItem value="east">East</SelectItem>
-                    <SelectItem value="west">West</SelectItem>
-                    <SelectItem value="north-east">North-East</SelectItem>
-                    <SelectItem value="north-west">North-West</SelectItem>
-                    <SelectItem value="south-east">South-East</SelectItem>
-                    <SelectItem value="south-west">South-West</SelectItem>
+                    {isLoadingConfig ? (
+                      <SelectItem value="loading" disabled>
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading...
+                        </div>
+                      </SelectItem>
+                    ) : facingOptions.length === 0 ? (
+                      <SelectItem value="no-options" disabled>
+                        No options configured
+                      </SelectItem>
+                    ) : (
+                      facingOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="parkingSpaces">Parking Spaces</Label>
-                <Select value={formData.parkingSpaces} onValueChange={(value) => setFormData(prev => ({ ...prev, parkingSpaces: value }))}>
+                <Select
+                  value={formData.parkingSpaces}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, parkingSpaces: value }))}
+                  disabled={isLoadingConfig}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select" />
+                    <SelectValue placeholder={isLoadingConfig ? "Loading..." : "Select"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0">No Parking</SelectItem>
-                    <SelectItem value="1">1 Car</SelectItem>
-                    <SelectItem value="2">2 Cars</SelectItem>
-                    <SelectItem value="3">3+ Cars</SelectItem>
+                    {isLoadingConfig ? (
+                      <SelectItem value="loading" disabled>
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading...
+                        </div>
+                      </SelectItem>
+                    ) : parkingOptions.length === 0 ? (
+                      <SelectItem value="no-options" disabled>
+                        No options configured
+                      </SelectItem>
+                    ) : (
+                      parkingOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1091,14 +1161,14 @@ const AddProperty = () => {
               <p className="text-base text-muted-foreground mb-6 mt-2">
                 Upload high-quality images of your property (up to 20 images)
               </p>
-              
+
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-12 text-center hover:border-primary/50 transition-colors">
                 <Camera className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <div className="space-y-3">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => document.getElementById('image-upload')?.click()} 
-                    size="lg" 
+                  <Button
+                    variant="outline"
+                    onClick={() => document.getElementById('image-upload')?.click()}
+                    size="lg"
                     className="px-8"
                     disabled={uploadingImages}
                   >
@@ -1164,14 +1234,14 @@ const AddProperty = () => {
               <p className="text-base text-muted-foreground mb-6 mt-2">
                 Upload videos to showcase your property better
               </p>
-              
+
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-12 text-center hover:border-primary/50 transition-colors">
                 <Video className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <div className="space-y-3">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => document.getElementById('video-upload')?.click()} 
-                    size="lg" 
+                  <Button
+                    variant="outline"
+                    onClick={() => document.getElementById('video-upload')?.click()}
+                    size="lg"
                     className="px-8"
                     disabled={uploadingVideos}
                   >
@@ -1300,7 +1370,7 @@ const AddProperty = () => {
                         </SelectItem>
                       </SelectContent>
                     </Select>
-                    
+
                     {/* Client Name Field - Only show when client is selected */}
                     {formData.ownerType === 'client' && (
                       <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
@@ -1342,8 +1412,8 @@ const AddProperty = () => {
                       <div className="flex items-center gap-2">
                         <strong>Owner:</strong>
                         <span>
-                          {formData.ownerType === 'admin' 
-                            ? 'Squares' 
+                          {formData.ownerType === 'admin'
+                            ? 'Squares'
                             : (formData.clientName || 'Client Name')}
                         </span>
                       </div>
@@ -1518,7 +1588,7 @@ const AddProperty = () => {
                 <div className="space-y-2">
                   <div className="font-semibold text-amber-800 text-lg">Admin Privileges</div>
                   <AlertDescription className="text-amber-700 text-base leading-relaxed">
-                    As an admin, you can add unlimited properties without subscription limits. 
+                    As an admin, you can add unlimited properties without subscription limits.
                     All admin properties bypass normal verification processes and get priority listing placement.
                   </AlertDescription>
                 </div>
@@ -1547,21 +1617,21 @@ const AddProperty = () => {
                     <p><strong>Type:</strong> {formData.propertyType}</p>
                     <p><strong>Listing:</strong> {formData.listingType}</p>
                   </div>
-                  
+
                   <div>
                     <h3 className="font-semibold mb-2">Location</h3>
                     <p><strong>State:</strong> {formData.state || 'Not selected'}</p>
                     <p><strong>City:</strong> {formData.city || 'Not selected'}</p>
                     <p><strong>Pincode:</strong> {formData.pincode || 'Not provided'}</p>
                   </div>
-                  
+
                   <div>
                     <h3 className="font-semibold mb-2">Property Details</h3>
                     <p><strong>Bedrooms:</strong> {formData.bedrooms}</p>
                     <p><strong>Area:</strong> {formData.builtUpArea} sq ft</p>
                     <p><strong>Furnishing:</strong> {formData.furnishing}</p>
                   </div>
-                  
+
                   <div>
                     <h3 className="font-semibold mb-2">Pricing</h3>
                     <p><strong>Price:</strong> ₹{formData.price}</p>
@@ -1662,7 +1732,7 @@ const AddProperty = () => {
       <Alert className="border-blue-200 bg-blue-50 dark:bg-black p-4 md:p-6">
         <Shield className="h-5 w-5 text-blue-600 flex-shrink-0" />
         <AlertDescription className="text-sm md:text-base">
-          <strong>Admin Mode:</strong> You have unlimited property creation privileges. 
+          <strong>Admin Mode:</strong> You have unlimited property creation privileges.
           Properties added through admin panel are automatically verified and bypass subscription limits.
         </AlertDescription>
       </Alert>
@@ -1673,11 +1743,10 @@ const AddProperty = () => {
           <div className="flex items-start justify-between mb-10 gap-2 overflow-x-auto pb-4">
             {steps.map((step, index) => (
               <div key={step.id} className="flex flex-col items-center min-w-[120px] flex-shrink-0">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 mb-3 ${
-                  currentStep >= step.id 
-                    ? 'bg-primary border-primary text-primary-foreground' 
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 mb-3 ${currentStep >= step.id
+                    ? 'bg-primary border-primary text-primary-foreground'
                     : 'border-muted-foreground text-muted-foreground'
-                }`}>
+                  }`}>
                   {currentStep > step.id ? (
                     <Check className="w-6 h-6" />
                   ) : (
@@ -1699,8 +1768,8 @@ const AddProperty = () => {
 
           {/* Navigation Buttons */}
           <div className="flex justify-between mt-8 md:mt-10">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={prevStep}
               disabled={currentStep === 1}
               size="lg"
@@ -1708,7 +1777,7 @@ const AddProperty = () => {
             >
               Previous
             </Button>
-            
+
             {currentStep === steps.length ? (
               <Button onClick={handleSubmit} className="px-12" disabled={isSubmitting} size="lg">
                 {isSubmitting ? (

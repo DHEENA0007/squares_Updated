@@ -38,6 +38,7 @@ import { useToast } from "@/hooks/use-toast";
 import { configurationService } from "@/services/configurationService";
 import DynamicPropertyFields from "@/components/vendor/DynamicPropertyFields";
 import { sanitizeText, sanitizePrice, sanitizeObject, validateEmail } from "@/utils/sanitize";
+import type { Amenity } from "@/types/configuration";
 
 // Upload function using server-side endpoint
 const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
@@ -162,6 +163,16 @@ const AddProperty = () => {
   const [selectedPropertyTypeId, setSelectedPropertyTypeId] = useState<string>('');
   const [dynamicFields, setDynamicFields] = useState<Record<string, any>>({});
   const [dynamicFieldErrors, setDynamicFieldErrors] = useState<Record<string, string>>({});
+
+  // Dynamic amenities from admin configuration
+  const [amenitiesList, setAmenitiesList] = useState<string[]>([]);
+  const [isLoadingAmenities, setIsLoadingAmenities] = useState(true);
+
+  // Dynamic facing and parking options from admin configuration
+  const [facingOptions, setFacingOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [isLoadingFacing, setIsLoadingFacing] = useState(true);
+  const [parkingOptions, setParkingOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [isLoadingParking, setIsLoadingParking] = useState(true);
 
   // Refs for file inputs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -440,18 +451,110 @@ const AddProperty = () => {
     { id: 7, title: "Review", description: "Review and submit listing" }
   ];
 
-  const amenitiesList = [
-    "Swimming Pool", "Gym/Fitness Center", "Parking", "Security",
-    "Garden/Park", "Playground", "Clubhouse", "Power Backup",
-    "Elevator", "WiFi", "CCTV Surveillance", "Intercom",
-    "Water Supply", "Waste Management", "Fire Safety", "Visitor Parking",
-    "Shopping Complex", "Restaurant", "Spa", "Jogging Track",
-    // PG-specific amenities
-    "Meals Included", "Laundry Service", "Room Cleaning", "24/7 Security",
-    "Common Kitchen", "Common Area", "Study Room", "Single Occupancy",
-    "Double Occupancy", "Triple Occupancy", "AC Rooms", "Non-AC Rooms",
-    "Attached Bathroom", "Common Bathroom", "Wi-Fi in Rooms", "TV in Rooms"
-  ];
+  // Fetch amenities from admin configuration
+  useEffect(() => {
+    const fetchAmenities = async () => {
+      try {
+        setIsLoadingAmenities(true);
+        const amenitiesData = await configurationService.getAllAmenities(false);
+
+        // Sort by displayOrder and map to just the names
+        const sortedAmenities = amenitiesData
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map(amenity => amenity.name);
+
+        setAmenitiesList(sortedAmenities);
+      } catch (error) {
+        console.error('Error fetching amenities:', error);
+        toast({
+          title: "Warning",
+          description: "Failed to load amenities. Using default list.",
+          variant: "destructive",
+        });
+        // Fallback to default amenities if API fails
+        setAmenitiesList([
+          "Swimming Pool", "Gym/Fitness Center", "Parking", "Security",
+          "Garden/Park", "Playground", "Clubhouse", "Power Backup",
+          "Elevator", "WiFi", "CCTV Surveillance", "Intercom",
+          "Water Supply", "Waste Management", "Fire Safety", "Visitor Parking"
+        ]);
+      } finally {
+        setIsLoadingAmenities(false);
+      }
+    };
+
+    fetchAmenities();
+  }, []);
+
+  // Fetch facing options from admin configuration
+  useEffect(() => {
+    const fetchFacingOptions = async () => {
+      try {
+        setIsLoadingFacing(true);
+        const facingData = await configurationService.getFilterConfigurationsByType('facing', false);
+
+        // Sort by displayOrder and map to select option format
+        const sortedFacing = facingData
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map(facing => ({
+            value: facing.value,
+            label: facing.displayLabel || facing.name
+          }));
+
+        setFacingOptions(sortedFacing);
+      } catch (error) {
+        console.error('Error fetching facing options:', error);
+        // Fallback to default facing options if API fails
+        setFacingOptions([
+          { value: "north", label: "North" },
+          { value: "south", label: "South" },
+          { value: "east", label: "East" },
+          { value: "west", label: "West" },
+          { value: "north-east", label: "North-East" },
+          { value: "north-west", label: "North-West" },
+          { value: "south-east", label: "South-East" },
+          { value: "south-west", label: "South-West" }
+        ]);
+      } finally {
+        setIsLoadingFacing(false);
+      }
+    };
+
+    fetchFacingOptions();
+  }, []);
+
+  // Fetch parking options from admin configuration
+  useEffect(() => {
+    const fetchParkingOptions = async () => {
+      try {
+        setIsLoadingParking(true);
+        const parkingData = await configurationService.getFilterConfigurationsByType('parking_spaces', false);
+
+        // Sort by displayOrder and map to select option format
+        const sortedParking = parkingData
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map(parking => ({
+            value: parking.value,
+            label: parking.displayLabel || parking.name
+          }));
+
+        setParkingOptions(sortedParking);
+      } catch (error) {
+        console.error('Error fetching parking options:', error);
+        // Fallback to default parking options if API fails
+        setParkingOptions([
+          { value: "0", label: "No Parking" },
+          { value: "1", label: "1 Car" },
+          { value: "2", label: "2 Cars" },
+          { value: "3", label: "3+ Cars" }
+        ]);
+      } finally {
+        setIsLoadingParking(false);
+      }
+    };
+
+    fetchParkingOptions();
+  }, []);
 
   const nextStep = () => {
     if (currentStep < steps.length) {
@@ -1508,19 +1611,33 @@ const AddProperty = () => {
 
                       <div className="space-y-2 sm:col-span-2 lg:col-span-1">
                         <Label htmlFor="facing" className="text-sm md:text-base">Plot Facing</Label>
-                        <Select value={formData.facing} onValueChange={(value) => setFormData(prev => ({ ...prev, facing: value }))}>
+                        <Select
+                          value={formData.facing}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, facing: value }))}
+                          disabled={isLoadingFacing}
+                        >
                           <SelectTrigger className="text-sm md:text-base">
-                            <SelectValue placeholder="Select" />
+                            <SelectValue placeholder={isLoadingFacing ? "Loading..." : "Select"} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="north" className="text-sm md:text-base">North</SelectItem>
-                            <SelectItem value="south" className="text-sm md:text-base">South</SelectItem>
-                            <SelectItem value="east" className="text-sm md:text-base">East</SelectItem>
-                            <SelectItem value="west" className="text-sm md:text-base">West</SelectItem>
-                            <SelectItem value="north-east" className="text-sm md:text-base">North-East</SelectItem>
-                            <SelectItem value="north-west" className="text-sm md:text-base">North-West</SelectItem>
-                            <SelectItem value="south-east" className="text-sm md:text-base">South-East</SelectItem>
-                            <SelectItem value="south-west" className="text-sm md:text-base">South-West</SelectItem>
+                            {isLoadingFacing ? (
+                              <SelectItem value="loading" disabled>
+                                <div className="flex items-center gap-2">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Loading...
+                                </div>
+                              </SelectItem>
+                            ) : facingOptions.length === 0 ? (
+                              <SelectItem value="no-options" disabled>
+                                No options configured
+                              </SelectItem>
+                            ) : (
+                              facingOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value} className="text-sm md:text-base">
+                                  {option.label}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
@@ -1659,52 +1776,95 @@ const AddProperty = () => {
               </p>
 
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {amenitiesList.map((amenity) => (
-                  <div key={amenity} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={amenity}
-                      checked={formData.amenities.includes(amenity)}
-                      onCheckedChange={() => handleAmenityToggle(amenity)}
-                    />
-                    <Label htmlFor={amenity} className="text-sm">
-                      {amenity}
-                    </Label>
+                {isLoadingAmenities ? (
+                  <div className="col-span-full flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    <span className="text-sm text-muted-foreground">Loading amenities...</span>
                   </div>
-                ))}
+                ) : amenitiesList.length === 0 ? (
+                  <div className="col-span-full text-center py-4 text-muted-foreground">
+                    No amenities configured. Please contact admin.
+                  </div>
+                ) : (
+                  amenitiesList.map((amenity) => (
+                    <div key={amenity} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={amenity}
+                        checked={formData.amenities.includes(amenity)}
+                        onCheckedChange={() => handleAmenityToggle(amenity)}
+                      />
+                      <Label htmlFor={amenity} className="text-sm">
+                        {amenity}
+                      </Label>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="facing">Facing</Label>
-                <Select value={formData.facing} onValueChange={(value) => setFormData(prev => ({ ...prev, facing: value }))}>
+                <Select
+                  value={formData.facing}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, facing: value }))}
+                  disabled={isLoadingFacing}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select" />
+                    <SelectValue placeholder={isLoadingFacing ? "Loading..." : "Select"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="north">North</SelectItem>
-                    <SelectItem value="south">South</SelectItem>
-                    <SelectItem value="east">East</SelectItem>
-                    <SelectItem value="west">West</SelectItem>
-                    <SelectItem value="north-east">North-East</SelectItem>
-                    <SelectItem value="north-west">North-West</SelectItem>
-                    <SelectItem value="south-east">South-East</SelectItem>
-                    <SelectItem value="south-west">South-West</SelectItem>
+                    {isLoadingFacing ? (
+                      <SelectItem value="loading" disabled>
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading...
+                        </div>
+                      </SelectItem>
+                    ) : facingOptions.length === 0 ? (
+                      <SelectItem value="no-options" disabled>
+                        No options configured
+                      </SelectItem>
+                    ) : (
+                      facingOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="parkingSpaces">Parking Spaces</Label>
-                <Select value={formData.parkingSpaces} onValueChange={(value) => setFormData(prev => ({ ...prev, parkingSpaces: value }))}>
+                <Select
+                  value={formData.parkingSpaces}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, parkingSpaces: value }))}
+                  disabled={isLoadingParking}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select" />
+                    <SelectValue placeholder={isLoadingParking ? "Loading..." : "Select"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0">No Parking</SelectItem>
-                    <SelectItem value="1">1 Car</SelectItem>
-                    <SelectItem value="2">2 Cars</SelectItem>
-                    <SelectItem value="3">3+ Cars</SelectItem>
+                    {isLoadingParking ? (
+                      <SelectItem value="loading" disabled>
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading...
+                        </div>
+                      </SelectItem>
+                    ) : parkingOptions.length === 0 ? (
+                      <SelectItem value="no-options" disabled>
+                        No options configured
+                      </SelectItem>
+                    ) : (
+                      parkingOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
