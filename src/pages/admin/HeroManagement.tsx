@@ -38,6 +38,12 @@ import {
 import { configurationService } from "@/services/configurationService";
 import type { FilterConfiguration } from "@/types/configuration";
 
+import buyImage from "@/assets/Buy.jpg";
+import rentImage from "@/assets/Rent.jpg";
+import leaseImage from "@/assets/Lease.jpg";
+import commercialImage from "@/assets/commercial.jpg";
+import heroPropertyImage from "@/assets/hero-property.jpg";
+
 const iconOptions = [
     { value: 'Plus', label: 'Plus', icon: Plus },
     { value: 'Calculator', label: 'Calculator', icon: Calculator },
@@ -86,8 +92,15 @@ const HeroManagement = () => {
             const baseUrl = apiBase.replace(/\/api\/?$/, '');
             return `${baseUrl}${url}`;
         }
-        if (url.startsWith('/')) return url;
-        return `/src/assets/${url.split('/').pop()}`;
+
+        // Handle local assets
+        if (url.includes('Buy.jpg')) return buyImage;
+        if (url.includes('Rent.jpg')) return rentImage;
+        if (url.includes('Lease.jpg')) return leaseImage;
+        if (url.includes('commercial.jpg')) return commercialImage;
+        if (url.includes('hero-property.jpg')) return heroPropertyImage;
+
+        return url;
     };
 
     // Load all data

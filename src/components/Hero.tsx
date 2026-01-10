@@ -235,15 +235,14 @@ const Hero = () => {
           images[slide.tabKey] = `${baseUrl}${slide.imageUrl}`;
         } else if (slide.imageUrl.startsWith('/assets')) {
           // For asset paths, we need to use the imported images
-          const assetMap: Record<string, string> = {
-            '/assets/Buy.jpg': buyImage,
-            '/assets/Rent.jpg': rentImage,
-            '/assets/Lease.jpg': leaseImage,
-            '/assets/commercial.jpg': commercialImage,
-          };
-          images[slide.tabKey] = assetMap[slide.imageUrl] || buyImage;
+          // Check if the path matches any of our known assets
+          if (slide.imageUrl.includes('Buy.jpg')) images[slide.tabKey] = buyImage;
+          else if (slide.imageUrl.includes('Rent.jpg')) images[slide.tabKey] = rentImage;
+          else if (slide.imageUrl.includes('Lease.jpg')) images[slide.tabKey] = leaseImage;
+          else if (slide.imageUrl.includes('commercial.jpg')) images[slide.tabKey] = commercialImage;
+          else images[slide.tabKey] = buyImage; // Fallback
         } else {
-          // Default to imported images
+          // Default to imported images based on tab key
           const defaultMap: Record<string, string> = {
             buy: buyImage,
             rent: rentImage,
