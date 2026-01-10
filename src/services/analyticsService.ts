@@ -388,7 +388,7 @@ class AnalyticsService {
 
   // V3 Consolidated Admin Analytics - fetches all analytics data in one call
   async getConsolidatedAdminAnalytics(dateRange: string = '30', startDate?: Date, endDate?: Date) {
-    let query = `/analytics/v3/admin?dateRange=${dateRange}`;
+    let query = `/analytics/en-new/admin?dateRange=${dateRange}`;
     if (startDate) query += `&startDate=${startDate.toISOString()}`;
     if (endDate) query += `&endDate=${endDate.toISOString()}`;
 
@@ -614,7 +614,7 @@ class AnalyticsService {
         createdAt: string;
         views: number;
       }>;
-    }>('/analytics/v3/admin/property-report');
+    }>('/analytics/en-new/admin/property-report');
   }
 }
 

@@ -38,7 +38,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter basename="/v3">
+          <BrowserRouter basename="/en-new">
             <SessionManager />
             <ScrollToTop />
             <Routes>

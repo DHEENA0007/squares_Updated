@@ -45,7 +45,7 @@ const extractDomain = (referrer, currentHost) => {
 
         // If referrer is from own domain, show actual domain
         if (ownDomains.some(domain => hostname.includes(domain))) {
-            return 'buildhomemartsquares.com/v3';
+            return 'buildhomemartsquares.com/en-new';
         }
 
         // Classify common sources

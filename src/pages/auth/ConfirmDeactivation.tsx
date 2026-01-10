@@ -24,11 +24,11 @@ const ConfirmDeactivation = () => {
 
       try {
         const response = await userService.confirmAccountDeactivation(token);
-        
+
         if (response.success) {
           setStatus('success');
           setMessage('Your account has been deactivated. You can reactivate it anytime by logging in.');
-          
+
           setTimeout(() => {
             localStorage.clear();
             sessionStorage.clear();
@@ -87,15 +87,15 @@ const ConfirmDeactivation = () => {
                 Go to Login
               </Button>
             )}
-            
+
             {status === 'error' && (
               <>
                 <Button onClick={() => navigate('/customer/settings')} className="w-full">
                   Back to Settings
                 </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => navigate('/v3')} 
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/en-new')}
                   className="w-full"
                 >
                   <Home className="w-4 h-4 mr-2" />

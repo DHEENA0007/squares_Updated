@@ -24,7 +24,7 @@ const classifyReferrer = (referrer) => {
 
     // Own domains - internal traffic (show actual domain)
     const ownDomains = ['localhost', '127.0.0.1', 'buildhomemartsquares.com', 'app.buildhomemartsquares.com'];
-    if (ownDomains.some(domain => hostname.includes(domain))) return 'buildhomemartsquares.com/v3';
+    if (ownDomains.some(domain => hostname.includes(domain))) return 'buildhomemartsquares.com/en-new';
 
     // Common sources classification
     if (hostname.includes('google')) return 'Google';
@@ -144,7 +144,7 @@ router.get('/snapshot', asyncHandler(async (req, res) => {
 }));
 
 // V3 Consolidated Admin Analytics - Returns all analytics data in one call
-router.get('/v3/admin', asyncHandler(async (req, res) => {
+router.get('/en-new/admin', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
   const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
   const hasSuperAdminAnalyticsPermission = hasPermission(req.user, PERMISSIONS.SUPERADMIN_ANALYTICS_VIEW);
@@ -1392,7 +1392,7 @@ router.get('/all-property-viewers', asyncHandler(async (req, res) => {
 }));
 
 // Property Report Endpoint
-router.get('/v3/admin/property-report', asyncHandler(async (req, res) => {
+router.get('/en-new/admin/property-report', asyncHandler(async (req, res) => {
   const isSuperAdmin = req.user.role === 'superadmin';
   const hasAnalyticsPermission = hasPermission(req.user, PERMISSIONS.ANALYTICS_VIEW);
   const hasSuperAdminAnalyticsPermission = hasPermission(req.user, PERMISSIONS.SUPERADMIN_ANALYTICS_VIEW);

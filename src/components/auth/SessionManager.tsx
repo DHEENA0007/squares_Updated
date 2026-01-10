@@ -48,7 +48,7 @@ const SessionManager = () => {
             description: "You have been logged out due to inactivity.",
             variant: "destructive",
         });
-        navigate('/v3/login');
+        navigate('/en-new/login');
     };
 
     const resetTimer = () => {

@@ -217,7 +217,7 @@ const PropertyDetails: React.FC = () => {
   };
 
   const handleShare = async () => {
-    const publicUrl = `${window.location.origin}/v3/property/${id}`;
+    const publicUrl = `${window.location.origin}/en-new/property/${id}`;
 
     // Track share interaction
     if (id) {

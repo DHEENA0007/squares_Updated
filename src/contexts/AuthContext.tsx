@@ -135,7 +135,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Only redirect if not explicitly skipped
     if (!skipRedirect) {
       // Force reload to clear all state and redirect to login
-      window.location.href = '/v3/login';
+      window.location.href = '/en-new/login';
     }
   };
 

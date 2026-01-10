@@ -64,16 +64,16 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   process.env.FRONTEND_URL,
   "https://buildhomemartsquares.com",
-  "https://buildhomemartsquares.com/v3",
+  "https://buildhomemartsquares.com/en-new/",
   "https://www.buildhomemartsquares.com",
-  "https://www.buildhomemartsquares.com/v3",
+  "https://www.buildhomemartsquares.com/en-new/",
   "https://squares-v3.vercel.app",
   "https://squares.vercel.app",
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:8001",
-  "http://localhost:3002/v3/",
-  "http://localhost:3002/v3",
+  "http://localhost:3002/en-new/",
+  "http://localhost:3002/en-new",
 ].filter(Boolean);
 
 // Add additional origins from environment variable
