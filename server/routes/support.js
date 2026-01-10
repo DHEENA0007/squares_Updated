@@ -7,6 +7,7 @@ const User = require('../models/User');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { authenticateToken, optionalAuth } = require('../middleware/authMiddleware');
 const { sendTemplateEmail } = require('../utils/emailService');
+const notificationService = require('../services/notificationService');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -192,6 +193,26 @@ router.post('/tickets', optionalAuth, upload.array('attachments', 5), asyncHandl
     });
   } catch (emailError) {
     console.error('Failed to send admin notification:', emailError);
+  }
+
+  // Send push notifications to all admins, subadmins, and custom roles with support permissions
+  try {
+    const adminIds = await notificationService.getAdminUserIds('support.view');
+
+    if (adminIds.length > 0) {
+      await notificationService.sendNewSupportTicketNotification(adminIds, {
+        ticketId: ticket._id.toString(),
+        ticketNumber: ticket.ticketNumber,
+        subject: subject,
+        category: category || 'general',
+        priority: priority || 'medium',
+        customerName: name || req.user?.profile?.firstName || 'Guest User',
+        customerEmail: email
+      });
+    }
+  } catch (notifError) {
+    console.error('Failed to send support ticket push notifications:', notifError);
+    // Don't fail the request if notifications fail
   }
 
   res.status(201).json({
@@ -385,6 +406,63 @@ router.post('/tickets/:ticketNumber/responses', authenticateToken, asyncHandler(
     });
   } catch (emailError) {
     console.error('Failed to send email notification:', emailError);
+  }
+
+  // Send push notification to recipient
+  try {
+    const senderName = req.user.profile?.firstName
+      ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+      : req.user.email;
+
+    if (isAdmin) {
+      // Admin is responding - notify the ticket owner
+      const ticketOwnerId = ticket.user._id.toString();
+      await notificationService.sendSupportTicketNotification(
+        ticketOwnerId,
+        {
+          ticketId: ticket._id.toString(),
+          ticketNumber: ticket.ticketNumber,
+          subject: ticket.subject,
+          senderName: senderName,
+          messagePreview: message.trim().substring(0, 100),
+          status: ticket.status,
+          priority: ticket.priority
+        },
+        true // isAdminResponse
+      );
+    } else {
+      // Customer is responding - notify assigned admin or all admins
+      const adminIds = [];
+      if (ticket.assignedTo) {
+        adminIds.push(ticket.assignedTo.toString());
+      } else {
+        // Notify all admins if no one is assigned
+        const adminUsers = await User.find({
+          role: { $in: ['admin', 'superadmin', 'subadmin'] },
+          status: 'active'
+        }).select('_id');
+        adminIds.push(...adminUsers.map(u => u._id.toString()));
+      }
+
+      for (const adminId of adminIds) {
+        await notificationService.sendSupportTicketNotification(
+          adminId,
+          {
+            ticketId: ticket._id.toString(),
+            ticketNumber: ticket.ticketNumber,
+            subject: ticket.subject,
+            senderName: senderName,
+            messagePreview: message.trim().substring(0, 100),
+            status: ticket.status,
+            priority: ticket.priority
+          },
+          false // isAdminResponse
+        );
+      }
+    }
+  } catch (notifError) {
+    console.error('Failed to send support ticket response notification:', notifError);
+    // Don't fail the request if notification fails
   }
 
   res.json({

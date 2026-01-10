@@ -317,7 +317,7 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
                         loadingCustomers ? (
                           <div className="text-sm text-muted-foreground text-center py-2">Loading customers...</div>
                         ) : (
-                          <div className="border rounded-md max-h-[200px] overflow-y-auto bg-white shadow-sm mt-1">
+                          <div className="border rounded-md max-h-[200px] overflow-y-auto bg-popover shadow-sm mt-1">
                             {filteredCustomers.length === 0 ? (
                               <div className="p-4 text-sm text-muted-foreground text-center">
                                 No customers found
@@ -327,7 +327,7 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
                                 {filteredCustomers.map((customer) => (
                                   <div
                                     key={customer._id}
-                                    className="p-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-center justify-between group"
+                                    className="p-3 hover:bg-muted cursor-pointer transition-colors flex items-center justify-between group"
                                     onClick={() => setSelectedCustomer(customer._id)}
                                   >
                                     <div className="flex flex-col">

@@ -7,6 +7,7 @@ const { authenticateToken, optionalAuth } = require('../middleware/authMiddlewar
 const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 const mongoose = require('mongoose');
 const adminRealtimeService = require('../services/adminRealtimeService');
+const notificationService = require('../services/notificationService');
 const router = express.Router();
 
 // Handle OPTIONS preflight requests
@@ -742,7 +743,7 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
     const property = await Property.create(propertyData);
     await property.populate('owner', 'profile.firstName profile.lastName profile.phone email role');
 
-    // Notify admins about new property
+    // Notify admins about new property (real-time broadcast)
     adminRealtimeService.broadcastNotification({
       type: 'property_created',
       title: 'New Property Submitted',
@@ -753,6 +754,27 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
         ownerName: `${req.user.profile.firstName} ${req.user.profile.lastName}`
       }
     });
+
+    // Send push notifications to all admins, subadmins, and custom roles with property permissions
+    try {
+      const adminIds = await notificationService.getAdminUserIds('properties.approve');
+
+      if (adminIds.length > 0) {
+        await notificationService.sendPropertySubmissionNotification(adminIds, {
+          propertyId: property._id.toString(),
+          title: property.title,
+          vendorId: req.user.id,
+          vendorName: `${req.user.profile.firstName} ${req.user.profile.lastName}`.trim(),
+          type: property.type,
+          listingType: property.listingType,
+          location: property.address?.city || property.address?.state || 'Unknown',
+          price: property.price
+        });
+      }
+    } catch (notifError) {
+      console.error('Failed to send property submission notifications:', notifError);
+      // Don't fail the request if notifications fail
+    }
 
     res.status(201).json({
       success: true,
@@ -1095,6 +1117,28 @@ router.patch('/:id/approve', authenticateToken, asyncHandler(async (req, res) =>
       .populate('owner', 'profile.firstName profile.lastName profile.phone email role')
       .populate('approvedBy', 'profile.firstName profile.lastName email')
       .populate('rejectedBy', 'profile.firstName profile.lastName email');
+
+    // Send push notification to property owner
+    try {
+      const ownerId = property.owner.toString();
+      const approverName = req.user.profile?.firstName
+        ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+        : req.user.email;
+
+      await notificationService.sendPropertyApprovalNotification(
+        ownerId,
+        {
+          propertyId: property._id.toString(),
+          title: property.title,
+          approvedBy: approverName
+        },
+        action === 'approve' ? 'approved' : 'rejected',
+        action === 'reject' ? (rejectionReason || 'No reason provided') : null
+      );
+    } catch (notifError) {
+      console.error('Failed to send property approval notification:', notifError);
+      // Don't fail the request if notification fails
+    }
 
     res.json({
       success: true,

@@ -76,8 +76,10 @@ class AuthService {
     try {
       const response = await fetch(url, config);
 
-      // Check for auth error
-      handleAuthError(response);
+      // Check for auth error (skip for login as 401 means invalid credentials there)
+      if (endpoint !== '/auth/login') {
+        handleAuthError(response);
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({

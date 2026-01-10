@@ -228,11 +228,11 @@ const VendorProperties = () => {
     if (details.length === 0) return null;
 
     return (
-      <div className="flex py-3 border-t border-gray-100 mb-4 bg-gray-50/50 rounded-lg px-2">
+      <div className="flex py-3 border-t border-border mb-4 bg-muted/50 rounded-lg px-2">
         {details.map((item, index) => (
-          <div key={item.label} className={`flex-1 text-center ${index > 0 ? 'border-l border-gray-200' : ''}`}>
+          <div key={item.label} className={`flex-1 text-center ${index > 0 ? 'border-l border-border' : ''}`}>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{item.label}</p>
-            <p className="font-semibold text-sm text-gray-900 truncate px-1 capitalize">{item.value}</p>
+            <p className="font-semibold text-sm text-foreground truncate px-1 capitalize">{item.value}</p>
           </div>
         ))}
       </div>
@@ -270,54 +270,54 @@ const VendorProperties = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-100">
+        <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-100 dark:from-blue-950/40 dark:to-background dark:border-blue-900/50">
           <CardContent className="p-3 md:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs md:text-sm font-medium text-blue-600/80">Total Properties</p>
-                <p className="text-xl md:text-2xl font-bold text-blue-700">{stats.totalProperties}</p>
+                <p className="text-xs md:text-sm font-medium text-blue-600/80 dark:text-blue-400/80">Total Properties</p>
+                <p className="text-xl md:text-2xl font-bold text-blue-700 dark:text-blue-400">{stats.totalProperties}</p>
               </div>
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Building2 className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <Building2 className="h-5 w-5 md:h-6 md:w-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-green-50 to-white border-green-100">
+        <Card className="bg-gradient-to-br from-green-50 to-white border-green-100 dark:from-green-950/40 dark:to-background dark:border-green-900/50">
           <CardContent className="p-3 md:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs md:text-sm font-medium text-green-600/80">Total Views</p>
-                <p className="text-xl md:text-2xl font-bold text-green-700">{stats.totalViews.toLocaleString()}</p>
+                <p className="text-xs md:text-sm font-medium text-green-600/80 dark:text-green-400/80">Total Views</p>
+                <p className="text-xl md:text-2xl font-bold text-green-700 dark:text-green-400">{stats.totalViews.toLocaleString()}</p>
               </div>
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Eye className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <Eye className="h-5 w-5 md:h-6 md:w-6 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-orange-50 to-white border-orange-100">
+        <Card className="bg-gradient-to-br from-orange-50 to-white border-orange-100 dark:from-orange-950/40 dark:to-background dark:border-orange-900/50">
           <CardContent className="p-3 md:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs md:text-sm font-medium text-orange-600/80">Avg. Rating</p>
-                <p className="text-xl md:text-2xl font-bold text-orange-700">{stats.averageRating.toFixed(1)}</p>
+                <p className="text-xs md:text-sm font-medium text-orange-600/80 dark:text-orange-400/80">Avg. Rating</p>
+                <p className="text-xl md:text-2xl font-bold text-orange-700 dark:text-orange-400">{stats.averageRating.toFixed(1)}</p>
               </div>
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Star className="h-5 w-5 md:h-6 md:w-6 text-orange-600" />
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                <Star className="h-5 w-5 md:h-6 md:w-6 text-orange-600 dark:text-orange-400" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-purple-50 to-white border-purple-100">
+        <Card className="bg-gradient-to-br from-purple-50 to-white border-purple-100 dark:from-purple-950/40 dark:to-background dark:border-purple-900/50">
           <CardContent className="p-3 md:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs md:text-sm font-medium text-purple-600/80">Favorites</p>
-                <p className="text-xl md:text-2xl font-bold text-purple-700">{stats.totalFavorites}</p>
+                <p className="text-xs md:text-sm font-medium text-purple-600/80 dark:text-purple-400/80">Favorites</p>
+                <p className="text-xl md:text-2xl font-bold text-purple-700 dark:text-purple-400">{stats.totalFavorites}</p>
               </div>
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Star className="h-5 w-5 md:h-6 md:w-6 text-purple-600" />
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                <Star className="h-5 w-5 md:h-6 md:w-6 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </CardContent>
@@ -325,19 +325,19 @@ const VendorProperties = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-xl border shadow-sm">
+      <div className="flex flex-col md:flex-row gap-4 items-center bg-card p-4 rounded-xl border shadow-sm dark:border-border">
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             placeholder="Search properties by name, location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-gray-50 border-gray-200 focus:bg-white transition-colors"
+            className="pl-10 bg-background border-input focus:bg-background transition-colors"
           />
         </div>
         <div className="flex gap-3 w-full md:w-auto">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full md:w-[180px] bg-gray-50 border-gray-200">
+            <SelectTrigger className="w-full md:w-[180px] bg-background border-input">
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-muted-foreground" />
                 <SelectValue placeholder="Status" />
@@ -354,7 +354,7 @@ const VendorProperties = () => {
           </Select>
 
           <Select value={typeFilter} onValueChange={setTypeFilter} disabled={isLoadingPropertyTypes}>
-            <SelectTrigger className="w-full md:w-[180px] bg-gray-50 border-gray-200">
+            <SelectTrigger className="w-full md:w-[180px] bg-background border-input">
               <div className="flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-muted-foreground" />
                 <SelectValue placeholder={isLoadingPropertyTypes ? "Loading..." : "Type"} />
@@ -375,9 +375,9 @@ const VendorProperties = () => {
       {/* Properties List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {properties.map((property) => (
-          <Card key={property._id} className="group overflow-hidden hover:shadow-lg transition-all duration-300 border-gray-200 flex flex-col h-full">
+          <Card key={property._id} className="group overflow-hidden hover:shadow-lg transition-all duration-300 border-border flex flex-col h-full dark:bg-card">
             {/* Property Image */}
-            <div className="relative h-48 bg-gray-100 overflow-hidden">
+            <div className="relative h-48 bg-muted overflow-hidden">
               {property.images && property.images.length > 0 ? (
                 <img
                   src={propertyService.getPrimaryImage(property)}
@@ -385,8 +385,8 @@ const VendorProperties = () => {
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
               ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                  <Camera className="w-12 h-12 text-gray-300" />
+                <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/80 flex items-center justify-center">
+                  <Camera className="w-12 h-12 text-muted-foreground/50" />
                 </div>
               )}
 
@@ -404,28 +404,28 @@ const VendorProperties = () => {
                 <Badge className={`${propertyService.getStatusColor(property.status)} text-white border-0 shadow-sm`}>
                   {propertyService.getStatusText(property.status)}
                 </Badge>
-                <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 shadow-sm">
+                <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 shadow-sm dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
                   For {property.listingType.charAt(0).toUpperCase() + property.listingType.slice(1)}
                 </Badge>
                 {property.featured && (
-                  <Badge className="bg-amber-100 text-amber-700 border-amber-200 shadow-sm">
+                  <Badge className="bg-amber-100 text-amber-700 border-amber-200 shadow-sm dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800">
                     <Star className="w-3 h-3 mr-1 fill-current" />
                     Featured
                   </Badge>
                 )}
                 {property.verified && (
-                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm">Verified</Badge>
+                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800">Verified</Badge>
                 )}
               </div>
 
               <div className="mb-4">
                 <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-lg font-bold text-gray-900 line-clamp-1 hover:text-primary transition-colors cursor-pointer" onClick={() => window.location.href = `/vendor/properties/details/${property._id}`}>
+                  <h3 className="text-lg font-bold text-foreground line-clamp-1 hover:text-primary transition-colors cursor-pointer" onClick={() => window.location.href = `/vendor/properties/details/${property._id}`}>
                     {property.title}
                   </h3>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-1 text-gray-400 hover:text-gray-600">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-1 text-muted-foreground hover:text-foreground">
                         <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -464,7 +464,7 @@ const VendorProperties = () => {
                 </div>
 
                 <p className="text-muted-foreground flex items-center text-sm mb-3">
-                  <MapPin className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 text-gray-400" />
+                  <MapPin className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 text-muted-foreground" />
                   <span className="truncate">{getLocationString(property)}</span>
                 </p>
 

@@ -18,6 +18,7 @@ const { isSuperAdmin, isAnyAdmin } = require('../middleware/roleMiddleware');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 const adminRealtimeService = require('../services/adminRealtimeService');
+const notificationService = require('../services/notificationService');
 const { sendTemplateEmail, sendEmail } = require('../utils/emailService');
 const { sanitizePagination, sanitizeSearchQuery } = require('../utils/sanitize');
 
@@ -111,6 +112,24 @@ router.post('/vendor-applications', asyncHandler(async (req, res) => {
     });
 
     await Promise.all([...emailPromises, vendorEmailPromise]);
+
+    // Send push notifications to all admins and users with vendor approval permissions
+    try {
+      const adminIds = await notificationService.getAdminUserIds('vendors.approve');
+      if (adminIds.length > 0) {
+        await notificationService.sendVendorApplicationNotification(adminIds, {
+          vendorId: `VEN-${Date.now()}`,
+          vendorName: `${firstName} ${lastName}`,
+          companyName: businessName,
+          businessType: businessType,
+          email: email,
+          phone: phone
+        });
+      }
+    } catch (notifError) {
+      console.error('Failed to send vendor application push notifications:', notifError);
+      // Don't fail the request if notifications fail
+    }
 
     // Store the application data temporarily (you might want to create a VendorApplication model)
     // For now, we'll just send the emails and return success
@@ -832,6 +851,26 @@ router.post('/vendor-approvals/:vendorId/approve', authenticateToken, isAnyAdmin
       console.error('Failed to send approval email:', emailError);
     }
 
+    // Send push notification to vendor
+    try {
+      const approverName = admin?.profile?.firstName
+        ? `${admin.profile.firstName} ${admin.profile.lastName || ''}`.trim()
+        : admin?.email || 'Admin';
+
+      await notificationService.sendVendorApprovalNotification(
+        user._id.toString(),
+        {
+          vendorId: vendor._id.toString(),
+          companyName: vendor.businessInfo.companyName,
+          approvedBy: approverName
+        },
+        'approved'
+      );
+    } catch (notifError) {
+      console.error('Failed to send vendor approval push notification:', notifError);
+      // Don't fail the request if notification fails
+    }
+
     res.json({
       success: true,
       message: 'Vendor application approved successfully',
@@ -958,6 +997,27 @@ router.post('/vendor-approvals/:vendorId/reject', authenticateToken, isAnyAdmin,
       });
     } catch (emailError) {
       console.error('Failed to send rejection email:', emailError);
+    }
+
+    // Send push notification to vendor
+    try {
+      const approverName = admin?.profile?.firstName
+        ? `${admin.profile.firstName} ${admin.profile.lastName || ''}`.trim()
+        : admin?.email || 'Admin';
+
+      await notificationService.sendVendorApprovalNotification(
+        user._id.toString(),
+        {
+          vendorId: vendor._id.toString(),
+          companyName: vendor.businessInfo.companyName,
+          approvedBy: approverName
+        },
+        'rejected',
+        rejectionReason
+      );
+    } catch (notifError) {
+      console.error('Failed to send vendor rejection push notification:', notifError);
+      // Don't fail the request if notification fails
     }
 
     res.json({

@@ -998,16 +998,7 @@ const VendorAnalytics = () => {
                           radius={[4, 4, 0, 0]}
                         />
                       ) : null}
-                      {engagementMetric === 'all' || engagementMetric === 'conversions' ? (
-                        <Line
-                          type="monotone"
-                          dataKey="conversions"
-                          stroke="#10b981"
-                          strokeWidth={3}
-                          dot={{ r: 5, fill: '#10b981' }}
-                          name="Conversions"
-                        />
-                      ) : null}
+
                       {engagementMetric === 'all' ? (
                         <>
                           <Line
@@ -1042,10 +1033,7 @@ const VendorAnalytics = () => {
                           <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
                           <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1} />
                         </linearGradient>
-                        <linearGradient id="areaConversions" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
-                        </linearGradient>
+
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis dataKey="name" stroke="#6b7280" tick={{ fontSize: 12 }} />
@@ -1065,9 +1053,7 @@ const VendorAnalytics = () => {
                       {engagementMetric === 'all' || engagementMetric === 'interactions' ? (
                         <Area type="monotone" dataKey="interactions" stroke="#8b5cf6" fill="url(#areaInteractions)" name="Interactions" />
                       ) : null}
-                      {engagementMetric === 'all' || engagementMetric === 'conversions' ? (
-                        <Area type="monotone" dataKey="conversions" stroke="#10b981" fill="url(#areaConversions)" name="Conversions" />
-                      ) : null}
+
                     </AreaChart>
                   ) : (
                     <BarChart data={filteredEngagementData}>
@@ -1089,9 +1075,7 @@ const VendorAnalytics = () => {
                       {engagementMetric === 'all' || engagementMetric === 'interactions' ? (
                         <Bar dataKey="interactions" fill="#8b5cf6" name="Interactions" radius={[4, 4, 0, 0]} />
                       ) : null}
-                      {engagementMetric === 'all' || engagementMetric === 'conversions' ? (
-                        <Bar dataKey="conversions" fill="#10b981" name="Conversions" radius={[4, 4, 0, 0]} />
-                      ) : null}
+
                     </BarChart>
                   )}
                 </ResponsiveContainer>

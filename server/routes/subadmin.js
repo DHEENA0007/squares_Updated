@@ -12,6 +12,7 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 const { isSubAdmin, hasPermission, SUB_ADMIN_PERMISSIONS } = require('../middleware/roleMiddleware');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const adminRealtimeService = require('../services/adminRealtimeService');
+const notificationService = require('../services/notificationService');
 const { PERMISSIONS } = require('../utils/permissions');
 const { sanitizeSearchQuery, sanitizePagination, sanitizeCSV, validateDate } = require('../utils/sanitize');
 
@@ -326,6 +327,27 @@ router.post('/properties/:id/approve',
       timestamp: new Date()
     });
 
+    // Send push notification to property owner
+    if (owner) {
+      try {
+        const approverName = req.user.profile?.firstName
+          ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+          : req.user.email;
+
+        await notificationService.sendPropertyApprovalNotification(
+          owner._id.toString(),
+          {
+            propertyId: property._id.toString(),
+            title: property.title,
+            approvedBy: approverName
+          },
+          'approved'
+        );
+      } catch (notifError) {
+        console.error('Failed to send property approval push notification:', notifError);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Property approved successfully',
@@ -400,6 +422,28 @@ router.post('/properties/:id/reject',
       },
       timestamp: new Date()
     });
+
+    // Send push notification to property owner
+    if (owner) {
+      try {
+        const rejectorName = req.user.profile?.firstName
+          ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+          : req.user.email;
+
+        await notificationService.sendPropertyApprovalNotification(
+          owner._id.toString(),
+          {
+            propertyId: property._id.toString(),
+            title: property.title,
+            approvedBy: rejectorName
+          },
+          'rejected',
+          reason
+        );
+      } catch (notifError) {
+        console.error('Failed to send property rejection push notification:', notifError);
+      }
+    }
 
     res.json({
       success: true,

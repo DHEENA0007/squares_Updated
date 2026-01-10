@@ -5,14 +5,15 @@ const Review = require('../models/Review');
 const Property = require('../models/Property');
 const ServiceBooking = require('../models/ServiceBooking');
 const User = require('../models/User');
+const notificationService = require('../services/notificationService');
 const router = express.Router();
 
 // @desc    Get reviews written by the current customer
 // @route   GET /api/customer/reviews/given
 // @access  Private
 router.get('/given', authenticateToken, asyncHandler(async (req, res) => {
-  const { 
-    page = 1, 
+  const {
+    page = 1,
     limit = 10,
     rating,
     reviewType,
@@ -72,7 +73,7 @@ router.get('/given', authenticateToken, asyncHandler(async (req, res) => {
     updatedAt: review.updatedAt,
     vendor: review.vendor ? {
       _id: review.vendor._id,
-      name: review.vendor.profile?.firstName 
+      name: review.vendor.profile?.firstName
         ? `${review.vendor.profile.firstName} ${review.vendor.profile.lastName || ''}`
         : review.vendor.email,
       businessName: review.vendor.profile?.vendorInfo?.businessName,
@@ -115,8 +116,8 @@ router.get('/given', authenticateToken, asyncHandler(async (req, res) => {
 // @route   GET /api/customer/reviews/received
 // @access  Private
 router.get('/received', authenticateToken, asyncHandler(async (req, res) => {
-  const { 
-    page = 1, 
+  const {
+    page = 1,
     limit = 10,
     rating,
     reviewType,
@@ -160,7 +161,7 @@ router.get('/received', authenticateToken, asyncHandler(async (req, res) => {
     propertyId: review.property?._id,
     serviceId: review.service?._id,
     clientId: review.client?._id,
-    clientName: review.client?.profile?.firstName 
+    clientName: review.client?.profile?.firstName
       ? `${review.client.profile.firstName} ${review.client.profile.lastName || ''}`
       : review.client?.email,
     clientAvatar: review.client?.profile?.avatar,
@@ -230,7 +231,7 @@ router.get('/my-stats', authenticateToken, asyncHandler(async (req, res) => {
   // Get recent reviews count (last 30 days)
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
+
   const recentReviewsCount = await Review.countDocuments({
     vendor: userId,
     status: 'active',
@@ -240,15 +241,15 @@ router.get('/my-stats', authenticateToken, asyncHandler(async (req, res) => {
   // Calculate response rate
   const [totalReviewsCount, respondedReviewsCount] = await Promise.all([
     Review.countDocuments({ vendor: userId, status: 'active' }),
-    Review.countDocuments({ 
-      vendor: userId, 
+    Review.countDocuments({
+      vendor: userId,
       status: 'active',
       'vendorResponse.message': { $exists: true, $ne: '' }
     })
   ]);
 
-  const responseRate = totalReviewsCount > 0 
-    ? Math.round((respondedReviewsCount / totalReviewsCount) * 100) 
+  const responseRate = totalReviewsCount > 0
+    ? Math.round((respondedReviewsCount / totalReviewsCount) * 100)
     : 0;
 
   const reviewStats = stats[0] || {
@@ -294,12 +295,12 @@ router.get('/reviewable-items', authenticateToken, asyncHandler(async (req, res)
 
   // Get only properties that were assigned to (sold/rented to) the customer
   // Customers can only review properties they purchased or rented, not properties they are selling
-  const properties = await Property.find({ 
+  const properties = await Property.find({
     assignedTo: userId,
     status: { $in: ['sold', 'rented'] }
   })
-  .select('title city state price status createdAt assignedTo assignedAt')
-  .lean();
+    .select('title city state price status createdAt assignedTo assignedAt')
+    .lean();
 
   // Check which properties have been reviewed
   const propertyReviews = await Review.find({
@@ -316,8 +317,8 @@ router.get('/reviewable-items', authenticateToken, asyncHandler(async (req, res)
     title: property.title,
     location: `${property.city}, ${property.state}`,
     purchaseDate: property.assignedAt || property.createdAt,
-    status: property.status === 'sold' ? 'purchased' : 
-            property.status === 'rented' ? 'rented' : 'leased',
+    status: property.status === 'sold' ? 'purchased' :
+      property.status === 'rented' ? 'rented' : 'leased',
     canReview: true,
     hasReviewed: reviewedPropertyIds.has(property._id.toString()),
     isAssigned: !!property.assignedTo
@@ -328,10 +329,10 @@ router.get('/reviewable-items', authenticateToken, asyncHandler(async (req, res)
     clientId: userId,
     status: 'completed'
   })
-  .populate('serviceId', 'name category')
-  .populate('vendorId', 'email profile')
-  .select('serviceId vendorId bookingDate serviceDate status')
-  .lean();
+    .populate('serviceId', 'name category')
+    .populate('vendorId', 'email profile')
+    .select('serviceId vendorId bookingDate serviceDate status')
+    .lean();
 
   // Check which services have been reviewed
   const serviceReviews = await Review.find({
@@ -349,7 +350,7 @@ router.get('/reviewable-items', authenticateToken, asyncHandler(async (req, res)
       _id: booking.serviceId._id,
       name: booking.serviceId.name,
       category: booking.serviceId.category,
-      vendorName: booking.vendorId.profile?.firstName 
+      vendorName: booking.vendorId.profile?.firstName
         ? `${booking.vendorId.profile.firstName} ${booking.vendorId.profile.lastName || ''}`
         : booking.vendorId.email,
       vendorId: booking.vendorId._id,
@@ -365,9 +366,9 @@ router.get('/reviewable-items', authenticateToken, asyncHandler(async (req, res)
     clientId: userId,
     status: { $in: ['completed', 'in_progress'] }
   })
-  .populate('vendorId', 'email profile')
-  .select('vendorId serviceDate')
-  .lean();
+    .populate('vendorId', 'email profile')
+    .select('vendorId serviceDate')
+    .lean();
 
   // Check which vendors have been reviewed
   const vendorReviews = await Review.find({
@@ -383,10 +384,10 @@ router.get('/reviewable-items', authenticateToken, asyncHandler(async (req, res)
     vendorInteractions
       .filter(int => int.vendorId)
       .map(int => [
-        int.vendorId._id.toString(), 
+        int.vendorId._id.toString(),
         {
           _id: int.vendorId._id,
-          name: int.vendorId.profile?.firstName 
+          name: int.vendorId.profile?.firstName
             ? `${int.vendorId.profile.firstName} ${int.vendorId.profile.lastName || ''}`
             : int.vendorId.email,
           businessName: int.vendorId.profile?.vendorInfo?.businessName || '',
@@ -412,13 +413,13 @@ router.get('/reviewable-items', authenticateToken, asyncHandler(async (req, res)
 // @route   POST /api/customer/reviews
 // @access  Private
 router.post('/', authenticateToken, asyncHandler(async (req, res) => {
-  const { 
-    vendorId, 
-    propertyId, 
-    serviceId, 
-    rating, 
-    title, 
-    comment, 
+  const {
+    vendorId,
+    propertyId,
+    serviceId,
+    rating,
+    title,
+    comment,
     reviewType,
     isPublic = true,
     tags = [],
@@ -455,6 +456,28 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
     .populate('property', 'title city state')
     .populate('service', 'name category')
     .lean();
+
+  // Send push notification to vendor about new review
+  if (vendorId) {
+    try {
+      const customerName = req.user.profile?.firstName
+        ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+        : req.user.email;
+
+      await notificationService.sendNewReviewNotification(vendorId, {
+        reviewId: review._id.toString(),
+        rating: rating,
+        title: title,
+        customerName: customerName,
+        propertyId: propertyId,
+        propertyTitle: populatedReview.property?.title || null,
+        commentPreview: comment.substring(0, 100)
+      });
+    } catch (notifError) {
+      console.error('Failed to send new review notification:', notifError);
+      // Don't fail the request if notification fails
+    }
+  }
 
   res.status(201).json({
     success: true,
@@ -586,7 +609,9 @@ router.post('/:id/reply', authenticateToken, asyncHandler(async (req, res) => {
   const { message } = req.body;
   const userId = req.user.id;
 
-  const review = await Review.findOne({ _id: id, vendor: userId });
+  const review = await Review.findOne({ _id: id, vendor: userId })
+    .populate('client', 'email profile')
+    .populate('property', 'title');
 
   if (!review) {
     return res.status(404).json({
@@ -601,6 +626,26 @@ router.post('/:id/reply', authenticateToken, asyncHandler(async (req, res) => {
   };
 
   await review.save();
+
+  // Send push notification to customer about vendor reply
+  if (review.client) {
+    try {
+      const vendorName = req.user.profile?.firstName
+        ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+        : req.user.email;
+
+      await notificationService.sendReviewReplyNotification(review.client._id.toString(), {
+        reviewId: review._id.toString(),
+        vendorName: vendorName,
+        propertyId: review.property?._id?.toString() || null,
+        propertyTitle: review.property?.title || null,
+        replyPreview: message.substring(0, 100)
+      });
+    } catch (notifError) {
+      console.error('Failed to send review reply notification:', notifError);
+      // Don't fail the request if notification fails
+    }
+  }
 
   res.json({
     success: true,
@@ -628,7 +673,28 @@ router.post('/:id/report', authenticateToken, asyncHandler(async (req, res) => {
   review.status = 'reported';
   await review.save();
 
-  // TODO: Send notification to admin about reported review
+  // Send push notification to all admins and users with review moderation permissions
+  try {
+    const adminIds = await notificationService.getAdminUserIds('reviews.manage');
+
+    if (adminIds.length > 0) {
+      const reporterName = req.user.profile?.firstName
+        ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+        : req.user.email;
+
+      await notificationService.sendReviewReportNotification(adminIds, {
+        reviewId: review._id.toString(),
+        reviewTitle: review.title,
+        reporterName: reporterName,
+        reporterId: req.user.id,
+        reason: reason,
+        vendorId: review.vendor?.toString() || null
+      });
+    }
+  } catch (notifError) {
+    console.error('Failed to send review report notification:', notifError);
+    // Don't fail the request if notification fails
+  }
 
   res.json({
     success: true,

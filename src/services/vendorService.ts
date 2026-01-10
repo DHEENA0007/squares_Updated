@@ -24,6 +24,13 @@ export interface VendorProfile {
         newsUpdates: boolean;
         marketing: boolean;
       };
+      business?: {
+        emailNotifications: boolean;
+        smsNotifications: boolean;
+        leadAlerts: boolean;
+        marketingEmails: boolean;
+        weeklyReports: boolean;
+      };
       privacy?: {
         showEmail: boolean;
         showPhone: boolean;
@@ -83,6 +90,8 @@ export interface VendorProfile {
     totalMessages: number;
     totalSales?: number;
     totalValue?: string;
+    leadsGenerated?: number;
+    totalViews?: number;
   };
   createdAt: string;
   updatedAt: string;
@@ -123,6 +132,13 @@ export interface UpdateVendorData {
         newMessages?: boolean;
         newsUpdates?: boolean;
         marketing?: boolean;
+      };
+      business?: {
+        emailNotifications?: boolean;
+        smsNotifications?: boolean;
+        leadAlerts?: boolean;
+        marketingEmails?: boolean;
+        weeklyReports?: boolean;
       };
       privacy?: {
         showEmail?: boolean;

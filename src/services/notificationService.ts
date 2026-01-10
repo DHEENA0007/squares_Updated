@@ -23,7 +23,7 @@ api.interceptors.request.use((config) => {
 });
 
 export interface NotificationData {
-  type: 'property_alert' | 'price_drop' | 'new_message' | 'news_update' | 'welcome' | 'password_reset' | 'email_verification';
+  type: 'property_alert' | 'price_drop' | 'new_message' | 'news_update' | 'welcome' | 'password_reset' | 'email_verification' | 'property_submission' | 'property_approval' | 'support_ticket_message' | 'new_support_ticket' | 'vendor_approval' | 'new_vendor_application' | 'ticket_status_change' | 'new_review' | 'review_reply' | 'review_reported' | 'role_change' | 'account_status_change';
   userId: string;
   data: Record<string, any>;
 }

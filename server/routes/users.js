@@ -10,6 +10,7 @@ const { asyncHandler } = require('../middleware/errorMiddleware');
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
 const { PERMISSIONS, hasPermission, hasPermissionOrIsAdmin, isAdmin } = require('../utils/permissions');
 const bcrypt = require('bcrypt');
+const notificationService = require('../services/notificationService');
 const router = express.Router();
 
 // Apply auth middleware to all routes
@@ -856,7 +857,7 @@ router.patch('/:id/status', asyncHandler(async (req, res) => {
     });
   }
 
-  const { status } = req.body;
+  const { status, reason } = req.body;
 
   if (!['active', 'inactive', 'pending', 'suspended'].includes(status)) {
     return res.status(400).json({
@@ -864,6 +865,10 @@ router.patch('/:id/status', asyncHandler(async (req, res) => {
       message: 'Invalid status value'
     });
   }
+
+  // Get old status first
+  const existingUser = await User.findById(req.params.id);
+  const oldStatus = existingUser?.status;
 
   const user = await User.findByIdAndUpdate(
     req.params.id,
@@ -876,6 +881,25 @@ router.patch('/:id/status', asyncHandler(async (req, res) => {
       success: false,
       message: 'User not found'
     });
+  }
+
+  // Send push notification for status change
+  if (oldStatus !== status) {
+    try {
+      const changerName = req.user.profile?.firstName
+        ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+        : req.user.email;
+
+      await notificationService.sendAccountStatusNotification(user._id.toString(), {
+        oldStatus: oldStatus,
+        newStatus: status,
+        reason: reason || null,
+        changedBy: changerName
+      });
+    } catch (notifError) {
+      console.error('Failed to send account status push notification:', notifError);
+      // Don't fail the request if notification fails
+    }
   }
 
   res.json({
@@ -1086,6 +1110,22 @@ router.patch('/:id/promote', asyncHandler(async (req, res) => {
     console.log(`✅ Role promotion notification sent to ${user.email}`);
   } catch (emailError) {
     console.error('❌ Failed to send promotion notification email:', emailError);
+  }
+
+  // Send push notification for role change
+  try {
+    const promoterName = req.user.profile?.firstName
+      ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+      : req.user.email;
+
+    await notificationService.sendRolePromotionNotification(user._id.toString(), {
+      oldRole: oldRole,
+      newRole: role,
+      promotedBy: promoterName
+    });
+  } catch (notifError) {
+    console.error('Failed to send role promotion push notification:', notifError);
+    // Don't fail the request if notification fails
   }
 
   // Remove password from response
