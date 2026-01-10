@@ -5,7 +5,6 @@ const heroSlideSchema = new mongoose.Schema({
     tabKey: {
         type: String,
         required: true,
-        enum: ['buy', 'rent', 'lease', 'commercial'],
         unique: true,
     },
     title: {
