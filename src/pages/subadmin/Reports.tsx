@@ -256,7 +256,7 @@ const Reports = () => {
           <CardContent>
             <div className="text-2xl font-bold">{stats?.totalSupport || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {stats?.resolvedSupport || 0} resolved, {stats?.openSupport || 0} open
+              {stats?.closedSupport || 0} closed, {stats?.openSupport || 0} open
             </p>
           </CardContent>
         </Card>
@@ -367,34 +367,25 @@ const Reports = () => {
                   <div className="flex items-center gap-3">
                     <CheckCircle className="h-5 w-5 text-green-600" />
                     <div>
-                      <p className="font-medium">Resolved Tickets</p>
-                      <p className="text-sm text-muted-foreground">Successfully closed</p>
-                    </div>
-                  </div>
-                  <p className="text-2xl font-bold">{stats.resolvedSupport}</p>
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-950">
-                  <div className="flex items-center gap-3">
-                    <XCircle className="h-5 w-5 text-gray-600" />
-                    <div>
                       <p className="font-medium">Closed Tickets</p>
-                      <p className="text-sm text-muted-foreground">All completed</p>
+                      <p className="text-sm text-muted-foreground">Successfully completed</p>
                     </div>
                   </div>
                   <p className="text-2xl font-bold">{stats.closedSupport}</p>
                 </div>
+
+
               </div>
 
               <div className="pt-4 border-t">
                 <h4 className="font-semibold mb-3">Resolution Analytics</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950">
-                    <p className="text-xs text-muted-foreground">Resolved (7d)</p>
+                    <p className="text-xs text-muted-foreground">Closed (7d)</p>
                     <p className="text-xl font-bold">{stats.analytics.supportTicketsResolvedLast7Days}</p>
                   </div>
                   <div className="p-3 rounded-lg bg-teal-50 dark:bg-teal-950">
-                    <p className="text-xs text-muted-foreground">Resolved (30d)</p>
+                    <p className="text-xs text-muted-foreground">Closed (30d)</p>
                     <p className="text-xl font-bold">{stats.analytics.supportTicketsResolvedLast30Days}</p>
                   </div>
                 </div>

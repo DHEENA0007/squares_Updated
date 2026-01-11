@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, XCircle, Clock, AlertTriangle, Users, Star, MessageSquare } from "lucide-react";
@@ -54,7 +55,8 @@ const SubAdminDashboard = () => {
       icon: Clock,
       color: "text-orange-600",
       bgColor: "bg-orange-100",
-      description: "Properties awaiting review"
+      description: "Properties awaiting review",
+      link: "/admin/property-approvals"
     },
     {
       title: "Approved Properties",
@@ -62,7 +64,8 @@ const SubAdminDashboard = () => {
       icon: CheckCircle,
       color: "text-green-600",
       bgColor: "bg-green-100",
-      description: "Recently approved"
+      description: "Recently approved",
+      link: "/admin/properties"
     },
     {
       title: "Support Tickets",
@@ -70,7 +73,8 @@ const SubAdminDashboard = () => {
       icon: MessageSquare,
       color: "text-blue-600",
       bgColor: "bg-blue-100",
-      description: "Pending tickets"
+      description: "Pending tickets",
+      link: "/admin/support-tickets"
     },
     {
       title: "Content Reports",
@@ -78,7 +82,8 @@ const SubAdminDashboard = () => {
       icon: AlertTriangle,
       color: "text-red-600",
       bgColor: "bg-red-100",
-      description: "New moderation reports"
+      description: "New moderation reports",
+      link: "/admin/content-moderation"
     },
     {
       title: "Pending Promotions",
@@ -86,7 +91,8 @@ const SubAdminDashboard = () => {
       icon: Star,
       color: "text-purple-600",
       bgColor: "bg-purple-100",
-      description: "Awaiting approval"
+      description: "Awaiting approval",
+      link: "/admin/promotion-approval"
     },
     {
       title: "Active Vendors",
@@ -94,7 +100,8 @@ const SubAdminDashboard = () => {
       icon: Users,
       color: "text-indigo-600",
       bgColor: "bg-indigo-100",
-      description: "Total vendors tracked"
+      description: "Total vendors tracked",
+      link: "/admin/vendor-approvals"
     }
   ];
 
@@ -126,22 +133,24 @@ const SubAdminDashboard = () => {
         {statCards.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <Card key={index} className="transition-all hover:shadow-md">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
-                <div className={`p-2 rounded-md ${stat.bgColor}`}>
-                  <Icon className={`w-4 h-4 ${stat.color}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold mb-1">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">
-                  {stat.description}
-                </p>
-              </CardContent>
-            </Card>
+            <Link key={index} to={stat.link}>
+              <Card className="transition-all hover:shadow-lg hover:border-primary/50 cursor-pointer">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {stat.title}
+                  </CardTitle>
+                  <div className={`p-2 rounded-md ${stat.bgColor}`}>
+                    <Icon className={`w-4 h-4 ${stat.color}`} />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold mb-1">{stat.value}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {stat.description}
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
           );
         })}
       </div>
@@ -153,26 +162,34 @@ const SubAdminDashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 border rounded-lg cursor-pointer hover:bg-accent transition-colors">
-              <CheckCircle className="w-8 h-8 text-green-600 mb-2" />
-              <h3 className="font-semibold">Review Properties</h3>
-              <p className="text-sm text-muted-foreground">Review and verify new property listings</p>
-            </div>
-            <div className="p-4 border rounded-lg cursor-pointer hover:bg-accent transition-colors">
-              <MessageSquare className="w-8 h-8 text-blue-600 mb-2" />
-              <h3 className="font-semibold">Handle Support</h3>
-              <p className="text-sm text-muted-foreground">Respond to customer support tickets</p>
-            </div>
-            <div className="p-4 border rounded-lg cursor-pointer hover:bg-accent transition-colors">
-              <AlertTriangle className="w-8 h-8 text-red-600 mb-2" />
-              <h3 className="font-semibold">Moderate Content</h3>
-              <p className="text-sm text-muted-foreground">Review reported content and images</p>
-            </div>
-            <div className="p-4 border rounded-lg cursor-pointer hover:bg-accent transition-colors">
-              <Star className="w-8 h-8 text-purple-600 mb-2" />
-              <h3 className="font-semibold">Approve Promotions</h3>
-              <p className="text-sm text-muted-foreground">Review featured property requests</p>
-            </div>
+            <Link to="/admin/property-approvals">
+              <div className="p-4 border rounded-lg cursor-pointer hover:bg-accent transition-colors">
+                <CheckCircle className="w-8 h-8 text-green-600 mb-2" />
+                <h3 className="font-semibold">Review Properties</h3>
+                <p className="text-sm text-muted-foreground">Review and verify new property listings</p>
+              </div>
+            </Link>
+            <Link to="/admin/support-tickets">
+              <div className="p-4 border rounded-lg cursor-pointer hover:bg-accent transition-colors">
+                <MessageSquare className="w-8 h-8 text-blue-600 mb-2" />
+                <h3 className="font-semibold">Handle Support</h3>
+                <p className="text-sm text-muted-foreground">Respond to customer support tickets</p>
+              </div>
+            </Link>
+            <Link to="/admin/content-moderation">
+              <div className="p-4 border rounded-lg cursor-pointer hover:bg-accent transition-colors">
+                <AlertTriangle className="w-8 h-8 text-red-600 mb-2" />
+                <h3 className="font-semibold">Moderate Content</h3>
+                <p className="text-sm text-muted-foreground">Review reported content and images</p>
+              </div>
+            </Link>
+            <Link to="/admin/promotion-approval">
+              <div className="p-4 border rounded-lg cursor-pointer hover:bg-accent transition-colors">
+                <Star className="w-8 h-8 text-purple-600 mb-2" />
+                <h3 className="font-semibold">Approve Promotions</h3>
+                <p className="text-sm text-muted-foreground">Review featured property requests</p>
+              </div>
+            </Link>
           </div>
         </CardContent>
       </Card>
@@ -194,7 +211,7 @@ const SubAdminDashboard = () => {
             <div className="flex items-center justify-between p-3 bg-accent rounded-lg">
               <div className="flex items-center space-x-3">
                 <MessageSquare className="w-5 h-5 text-blue-600" />
-                <span className="text-sm">Support ticket #5678 resolved</span>
+                <span className="text-sm">Support ticket #5678 closed</span>
               </div>
               <span className="text-xs text-muted-foreground">4 hours ago</span>
             </div>

@@ -1,3 +1,24 @@
+# Force correct MIME types for static assets
+<IfModule mod_mime.c>
+  AddType text/css .css
+  AddType application/javascript .js
+  AddType application/json .json
+  AddType image/svg+xml .svg
+  AddType image/png .png
+  AddType image/jpeg .jpg .jpeg
+  AddType image/webp .webp
+  AddType image/x-icon .ico
+  AddType font/woff .woff
+  AddType font/woff2 .woff2
+  AddType audio/mpeg .mp3
+  AddType audio/wav .wav
+</IfModule>
+
+# Disable content negotiation which can cause MIME issues
+<IfModule mod_negotiation.c>
+  Options -MultiViews
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /en-new/
@@ -5,19 +26,37 @@
   # Prevent directory listings
   Options -Indexes
 
-  # 1. If the request is for an asset file in the assets directory
-  #    AND it does not exist, return a real 404. Do NOT fallback to index.html.
-  #    This fixes the "MIME type text/html" error for missing scripts.
-  RewriteCond %{REQUEST_URI} ^/en-new/assets/ [NC]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteRule ^ - [R=404,L]
+  # Auto-redirect root to /en-new/
+  RewriteCond %{REQUEST_URI} ^/?$
+  RewriteRule ^ /en-new/ [R=301,L]
 
-  # 2. Standard SPA Routing:
-  #    If the requested file or directory exists, serve it.
-  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  # 1. Serve static assets directly - DO NOT rewrite if file exists
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
+
+  # 2. Serve directories directly
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  #    Otherwise, rewrite everything else to index.html
+  # 3. For asset requests that don't exist, return 404 (not index.html)
+  RewriteCond %{REQUEST_URI} \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|mp3|wav|webp)$ [NC]
+  RewriteRule ^ - [R=404,L]
+
+  # 4. SPA fallback - all other routes go to index.html
   RewriteRule ^ index.html [L]
+</IfModule>
+
+# Enable compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json
+</IfModule>
+
+# Cache static assets
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
 </IfModule>

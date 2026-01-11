@@ -62,6 +62,9 @@ const FiltersTab: React.FC = () => {
   const [editingFilter, setEditingFilter] = useState<FilterConfiguration | null>(null);
   const [activeFilterType, setActiveFilterType] = useState<string>('');
   const [newFilterTypeName, setNewFilterTypeName] = useState('');
+  const [allPropertyFields, setAllPropertyFields] = useState<any[]>([]);
+  const [isLoadingFields, setIsLoadingFields] = useState(false);
+  const [selectedFieldData, setSelectedFieldData] = useState<any>(null); // To track if a field was selected from suggestions
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState<CreateFilterConfigurationDTO>({
     filter_type: '',
@@ -91,6 +94,7 @@ const FiltersTab: React.FC = () => {
   useEffect(() => {
     fetchFilters();
     fetchDependencies();
+    fetchAllPropertyFields(); // Fetch property fields on mount
     // Initialize location service
     locaService.initialize().then(() => {
       setIsLocaReady(true);
@@ -207,7 +211,7 @@ const FiltersTab: React.FC = () => {
     return filters.filter(f => f.filterType === type).sort((a, b) => a.displayOrder - b.displayOrder);
   };
 
-  const handleCreateNewFilterType = () => {
+  const handleCreateNewFilterType = async () => {
     if (!newFilterTypeName.trim()) return;
 
     const formattedType = newFilterTypeName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
@@ -221,15 +225,87 @@ const FiltersTab: React.FC = () => {
       return;
     }
 
-    setFilterTypes([...filterTypes, formattedType].sort());
-    setActiveFilterType(formattedType);
-    setIsNewFilterTypeDialogOpen(false);
-    setNewFilterTypeName('');
+    try {
+      setIsLoading(true);
 
-    toast({
-      title: 'Success',
-      description: `Filter type "${formattedType}" created. You can now add options to it.`,
-    });
+      // Check if a field with options was selected
+      if (selectedFieldData && selectedFieldData.fieldOptions && selectedFieldData.fieldOptions.length > 0) {
+        // Auto-create filter options from the field's options
+        await Promise.all(selectedFieldData.fieldOptions.map((option: string, index: number) => {
+          return configurationService.createFilterConfiguration({
+            filter_type: formattedType,
+            name: option,
+            value: option.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_+]/g, ''),
+            display_label: option,
+            display_order: index + 1,
+          });
+        }));
+
+        toast({
+          title: 'Success',
+          description: `Filter type "${formattedType}" created with ${selectedFieldData.fieldOptions.length} options auto-populated from field configuration.`,
+        });
+
+        // Refresh filters to show the new options
+        fetchFilters();
+      } else {
+        // Custom filter or field without options - user will add options manually
+        toast({
+          title: 'Success',
+          description: `Filter type "${formattedType}" created. You can now add options to it.`,
+        });
+      }
+
+      setFilterTypes([...filterTypes, formattedType].sort());
+      setActiveFilterType(formattedType);
+      setIsNewFilterTypeDialogOpen(false);
+      setNewFilterTypeName('');
+      setSelectedFieldData(null);
+
+    } catch (error) {
+      console.error('Error creating filter type:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create filter type',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch all property fields for the dropdown
+  const fetchAllPropertyFields = async () => {
+    try {
+      setIsLoadingFields(true);
+      const propertyTypes = await configurationService.getAllPropertyTypes(false);
+      const allFields: any[] = [];
+      const seenFieldNames = new Set<string>();
+
+      for (const pt of propertyTypes) {
+        const fields = await configurationService.getPropertyTypeFields(pt._id, false);
+        for (const field of fields) {
+          // Avoid duplicates by field name
+          if (!seenFieldNames.has(field.fieldName)) {
+            seenFieldNames.add(field.fieldName);
+            allFields.push({
+              fieldName: field.fieldName,
+              fieldLabel: field.fieldLabel,
+              fieldType: field.fieldType,
+              fieldOptions: field.fieldOptions || [], // Include field options
+              propertyTypeName: pt.name,
+            });
+          }
+        }
+      }
+
+      console.log('Fetched property fields:', allFields); // Debug log
+      setAllPropertyFields(allFields);
+    } catch (error) {
+      console.error('Error fetching property fields:', error);
+    } finally {
+      setIsLoadingFields(false);
+    }
   };
 
   const handleOpenDialog = (filter?: FilterConfiguration) => {
@@ -863,31 +939,98 @@ const FiltersTab: React.FC = () => {
       </Dialog>
 
       {/* New Filter Type Dialog */}
-      <Dialog open={isNewFilterTypeDialogOpen} onOpenChange={setIsNewFilterTypeDialogOpen}>
+      <Dialog open={isNewFilterTypeDialogOpen} onOpenChange={(open) => {
+        setIsNewFilterTypeDialogOpen(open);
+        if (open && allPropertyFields.length === 0) {
+          fetchAllPropertyFields();
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Filter Type</DialogTitle>
             <DialogDescription>
-              Create a new filter category to organize your property search filters
+              Create a new filter category. You can type a custom name or select from existing property fields.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <Label htmlFor="newFilterTypeName">Filter Type Name *</Label>
               <Input
                 id="newFilterTypeName"
                 value={newFilterTypeName}
-                onChange={(e) => setNewFilterTypeName(e.target.value)}
-                placeholder="e.g., Property Status, Location Type, Price Range"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleCreateNewFilterType();
-                  }
+                onChange={(e) => {
+                  setNewFilterTypeName(e.target.value);
+                  setSelectedFieldData(null); // Clear selection when user types manually
                 }}
+                placeholder="Type to search or enter custom name..."
+                autoComplete="off"
               />
+
+              {/* Auto-suggest dropdown */}
+              {newFilterTypeName.length >= 1 && (
+                (() => {
+                  if (isLoadingFields) {
+                    return (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md p-3 text-sm text-muted-foreground">
+                        Loading fields...
+                      </div>
+                    );
+                  }
+
+                  if (allPropertyFields.length === 0) {
+                    return null;
+                  }
+
+                  const filtered = allPropertyFields.filter(field =>
+                    field.fieldLabel.toLowerCase().includes(newFilterTypeName.toLowerCase()) ||
+                    field.fieldName.toLowerCase().includes(newFilterTypeName.toLowerCase())
+                  );
+
+                  if (filtered.length === 0) return null;
+
+                  // Don't show if exact match already selected
+                  if (filtered.length === 1 && filtered[0].fieldLabel === newFilterTypeName) return null;
+
+                  return (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto">
+                      {filtered.map((field) => (
+                        <div
+                          key={field.fieldName}
+                          className="px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground border-b last:border-0"
+                          onClick={() => {
+                            setNewFilterTypeName(field.fieldLabel);
+                            setSelectedFieldData(field); // Store the selected field data
+                          }}
+                        >
+                          <div className="font-medium">
+                            {field.fieldLabel}
+                            <span className="text-muted-foreground font-normal ml-1">
+                              ({field.propertyTypeName})
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Type: {field.fieldType}
+                            {field.fieldOptions && field.fieldOptions.length > 0 && (
+                              <span className="ml-2 text-green-600">
+                                • {field.fieldOptions.length} options will be auto-created
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()
+              )}
+
               <p className="text-xs text-muted-foreground">
-                This will be converted to lowercase with underscores (e.g., "property_status")
+                Type to search existing fields or enter a custom filter name.
+                {selectedFieldData && selectedFieldData.fieldOptions?.length > 0 && (
+                  <span className="block mt-1 text-green-600 font-medium">
+                    ✓ Selected field has {selectedFieldData.fieldOptions.length} options that will be auto-populated
+                  </span>
+                )}
               </p>
             </div>
           </div>

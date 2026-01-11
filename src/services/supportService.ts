@@ -11,7 +11,7 @@ export interface SupportTicket {
   category: 'technical' | 'billing' | 'property' | 'account' | 'general';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   description: string;
-  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  status: 'open' | 'in_progress' | 'closed';
   attachments?: string[];
   userId?: string;
   assignedTo?: {
@@ -104,7 +104,7 @@ class SupportService {
   async createTicket(data: CreateTicketData): Promise<SingleTicketResponse> {
     try {
       const formData = new FormData();
-      
+
       // Append text fields
       formData.append('name', data.name);
       formData.append('email', data.email);
@@ -127,7 +127,7 @@ class SupportService {
       });
 
       const attachmentCount = data.attachments?.length || 0;
-      const attachmentText = attachmentCount > 0 
+      const attachmentText = attachmentCount > 0
         ? ` with ${attachmentCount} attachment${attachmentCount > 1 ? 's' : ''}`
         : '';
 
@@ -151,7 +151,7 @@ class SupportService {
   async getMyTickets(filters: TicketFilters = {}): Promise<SupportTicketResponse> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           queryParams.append(key, String(value));

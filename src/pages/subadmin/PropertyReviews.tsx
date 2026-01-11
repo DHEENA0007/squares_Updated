@@ -118,10 +118,19 @@ const PropertyReviews = () => {
   const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
   const { toast } = useToast();
 
+  // Stats for overview cards
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0
+  });
+
   // Filter states
   const [propertyType, setPropertyType] = useState("all");
   const [listingType, setListingType] = useState("all");
   const [approvalStatus, setApprovalStatus] = useState("pending");
+  const [myReviewsOnly, setMyReviewsOnly] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -183,7 +192,7 @@ const PropertyReviews = () => {
 
   useEffect(() => {
     fetchProperties();
-  }, [currentPage, searchTerm, propertyType, listingType, approvalStatus, startDate, endDate]);
+  }, [currentPage, searchTerm, propertyType, listingType, approvalStatus, myReviewsOnly, startDate, endDate]);
 
   const fetchProperties = async () => {
     try {
@@ -194,6 +203,7 @@ const PropertyReviews = () => {
       if (propertyType && propertyType !== 'all') params.append('type', propertyType);
       if (listingType && listingType !== 'all') params.append('listingType', listingType);
       if (approvalStatus && approvalStatus !== 'all') params.append('status', approvalStatus);
+      if (myReviewsOnly) params.append('myReviews', 'true');
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
 
@@ -215,6 +225,22 @@ const PropertyReviews = () => {
     }
   };
 
+  // Fetch property stats - shows properties approved/rejected by THIS subadmin
+  const fetchStats = async () => {
+    try {
+      const response = await fetchWithAuth('/subadmin/dashboard');
+      const data = await handleApiResponse<{ data: any }>(response);
+      setStats({
+        total: (data.data.availablePropertiesApproved || 0) + (data.data.rejectedPropertiesApproved || 0),
+        pending: data.data.pendingProperties || 0,
+        approved: data.data.availablePropertiesApproved || 0,
+        rejected: data.data.rejectedPropertiesApproved || 0
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
   // Real-time updates
   useRealtimeEvent('property_created', (data) => {
     toast({
@@ -226,7 +252,13 @@ const PropertyReviews = () => {
 
   useRealtimeEvent('property_updated', (data) => {
     fetchProperties();
+    fetchStats();
   });
+
+  // Fetch stats on mount
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   const resetApprovalForm = () => {
     setChecklist({
@@ -378,6 +410,65 @@ const PropertyReviews = () => {
         <p className="text-muted-foreground mt-1">
           Review and approve property listings
         </p>
+      </div>
+
+      {/* Overview Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary/50 ${myReviewsOnly && approvalStatus === 'all' ? 'border-primary ring-2 ring-primary/20' : ''}`}
+          onClick={() => { setApprovalStatus('all'); setMyReviewsOnly(true); }}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">My Reviews</CardTitle>
+            <Home className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground mt-1">Total reviewed by me</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-yellow-500/50 ${!myReviewsOnly && approvalStatus === 'pending' ? 'border-yellow-500 ring-2 ring-yellow-500/20' : ''}`}
+          onClick={() => { setApprovalStatus('pending'); setMyReviewsOnly(false); }}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
+            <Calendar className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+            <p className="text-xs text-muted-foreground mt-1">Awaiting action</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-green-500/50 ${myReviewsOnly && approvalStatus === 'available' ? 'border-green-500 ring-2 ring-green-500/20' : ''}`}
+          onClick={() => { setApprovalStatus('available'); setMyReviewsOnly(true); }}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">My Approved</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+            <p className="text-xs text-muted-foreground mt-1">Approved by me</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-red-500/50 ${myReviewsOnly && approvalStatus === 'rejected' ? 'border-red-500 ring-2 ring-red-500/20' : ''}`}
+          onClick={() => { setApprovalStatus('rejected'); setMyReviewsOnly(true); }}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">My Rejected</CardTitle>
+            <XCircle className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+            <p className="text-xs text-muted-foreground mt-1">Rejected by me</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Search and Filters */}

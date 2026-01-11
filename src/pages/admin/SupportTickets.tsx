@@ -14,7 +14,7 @@ interface SupportTicket {
   subject: string;
   description: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  status: 'open' | 'in_progress' | 'closed';
   category: string;
   user: {
     name: string;
@@ -85,8 +85,8 @@ const SupportTickets = () => {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          message: responseMessage 
+        body: JSON.stringify({
+          message: responseMessage
         })
       });
 
@@ -119,8 +119,8 @@ const SupportTickets = () => {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          status: newStatus 
+        body: JSON.stringify({
+          status: newStatus
         })
       });
 
@@ -146,7 +146,6 @@ const SupportTickets = () => {
     const colors = {
       open: "bg-green-100 text-green-800",
       in_progress: "bg-blue-100 text-blue-800",
-      resolved: "bg-purple-100 text-purple-800",
       closed: "bg-gray-100 text-gray-800",
     };
     return colors[status as keyof typeof colors] || colors.open;
@@ -158,7 +157,6 @@ const SupportTickets = () => {
         return AlertCircle;
       case 'in_progress':
         return Clock;
-      case 'resolved':
       case 'closed':
         return CheckCircle;
       default:
@@ -214,7 +212,6 @@ const SupportTickets = () => {
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="open">Open</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
                   <SelectItem value="closed">Closed</SelectItem>
                 </SelectContent>
               </Select>
@@ -271,7 +268,7 @@ const SupportTickets = () => {
                     <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
                       {ticket.description}
                     </p>
-                    
+
                     {ticket.attachments && ticket.attachments.length > 0 && (
                       <div className="flex items-center gap-1 mb-4 text-xs text-muted-foreground">
                         <Paperclip className="h-3 w-3" />
@@ -313,7 +310,7 @@ const SupportTickets = () => {
                             <DialogHeader>
                               <DialogTitle>Ticket #{ticket.ticketNumber} - {ticket.subject}</DialogTitle>
                             </DialogHeader>
-                            
+
                             {selectedTicket && (
                               <div className="space-y-4">
                                 {/* Ticket Details */}
@@ -335,7 +332,6 @@ const SupportTickets = () => {
                                       <SelectContent>
                                         <SelectItem value="open">Open</SelectItem>
                                         <SelectItem value="in_progress">In Progress</SelectItem>
-                                        <SelectItem value="resolved">Resolved</SelectItem>
                                         <SelectItem value="closed">Closed</SelectItem>
                                       </SelectContent>
                                     </Select>
@@ -346,7 +342,7 @@ const SupportTickets = () => {
                                 <div className="p-4 border rounded-lg">
                                   <h4 className="font-semibold text-sm mb-2">Original Message</h4>
                                   <p className="text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
-                                  
+
                                   {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
                                     <div className="mt-3 pt-3 border-t space-y-2">
                                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -360,8 +356,8 @@ const SupportTickets = () => {
                                             <div key={idx} className="border rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                                               {isImage ? (
                                                 <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="block">
-                                                  <img 
-                                                    src={attachment.url} 
+                                                  <img
+                                                    src={attachment.url}
                                                     alt={attachment.filename}
                                                     className="w-full h-32 object-cover cursor-pointer hover:opacity-90 transition"
                                                   />
@@ -375,8 +371,8 @@ const SupportTickets = () => {
                                                 <span className="text-xs truncate flex-1 mr-2" title={attachment.filename}>
                                                   {attachment.filename}
                                                 </span>
-                                                <a 
-                                                  href={attachment.url} 
+                                                <a
+                                                  href={attachment.url}
                                                   download={attachment.filename}
                                                   target="_blank"
                                                   rel="noopener noreferrer"
@@ -398,13 +394,12 @@ const SupportTickets = () => {
                                   <div className="space-y-3">
                                     <h4 className="font-semibold">Conversation</h4>
                                     {selectedTicket.responses.slice(1).map((response, index) => (
-                                      <div 
+                                      <div
                                         key={index}
-                                        className={`p-3 rounded-lg ${
-                                          response.isAdmin 
+                                        className={`p-3 rounded-lg ${response.isAdmin
                                             ? 'bg-blue-50 border-l-4 border-blue-500 ml-4'
                                             : 'bg-gray-50 border-l-4 border-gray-500 mr-4'
-                                        }`}
+                                          }`}
                                       >
                                         <div className="flex justify-between items-start mb-2">
                                           <span className="text-sm font-semibold">
@@ -451,7 +446,6 @@ const SupportTickets = () => {
                           <SelectContent>
                             <SelectItem value="open">Open</SelectItem>
                             <SelectItem value="in_progress">In Progress</SelectItem>
-                            <SelectItem value="resolved">Resolved</SelectItem>
                             <SelectItem value="closed">Closed</SelectItem>
                           </SelectContent>
                         </Select>

@@ -16,12 +16,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
-import { 
-  Store, 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
+import {
+  Store,
+  User,
+  Mail,
+  Phone,
+  MapPin,
   Building,
   FileText,
   Upload,
@@ -106,7 +106,7 @@ const VendorRegister = () => {
   const [states, setStates] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
-  
+
   // Loading states for location fields
   const [locationLoading, setLocationLoading] = useState({
     states: false,
@@ -114,7 +114,7 @@ const VendorRegister = () => {
     cities: false,
     pincode: false
   });
-  
+
   // Store selected location names for display
   const [selectedLocationNames, setSelectedLocationNames] = useState({
     country: 'India',
@@ -122,7 +122,7 @@ const VendorRegister = () => {
     district: '',
     city: ''
   });
-  
+
   const steps = [
     { id: 1, title: "Personal Info", description: "Basic details" },
     { id: 2, title: "Business Info", description: "Company details" },
@@ -140,13 +140,13 @@ const VendorRegister = () => {
     phone: "",
     password: "",
     confirmPassword: "",
-    
+
     // Business Information
     businessName: "",
     businessType: "",
     businessDescription: "",
     experience: "",
-    
+
     // Address Information
     address: "",
     country: "India",
@@ -158,15 +158,15 @@ const VendorRegister = () => {
     city: "",
     cityCode: "",
     pincode: "",
-    
+
     // Legal Documents
     licenseNumber: "",
     gstNumber: "",
     panNumber: "",
-    
+
     // Documents
     documents: [],
-    
+
     // Agreements
     termsAccepted: false,
     marketingConsent: false
@@ -210,13 +210,13 @@ const VendorRegister = () => {
       const districtsData = locaService.getDistricts(formData.state);
       setDistricts(districtsData);
       console.log(`Loaded ${districtsData.length} districts for ${formData.state}`);
-      
+
       // Reset dependent fields
-      setFormData(prev => ({ 
-        ...prev, 
+      setFormData(prev => ({
+        ...prev,
         district: '',
-        city: '', 
-        pincode: '' 
+        city: '',
+        pincode: ''
       }));
       setSelectedLocationNames(prev => ({
         ...prev,
@@ -248,12 +248,12 @@ const VendorRegister = () => {
       const citiesData = locaService.getCities(formData.state, formData.district);
       setCities(citiesData);
       console.log(`Loaded ${citiesData.length} cities for ${formData.district}`);
-      
+
       // Reset dependent fields
-      setFormData(prev => ({ 
-        ...prev, 
-        city: '', 
-        pincode: '' 
+      setFormData(prev => ({
+        ...prev,
+        city: '',
+        pincode: ''
       }));
       setSelectedLocationNames(prev => ({
         ...prev,
@@ -309,7 +309,7 @@ const VendorRegister = () => {
     if (selectedLocationNames.district) addressParts.push(selectedLocationNames.district);
     if (selectedLocationNames.state) addressParts.push(selectedLocationNames.state);
     if (formData.pincode) addressParts.push(formData.pincode);
-    
+
     if (addressParts.length > 0 && !formData.address.trim()) {
       const generatedAddress = addressParts.join(', ');
       setFormData(prev => ({
@@ -333,7 +333,7 @@ const VendorRegister = () => {
   const passwordStrength = (password: string): { score: number; label: string; color: string; bgColor: string } => {
     const errors = validatePassword(password);
     const score = Math.max(0, 5 - errors.length);
-    
+
     if (score === 5) return { score, label: "Very Strong", color: "text-green-600", bgColor: "bg-green-500" };
     if (score >= 4) return { score, label: "Strong", color: "text-green-500", bgColor: "bg-green-400" };
     if (score >= 3) return { score, label: "Medium", color: "text-yellow-500", bgColor: "bg-yellow-400" };
@@ -377,11 +377,11 @@ const VendorRegister = () => {
     }
 
     setEmailValidation({ checking: true, available: null, message: "" });
-    
+
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api'}/auth/check-email?email=${encodeURIComponent(email)}`);
       const data = await response.json();
-      
+
       if (data.exists) {
         setEmailValidation({
           checking: false,
@@ -413,7 +413,7 @@ const VendorRegister = () => {
     }
 
     setPhoneValidation({ checking: true, available: null, message: "" });
-    
+
     try {
       const result = await authService.checkPhoneAvailability(phone);
       setPhoneValidation({
@@ -433,25 +433,25 @@ const VendorRegister = () => {
   // Enhanced business name validation with fallback strategies
   const validateBusinessNameFormat = (businessName: string): { isValid: boolean; message: string } => {
     const trimmed = businessName.trim();
-    
+
     if (!trimmed) {
       return { isValid: false, message: "Business name is required" };
     }
-    
+
     if (trimmed.length < 3) {
       return { isValid: false, message: "Business name must be at least 3 characters long" };
     }
-    
+
     if (trimmed.length > 100) {
       return { isValid: false, message: "Business name must not exceed 100 characters" };
     }
-    
+
     // Check for valid characters (allow letters, numbers, spaces, basic punctuation)
     const validPattern = /^[a-zA-Z0-9\s\-\&\,\.\(\)]+$/;
     if (!validPattern.test(trimmed)) {
       return { isValid: false, message: "Business name contains invalid characters. Only letters, numbers, spaces, and basic punctuation are allowed" };
     }
-    
+
     return { isValid: true, message: "" };
   };
 
@@ -474,10 +474,10 @@ const VendorRegister = () => {
       });
     } catch (error) {
       console.warn("Business name API validation failed:", error);
-      
+
       // Fallback: Use format validation when API is unavailable
       const formatValidation = validateBusinessNameFormat(businessName);
-      
+
       if (formatValidation.isValid) {
         // API failed but format is valid - allow progression with warning
         setBusinessNameValidation({
@@ -582,22 +582,22 @@ const VendorRegister = () => {
           formData.businessName.trim() &&
           validateBusinessNameFormat(formData.businessName).isValid
         );
-        
+
         const otherFieldsValid = !!(
           formData.businessType &&
           formData.businessDescription.trim() &&
           formData.businessDescription.trim().length >= 10 &&
           formData.experience
         );
-        
+
         // Allow progression if:
         // 1. Business name format is valid (primary validation)
         // 2. Business name availability is either confirmed available OR unavailable (null) but format is valid
         // 3. Only block if business name is confirmed unavailable (available === false)
-        const businessNameAvailabilityValid = 
-          businessNameValidation.available === true || 
+        const businessNameAvailabilityValid =
+          businessNameValidation.available === true ||
           businessNameValidation.available === null; // null means validation unavailable but format is valid
-        
+
         return businessNameValid && otherFieldsValid && businessNameAvailabilityValid;
       case 3:
         return !!(
@@ -626,7 +626,7 @@ const VendorRegister = () => {
 
   const getValidationErrors = (step: number): string[] => {
     const errors: string[] = [];
-    
+
     switch (step) {
       case 1:
         if (!formData.firstName.trim()) errors.push("First name is required");
@@ -651,7 +651,7 @@ const VendorRegister = () => {
       case 2:
         // Enhanced validation error messages
         const businessNameFormatValidation = validateBusinessNameFormat(formData.businessName);
-        
+
         if (!formData.businessName.trim()) {
           errors.push("Business name is required");
         } else if (!businessNameFormatValidation.isValid) {
@@ -662,7 +662,7 @@ const VendorRegister = () => {
           // Format is valid but availability check is unavailable - this should not block progression
           // No error added - this allows progression
         }
-        
+
         if (!formData.businessType) errors.push("Business type is required");
         if (!formData.businessDescription.trim()) errors.push("Business description is required");
         else if (formData.businessDescription.trim().length < 10) errors.push("Business description must be at least 10 characters");
@@ -695,7 +695,7 @@ const VendorRegister = () => {
         if (otpStep === "none") errors.push("Please verify your email first");
         break;
     }
-    
+
     return errors;
   };
 
@@ -761,9 +761,9 @@ const VendorRegister = () => {
       }
     } catch (error) {
       console.error('Document upload error:', error);
-      
+
       let errorMessage = `Failed to upload ${file.name}. Please try again.`;
-      
+
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           errorMessage = `Upload timed out. ${file.name} may be too large or connection is slow.`;
@@ -771,7 +771,7 @@ const VendorRegister = () => {
           errorMessage = error.message;
         }
       }
-      
+
       toast({
         title: "Upload Failed",
         description: errorMessage,
@@ -831,15 +831,15 @@ const VendorRegister = () => {
   const handleProfileSubmission = async () => {
     try {
       setIsLoading(true);
-      
+
       // Just send OTP, don't submit profile to admin yet
       const otpResponse = await authService.sendOTP(formData.email, formData.firstName);
-      
+
       if (otpResponse.success) {
         setOtpStep("sent");
         setOtpExpiry(otpResponse.expiryMinutes || 10);
         setCurrentStep(6); // Move to OTP step
-        
+
         toast({
           title: "Profile Ready for Submission",
           description: "Please verify your email to submit profile to admin for approval.",
@@ -871,16 +871,16 @@ const VendorRegister = () => {
 
     try {
       setIsLoading(true);
-      
+
       // Complete registration with OTP verification (same as customer flow)
       await handleFinalRegistration();
-      
+
       setOtpStep("verified");
-      
+
     } catch (error) {
       console.error("Registration error:", error);
       toast({
-        title: "Registration Failed", 
+        title: "Registration Failed",
         description: error instanceof Error ? error.message : "Failed to complete registration. Please try again.",
         variant: "destructive",
       });
@@ -900,13 +900,13 @@ const VendorRegister = () => {
     try {
       // Clean and validate phone number
       let cleanPhone = formData.phone.trim().replace(/[^\d+]/g, '');
-      
+
       // Ensure phone number starts with + or a digit
       if (!cleanPhone.startsWith('+') && !cleanPhone.match(/^[1-9]/)) {
         // Add country code for India if no + prefix and doesn't start with valid digit
         cleanPhone = '+91' + cleanPhone;
       }
-      
+
       // Prepare business info - only include non-empty fields
       const businessInfo: {
         businessName: string;
@@ -930,7 +930,7 @@ const VendorRegister = () => {
         state: formData.state,
         pincode: formData.pincode.trim()
       };
-      
+
       // Only add optional fields if they have values AND are valid
       if (formData.licenseNumber?.trim()) {
         businessInfo.licenseNumber = formData.licenseNumber.trim();
@@ -955,7 +955,7 @@ const VendorRegister = () => {
           return;
         }
       }
-      
+
       // Prepare documents - convert to array format expected by backend
       // Backend expects: verification.documents = [{ type, name, url }]
       // Map document keys to backend document types
@@ -967,7 +967,7 @@ const VendorRegister = () => {
         panCard: 'pan_card',
         gstCertificate: 'gst_certificate'
       };
-      
+
       const documents = Object.entries(uploadedDocuments)
         .filter(([_, doc]) => doc && doc.url)
         .map(([key, doc]) => ({
@@ -977,9 +977,9 @@ const VendorRegister = () => {
           status: 'pending',
           uploadDate: new Date().toISOString()
         }));
-      
+
       console.log('Prepared documents for backend:', documents);
-      
+
       const registrationData = {
         email: formData.email.trim(),
         password: formData.password,
@@ -992,37 +992,37 @@ const VendorRegister = () => {
         businessInfo: businessInfo,
         documents: documents // Always include documents array (can be empty)
       };
-      
+
       console.log('Final registration payload:', JSON.stringify(registrationData, null, 2));
 
       const response = await authService.register(registrationData);
-      
+
       if (response.success) {
         // Clear any auto-stored tokens - vendors must wait for approval
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        
+
         toast({
           title: "Registration Successful!",
           description: "Your vendor account has been created and submitted for admin approval. You will receive an email notification once approved. You can try logging in after approval.",
           duration: 6000,
         });
-        
+
         // Redirect to login after successful registration
         setTimeout(() => {
           navigate("/vendor/login");
         }, 3000);
       }
-      
+
     } catch (error) {
       console.error("Final registration error:", error);
-      
+
       let errorMessage = "An error occurred during registration";
-      
+
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
+
       toast({
         title: "Registration Failed",
         description: errorMessage,
@@ -1040,7 +1040,7 @@ const VendorRegister = () => {
   const resendOtp = async () => {
     try {
       setIsLoading(true);
-      
+
       const response = await authService.sendOTP(formData.email, formData.firstName);
       if (response.success) {
         setOtp("");
@@ -1065,7 +1065,7 @@ const VendorRegister = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Prevent form submission - all actions are handled by specific buttons
     // Form submission should not trigger any registration logic
     return false;
@@ -1123,10 +1123,9 @@ const VendorRegister = () => {
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
                   placeholder="Enter your email address"
-                  className={`pl-10 ${
-                    emailValidation.available === false ? "border-red-500" :
-                    emailValidation.available === true ? "border-green-500" : ""
-                  }`}
+                  className={`pl-10 ${emailValidation.available === false ? "border-red-500" :
+                      emailValidation.available === true ? "border-green-500" : ""
+                    }`}
                   required
                 />
               </div>
@@ -1165,10 +1164,9 @@ const VendorRegister = () => {
                     handleInputChange("phone", digits);
                   }}
                   placeholder="Enter 10-digit phone number"
-                  className={`pl-10 ${
-                    phoneValidation.available === false ? "border-red-500" :
-                    phoneValidation.available === true ? "border-green-500" : ""
-                  }`}
+                  className={`pl-10 ${phoneValidation.available === false ? "border-red-500" :
+                      phoneValidation.available === true ? "border-green-500" : ""
+                    }`}
                   maxLength={10}
                   inputMode="numeric"
                   pattern="[0-9]{10}"
@@ -1216,7 +1214,7 @@ const VendorRegister = () => {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
-                
+
                 {/* Password Strength Indicator */}
                 {formData.password && formData.password.length > 0 && (
                   <div className="space-y-2">
@@ -1232,7 +1230,7 @@ const VendorRegister = () => {
                         style={{ width: `${(passwordStrength(formData.password).score / 5) * 100}%` }}
                       />
                     </div>
-                    
+
                     {/* Password Requirements */}
                     <div className="space-y-1">
                       {validatePassword(formData.password).map((requirement, index) => (
@@ -1276,7 +1274,7 @@ const VendorRegister = () => {
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
-                
+
                 {/* Password Match Validation */}
                 {formData.confirmPassword && formData.confirmPassword.length > 0 && (
                   <div className="space-y-1">
@@ -1312,11 +1310,10 @@ const VendorRegister = () => {
                   value={formData.businessName}
                   onChange={(e) => handleInputChange("businessName", e.target.value)}
                   placeholder="Enter your business name"
-                  className={`pl-10 ${
-                    businessNameValidation.available === false ? "border-red-500" :
-                    businessNameValidation.available === true ? "border-green-500" :
-                    businessNameValidation.available === null ? "border-amber-500" : ""
-                  }`}
+                  className={`pl-10 ${businessNameValidation.available === false ? "border-red-500" :
+                      businessNameValidation.available === true ? "border-green-500" :
+                        businessNameValidation.available === null ? "border-amber-500" : ""
+                    }`}
                   required
                 />
                 {/* Status indicator */}
@@ -1332,7 +1329,7 @@ const VendorRegister = () => {
                   ) : null}
                 </div>
               </div>
-              
+
               {/* Enhanced validation feedback */}
               {businessNameValidation.checking && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -1340,28 +1337,28 @@ const VendorRegister = () => {
                   Checking availability...
                 </p>
               )}
-              
+
               {businessNameValidation.available === true && (
                 <p className="text-xs text-green-600 flex items-center gap-1">
                   <CheckCircle className="w-3 h-3" />
                   Business name is available
                 </p>
               )}
-              
+
               {businessNameValidation.available === false && (
                 <p className="text-xs text-red-500 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
                   {businessNameValidation.message || "Business name is already registered"}
                 </p>
               )}
-              
+
               {businessNameValidation.available === null && formData.businessName.trim().length >= 3 && (
                 <p className="text-xs text-amber-600 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   Format is valid. Availability check unavailable - will be verified during review.
                 </p>
               )}
-              
+
               {/* Format validation feedback */}
               {formData.businessName && !businessNameValidation.checking && (
                 (() => {
@@ -1383,8 +1380,8 @@ const VendorRegister = () => {
               <Label htmlFor="businessType" className="flex items-center gap-1">
                 Business Type <span className="text-red-500">*</span>
               </Label>
-              <Select 
-                value={formData.businessType} 
+              <Select
+                value={formData.businessType}
                 onValueChange={(value) => handleInputChange("businessType", value)}
               >
                 <SelectTrigger>
@@ -1404,8 +1401,8 @@ const VendorRegister = () => {
               <Label htmlFor="experience" className="flex items-center gap-1">
                 Years of Experience <span className="text-red-500">*</span>
               </Label>
-              <Select 
-                value={formData.experience?.toString()} 
+              <Select
+                value={formData.experience?.toString()}
                 onValueChange={(value) => handleInputChange("experience", value)}
               >
                 <SelectTrigger>
@@ -1471,7 +1468,7 @@ const VendorRegister = () => {
                   Select your business location for proper verification
                 </p>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* State Selection */}
                 <div className="space-y-2">
@@ -1644,11 +1641,11 @@ const VendorRegister = () => {
                 onChange={(pincode, locationData) => {
                   console.log('Pincode selected:', pincode, locationData);
                   setFormData(prev => ({ ...prev, pincode }));
-                  
+
                   // Auto-fill location fields if suggestion provides data
                   if (locationData) {
                     console.log('Auto-filling location from pincode:', locationData);
-                    
+
                     // Set state if available and matches our states list
                     if (locationData.state && states.includes(locationData.state.toUpperCase())) {
                       const stateValue = locationData.state.toUpperCase();
@@ -1657,30 +1654,30 @@ const VendorRegister = () => {
                         state: stateValue,
                         stateCode: stateValue
                       }));
-                      
+
                       // Load districts and set district if available
                       setTimeout(() => {
                         if (locationData.district) {
                           const districtsForState = locaService.getDistricts(stateValue);
-                          const matchingDistrict = districtsForState.find(d => 
+                          const matchingDistrict = districtsForState.find(d =>
                             d.toUpperCase() === locationData.district.toUpperCase()
                           );
-                          
+
                           if (matchingDistrict) {
                             setFormData(prev => ({
                               ...prev,
                               district: matchingDistrict,
                               districtCode: matchingDistrict
                             }));
-                            
+
                             // Load cities and set city if available
                             setTimeout(() => {
                               if (locationData.city) {
                                 const citiesForDistrict = locaService.getCities(stateValue, matchingDistrict);
-                                const matchingCity = citiesForDistrict.find(c => 
+                                const matchingCity = citiesForDistrict.find(c =>
                                   c.toUpperCase() === locationData.city.toUpperCase()
                                 );
-                                
+
                                 if (matchingCity) {
                                   setFormData(prev => ({
                                     ...prev,
@@ -1694,7 +1691,7 @@ const VendorRegister = () => {
                         }
                       }, 100);
                     }
-                    
+
                     // Show success toast
                     toast({
                       title: "Location Auto-filled",
@@ -1799,7 +1796,7 @@ const VendorRegister = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="panNumber" className="flex items-center gap-1">
                   PAN Number <span className="text-red-500">*</span>
@@ -1838,12 +1835,10 @@ const VendorRegister = () => {
                 )}
               </div>
 
-              <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                uploadedDocuments.businessRegistration ? 'border-green-300 bg-green-50' : 'border-border hover:border-primary/50'
-              }`}>
-                <FileText className={`w-8 h-8 mx-auto mb-2 ${
-                  uploadedDocuments.businessRegistration ? 'text-green-600' : 'text-muted-foreground'
-                }`} />
+              <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${uploadedDocuments.businessRegistration ? 'border-green-300 bg-green-50' : 'border-border hover:border-primary/50'
+                }`}>
+                <FileText className={`w-8 h-8 mx-auto mb-2 ${uploadedDocuments.businessRegistration ? 'text-green-600' : 'text-muted-foreground'
+                  }`} />
                 <p className="font-medium mb-1 flex items-center justify-center gap-2">
                   Business Registration Certificate
                   <span className="text-red-500">*</span>
@@ -1861,7 +1856,7 @@ const VendorRegister = () => {
                     if (file) handleDocumentUpload('businessRegistration', file);
                   }}
                 />
-                <Button 
+                <Button
                   variant={uploadedDocuments.businessRegistration ? "secondary" : "outline"}
                   size="sm"
                   onClick={() => document.getElementById('business-registration')?.click()}
@@ -1896,8 +1891,8 @@ const VendorRegister = () => {
                     if (file) handleDocumentUpload('professionalLicense', file);
                   }}
                 />
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={() => document.getElementById('professional-license')?.click()}
                 >
@@ -1910,12 +1905,10 @@ const VendorRegister = () => {
                 )}
               </div>
 
-              <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                uploadedDocuments.identityProof ? 'border-green-300 bg-green-50' : 'border-border hover:border-primary/50'
-              }`}>
-                <FileText className={`w-8 h-8 mx-auto mb-2 ${
-                  uploadedDocuments.identityProof ? 'text-green-600' : 'text-muted-foreground'
-                }`} />
+              <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${uploadedDocuments.identityProof ? 'border-green-300 bg-green-50' : 'border-border hover:border-primary/50'
+                }`}>
+                <FileText className={`w-8 h-8 mx-auto mb-2 ${uploadedDocuments.identityProof ? 'text-green-600' : 'text-muted-foreground'
+                  }`} />
                 <p className="font-medium mb-1 flex items-center justify-center gap-2">
                   Identity Proof
                   <span className="text-red-500">*</span>
@@ -1933,7 +1926,7 @@ const VendorRegister = () => {
                     if (file) handleDocumentUpload('identityProof', file);
                   }}
                 />
-                <Button 
+                <Button
                   variant={uploadedDocuments.identityProof ? "secondary" : "outline"}
                   size="sm"
                   onClick={() => document.getElementById('identity-proof')?.click()}
@@ -2214,205 +2207,203 @@ const VendorRegister = () => {
       <Navbar />
       <div className="container mx-auto px-4 py-4">
         <div className="max-w-2xl mx-auto space-y-4">
-        <div className="text-center">
-          <Badge className="mb-2 bg-primary/10 text-primary border-primary/20">
-            <Store className="w-4 h-4 mr-2" />
-            Vendor Registration
-          </Badge>
-          <h1 className="text-2xl lg:text-3xl font-bold mb-2">
-            Join Our Vendor Network
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Complete the registration process to become a verified vendor partner
-          </p>
-        </div>
-
-        {/* Progress Steps - Step-by-Step Indicator */}
-        <div className="bg-card border rounded-lg p-4 shadow-sm">
-          <div className="relative">
-            {/* Connecting Lines */}
-            <div className="absolute top-6 left-0 right-0 h-0.5 bg-muted -z-10">
-              <div
-                className="h-full bg-primary transition-all duration-700 ease-out"
-                style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
-              />
-            </div>
-
-            <div className="flex items-start justify-between">
-              {steps.map((step, index) => {
-                const stepNumber = index + 1;
-                const isCompleted = stepNumber < currentStep;
-                const isCurrent = stepNumber === currentStep;
-                const isClickable = stepNumber <= currentStep;
-
-                return (
-                  <div key={step.id} className="flex flex-col items-center flex-1 max-w-[120px]">
-                    <button
-                      onClick={() => isClickable && handleStepClick(stepNumber)}
-                      disabled={!isClickable}
-                      className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all duration-200 ${
-                        isCompleted
-                          ? 'bg-green-500 border-green-500 text-white hover:bg-green-600 cursor-pointer shadow-md'
-                          : isCurrent
-                          ? 'bg-primary border-primary text-primary-foreground cursor-pointer shadow-lg scale-110'
-                          : 'bg-background border-muted text-muted-foreground cursor-not-allowed'
-                      }`}
-                    >
-                      {isCompleted ? <span className="text-white font-bold">{stepNumber}</span> : stepNumber}
-                    </button>
-                    <div className="text-center mt-2 px-1">
-                      <p className={`text-xs font-semibold ${
-                        isCurrent ? 'text-primary' : isCompleted ? 'text-green-600' : 'text-muted-foreground'
-                      }`}>
-                        {step.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1 leading-tight">
-                        {step.description}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Progress Text */}
-            <div className="text-center mt-4">
-            <p className="text-sm text-muted-foreground">
-              Step {currentStep} of {steps.length}: {steps[currentStep - 1].title}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {Math.round(((currentStep - 1) / steps.length) * 100)}% Complete
+          <div className="text-center">
+            <Badge className="mb-2 bg-primary/10 text-primary border-primary/20">
+              <Store className="w-4 h-4 mr-2" />
+              Vendor Registration
+            </Badge>
+            <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+              Join Our Vendor Network
+            </h1>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Complete the registration process to become a verified vendor partner
             </p>
           </div>
-        </div>
 
-        {/* Form */}
-        <Card className="shadow-lg">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl">
-              Step {currentStep}: {steps[currentStep - 1].title}
-            </CardTitle>
-            <CardDescription className="text-base">
-              {steps[currentStep - 1].description}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {renderStepContent()}
-
-              <div className="flex justify-between pt-4 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={currentStep === 1 || (currentStep === 6 && profileSubmitted)}
-                  size="lg"
-                >
-                  Previous
-                </Button>
-
-                {currentStep < 5 ? (
-                  <Button
-                    type="button"
-                    onClick={handleNext}
-                    disabled={isLoading || !validateStep(currentStep)}
-                    className={validateStep(currentStep) ? "shadow-md" : "opacity-50"}
-                    size="lg"
-                  >
-                    Next
-                    {!validateStep(currentStep) && (
-                      <AlertCircle className="w-4 h-4 ml-2" />
-                    )}
-                  </Button>
-                ) : currentStep === 5 ? (
-                  <Button
-                    type="button"
-                    onClick={handleNext}
-                    disabled={isLoading || !validateStep(currentStep)}
-                    className={validateStep(currentStep) ? "shadow-md" : "opacity-50"}
-                    size="lg"
-                  >
-                    {isLoading ? "Sending OTP..." : "Proceed to Email Verification"}
-                    {!validateStep(currentStep) && (
-                      <AlertCircle className="w-4 h-4 ml-2" />
-                    )}
-                  </Button>
-                ) : currentStep === 6 ? (
-                  null // OTP step has its own submit button
-                ) : null}
+          {/* Progress Steps - Step-by-Step Indicator */}
+          <div className="bg-card border rounded-lg p-4 shadow-sm">
+            <div className="relative">
+              {/* Connecting Lines */}
+              <div className="absolute top-6 left-0 right-0 h-0.5 bg-muted -z-10">
+                <div
+                  className="h-full bg-primary transition-all duration-700 ease-out"
+                  style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
+                />
               </div>
 
-              {/* Step validation indicators */}
-              {!validateStep(currentStep) && currentStep < 6 && (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-amber-800">Please complete the following:</p>
-                      <ul className="text-sm text-amber-700 mt-2 space-y-1">
-                        {getValidationErrors(currentStep).map((error, index) => (
-                          <li key={index} className="flex items-start gap-2">
-                            <span className="text-amber-500 mt-0.5">•</span>
-                            {error}
-                          </li>
-                        ))}
-                      </ul>
+              <div className="flex items-start justify-between">
+                {steps.map((step, index) => {
+                  const stepNumber = index + 1;
+                  const isCompleted = stepNumber < currentStep;
+                  const isCurrent = stepNumber === currentStep;
+                  const isClickable = stepNumber <= currentStep;
+
+                  return (
+                    <div key={step.id} className="flex flex-col items-center flex-1 max-w-[120px]">
+                      <button
+                        onClick={() => isClickable && handleStepClick(stepNumber)}
+                        disabled={!isClickable}
+                        className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all duration-200 ${isCompleted
+                            ? 'bg-green-500 border-green-500 text-white hover:bg-green-600 cursor-pointer shadow-md'
+                            : isCurrent
+                              ? 'bg-primary border-primary text-primary-foreground cursor-pointer shadow-lg scale-110'
+                              : 'bg-background border-muted text-muted-foreground cursor-not-allowed'
+                          }`}
+                      >
+                        {isCompleted ? <span className="text-white font-bold">{stepNumber}</span> : stepNumber}
+                      </button>
+                      <div className="text-center mt-2 px-1">
+                        <p className={`text-xs font-semibold ${isCurrent ? 'text-primary' : isCompleted ? 'text-green-600' : 'text-muted-foreground'
+                          }`}>
+                          {step.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1 leading-tight">
+                          {step.description}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Progress Text */}
+            <div className="text-center mt-4">
+              <p className="text-sm text-muted-foreground">
+                Step {currentStep} of {steps.length}: {steps[currentStep - 1].title}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {Math.round(((currentStep - 1) / steps.length) * 100)}% Complete
+              </p>
+            </div>
+          </div>
+
+          {/* Form */}
+          <Card className="shadow-lg">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xl">
+                Step {currentStep}: {steps[currentStep - 1].title}
+              </CardTitle>
+              <CardDescription className="text-base">
+                {steps[currentStep - 1].description}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {renderStepContent()}
+
+                <div className="flex justify-between pt-4 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handlePrevious}
+                    disabled={currentStep === 1 || (currentStep === 6 && profileSubmitted)}
+                    size="lg"
+                  >
+                    Previous
+                  </Button>
+
+                  {currentStep < 5 ? (
+                    <Button
+                      type="button"
+                      onClick={handleNext}
+                      disabled={isLoading || !validateStep(currentStep)}
+                      className={validateStep(currentStep) ? "shadow-md" : "opacity-50"}
+                      size="lg"
+                    >
+                      Next
+                      {!validateStep(currentStep) && (
+                        <AlertCircle className="w-4 h-4 ml-2" />
+                      )}
+                    </Button>
+                  ) : currentStep === 5 ? (
+                    <Button
+                      type="button"
+                      onClick={handleNext}
+                      disabled={isLoading || !validateStep(currentStep)}
+                      className={validateStep(currentStep) ? "shadow-md" : "opacity-50"}
+                      size="lg"
+                    >
+                      {isLoading ? "Sending OTP..." : "Proceed to Email Verification"}
+                      {!validateStep(currentStep) && (
+                        <AlertCircle className="w-4 h-4 ml-2" />
+                      )}
+                    </Button>
+                  ) : currentStep === 6 ? (
+                    null // OTP step has its own submit button
+                  ) : null}
+                </div>
+
+                {/* Step validation indicators */}
+                {!validateStep(currentStep) && currentStep < 6 && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-800">Please complete the following:</p>
+                        <ul className="text-sm text-amber-700 mt-2 space-y-1">
+                          {getValidationErrors(currentStep).map((error, index) => (
+                            <li key={index} className="flex items-start gap-2">
+                              <span className="text-amber-500 mt-0.5">•</span>
+                              {error}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Info Section */}
-        <div className="grid md:grid-cols-3 gap-4">
-          <Card className="hover:shadow-md transition-shadow">
-            <CardContent className="p-4 text-center">
-              <Clock className="w-6 h-6 text-primary mx-auto mb-2" />
-              <h3 className="font-semibold mb-1 text-sm">Quick Review</h3>
-              <p className="text-xs text-muted-foreground">
-                We'll review your application within 24-48 hours
-              </p>
+                )}
+              </form>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-md transition-shadow">
-            <CardContent className="p-4 text-center">
-              <Shield className="w-6 h-6 text-primary mx-auto mb-2" />
-              <h3 className="font-semibold mb-1 text-sm">Secure Process</h3>
-              <p className="text-xs text-muted-foreground">
-                Your data is encrypted and handled securely
-              </p>
-            </CardContent>
-          </Card>
+          {/* Info Section */}
+          <div className="grid md:grid-cols-3 gap-4">
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4 text-center">
+                <Clock className="w-6 h-6 text-primary mx-auto mb-2" />
+                <h3 className="font-semibold mb-1 text-sm">Quick Review</h3>
+                <p className="text-xs text-muted-foreground">
+                  We'll review your application within 24-48 hours
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card className="hover:shadow-md transition-shadow">
-            <CardContent className="p-4 text-center">
-              <CheckCircle className="w-6 h-6 text-primary mx-auto mb-2" />
-              <h3 className="font-semibold mb-1 text-sm">Easy Setup</h3>
-              <p className="text-xs text-muted-foreground">
-                Once approved, you'll get instant access to your dashboard
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4 text-center">
+                <Shield className="w-6 h-6 text-primary mx-auto mb-2" />
+                <h3 className="font-semibold mb-1 text-sm">Secure Process</h3>
+                <p className="text-xs text-muted-foreground">
+                  Your data is encrypted and handled securely
+                </p>
+              </CardContent>
+            </Card>
 
-        {/* Already have account */}
-        <div className="text-center py-2">
-          <p className="text-muted-foreground">
-            Already have a vendor account?{" "}
-            <Link to="/vendor/login" className="text-primary hover:underline font-medium">
-              Sign in here
-            </Link>
-          </p>
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4 text-center">
+                <CheckCircle className="w-6 h-6 text-primary mx-auto mb-2" />
+                <h3 className="font-semibold mb-1 text-sm">Easy Setup</h3>
+                <p className="text-xs text-muted-foreground">
+                  Once approved, you'll get instant access to your dashboard
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Already have account */}
+          <div className="text-center py-2">
+            <p className="text-muted-foreground">
+              Already have a vendor account?{" "}
+              <Link to="/vendor/login" className="text-primary hover:underline font-medium">
+                Sign in here
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-    <Footer />
-  </>
-);
+      <Footer />
+    </>
+  );
 };
 
 export default VendorRegister;

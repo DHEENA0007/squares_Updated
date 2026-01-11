@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, XCircle, Eye, Home } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Eye, Home, Clock, FileText } from "lucide-react";
 import { authService } from "@/services/authService";
 import { ViewPropertyDialog } from "@/components/adminpanel/ViewPropertyDialog";
 import { Property } from "@/services/propertyService";
@@ -44,6 +44,14 @@ const PropertyApprovals = () => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [statusFilter, setStatusFilter] = useState("pending");
   const { toast } = useToast();
+
+  // Stats for overview cards
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0
+  });
 
   const baseUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
 
@@ -79,6 +87,47 @@ const PropertyApprovals = () => {
   useEffect(() => {
     fetchProperties();
   }, [statusFilter]);
+
+  // Fetch stats
+  const fetchStats = async () => {
+    try {
+      const token = authService.getToken();
+      const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
+        fetch(`${baseUrl}/admin/properties?status=pending&limit=1`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        }),
+        fetch(`${baseUrl}/admin/properties?status=available&limit=1`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        }),
+        fetch(`${baseUrl}/admin/properties?status=rejected&limit=1`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        })
+      ]);
+
+      const [pendingData, approvedData, rejectedData] = await Promise.all([
+        pendingRes.json(),
+        approvedRes.json(),
+        rejectedRes.json()
+      ]);
+
+      const pending = pendingData.data?.pagination?.total || pendingData.data?.total || 0;
+      const approved = approvedData.data?.pagination?.total || approvedData.data?.total || 0;
+      const rejected = rejectedData.data?.pagination?.total || rejectedData.data?.total || 0;
+
+      setStats({
+        total: pending + approved + rejected,
+        pending,
+        approved,
+        rejected
+      });
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   const handleApprove = async (propertyId: string) => {
     try {
@@ -190,6 +239,65 @@ const PropertyApprovals = () => {
             Review and manage property listings from vendors
           </p>
         </div>
+      </div>
+
+      {/* Overview Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary/50 ${statusFilter === 'all' ? 'border-primary ring-2 ring-primary/20' : ''}`}
+          onClick={() => setStatusFilter('all')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground mt-1">All properties</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-yellow-500/50 ${statusFilter === 'pending' ? 'border-yellow-500 ring-2 ring-yellow-500/20' : ''}`}
+          onClick={() => setStatusFilter('pending')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+            <p className="text-xs text-muted-foreground mt-1">Awaiting approval</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-green-500/50 ${statusFilter === 'available' ? 'border-green-500 ring-2 ring-green-500/20' : ''}`}
+          onClick={() => setStatusFilter('available')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Approved</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+            <p className="text-xs text-muted-foreground mt-1">Live listings</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-red-500/50 ${statusFilter === 'rejected' ? 'border-red-500 ring-2 ring-red-500/20' : ''}`}
+          onClick={() => setStatusFilter('rejected')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+            <XCircle className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+            <p className="text-xs text-muted-foreground mt-1">Not approved</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>

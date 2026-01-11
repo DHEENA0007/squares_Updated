@@ -771,34 +771,74 @@ const VendorApprovals: React.FC = () => {
 
       {/* Statistics Cards */}
       {stats && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <Card
+            className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary/50 ${filters.status === 'all' ? 'border-primary ring-2 ring-primary/20' : ''}`}
+            onClick={() => setFilters({ ...filters, status: 'all', page: 1 })}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.overview.totalApplications}</div>
+              <p className="text-xs text-muted-foreground mt-1">All vendors</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-yellow-500/50 ${filters.status === 'pending' ? 'border-yellow-500 ring-2 ring-yellow-500/20' : ''}`}
+            onClick={() => setFilters({ ...filters, status: 'pending', page: 1 })}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
+              <Clock className="h-4 w-4 text-yellow-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.overview.pendingApplications}</div>
+              <div className="text-2xl font-bold text-yellow-600">{stats.overview.pendingApplications}</div>
+              <p className="text-xs text-muted-foreground mt-1">Awaiting action</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-blue-500/50 ${filters.status === 'under_review' ? 'border-blue-500 ring-2 ring-blue-500/20' : ''}`}
+            onClick={() => setFilters({ ...filters, status: 'under_review', page: 1 })}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Under Review</CardTitle>
+              <Eye className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{stats.overview.underReviewApplications}</div>
+              <p className="text-xs text-muted-foreground mt-1">Being processed</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-green-500/50 ${filters.status === 'approved' ? 'border-green-500 ring-2 ring-green-500/20' : ''}`}
+            onClick={() => setFilters({ ...filters, status: 'approved', page: 1 })}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Approved</CardTitle>
               <CheckCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.overview.approvedApplications}</div>
+              <div className="text-2xl font-bold text-green-600">{stats.overview.approvedApplications}</div>
+              <p className="text-xs text-muted-foreground mt-1">Verified vendors</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-red-500/50 ${filters.status === 'rejected' ? 'border-red-500 ring-2 ring-red-500/20' : ''}`}
+            onClick={() => setFilters({ ...filters, status: 'rejected', page: 1 })}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+              <XCircle className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{stats.overview.rejectedApplications}</div>
+              <p className="text-xs text-muted-foreground mt-1">Not approved</p>
             </CardContent>
           </Card>
 
@@ -809,6 +849,7 @@ const VendorApprovals: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.overview.approvalRate.toFixed(1)}%</div>
+              <p className="text-xs text-muted-foreground mt-1">Success rate</p>
             </CardContent>
           </Card>
         </div>

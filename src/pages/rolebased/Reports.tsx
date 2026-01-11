@@ -66,7 +66,6 @@ interface ReportStats {
   supportTickets?: {
     total: number;
     open: number;
-    resolved: number;
     closed: number;
     replied: number;
     avgResponseTime: number;
@@ -195,9 +194,8 @@ const RoleBasedReports = () => {
 
       if (hasPermission(PERMISSIONS.SUPPORT_TICKETS_READ) || hasPermission(PERMISSIONS.SUPPORT_TICKETS_REPLY)) {
         reportStats.supportTickets = {
-          total: (activityData.supportTickets?.replied || 0) + (activityData.supportTickets?.resolved || 0),
+          total: (activityData.supportTickets?.replied || 0) + (activityData.supportTickets?.closed || 0),
           open: 0,
-          resolved: activityData.supportTickets?.resolved || 0,
           closed: activityData.supportTickets?.closed || 0,
           replied: activityData.supportTickets?.replied || 0,
           avgResponseTime: activityData.supportTickets?.avgResponseTime || 0,
@@ -437,7 +435,7 @@ const RoleBasedReports = () => {
                 <CardContent>
                   <div className="text-2xl font-bold">{stats.supportTickets.replied}</div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {stats.supportTickets.resolved} resolved
+                    {stats.supportTickets.closed} closed
                   </p>
                 </CardContent>
               </Card>
@@ -574,10 +572,10 @@ const RoleBasedReports = () => {
                     <div className="flex items-center gap-3">
                       <CheckCircle className="h-5 w-5 text-green-600" />
                       <div>
-                        <p className="font-medium">Resolved</p>
+                        <p className="font-medium">Closed</p>
                       </div>
                     </div>
-                    <p className="text-2xl font-bold">{stats.supportTickets.resolved}</p>
+                    <p className="text-2xl font-bold">{stats.supportTickets.closed}</p>
                   </div>
 
                   <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 dark:bg-blue-950">

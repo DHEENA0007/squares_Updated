@@ -35,7 +35,7 @@ interface SupportTicket {
   };
   subject?: string;
   message: string;
-  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  status: 'open' | 'in_progress' | 'closed';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   category?: string;
   ticketNumber?: string;
@@ -90,7 +90,6 @@ interface DashboardStats {
   rejectedPropertiesApproved: number;
   totalSupport: number;
   openSupport: number;
-  resolvedSupport: number;
   closedSupport: number;
   analytics?: {
     propertiesApprovedLast7Days: number;

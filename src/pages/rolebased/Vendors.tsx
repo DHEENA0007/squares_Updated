@@ -182,7 +182,10 @@ const RoleBasedVendors = () => {
 
             {/* Statistics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <Card>
+                <Card
+                    className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary/50 ${statusFilter === 'all' ? 'border-primary ring-2 ring-primary/20' : ''}`}
+                    onClick={() => setStatusFilter('all')}
+                >
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
                         <ShoppingBag className="h-4 w-4 text-muted-foreground" />
@@ -195,7 +198,10 @@ const RoleBasedVendors = () => {
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card
+                    className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-yellow-500/50 ${statusFilter === 'pending' ? 'border-yellow-500 ring-2 ring-yellow-500/20' : ''}`}
+                    onClick={() => setStatusFilter('pending')}
+                >
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
                         <Clock className="h-4 w-4 text-yellow-600" />
@@ -208,7 +214,10 @@ const RoleBasedVendors = () => {
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card
+                    className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-blue-500/50 ${statusFilter === 'under_review' ? 'border-blue-500 ring-2 ring-blue-500/20' : ''}`}
+                    onClick={() => setStatusFilter('under_review')}
+                >
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Under Review</CardTitle>
                         <Users className="h-4 w-4 text-blue-600" />
@@ -221,7 +230,10 @@ const RoleBasedVendors = () => {
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card
+                    className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-green-500/50 ${statusFilter === 'approved' ? 'border-green-500 ring-2 ring-green-500/20' : ''}`}
+                    onClick={() => setStatusFilter('approved')}
+                >
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Approved Vendors</CardTitle>
                         <CheckCircle className="h-4 w-4 text-green-600" />
@@ -234,7 +246,10 @@ const RoleBasedVendors = () => {
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card
+                    className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-red-500/50 ${statusFilter === 'rejected' ? 'border-red-500 ring-2 ring-red-500/20' : ''}`}
+                    onClick={() => setStatusFilter('rejected')}
+                >
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Rejected</CardTitle>
                         <XCircle className="h-4 w-4 text-red-600" />

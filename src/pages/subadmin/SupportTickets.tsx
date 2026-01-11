@@ -55,7 +55,7 @@ interface SupportTicket {
   };
   subject?: string;
   message: string;
-  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  status: 'open' | 'in_progress' | 'closed';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   category?: string;
   ticketNumber?: string;
@@ -167,7 +167,6 @@ const SupportTickets = () => {
     switch (status) {
       case 'open': return 'destructive';
       case 'in_progress': return 'default';
-      case 'resolved': return 'secondary';
       case 'closed': return 'outline';
       default: return 'outline';
     }
@@ -358,7 +357,6 @@ const SupportTickets = () => {
           <SelectContent>
             <SelectItem value="open">Open Tickets</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="resolved">Resolved</SelectItem>
             <SelectItem value="closed">Closed</SelectItem>
             <SelectItem value="all">All Tickets</SelectItem>
           </SelectContent>
@@ -461,8 +459,8 @@ const SupportTickets = () => {
                                 </DropdownMenuItem>
                               )}
                               {ticket.status === 'in_progress' && (
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(ticket._id, 'resolved')}>
-                                  Mark Resolved
+                                <DropdownMenuItem onClick={() => handleUpdateStatus(ticket._id, 'closed')}>
+                                  Mark Closed
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem onClick={() => handleTransferTicket(ticket)}>
@@ -619,9 +617,9 @@ const SupportTickets = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleUpdateStatus(selectedTicket._id, 'resolved')}
+                        onClick={() => handleUpdateStatus(selectedTicket._id, 'closed')}
                       >
-                        Mark Resolved
+                        Mark Closed
                       </Button>
                     )}
                   </div>

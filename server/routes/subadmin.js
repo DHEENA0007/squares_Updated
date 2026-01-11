@@ -62,7 +62,7 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     // All pending properties (not user-specific, as they haven't been assigned yet)
     Property.countDocuments({ status: 'pending' }),
     // Rejected properties by this subadmin
-    Property.countDocuments({ approvedBy: subAdminId, status: 'rejected' }),
+    Property.countDocuments({ rejectedBy: subAdminId, status: 'rejected' }),
     // Support tickets handled by this subadmin
     SupportTicket.countDocuments({ assignedTo: subAdminId }),
     SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'open' }),
@@ -242,6 +242,34 @@ router.get('/properties/pending',
         delete query.status;
       } else {
         query.status = req.query.status;
+      }
+    }
+
+    // My Reviews filter - Filter by current subadmin's actions
+    if (req.query.myReviews === 'true') {
+      const userId = req.user.id;
+
+      if (query.status === 'available') {
+        query.approvedBy = userId;
+      } else if (query.status === 'rejected') {
+        query.rejectedBy = userId;
+      } else if (!query.status) {
+        // Status is 'all' - show properties approved OR rejected by me
+        const myReviewsCondition = [
+          { approvedBy: userId },
+          { rejectedBy: userId }
+        ];
+
+        if (query.$or) {
+          // If search exists (which uses $or), we must combine with $and
+          query.$and = [
+            { $or: query.$or },
+            { $or: myReviewsCondition }
+          ];
+          delete query.$or;
+        } else {
+          query.$or = myReviewsCondition;
+        }
       }
     }
 

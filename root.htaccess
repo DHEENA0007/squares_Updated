@@ -1,0 +1,10 @@
+# Root .htaccess - Place this in public_html/
+# This file redirects buildhomemartsquares.com to buildhomemartsquares.com/en-new/
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  
+  # Redirect root domain to /en-new/
+  RewriteCond %{REQUEST_URI} ^/?$
+  RewriteRule ^ /en-new/ [R=301,L]
+</IfModule>

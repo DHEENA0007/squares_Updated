@@ -144,8 +144,7 @@ const TrackSupport = () => {
     const variants: Record<string, { icon: any; class: string; label: string }> = {
       open: { icon: AlertCircle, class: 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20', label: 'Open' },
       'in_progress': { icon: Clock, class: 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200', label: 'In Progress' },
-      resolved: { icon: CheckCircle, class: 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200', label: 'Resolved' },
-      closed: { icon: XCircle, class: 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200', label: 'Closed' }
+      closed: { icon: CheckCircle, class: 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200', label: 'Closed' }
     };
     return variants[status] || variants.open;
   };
@@ -176,7 +175,6 @@ const TrackSupport = () => {
     const tooltips: Record<string, string> = {
       open: 'Your ticket has been received and is waiting to be reviewed',
       'in_progress': 'Our support team is currently working on your ticket',
-      resolved: 'Your issue has been resolved. You can reopen if needed',
       closed: 'This ticket has been closed and is archived'
     };
     return tooltips[status] || tooltips.open;
@@ -345,7 +343,6 @@ const TrackSupport = () => {
                         <TabsTrigger value="all" className="rounded-lg px-6 data-[state=active]:bg-card data-[state=active]:shadow-sm">All</TabsTrigger>
                         <TabsTrigger value="open" className="rounded-lg px-6 data-[state=active]:bg-card data-[state=active]:shadow-sm">Open</TabsTrigger>
                         <TabsTrigger value="in_progress" className="rounded-lg px-6 data-[state=active]:bg-card data-[state=active]:shadow-sm">In Progress</TabsTrigger>
-                        <TabsTrigger value="resolved" className="rounded-lg px-6 data-[state=active]:bg-card data-[state=active]:shadow-sm">Resolved</TabsTrigger>
                         <TabsTrigger value="closed" className="rounded-lg px-6 data-[state=active]:bg-card data-[state=active]:shadow-sm">Closed</TabsTrigger>
                       </TabsList>
 
@@ -480,8 +477,8 @@ const TrackSupport = () => {
                               className={`flex ${response.isAdmin ? 'justify-start' : 'justify-end'}`}
                             >
                               <div className={`max-w-[85%] rounded-2xl p-4 ${response.isAdmin
-                                  ? 'bg-muted text-foreground rounded-tl-none'
-                                  : 'bg-primary text-primary-foreground rounded-tr-none shadow-md shadow-primary/10'
+                                ? 'bg-muted text-foreground rounded-tl-none'
+                                : 'bg-primary text-primary-foreground rounded-tr-none shadow-md shadow-primary/10'
                                 }`}>
                                 <div className="flex items-center justify-between gap-4 mb-1">
                                   <span className={`text-xs font-medium ${response.isAdmin ? 'text-muted-foreground' : 'text-primary-foreground/80'}`}>
@@ -503,7 +500,7 @@ const TrackSupport = () => {
                       )}
                     </div>
 
-                    {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' && (
+                    {selectedTicket.status !== 'closed' && (
                       <div className="pt-4 border-t border-border">
                         <Label className="mb-2 block">Reply to Ticket</Label>
                         <div className="relative">
@@ -529,13 +526,13 @@ const TrackSupport = () => {
                       </div>
                     )}
 
-                    {selectedTicket.status === 'resolved' && (
-                      <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/30 rounded-xl p-4 flex items-start gap-3">
-                        <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                    {selectedTicket.status === 'closed' && (
+                      <div className="bg-slate-50 dark:bg-slate-900/20 border border-slate-100 dark:border-slate-900/30 rounded-xl p-4 flex items-start gap-3">
+                        <CheckCircle className="h-5 w-5 text-slate-600 dark:text-slate-400 mt-0.5" />
                         <div>
-                          <p className="font-medium text-emerald-900 dark:text-emerald-100">Ticket Resolved</p>
-                          <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">
-                            This ticket was marked as resolved on {selectedTicket.resolvedAt && new Date(selectedTicket.resolvedAt).toLocaleDateString()}.
+                          <p className="font-medium text-slate-900 dark:text-slate-100">Ticket Closed</p>
+                          <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">
+                            This ticket was closed on {new Date(selectedTicket.updatedAt).toLocaleDateString()}.
                           </p>
                         </div>
                       </div>
@@ -582,7 +579,7 @@ const TrackSupport = () => {
                   <div className="bg-primary/5 rounded-xl p-5 border border-primary/10">
                     <h4 className="font-medium text-primary text-sm mb-2">Need more help?</h4>
                     <p className="text-xs text-muted-foreground mb-3">
-                      If this ticket is resolved but you have a new issue, please create a new ticket.
+                      If this ticket is closed but you have a new issue, please create a new ticket.
                     </p>
                     <Button
                       variant="outline"

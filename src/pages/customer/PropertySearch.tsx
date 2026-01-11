@@ -25,6 +25,119 @@ import { useToast } from "@/hooks/use-toast";
 import { favoriteService } from "@/services/favoriteService";
 import { configurationService } from "@/services/configurationService";
 import type { PropertyType as PropertyTypeConfig, FilterConfiguration, Amenity } from "@/types/configuration";
+import { locaService, type PincodeSuggestion } from "@/services/locaService";
+import { useRef } from "react";
+import { cn } from "@/lib/utils";
+
+const LocationSearch = ({ value, onChange }: { value?: string, onChange: (value: string) => void }) => {
+  const [query, setQuery] = useState(value || "");
+  const [suggestions, setSuggestions] = useState<PincodeSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [isReady, setIsReady] = useState(locaService.isReady());
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    locaService.initialize().then(() => setIsReady(true));
+  }, []);
+
+  // Sync state with prop
+  useEffect(() => {
+    if (value !== undefined) {
+      setQuery(value);
+    }
+  }, [value]);
+
+  // Click outside to close
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVal = e.target.value;
+    setQuery(newVal);
+    // Don't trigger onChange here to prevent auto-refreshing properties
+
+    if (newVal.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setLoading(true);
+    // Small delay to allow UI update
+    setTimeout(() => {
+      const results = locaService.searchLocations(newVal);
+      setSuggestions(results);
+      setLoading(false);
+      setShowSuggestions(true);
+    }, 100);
+  };
+
+  const handleSelect = (suggestion: PincodeSuggestion) => {
+    setQuery(suggestion.city);
+    onChange(suggestion.city);
+    setShowSuggestions(false);
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative w-full">
+      <div className="relative">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder={isReady ? "Search Location..." : "Loading..."}
+          value={query}
+          onChange={handleInputChange}
+          className="pl-10"
+          disabled={!isReady}
+          onFocus={() => {
+            if (query.length >= 2) setShowSuggestions(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              onChange(query);
+              setShowSuggestions(false);
+            }
+          }}
+        />
+        {loading && (
+          <div className="absolute right-3 top-3">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        )}
+      </div>
+
+      {showSuggestions && (
+        <div className="absolute z-[100] w-full mt-1 bg-popover border rounded-md shadow-md max-h-[200px] overflow-y-auto bg-white dark:bg-slate-950">
+          {suggestions.length > 0 ? (
+            suggestions.map((suggestion, index) => (
+              <div
+                key={`${suggestion.pincode}-${index}`}
+                className="px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground border-b last:border-0"
+                onClick={() => handleSelect(suggestion)}
+              >
+                <div className="font-medium">{suggestion.city}</div>
+                <div className="text-xs text-muted-foreground">
+                  {suggestion.district}, {suggestion.state}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-sm text-muted-foreground text-center">
+              No locations found
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const PropertySearch = () => {
   const [propertyTypes, setPropertyTypes] = useState<PropertyTypeConfig[]>([]);
@@ -37,6 +150,7 @@ const PropertySearch = () => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
 
   // Filters - using dynamic state for all filter types
   const [listingType, setListingType] = useState<string>("all");
@@ -186,7 +300,7 @@ const PropertySearch = () => {
   // Load properties
   useEffect(() => {
     loadProperties();
-  }, [searchQuery, listingType, propertyType, priceRange, areaRange, selectedAmenities, dynamicFilters, currentPage]);
+  }, [searchQuery, locationQuery, listingType, propertyType, priceRange, areaRange, selectedAmenities, dynamicFilters, currentPage]);
 
   const loadProperties = async () => {
     setLoading(true);
@@ -197,6 +311,7 @@ const PropertySearch = () => {
       };
 
       if (searchQuery.trim()) filters.search = searchQuery;
+      if (locationQuery.trim()) filters.location = locationQuery;
       if (listingType !== "all") filters.listingType = listingType;
       if (propertyType !== "all") filters.propertyType = propertyType;
 
@@ -298,6 +413,7 @@ const PropertySearch = () => {
 
   const resetFilters = () => {
     setSearchQuery("");
+    setLocationQuery("");
     setListingType("all");
     setPropertyType("all");
     setPriceRange([priceLimits.min, priceLimits.max]);
@@ -339,13 +455,22 @@ const PropertySearch = () => {
               <CardContent className="p-6">
                 <h2 className="text-lg font-semibold mb-4">Filters</h2>
 
-                {/* Search Bar */}
+                {/* Location Search Bar */}
                 <div className="mb-4">
-                  <label className="text-sm font-medium mb-2 block">Search</label>
+                  <label className="text-sm font-medium mb-2 block">Location</label>
+                  <LocationSearch
+                    value={locationQuery}
+                    onChange={setLocationQuery}
+                  />
+                </div>
+
+                {/* General Search Bar */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium mb-2 block">Keyword Search</label>
                   <div className="relative">
                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Location, property name..."
+                      placeholder="Property name, ID..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10"
@@ -398,7 +523,7 @@ const PropertySearch = () => {
 
                 {/* Dynamic Filters from Admin Configuration */}
                 {filterTypes
-                  .filter(type => !['listing_type', 'budget', 'area'].includes(type)) // Exclude handled types
+                  .filter(type => !['listing_type', 'budget', 'area', 'property_type'].includes(type)) // Exclude handled types
                   .filter(type => shouldShowFilter(type)) // Check dependencies
                   .map((filterType) => {
                     const options = filterConfigurations
@@ -446,8 +571,13 @@ const PropertySearch = () => {
                         <label className="text-xs text-muted-foreground">Min Price</label>
                         <Input
                           type="number"
-                          value={priceRange[0]}
-                          onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])}
+                          defaultValue={priceRange[0]}
+                          onBlur={(e) => setPriceRange([Number(e.target.value), priceRange[1]])}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              setPriceRange([Number(e.currentTarget.value), priceRange[1]]);
+                            }
+                          }}
                           min={priceLimits.min}
                           max={priceLimits.max}
                           className="w-full"
@@ -460,8 +590,13 @@ const PropertySearch = () => {
                         <label className="text-xs text-muted-foreground">Max Price</label>
                         <Input
                           type="number"
-                          value={priceRange[1]}
-                          onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
+                          defaultValue={priceRange[1]}
+                          onBlur={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              setPriceRange([priceRange[0], Number(e.currentTarget.value)]);
+                            }
+                          }}
                           min={priceLimits.min}
                           max={priceLimits.max}
                           className="w-full"
@@ -474,42 +609,6 @@ const PropertySearch = () => {
                   </div>
                 )}
 
-                {/* Area Range */}
-                {areaLimits.max > 0 && (
-                  <div className="mb-4">
-                    <label className="text-sm font-medium mb-2 block">Area (sq ft)</label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">Min Area</label>
-                        <Input
-                          type="number"
-                          value={areaRange[0]}
-                          onChange={(e) => setAreaRange([Number(e.target.value), areaRange[1]])}
-                          min={areaLimits.min}
-                          max={areaLimits.max}
-                          className="w-full"
-                        />
-                        <div className="text-xs text-muted-foreground">
-                          {areaRange[0]} sqft
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">Max Area</label>
-                        <Input
-                          type="number"
-                          value={areaRange[1]}
-                          onChange={(e) => setAreaRange([areaRange[0], Number(e.target.value)])}
-                          min={areaLimits.min}
-                          max={areaLimits.max}
-                          className="w-full"
-                        />
-                        <div className="text-xs text-muted-foreground text-right">
-                          {areaRange[1]} sqft
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Amenities - Dynamic from Admin Configuration */}
                 {amenities.length > 0 && (
