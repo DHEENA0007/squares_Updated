@@ -62,17 +62,6 @@ router.post('/send-otp', asyncHandler(async (req, res) => {
     });
   }
 
-  // Block OTP requests for vendor and customer registrations
-  if (role === 'customer' || role === 'agent') {
-    return res.status(403).json({
-      success: false,
-      message: role === 'customer'
-        ? 'Customer registrations are currently closed. Please contact support for more information.'
-        : 'Vendor registrations are currently closed. Please contact support for more information.',
-      registrationBlocked: true
-    });
-  }
-
   // Check if user already exists
   const existingUser = await User.findOne({ email });
   if (existingUser) {
@@ -293,17 +282,6 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
     documents,
     otp // OTP verification code
   } = req.body;
-
-  // Block vendor and customer registrations
-  if (role === 'customer' || role === 'agent') {
-    return res.status(403).json({
-      success: false,
-      message: role === 'customer'
-        ? 'Customer registrations are currently closed. Please contact support for more information.'
-        : 'Vendor registrations are currently closed. Please contact support for more information.',
-      registrationBlocked: true
-    });
-  }
 
   if (!agreeToTerms) {
     return res.status(400).json({

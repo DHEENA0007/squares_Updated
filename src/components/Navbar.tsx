@@ -2,8 +2,7 @@ import { Menu, X, User, ChevronDown, ChevronUp, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import newBadge from "@/assets/new-badge.gif";
-import logoLight from "@/assets/logo-light.png";
-import logoDark from "@/assets/logo-dark.png";
+import appLogo from "@/assets/app-logo.png";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -225,7 +224,7 @@ const Navbar = () => {
               className="relative z-[60] flex items-center transition-transform hover:scale-105 duration-300 md:absolute md:-top-4 md:left-0"
             >
               <img
-                src={theme === "dark" ? logoDark : logoLight}
+                src={appLogo}
                 alt="BuildHomeMart"
                 className="h-16 w-auto xs:h-20 sm:h-24 md:h-[90px] lg:h-[110px] object-contain"
               />

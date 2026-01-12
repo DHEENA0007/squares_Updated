@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ThemeToggle from "@/components/ThemeToggle";
 import UnifiedProfileDropdown from "@/components/shared/UnifiedProfileDropdown";
-import logoLight from "@/assets/logo-light.png";
-import logoDark from "@/assets/logo-dark.png";
+import appLogo from "@/assets/app-logo.png";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useDebounce } from "@/hooks/use-debounce";
 import { CustomerNotificationCenter } from "./CustomerNotificationCenter";
@@ -40,7 +39,7 @@ const CustomerNavbar = ({ onMenuClick }: CustomerNavbarProps) => {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const searchRef = useRef<HTMLDivElement>(null);
   const debouncedSearch = useDebounce(searchQuery, 300);
-  
+
   // Fetch suggestions when debounced search changes
   useEffect(() => {
     if (debouncedSearch.trim().length < 2) {
@@ -53,7 +52,7 @@ const CustomerNavbar = ({ onMenuClick }: CustomerNavbarProps) => {
       try {
         const url = `${import.meta.env.VITE_API_URL}/customer/search/suggestions?q=${encodeURIComponent(debouncedSearch)}`;
         console.log('Fetching suggestions from:', url);
-        
+
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
@@ -125,26 +124,26 @@ const CustomerNavbar = ({ onMenuClick }: CustomerNavbarProps) => {
         break;
     }
   };
-  
+
   return (
     <>
       {/* Logo - Responsive positioning */}
-      <Link 
-        to="/" 
+      <Link
+        to="/"
         className="fixed -top-4 left-0 xs:left-3 sm:left-4 md:-top-6 md:left-4 lg:left-6 z-[60] transition-transform hover:scale-105 duration-300"
       >
         <img
-          src={theme === "dark" ? logoDark : logoLight}
+          src={appLogo}
           alt="BuildHomeMart"
           className="w-[140px] h-[70px] xs:w-[160px] xs:h-[80px] sm:w-[180px] sm:h-[90px] md:w-[200px] md:h-[95px] lg:w-[220px] lg:h-[100px] object-contain"
         />
       </Link>
-      
+
       <nav className="fixed top-0 left-0 right-0 h-14 xs:h-15 sm:h-16 bg-card border-b border-border z-50 px-2 xs:px-3 sm:px-4 lg:px-6 transition-colors duration-300">
         <div className="h-full flex items-center justify-between max-w-screen-2xl mx-auto">
           <div className="flex items-center gap-2 xs:gap-3 sm:gap-4 flex-1">
-            
-            
+
+
             {/* Spacer for logo - Responsive */}
             <div className="ml-[130px] xs:ml-[150px] sm:ml-[170px] md:ml-[190px] lg:ml-[210px]">
               {/* Home Button */}
@@ -157,9 +156,9 @@ const CustomerNavbar = ({ onMenuClick }: CustomerNavbarProps) => {
             </div>
 
             {/* Search Bar - Hidden on mobile, visible on larger screens */}
-                        {/* Search Bar - Hidden on mobile, visible on larger screens */}
+            {/* Search Bar - Hidden on mobile, visible on larger screens */}
             <div className="hidden md:flex flex-1 max-w-md mx-4 lg:mx-8" ref={searchRef}>
-              <form 
+              <form
                 className="relative w-full"
                 onSubmit={handleSearch}
               >
@@ -198,9 +197,8 @@ const CustomerNavbar = ({ onMenuClick }: CustomerNavbarProps) => {
                           key={index}
                           type="button"
                           onClick={() => handleSuggestionClick(suggestion)}
-                          className={`w-full flex items-start gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left border-b border-border last:border-0 ${
-                            index === selectedIndex ? 'bg-accent/50' : ''
-                          }`}
+                          className={`w-full flex items-start gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left border-b border-border last:border-0 ${index === selectedIndex ? 'bg-accent/50' : ''
+                            }`}
                         >
                           <Icon className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
@@ -220,7 +218,7 @@ const CustomerNavbar = ({ onMenuClick }: CustomerNavbarProps) => {
 
           <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3 mr-2 xs:mr-0">
             <CustomerNotificationCenter />
-            
+
             <ThemeToggle />
             <UnifiedProfileDropdown />
 

@@ -46,13 +46,6 @@ const upload = multer({
 // @route   POST /api/vendor-registration/register
 // @access  Private
 router.post('/register', authenticateToken, upload.array('documents', 10), asyncHandler(async (req, res) => {
-  // Block vendor registrations
-  return res.status(403).json({
-    success: false,
-    message: 'Vendor registrations are currently closed. Please contact support for more information.',
-    registrationBlocked: true
-  });
-
   const {
     // Business Information (can be nested object or flat fields)
     businessInfo,
