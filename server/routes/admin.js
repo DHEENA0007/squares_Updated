@@ -4296,8 +4296,8 @@ router.get('/notifications/audience-counts', authenticateToken, isAnyAdmin, asyn
     const now = new Date();
     const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
 
-    const User = mongoose.model('User');
-    const Subscription = mongoose.model('Subscription');
+    // Use top-level User and Subscription models
+    console.log('Fetching audience counts...');
 
     const [
       allUsers,
@@ -4308,12 +4308,12 @@ router.get('/notifications/audience-counts', authenticateToken, isAnyAdmin, asyn
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ role: 'customer' }),
-      User.countDocuments({ role: 'vendor' }),
+      User.countDocuments({ role: { $in: ['vendor', 'agent'] } }), // Count both vendor and agent roles
       User.countDocuments({ lastLogin: { $gte: thirtyDaysAgo } }),
       User.countDocuments({ 'profile.isPremium': true })
     ]);
 
-    console.log('Audience counts debug:', { allUsers, customers, vendors, activeUsers, premiumUsers });
+    console.log('Audience counts fetched:', { allUsers, customers, vendors, activeUsers, premiumUsers });
 
     const premiumSubs = await Subscription.countDocuments({ status: 'active' });
 
