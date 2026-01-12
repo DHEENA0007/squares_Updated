@@ -1392,7 +1392,7 @@ const Clients = () => {
             </div>
 
             {/* Column Filters */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger>
@@ -1421,7 +1421,7 @@ const Clients = () => {
                 </Select>
               </div>
 
-              <div>
+              <div className="col-span-1 sm:col-span-2 lg:col-span-1">
                 <Input
                   type="number"
                   placeholder="Filter by months (e.g., 1, 3, 12)"
@@ -1432,20 +1432,17 @@ const Clients = () => {
                 />
               </div>
 
-              <div>
+              <div className="flex gap-2 col-span-1 sm:col-span-2 lg:col-span-2">
                 <Input
                   type="date"
-                  placeholder="Start Date"
+                  placeholder="dd / mm / yyyy"
                   value={startDateFilter}
                   onChange={(e) => setStartDateFilter(e.target.value)}
                   className="w-full"
                 />
-              </div>
-
-              <div>
                 <Input
                   type="date"
-                  placeholder="End Date"
+                  placeholder="dd / mm / yyyy"
                   value={endDateFilter}
                   onChange={(e) => setEndDateFilter(e.target.value)}
                   className="w-full"

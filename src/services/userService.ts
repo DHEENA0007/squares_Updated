@@ -65,6 +65,8 @@ export interface UserFilters {
   status?: string;
   search?: string;
   month?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface UserResponse {

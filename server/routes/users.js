@@ -34,7 +34,9 @@ router.get('/', asyncHandler(async (req, res) => {
     search,
     role,
     status,
-    month
+    month,
+    startDate,
+    endDate
   } = req.query;
 
   console.log(`[Users API] User role: ${req.user.role}, Requested role filter: ${role}, Month filter: ${month}`);
@@ -82,6 +84,20 @@ router.get('/', asyncHandler(async (req, res) => {
         $lte: endDate
       };
     }
+  }
+
+  // Date Range filter
+  if ((startDate || endDate) && req.user.role !== 'agent') {
+    const dateFilter = {};
+    if (startDate) {
+      dateFilter.$gte = new Date(startDate);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.$lte = end;
+    }
+    filter.createdAt = dateFilter;
   }
 
   // Get total count for pagination

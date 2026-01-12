@@ -62,9 +62,11 @@ interface UserTableProps {
   roleFilter?: string;
   monthFilter?: string;
   statusFilter?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
-const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter }: UserTableProps) => {
+const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter, startDate, endDate }: UserTableProps) => {
   const { isSuperAdmin, user } = useAuth();
   const userPermissions = user?.rolePermissions || [];
   const hasPermission = (permission: string) => userPermissions.includes(permission);
@@ -210,6 +212,8 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter }: UserT
           role: roleFilter || undefined,
           month: monthFilter || undefined,
           status: statusFilter || undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
         });
 
         if (response.success) {
@@ -226,7 +230,7 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter }: UserT
     };
 
     fetchUsers();
-  }, [currentPage, searchQuery, roleFilter, monthFilter, statusFilter]);
+  }, [currentPage, searchQuery, roleFilter, monthFilter, statusFilter, startDate, endDate]);
 
   const handleSuspendUser = async (user: User) => {
     const newStatus = user.status === 'suspended' ? 'active' : 'suspended';

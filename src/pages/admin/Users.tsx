@@ -22,7 +22,10 @@ const Users = () => {
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
+
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
   const [roles, setRoles] = useState<Role[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -56,7 +59,10 @@ const Users = () => {
   const clearFilters = () => {
     setRoleFilter("all");
     setMonthFilter("all");
+
     setStatusFilter("all");
+    setStartDate("");
+    setEndDate("");
   };
 
   return (
@@ -92,7 +98,7 @@ const Users = () => {
           </div>
 
           {showFilters && (
-            <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-3'}`}>
+            <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-3 lg:grid-cols-6'}`}>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Role</label>
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
@@ -145,6 +151,28 @@ const Users = () => {
                 </Select>
               </div>
 
+              <div className="space-y-2">
+                <label className="text-sm font-medium">From</label>
+                <Input
+                  type="date"
+                  placeholder="dd / mm / yyyy"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">To</label>
+                <Input
+                  type="date"
+                  placeholder="dd / mm / yyyy"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+
               <div className="flex items-end">
                 <Button
                   variant="outline"
@@ -163,6 +191,8 @@ const Users = () => {
           roleFilter={roleFilter === "all" ? "" : roleFilter}
           monthFilter={monthFilter === "all" ? "" : monthFilter}
           statusFilter={statusFilter === "all" ? "" : statusFilter}
+          startDate={startDate}
+          endDate={endDate}
         />
       </div>
     </div>
