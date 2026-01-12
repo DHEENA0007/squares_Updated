@@ -105,8 +105,7 @@ const Roles = () => {
         return aName.localeCompare(bName);
       });
 
-      const filteredRoles = sortedRoles.filter(role => role.name.toLowerCase() !== 'superadmin');
-      setRoles(filteredRoles);
+      setRoles(sortedRoles);
       setTotalPages(response.data.pagination.totalPages);
       setTotalRoles(response.data.pagination.totalRoles);
 

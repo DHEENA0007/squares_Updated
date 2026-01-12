@@ -41,6 +41,8 @@ const propertyFormSchema = z.object({
     .regex(/^\d{6}$/, "Pincode must be exactly 6 digits")
     .min(6, "Pincode must be exactly 6 digits")
     .max(6, "Pincode must be exactly 6 digits"),
+  country: z.string().optional(),
+  taluk: z.string().optional(),
   bathrooms: z.string().optional(),
   balconies: z.string().optional(),
   floorNo: z.string().optional(),
@@ -149,6 +151,8 @@ const EditProperty = () => {
         street: property.address?.street || "",
         state: property.address?.state || "",
         pincode: property.address?.pincode || "",
+        country: (property.address as any)?.country || "India",
+        taluk: property.address?.taluk || "",
         floorNo: property.floor || "",
         totalFloors: property.totalFloors || "",
         furnishing: property.furnishing || "",
@@ -199,27 +203,29 @@ const EditProperty = () => {
         listingType: data.lookingTo === 'sell' ? 'sale' : 'rent',
         price: parseFloat(data.expectedPrice),
         priceNegotiable: data.priceNegotiable,
-        bedrooms: data.bedrooms ? parseInt(data.bedrooms) : undefined,
-        bathrooms: data.bathrooms ? parseInt(data.bathrooms) : undefined,
-        floor: data.floorNo,
-        totalFloors: data.totalFloors,
-        furnishing: data.furnishing,
-        parkingSpaces: data.parking,
-        possession: data.possession,
-        availability: data.availability,
-        age: data.ageOfProperty,
+        bedrooms: dynamicFields.bedrooms ? parseInt(dynamicFields.bedrooms) : (data.bedrooms ? parseInt(data.bedrooms) : undefined),
+        bathrooms: dynamicFields.bathrooms ? parseInt(dynamicFields.bathrooms) : (data.bathrooms ? parseInt(data.bathrooms) : undefined),
+        floor: dynamicFields.floorNo || data.floorNo,
+        totalFloors: dynamicFields.totalFloors || data.totalFloors,
+        furnishing: dynamicFields.furnishing || data.furnishing,
+        parkingSpaces: dynamicFields.parking || data.parking,
+        possession: dynamicFields.possession || data.possession,
+        availability: dynamicFields.availability || data.availability,
+        age: dynamicFields.ageOfProperty || data.ageOfProperty,
         address: {
           ...property.address,
           street: data.street || data.locality,
           city: data.city,
           state: data.state,
           pincode: data.pincode,
-          locationName: data.locality
+          locationName: data.locality,
+          taluk: data.taluk,
+          country: data.country
         },
         area: {
-          builtUp: data.superArea ? parseFloat(data.superArea) : (data.builtUpArea ? parseFloat(data.builtUpArea) : undefined),
-          carpet: data.carpetArea ? parseFloat(data.carpetArea) : undefined,
-          plot: undefined, // Plot area should be handled via dynamic fields or specific plotArea field if added
+          builtUp: dynamicFields.builtUpArea ? parseFloat(dynamicFields.builtUpArea) : (data.superArea ? parseFloat(data.superArea) : undefined),
+          carpet: dynamicFields.carpetArea ? parseFloat(dynamicFields.carpetArea) : (data.carpetArea ? parseFloat(data.carpetArea) : undefined),
+          plot: dynamicFields.plotArea ? parseFloat(dynamicFields.plotArea) : undefined,
           unit: data.carpetAreaUnit || 'sqft'
         },
         customFields: dynamicFields,
@@ -420,164 +426,10 @@ const EditProperty = () => {
                         </FormItem>
                       )}
                     />
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="bedrooms"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Bedrooms</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="1">1 BHK</SelectItem>
-                                <SelectItem value="2">2 BHK</SelectItem>
-                                <SelectItem value="3">3 BHK</SelectItem>
-                                <SelectItem value="4">4 BHK</SelectItem>
-                                <SelectItem value="5+">5+ BHK</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="bathrooms"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Bathrooms</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="1">1</SelectItem>
-                                <SelectItem value="2">2</SelectItem>
-                                <SelectItem value="3">3</SelectItem>
-                                <SelectItem value="4">4</SelectItem>
-                                <SelectItem value="5+">5+</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="balconies"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Balconies</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="0">0</SelectItem>
-                                <SelectItem value="1">1</SelectItem>
-                                <SelectItem value="2">2</SelectItem>
-                                <SelectItem value="3">3</SelectItem>
-                                <SelectItem value="4+">4+</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="furnishing"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Furnishing</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="unfurnished">Unfurnished</SelectItem>
-                                <SelectItem value="semi-furnished">Semi-Furnished</SelectItem>
-                                <SelectItem value="furnished">Fully Furnished</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid md:grid-cols-3 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="floorNo"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Floor No.</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., Ground" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="totalFloors"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Total Floors</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., 10" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="parking"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Parking</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="0">None</SelectItem>
-                                <SelectItem value="1">1</SelectItem>
-                                <SelectItem value="2">2</SelectItem>
-                                <SelectItem value="3+">3+</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
                   </div>
                 </div>
+
+
 
                 {/* Dynamic Property Fields */}
                 {propertyTypeId && (
@@ -618,171 +470,28 @@ const EditProperty = () => {
                         if (locationData.locationName) {
                           form.setValue('locality', locationData.locationName);
                         }
+                        if (locationData.country) {
+                          form.setValue('country', locationData.country);
+                        }
+                        if (locationData.taluk) {
+                          form.setValue('taluk', locationData.taluk);
+                        }
                       }}
                       initialData={{
-                        pincode: form.watch('pincode') || '',
-                        state: form.watch('state') || '',
-                        city: form.watch('city') || '',
-                        locationName: form.watch('locality') || ''
+                        pincode: form.getValues('pincode') || '',
+                        state: form.getValues('state') || '',
+                        city: form.getValues('city') || '',
+                        locationName: form.getValues('locality') || '',
+                        district: form.getValues('city') || '', // Fallback for district if needed
+                        country: form.getValues('country') || 'India',
+                        taluk: form.getValues('taluk') || ''
                       }}
                       showPincodeFirst={true}
                     />
                   </div>
                 </div>
 
-                {/* Area */}
-                <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
-                  <h2 className="text-xl font-semibold text-foreground mb-4">Area</h2>
 
-                  <div className="space-y-4">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="carpetArea"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Carpet Area</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., 1200" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="carpetAreaUnit"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Unit</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="sqft">Sq.ft</SelectItem>
-                                <SelectItem value="sqm">Sq.m</SelectItem>
-                                <SelectItem value="sqyd">Sq.yd</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="superArea"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Super / Built-up Area</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., 1500" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="superAreaUnit"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Unit</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="sqft">Sq.ft</SelectItem>
-                                <SelectItem value="sqm">Sq.m</SelectItem>
-                                <SelectItem value="sqyd">Sq.yd</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Transaction Type & Availability */}
-                <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
-                  <h2 className="text-xl font-semibold text-foreground mb-4">Transaction Type & Availability</h2>
-
-                  <div className="space-y-4">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="possession"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Possession</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="ready-to-move">Ready to Move</SelectItem>
-                                <SelectItem value="under-construction">Under Construction</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="ageOfProperty"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Age of Property</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="0-1">0-1 Year</SelectItem>
-                                <SelectItem value="1-5">1-5 Years</SelectItem>
-                                <SelectItem value="5-10">5-10 Years</SelectItem>
-                                <SelectItem value="10+">10+ Years</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <FormField
-                      control={form.control}
-                      name="availability"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Available From</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
 
                 {/* Price Details */}
                 <div className="bg-card rounded-lg border border-border p-6 shadow-sm">

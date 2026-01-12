@@ -1433,20 +1433,26 @@ const Clients = () => {
               </div>
 
               <div className="flex gap-2 col-span-1 sm:col-span-2 lg:col-span-2">
-                <Input
-                  type="date"
-                  placeholder="dd / mm / yyyy"
-                  value={startDateFilter}
-                  onChange={(e) => setStartDateFilter(e.target.value)}
-                  className="w-full"
-                />
-                <Input
-                  type="date"
-                  placeholder="dd / mm / yyyy"
-                  value={endDateFilter}
-                  onChange={(e) => setEndDateFilter(e.target.value)}
-                  className="w-full"
-                />
+                <div className="w-full">
+                  <span className="text-xs text-muted-foreground mb-1 block">From</span>
+                  <Input
+                    type="date"
+                    placeholder="dd / mm / yyyy"
+                    value={startDateFilter}
+                    onChange={(e) => setStartDateFilter(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <div className="w-full">
+                  <span className="text-xs text-muted-foreground mb-1 block">To</span>
+                  <Input
+                    type="date"
+                    placeholder="dd / mm / yyyy"
+                    value={endDateFilter}
+                    onChange={(e) => setEndDateFilter(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
               </div>
 
               {hasActiveFilters && (

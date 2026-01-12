@@ -110,9 +110,9 @@ export interface Property {
   featured: boolean;
   verified: boolean;
   rejectionReason?: string;
-  approvedBy?: string;
+  approvedBy?: string | any;
   approvedAt?: string;
-  rejectedBy?: string;
+  rejectedBy?: string | any;
   rejectedAt?: string;
   ownerType?: 'admin' | 'client';
   clientName?: string;

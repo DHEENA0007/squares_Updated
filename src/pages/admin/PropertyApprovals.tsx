@@ -213,6 +213,7 @@ const PropertyApprovals = () => {
       case 'pending':
         return <Badge variant="secondary">Pending Approval</Badge>;
       case 'active':
+      case 'available':
         return <Badge variant="default">Approved</Badge>;
       case 'rejected':
         return <Badge variant="destructive">Rejected</Badge>;
@@ -329,19 +330,20 @@ const PropertyApprovals = () => {
                 <TableRow className="bg-muted/50">
                   <TableHead className="font-semibold">S.no</TableHead>
                   <TableHead className="font-semibold">Property</TableHead>
-                  <TableHead className="font-semibold">Post Time</TableHead>
+                  <TableHead className="font-semibold">Submitted Date</TableHead>
                   <TableHead className="font-semibold">Owner</TableHead>
                   <TableHead className="font-semibold">Type</TableHead>
                   <TableHead className="font-semibold">Price</TableHead>
                   <TableHead className="font-semibold">Location</TableHead>
                   <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead className="font-semibold">Action By</TableHead>
                   <TableHead className="font-semibold text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {properties.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       No properties found
                     </TableCell>
                   </TableRow>
@@ -389,6 +391,23 @@ const PropertyApprovals = () => {
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(property.status)}
+                      </TableCell>
+                      <TableCell>
+                        {property.status === 'available' && property.approvedBy && (
+                          <div className="text-sm">
+                            <div className="font-medium text-green-600">Approved by</div>
+                            <div>{property.approvedBy.profile?.firstName} {property.approvedBy.profile?.lastName}</div>
+                            <div className="text-xs text-muted-foreground">{property.approvedAt ? new Date(property.approvedAt).toLocaleDateString() : '-'}</div>
+                          </div>
+                        )}
+                        {property.status === 'rejected' && property.rejectedBy && (
+                          <div className="text-sm">
+                            <div className="font-medium text-red-600">Rejected by</div>
+                            <div>{property.rejectedBy.profile?.firstName} {property.rejectedBy.profile?.lastName}</div>
+                            <div className="text-xs text-muted-foreground">{property.rejectedAt ? new Date(property.rejectedAt).toLocaleDateString() : '-'}</div>
+                          </div>
+                        )}
+                        {property.status === 'pending' && <span className="text-muted-foreground">-</span>}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">

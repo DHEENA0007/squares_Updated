@@ -2021,6 +2021,8 @@ router.get('/properties', authenticateToken, async (req, res) => {
     const [properties, totalProperties] = await Promise.all([
       Property.find(query)
         .populate('owner', 'email profile.firstName profile.lastName profile.phone')
+        .populate('approvedBy', 'profile.firstName profile.lastName email')
+        .populate('rejectedBy', 'profile.firstName profile.lastName email')
         .sort(sort)
         .skip(skip)
         .limit(parseInt(limit)),
@@ -4294,6 +4296,9 @@ router.get('/notifications/audience-counts', authenticateToken, isAnyAdmin, asyn
     const now = new Date();
     const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
 
+    const User = mongoose.model('User');
+    const Subscription = mongoose.model('Subscription');
+
     const [
       allUsers,
       customers,
@@ -4307,6 +4312,8 @@ router.get('/notifications/audience-counts', authenticateToken, isAnyAdmin, asyn
       User.countDocuments({ lastLogin: { $gte: thirtyDaysAgo } }),
       User.countDocuments({ 'profile.isPremium': true })
     ]);
+
+    console.log('Audience counts debug:', { allUsers, customers, vendors, activeUsers, premiumUsers });
 
     const premiumSubs = await Subscription.countDocuments({ status: 'active' });
 
