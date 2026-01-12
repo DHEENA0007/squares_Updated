@@ -1,5 +1,6 @@
 const express = require('express');
 const Property = require('../models/Property');
+const User = require('../models/User');
 const PropertyView = require('../models/PropertyView');
 const UserNotification = require('../models/UserNotification');
 const { asyncHandler, validateRequest } = require('../middleware/errorMiddleware');
@@ -53,7 +54,15 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
           { archived: false }
         ]
       };
-      console.log('Applying customer filter - showing only available and non-archived properties');
+
+      // Exclude properties from suspended users
+      const suspendedUsers = await User.find({ status: 'suspended' }).select('_id');
+      if (suspendedUsers.length > 0) {
+        const suspendedUserIds = suspendedUsers.map(u => u._id);
+        queryFilter.owner = { $nin: suspendedUserIds };
+      }
+
+      console.log('Applying customer filter - showing only available and non-archived properties from active users');
     } else {
       console.log('Admin user detected - showing all properties');
     }
@@ -389,7 +398,7 @@ router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
     }
 
     const property = await Property.findById(id)
-      .populate('owner', 'profile.firstName profile.lastName profile.phone email role')
+      .populate('owner', 'profile.firstName profile.lastName profile.phone email role status')
       .populate('agent', 'profile.firstName profile.lastName profile.phone email role')
       .populate('assignedTo', 'profile.firstName profile.lastName profile.phone email role')
       .populate('approvedBy', 'profile.firstName profile.lastName email')
@@ -399,6 +408,22 @@ router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
 
     if (!property) {
       console.log('Property not found with ID:', id);
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Check if owner is suspended (for non-admins)
+    const isAdmin = req.user && (
+      req.user.role === 'admin' ||
+      req.user.role === 'superadmin' ||
+      req.user.role === 'subadmin' ||
+      hasPermission(req.user, PERMISSIONS.PROPERTIES_VIEW)
+    );
+
+    if (!isAdmin && property.owner?.status === 'suspended') {
+      console.log('Property owner is suspended, hiding property:', id);
       return res.status(404).json({
         success: false,
         message: 'Property not found'
@@ -1021,7 +1046,8 @@ router.patch('/:id/featured', authenticateToken, asyncHandler(async (req, res) =
         });
       }
 
-      const plan = activeSubscription.plan;
+      // Use planSnapshot for limits (grandfathering existing subscribers)
+      const plan = activeSubscription.planSnapshot || activeSubscription.plan;
       const featuredLimit = plan.limits?.featuredListings || 0;
 
       // Check if plan allows featured listings

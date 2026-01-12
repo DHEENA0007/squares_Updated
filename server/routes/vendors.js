@@ -184,7 +184,9 @@ router.get('/:vendorId/badges', asyncHandler(async (req, res) => {
       });
     }
 
-    const plan = activeSubscription.plan;
+    // Use planSnapshot for limits/features (grandfathering existing subscribers)
+    // Fall back to live plan if snapshot doesn't exist (for backwards compatibility)
+    const plan = activeSubscription.planSnapshot || activeSubscription.plan;
     response.planName = plan.name;
     response.planLevel = plan.identifier || 'basic';
 
@@ -274,8 +276,8 @@ router.get('/:vendorId/whatsapp-check', asyncHandler(async (req, res) => {
     let whatsappNumber = null;
 
     if (activeSubscription && activeSubscription.plan) {
-      // Check if plan has WhatsApp support enabled (from plan configuration)
-      const plan = activeSubscription.plan;
+      // Use planSnapshot for features (grandfathering existing subscribers)
+      const plan = activeSubscription.planSnapshot || activeSubscription.plan;
       whatsappEnabled = plan.whatsappSupport?.enabled === true;
       whatsappNumber = plan.whatsappSupport?.number || null;
     }
@@ -604,8 +606,9 @@ router.get('/profile', requireVendorRole, asyncHandler(async (req, res) => {
       badges: []
     };
 
-    if (activeSubscription && activeSubscription.plan) {
-      const plan = activeSubscription.plan;
+    if (activeSubscription && (activeSubscription.planSnapshot || activeSubscription.plan)) {
+      // Use planSnapshot for limits/features (grandfathering existing subscribers)
+      const plan = activeSubscription.planSnapshot || activeSubscription.plan;
 
       // Handle both new array format and legacy object format for benefits
       if (Array.isArray(plan.benefits)) {
@@ -2648,10 +2651,11 @@ router.get('/subscription/check/:subscriptionName', authenticateToken, authorize
         hasSubscription,
         subscriptionName,
         planDetails: activeSubscription ? {
-          // ALWAYS use live plan data (not snapshot) so superadmin changes are reflected
+          // Use planSnapshot for limits (grandfathering existing subscribers)
+          // Plan name/identifier from live plan for display purposes
           name: activeSubscription.plan?.name,
           identifier: activeSubscription.plan?.identifier,
-          limits: activeSubscription.plan?.limits
+          limits: (activeSubscription.planSnapshot?.limits || activeSubscription.plan?.limits)
         } : null
       }
     });
@@ -3470,18 +3474,21 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
         });
       }
 
+      // Use planSnapshot for limits/features (grandfathering existing subscribers)
+      const effectivePlan = activeSubscription.planSnapshot || activeSubscription.plan;
+
       res.json({
         success: true,
         data: {
           hasActiveSubscription: true,
           subscription: {
             id: activeSubscription._id,
-            planName: activeSubscription.plan?.name,
+            planName: activeSubscription.plan?.name, // Live plan name for display
             planId: activeSubscription.plan?._id,
             status: activeSubscription.status,
             startDate: activeSubscription.startDate,
             endDate: activeSubscription.endDate,
-            features: (activeSubscription.plan?.features || []).map(f => {
+            features: (effectivePlan?.features || []).map(f => {
               if (typeof f === 'string') {
                 return f;
               } else if (f && typeof f === 'object' && f.name) {
@@ -3489,9 +3496,9 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
               }
               return null;
             }).filter(Boolean),
-            limits: activeSubscription.plan?.limits || {},
+            limits: effectivePlan?.limits || {},
             billingCycle: (() => {
-              const months = activeSubscription.plan?.billingCycleMonths || 1;
+              const months = effectivePlan?.billingCycleMonths || activeSubscription.plan?.billingCycleMonths || 1;
               if (months === 1) return 'Monthly';
               if (months === 12) return 'Annually';
               return `Every ${months} months`;
@@ -3546,8 +3553,9 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
     let planData = null;
 
     if (activeSubscription && activeSubscription.plan) {
-      // ALWAYS use live plan data (not snapshot) so superadmin changes are reflected immediately
-      planData = activeSubscription.plan;
+      // Use planSnapshot for limits (grandfathering existing subscribers)
+      // Existing subscribers keep their original limits until subscription expires
+      planData = activeSubscription.planSnapshot || activeSubscription.plan;
     } else {
       // If no subscription, fetch the FREE plan from database to get current admin settings
       const Plan = require('../models/Plan');
@@ -3707,7 +3715,8 @@ router.get('/subscription/badges', requireVendorRole, asyncHandler(async (req, r
       });
     }
 
-    const plan = activeSubscription.plan;
+    // Use planSnapshot for features/benefits (grandfathering existing subscribers)
+    const plan = activeSubscription.planSnapshot || activeSubscription.plan;
     response.planName = plan.name;
     response.planLevel = plan.identifier || 'basic';
 
@@ -3973,8 +3982,10 @@ router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) =>
     // Get limits from active subscription OR fetch free plan from database
     let limits;
 
-    if (activeSubscription?.plan?.limits) {
-      limits = activeSubscription.plan.limits;
+    // Use planSnapshot for limits (grandfathering existing subscribers)
+    const effectivePlan = activeSubscription?.planSnapshot || activeSubscription?.plan;
+    if (effectivePlan?.limits) {
+      limits = effectivePlan.limits;
     } else {
       // No subscription - fetch FREE plan limits from database
       const Plan = require('../models/Plan');
@@ -4710,8 +4721,9 @@ router.post('/subscription/refresh', requireVendorRole, asyncHandler(async (req,
     let refreshedData = null;
 
     if (activeSubscription && activeSubscription.plan) {
-      // ALWAYS use live plan data (not snapshot) so superadmin changes are reflected immediately
-      plan = activeSubscription.plan;
+      // Use planSnapshot for limits (grandfathering existing subscribers)
+      // Existing subscribers keep their original limits until subscription expires
+      plan = activeSubscription.planSnapshot || activeSubscription.plan;
     } else {
       // No subscription - fetch FREE plan from database
       const Plan = require('../models/Plan');

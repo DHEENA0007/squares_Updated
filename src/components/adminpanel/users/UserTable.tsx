@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Eye, Trash2, Loader2, User as UserIcon, Mail, Phone, MapPin, Calendar, Shield, Activity, ArrowUpCircle } from "lucide-react";
+import { Eye, Ban, Loader2, User as UserIcon, Mail, Phone, MapPin, Calendar, Shield, Activity, ArrowUpCircle } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Table,
@@ -61,13 +61,15 @@ interface UserTableProps {
   searchQuery: string;
   roleFilter?: string;
   monthFilter?: string;
+  statusFilter?: string;
 }
 
-const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => {
+const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter }: UserTableProps) => {
   const { isSuperAdmin, user } = useAuth();
   const userPermissions = user?.rolePermissions || [];
   const hasPermission = (permission: string) => userPermissions.includes(permission);
   const canPromoteUsers = isSuperAdmin || hasPermission(PERMISSIONS.USERS_PROMOTE);
+  const canManageUserStatus = isSuperAdmin || hasPermission(PERMISSIONS.USERS_STATUS);
   const isMobile = useIsMobile();
   const [currentPage, setCurrentPage] = useState(1);
   const [users, setUsers] = useState<User[]>([]);
@@ -75,7 +77,7 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => 
   const [isTableLoading, setIsTableLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
-  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [suspendingUserId, setSuspendingUserId] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isPromoteDialogOpen, setIsPromoteDialogOpen] = useState(false);
@@ -207,6 +209,7 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => 
           search: searchQuery || undefined,
           role: roleFilter || undefined,
           month: monthFilter || undefined,
+          status: statusFilter || undefined,
         });
 
         if (response.success) {
@@ -223,17 +226,21 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => 
     };
 
     fetchUsers();
-  }, [currentPage, searchQuery, roleFilter, monthFilter]);
+  }, [currentPage, searchQuery, roleFilter, monthFilter, statusFilter]);
 
-  const handleDeleteUser = async (userId: string) => {
-    setDeletingUserId(userId);
+  const handleSuspendUser = async (user: User) => {
+    const newStatus = user.status === 'suspended' ? 'active' : 'suspended';
+    setSuspendingUserId(user._id);
     try {
-      await userService.deleteUser(userId);
+      await userService.updateUserStatus(user._id, newStatus);
       // Refresh the user list
       const response = await userService.getUsers({
         page: currentPage,
         limit: itemsPerPage,
         search: searchQuery || undefined,
+        role: roleFilter || undefined,
+        month: monthFilter || undefined,
+        status: statusFilter || undefined,
       });
       if (response.success) {
         setUsers(response.data.users);
@@ -241,9 +248,9 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => 
         setTotalUsers(response.data.pagination.totalUsers);
       }
     } catch (error) {
-      console.error("Failed to delete user:", error);
+      console.error("Failed to update user status:", error);
     } finally {
-      setDeletingUserId(null);
+      setSuspendingUserId(null);
     }
   };
 
@@ -445,34 +452,47 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter }: UserTableProps) => 
                           <ArrowUpCircle className={isMobile ? 'h-3 w-3' : 'h-4 w-4'} />
                         </Button>
                       )}
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size={isMobile ? "sm" : "icon"} className={isMobile ? 'h-6 w-6 p-1' : ''}>
-                            <Trash2 className={isMobile ? 'h-3 w-3' : 'h-4 w-4'} />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete the user
-                              account and remove their data from our servers.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteUser(user._id)}
-                              disabled={deletingUserId === user._id}
+                      {canManageUserStatus && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size={isMobile ? "sm" : "icon"}
+                              className={isMobile ? 'h-6 w-6 p-1' : ''}
+                              title={user.status === 'suspended' ? "Activate User" : "Suspend User"}
                             >
-                              {deletingUserId === user._id ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              ) : null}
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                              {user.status === 'suspended' ? (
+                                <CheckCircle className={`text-green-600 ${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
+                              ) : (
+                                <Ban className={`text-red-600 ${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>{user.status === 'suspended' ? "Activate User?" : "Suspend User?"}</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {user.status === 'suspended'
+                                  ? "This will restore the user's access to the platform."
+                                  : "This will temporarily disable the user's access to the platform. They won't be able to log in."}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleSuspendUser(user)}
+                                disabled={suspendingUserId === user._id}
+                                className={user.status === 'suspended' ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+                              >
+                                {suspendingUserId === user._id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : null}
+                                {user.status === 'suspended' ? "Activate" : "Suspend"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

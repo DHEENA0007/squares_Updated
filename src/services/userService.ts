@@ -255,11 +255,11 @@ class UserService {
     }
   }
 
-  async updateUserStatus(id: string, status: User['status']): Promise<SingleUserResponse> {
+  async updateUserStatus(id: string, status: User['status'], reason?: string): Promise<SingleUserResponse> {
     try {
       const response = await this.makeRequest<SingleUserResponse>(`/users/${id}/status`, {
         method: "PATCH",
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, reason }),
       });
 
       toast({

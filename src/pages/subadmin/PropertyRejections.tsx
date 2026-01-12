@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ViewPropertyDialog } from "@/components/adminpanel/ViewPropertyDialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -260,6 +261,25 @@ const PropertyRejections = () => {
       </div>
     );
   }
+
+  const viewDialogProperty = selectedProperty ? {
+    ...selectedProperty,
+    // Ensure type compatibility for ViewPropertyDialog
+    type: selectedProperty.type as any,
+    listingType: selectedProperty.listingType as any,
+    status: selectedProperty.status as any,
+    images: selectedProperty.images.map(img => {
+      // Handle string images or object images if they exist in this interface
+      const url = typeof img === 'string' ? img : (img as any).url;
+      return { url, isPrimary: false };
+    }),
+    // Ensure owner has required fields or fallback
+    owner: {
+      ...selectedProperty.owner,
+      role: 'customer', // Default role if missing
+      profile: { firstName: selectedProperty.owner.name, lastName: '', phone: '' }
+    }
+  } : null;
 
   return (
     <div className="space-y-6">
@@ -641,139 +661,11 @@ const PropertyRejections = () => {
       )}
 
       {/* View Property Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedProperty?.title}</DialogTitle>
-            <DialogDescription>
-              Rejected property details and information
-            </DialogDescription>
-          </DialogHeader>
-          {selectedProperty && (
-            <div className="space-y-4">
-              {selectedProperty.rejectionReason && (
-                <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-semibold text-red-900 dark:text-red-100">Rejection Reason:</p>
-                      <p className="text-sm text-red-700 dark:text-red-300 mt-1">{selectedProperty.rejectionReason}</p>
-                      {selectedProperty.rejectedBy && (
-                        <p className="text-xs text-red-600 dark:text-red-400 mt-2">
-                          Rejected by: {selectedProperty.rejectedBy.name} ({selectedProperty.rejectedBy.email})
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-semibold">Property Details</h4>
-                  <ul className="text-sm space-y-1">
-                    <li><strong>Type:</strong> {selectedProperty.type}</li>
-                    <li><strong>Listing Type:</strong> {selectedProperty.listingType}</li>
-                    <li><strong>Price:</strong> {formatPrice(selectedProperty.price)}</li>
-                    <li><strong>Area:</strong> {formatArea(selectedProperty.area)}</li>
-                    <li><strong>Bedrooms:</strong> {selectedProperty.bedrooms}</li>
-                    <li><strong>Bathrooms:</strong> {selectedProperty.bathrooms}</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-semibold">Location & Contact</h4>
-                  <ul className="text-sm space-y-1">
-                    <li><strong>Address:</strong> {selectedProperty.address.street}</li>
-                    <li><strong>City:</strong> {selectedProperty.address.city}</li>
-                    <li><strong>State:</strong> {selectedProperty.address.state}</li>
-                    <li><strong>Zip Code:</strong> {selectedProperty.address.zipCode}</li>
-                    <li><strong>Owner:</strong> {selectedProperty.owner.name}</li>
-                    <li><strong>Email:</strong> {selectedProperty.owner.email}</li>
-                  </ul>
-                </div>
-              </div>
-              {selectedProperty.description && (
-                <div>
-                  <h4 className="font-semibold">Description</h4>
-                  <p className="text-sm">{selectedProperty.description}</p>
-                </div>
-              )}
-              {selectedProperty.images && selectedProperty.images.length > 0 && (
-                <div>
-                  <h4 className="font-semibold mb-2">Images</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {selectedProperty.images.map((image, index) => (
-                      <img
-                        key={index}
-                        src={image}
-                        alt={`Property ${index + 1}`}
-                        className="w-full h-32 object-cover rounded"
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-              {selectedProperty.videos && selectedProperty.videos.length > 0 && (
-                <div>
-                  <h4 className="font-semibold mb-2">Videos</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedProperty.videos.map((video, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="relative aspect-video rounded-lg overflow-hidden border bg-black">
-                          {video.url && (video.url.includes('youtube.com') || video.url.includes('youtu.be')) ? (
-                            <iframe
-                              src={video.url.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
-                              className="w-full h-full"
-                              allowFullScreen
-                              title={video.caption || `Video ${index + 1}`}
-                            />
-                          ) : (
-                            <video
-                              src={video.url}
-                              controls
-                              className="w-full h-full object-contain"
-                              poster={video.thumbnail}
-                            />
-                          )}
-                        </div>
-                        {video.caption && (
-                          <p className="text-xs text-muted-foreground">{video.caption}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {selectedProperty.virtualTour && (
-                <div>
-                  <h4 className="font-semibold mb-2">Virtual Tour</h4>
-                  <VirtualTourViewer url={selectedProperty.virtualTour} />
-                </div>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setViewDialogOpen(false)}
-            >
-              Close
-            </Button>
-            {selectedProperty && (
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setViewDialogOpen(false);
-                  openReactivateDialog(selectedProperty);
-                }}
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Reactivate for Review
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ViewPropertyDialog
+        property={viewDialogProperty as any}
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
+      />
 
       {/* Reactivation Approval Dialog */}
       <Dialog open={reactivateDialogOpen} onOpenChange={setReactivateDialogOpen}>

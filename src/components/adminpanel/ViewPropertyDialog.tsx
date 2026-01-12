@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Property } from "@/services/propertyService";
 import {
   Dialog,
@@ -11,6 +12,8 @@ import { Separator } from "@/components/ui/separator";
 import { MapPin, Home, Bed, Bath, Maximize, IndianRupee } from "lucide-react";
 import { getOwnerDisplayName, isAdminUser } from "@/utils/propertyUtils";
 import { VirtualTourViewer } from "@/components/property/VirtualTourViewer";
+import { configurationService } from "@/services/configurationService";
+import { PropertyTypeField } from "@/types/configuration";
 
 interface ViewPropertyDialogProps {
   property: Property | null;
@@ -19,13 +22,42 @@ interface ViewPropertyDialogProps {
 }
 
 export const ViewPropertyDialog = ({ property, open, onOpenChange }: ViewPropertyDialogProps) => {
+  const [dynamicFields, setDynamicFields] = useState<PropertyTypeField[]>([]);
+
+  useEffect(() => {
+    const fetchFields = async () => {
+      if (property?.type) {
+        try {
+          const types = await configurationService.getAllPropertyTypes();
+          const currentType = types.find(t => t.value === property.type);
+          if (currentType) {
+            const fields = await configurationService.getPropertyTypeFields(currentType.id);
+            // Filter out fields that are already displayed (like price, area, description, images)
+            // or fields that shouldn't be in the summary grid
+            const filteredFields = fields.filter(f =>
+              !['price', 'area', 'description', 'images', 'videos', 'virtualTour', 'amenities'].includes(f.field_name) &&
+              f.is_active
+            ).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+            setDynamicFields(filteredFields);
+          }
+        } catch (error) {
+          console.error("Failed to fetch property type fields:", error);
+        }
+      }
+    };
+
+    if (open && property) {
+      fetchFields();
+    }
+  }, [property, open]);
+
   if (!property) return null;
 
   const formatPrice = (price: number, listingType: string) => {
     const formatted = new Intl.NumberFormat('en-IN', {
       maximumFractionDigits: 0,
     }).format(price);
-    
+
     return listingType === 'rent' ? `₹${formatted}/month` : `₹${formatted}`;
   };
 
@@ -40,6 +72,31 @@ export const ViewPropertyDialog = ({ property, open, onOpenChange }: ViewPropert
       return `${area.plot} ${area.unit || 'sqft'}`;
     }
     return 'N/A';
+  };
+
+  const getFieldValue = (field: PropertyTypeField) => {
+    // Handle specific nested fields
+    if (field.fieldName === 'builtUpArea') {
+      return property.area?.builtUp ? `${property.area.builtUp} ${property.area.unit || 'sqft'}` : 'N/A';
+    }
+    if (field.fieldName === 'carpetArea') {
+      return property.area?.carpet ? `${property.area.carpet} ${property.area.unit || 'sqft'}` : 'N/A';
+    }
+    if (field.fieldName === 'plotArea') {
+      return property.area?.plot ? `${property.area.plot} ${property.area.unit || 'sqft'}` : 'N/A';
+    }
+
+    // Check top-level property
+    let value = (property as any)[field.fieldName];
+
+    // Check customFields if not found at top level
+    if ((value === undefined || value === null) && property.customFields) {
+      value = property.customFields[field.fieldName];
+    }
+
+    if (value === undefined || value === null) return 'N/A';
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    return value.toString();
   };
 
   return (
@@ -87,20 +144,18 @@ export const ViewPropertyDialog = ({ property, open, onOpenChange }: ViewPropert
                 <p className="font-semibold">{formatArea(property.area)}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Bed className="w-5 h-5 text-purple-600" />
-              <div>
-                <p className="text-xs text-muted-foreground">Bedrooms</p>
-                <p className="font-semibold">{property.bedrooms || 'N/A'}</p>
+
+            {/* Dynamic Fields */}
+            {dynamicFields.map((field) => (
+              <div key={field.id} className="flex items-center gap-2">
+                {/* We can add logic to choose icon based on field name if needed, or use a generic one */}
+                <Home className="w-5 h-5 text-gray-600" />
+                <div>
+                  <p className="text-xs text-muted-foreground">{field.field_label}</p>
+                  <p className="font-semibold">{getFieldValue(field)}</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Bath className="w-5 h-5 text-orange-600" />
-              <div>
-                <p className="text-xs text-muted-foreground">Bathrooms</p>
-                <p className="font-semibold">{property.bathrooms || 'N/A'}</p>
-              </div>
-            </div>
+            ))}
           </div>
 
           <Separator />
@@ -159,8 +214,8 @@ export const ViewPropertyDialog = ({ property, open, onOpenChange }: ViewPropert
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {property.images.map((image, index) => (
                     <div key={index} className="relative aspect-video rounded-lg overflow-hidden border">
-                      <img 
-                        src={image.url} 
+                      <img
+                        src={image.url}
                         alt={image.caption || `Property ${index + 1}`}
                         className="w-full h-full object-cover"
                       />

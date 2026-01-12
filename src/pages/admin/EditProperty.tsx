@@ -16,6 +16,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { DynamicPropertyFields } from "@/components/property/DynamicPropertyFields";
+import { configurationService } from "@/services/configurationService";
+import type { PropertyType } from "@/types/configuration";
 
 const propertyFormSchema = z.object({
   userType: z.enum(["owner", "agent", "builder"]),
@@ -63,7 +66,10 @@ const EditProperty = () => {
   const { toast } = useToast();
   const [property, setProperty] = useState<Property | null>(null);
   const [uploadedPhotos, setUploadedPhotos] = useState<File[]>([]);
-  const [existingImages, setExistingImages] = useState<Array<{url: string; caption?: string; isPrimary: boolean}>>([]);
+  const [existingImages, setExistingImages] = useState<Array<{ url: string; caption?: string; isPrimary: boolean }>>([]);
+  const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
+  const [propertyTypeId, setPropertyTypeId] = useState<string>("");
+  const [dynamicFields, setDynamicFields] = useState<Record<string, any>>({});
 
 
   const form = useForm<PropertyFormValues>({
@@ -78,12 +84,16 @@ const EditProperty = () => {
   useEffect(() => {
     const fetchProperty = async () => {
       if (!id) return;
-      
+
       try {
-        const response = await propertyService.getAdminProperty(id);
-        setProperty(response.data.property);
+        const [propertyResponse, types] = await Promise.all([
+          propertyService.getAdminProperty(id),
+          configurationService.getAllPropertyTypes()
+        ]);
+        setProperty(propertyResponse.data.property);
+        setPropertyTypes(types);
       } catch (error) {
-        console.error("Failed to fetch property:", error);
+        console.error("Failed to fetch property or types:", error);
       }
     };
 
@@ -93,27 +103,43 @@ const EditProperty = () => {
   // Populate form when property is loaded
   useEffect(() => {
     if (property) {
+      console.log("Populating form with property data:", property);
+
       // Set existing images
       if (property.images && property.images.length > 0) {
         setExistingImages(property.images);
       }
 
-      form.reset({
-        userType: "owner",
-        name: property.owner?.profile?.firstName && property.owner?.profile?.lastName 
-          ? `${property.owner.profile.firstName} ${property.owner.profile.lastName}` 
+      // Set property type ID and dynamic fields
+      if (propertyTypes.length > 0) {
+        const typeConfig = propertyTypes.find(t => t.value === property.type);
+        if (typeConfig) {
+          setPropertyTypeId(typeConfig._id);
+        }
+      }
+
+      if ((property as any).customFields) {
+        setDynamicFields((property as any).customFields);
+      }
+
+      const formData = {
+        userType: "owner" as const, // Default or derived if available
+        name: property.owner?.profile?.firstName && property.owner?.profile?.lastName
+          ? `${property.owner.profile.firstName} ${property.owner.profile.lastName}`
           : "",
         email: property.owner?.email || "",
         phone: property.owner?.profile?.phone || "",
-        lookingTo: property.listingType === 'sale' ? 'sell' : 'rent',
+        lookingTo: (property.listingType === 'sale' ? 'sell' : 'rent') as "sell" | "rent",
         propertyType: property.type || "",
         bedrooms: property.bedrooms?.toString() || "",
         bathrooms: property.bathrooms?.toString() || "",
-        builtUpArea: property.area?.builtUp?.toString() || "",
+        balconies: (property as any).balconies?.toString() || (property.customFields?.balconies?.toString()) || "",
+        // Map builtUp to superArea because that's the visible field in the form
+        superArea: property.area?.builtUp?.toString() || property.area?.plot?.toString() || "",
+        superAreaUnit: property.area?.unit || "sqft",
         carpetArea: property.area?.carpet?.toString() || "",
         carpetAreaUnit: property.area?.unit || "sqft",
-        superArea: property.area?.plot?.toString() || "",
-        superAreaUnit: property.area?.unit || "sqft",
+        builtUpArea: property.area?.builtUp?.toString() || "", // Keep this for completeness even if not rendered
         city: property.address?.city || "",
         locality: property.address?.locationName || property.address?.street || "",
         street: property.address?.street || "",
@@ -129,9 +155,12 @@ const EditProperty = () => {
         expectedPrice: property.price?.toString() || "",
         priceNegotiable: property.priceNegotiable || false,
         propertyDescription: property.description || "",
-      });
+      };
+
+      console.log("Resetting form with:", formData);
+      form.reset(formData);
     }
-  }, [property, form]);
+  }, [property, form, propertyTypes]);
 
   // Deprecated manual submit retained only for reference; using react-hook-form's onSubmit
 
@@ -151,12 +180,63 @@ const EditProperty = () => {
     );
   }
 
-  const onSubmit = (data: PropertyFormValues) => {
-    console.log(data);
-    toast({
-      title: "Property Submitted!",
-      description: "We'll contact you soon to verify your property details.",
-    });
+  const onSubmit = async (data: PropertyFormValues) => {
+    if (!property || !id) return;
+
+    try {
+      // Prepare update payload
+      const updateData: any = {
+        title: property.title, // Keep existing title if not in form
+        description: data.propertyDescription,
+        type: data.propertyType,
+        listingType: data.lookingTo === 'sell' ? 'sale' : 'rent',
+        price: parseFloat(data.expectedPrice),
+        priceNegotiable: data.priceNegotiable,
+        bedrooms: data.bedrooms ? parseInt(data.bedrooms) : undefined,
+        bathrooms: data.bathrooms ? parseInt(data.bathrooms) : undefined,
+        floor: data.floorNo,
+        totalFloors: data.totalFloors,
+        furnishing: data.furnishing,
+        parkingSpaces: data.parking,
+        possession: data.possession,
+        availability: data.availability,
+        age: data.ageOfProperty,
+        address: {
+          ...property.address,
+          street: data.street || data.locality,
+          city: data.city,
+          state: data.state,
+          pincode: data.pincode,
+          locationName: data.locality
+        },
+        area: {
+          builtUp: data.superArea ? parseFloat(data.superArea) : (data.builtUpArea ? parseFloat(data.builtUpArea) : undefined),
+          carpet: data.carpetArea ? parseFloat(data.carpetArea) : undefined,
+          plot: undefined, // Plot area should be handled via dynamic fields or specific plotArea field if added
+          unit: data.carpetAreaUnit || 'sqft'
+        },
+        customFields: dynamicFields
+      };
+
+      // Handle image uploads if any (would need upload logic here, similar to AddProperty)
+      // For now, we preserve existing images
+      updateData.images = existingImages;
+
+      await propertyService.updateProperty(id, updateData);
+
+      toast({
+        title: "Property Updated!",
+        description: "Property details have been successfully updated.",
+      });
+      navigate("/admin/properties");
+    } catch (error) {
+      console.error("Failed to update property:", error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update property details. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,25 +246,25 @@ const EditProperty = () => {
   };
 
 
-  
+
 
   return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/admin/properties")}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Edit Property</h1>
-            <p className="text-muted-foreground mt-2">Update property listing details</p>
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/admin/properties")}>
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Edit Property</h1>
+          <p className="text-muted-foreground mt-2">Update property listing details</p>
         </div>
+      </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Property Information</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle>Property Information</CardTitle>
+        </CardHeader>
+        <CardContent>
 
           <div className="lg:col-span-2">
             <Form {...form}>
@@ -192,7 +272,7 @@ const EditProperty = () => {
                 {/* Personal Details */}
                 <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
                   <h2 className="text-xl font-semibold text-foreground mb-4">Personal Details</h2>
-                  
+
                   <div className="space-y-4">
                     <FormField
                       control={form.control}
@@ -274,7 +354,7 @@ const EditProperty = () => {
                 {/* Property Details */}
                 <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
                   <h2 className="text-xl font-semibold text-foreground mb-4">Property Details</h2>
-                  
+
                   <div className="space-y-4">
                     <FormField
                       control={form.control}
@@ -489,18 +569,30 @@ const EditProperty = () => {
                   </div>
                 </div>
 
+                {/* Dynamic Property Fields */}
+                {propertyTypeId && (
+                  <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
+                    <h2 className="text-xl font-semibold text-foreground mb-4">Additional Details</h2>
+                    <DynamicPropertyFields
+                      propertyTypeId={propertyTypeId}
+                      values={dynamicFields}
+                      onChange={(field, value) => setDynamicFields(prev => ({ ...prev, [field]: value }))}
+                    />
+                  </div>
+                )}
+
                 {/* Property Location */}
                 <div className="bg-transparent rounded-lg border border-primary/20 p-6 shadow-sm">
                   <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
                     <MapPin className="w-5 h-5 text-primary" />
                     Property Location
                   </h2>
-                  
+
                   <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
                       Enter location details or start with pincode for instant auto-completion
                     </p>
-                    
+
                     <EnhancedAddressInput
                       onLocationChange={(locationData) => {
                         // Update form fields based on location data
@@ -531,7 +623,7 @@ const EditProperty = () => {
                 {/* Area */}
                 <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
                   <h2 className="text-xl font-semibold text-foreground mb-4">Area</h2>
-                  
+
                   <div className="space-y-4">
                     <div className="grid md:grid-cols-2 gap-4">
                       <FormField
@@ -616,7 +708,7 @@ const EditProperty = () => {
                 {/* Transaction Type & Availability */}
                 <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
                   <h2 className="text-xl font-semibold text-foreground mb-4">Transaction Type & Availability</h2>
-                  
+
                   <div className="space-y-4">
                     <div className="grid md:grid-cols-2 gap-4">
                       <FormField
@@ -685,7 +777,7 @@ const EditProperty = () => {
                 {/* Price Details */}
                 <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
                   <h2 className="text-xl font-semibold text-foreground mb-4">Price Details</h2>
-                  
+
                   <div className="space-y-4">
                     <FormField
                       control={form.control}
@@ -726,7 +818,7 @@ const EditProperty = () => {
                 {/* Property Description */}
                 <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
                   <h2 className="text-xl font-semibold text-foreground mb-4">Property Description</h2>
-                  
+
                   <FormField
                     control={form.control}
                     name="propertyDescription"
@@ -752,7 +844,7 @@ const EditProperty = () => {
                   <p className="text-sm text-muted-foreground mb-4">
                     Add photos to get better response (Max 20 photos)
                   </p>
-                  
+
                   {/* Display existing images */}
                   {existingImages.length > 0 && (
                     <div className="mb-6">
@@ -838,9 +930,9 @@ const EditProperty = () => {
           </div>
 
 
-          </CardContent>
-        </Card>
-      </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

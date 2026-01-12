@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ViewPropertyDialog } from "@/components/adminpanel/ViewPropertyDialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -402,6 +403,26 @@ const PropertyReviews = () => {
       </div>
     );
   }
+
+  const viewDialogProperty = selectedProperty ? {
+    ...selectedProperty,
+    // Ensure type compatibility for ViewPropertyDialog
+    type: selectedProperty.type as any,
+    listingType: selectedProperty.listingType as any,
+    status: selectedProperty.status as any,
+    images: selectedProperty.images.map(img => {
+      const url = getImageUrl(img);
+      const isPrimary = typeof img === 'object' ? img.isPrimary : false;
+      const caption = typeof img === 'object' ? img.caption : undefined;
+      return { url, isPrimary: !!isPrimary, caption };
+    }),
+    // Ensure owner has required fields or fallback
+    owner: {
+      ...selectedProperty.owner,
+      role: 'customer', // Default role if missing, or fetch if needed
+      profile: selectedProperty.owner.profile || { firstName: selectedProperty.owner.name, lastName: '', phone: '' }
+    }
+  } : null;
 
   return (
     <div className="space-y-6">
@@ -1138,210 +1159,13 @@ const PropertyReviews = () => {
         </DialogContent>
       </Dialog>
 
+
       {/* View Property Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl">{selectedProperty?.title}</DialogTitle>
-            <DialogDescription>
-              <div className="flex items-center gap-2 mt-2">
-                <MapPin className="w-4 h-4" />
-                {selectedProperty?.address.street}, {selectedProperty?.address.city}, {selectedProperty?.address.state} - {selectedProperty?.address.pincode || selectedProperty?.address.zipCode}
-              </div>
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedProperty && (
-            <div className="space-y-6 mt-4">
-              {/* Status and Type Badges */}
-              <div className="flex flex-wrap gap-2">
-                <Badge variant={selectedProperty.status === 'available' ? 'default' : selectedProperty.status === 'pending' ? 'outline' : 'destructive'}>
-                  Status: {selectedProperty.status}
-                </Badge>
-                <Badge variant="secondary" className="capitalize">
-                  {selectedProperty.type ? selectedProperty.type.replace('_', ' ') : 'property'}
-                </Badge>
-                <Badge variant={selectedProperty.listingType === 'sale' ? 'default' : 'outline'}>
-                  For {selectedProperty.listingType === 'sale' ? 'Sale' : 'Rent'}
-                </Badge>
-                {selectedProperty.featured && <Badge variant="default">Featured</Badge>}
-                {selectedProperty.verified && <Badge variant="default">Verified</Badge>}
-              </div>
-
-              {/* Price and Key Details */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
-                <div className="flex items-center gap-2">
-                  <IndianRupee className="w-5 h-5 text-green-600" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Price</p>
-                    <p className="font-semibold">{formatPrice(selectedProperty.price)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Maximize className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Area</p>
-                    <p className="font-semibold">{formatArea(selectedProperty.area)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Bed className="w-5 h-5 text-purple-600" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Bedrooms</p>
-                    <p className="font-semibold">{selectedProperty.bedrooms || 'N/A'}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Bath className="w-5 h-5 text-orange-600" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Bathrooms</p>
-                    <p className="font-semibold">{selectedProperty.bathrooms || 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Description */}
-              <div>
-                <h3 className="font-semibold mb-2">Description</h3>
-                <p className="text-sm text-muted-foreground">{selectedProperty.description}</p>
-              </div>
-
-              {/* Amenities */}
-              {selectedProperty.amenities && selectedProperty.amenities.length > 0 && (
-                <>
-                  <Separator />
-                  <div>
-                    <h3 className="font-semibold mb-2">Amenities</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedProperty.amenities.map((amenity, index) => (
-                        <Badge key={index} variant="outline" className="capitalize">
-                          {amenity.replace('_', ' ')}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Owner Information */}
-              <Separator />
-              <div>
-                <h3 className="font-semibold mb-2">Owner Information</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Name</p>
-                    <p className="font-medium">
-                      {selectedProperty.owner?.profile?.firstName && selectedProperty.owner?.profile?.lastName
-                        ? `${selectedProperty.owner.profile.firstName} ${selectedProperty.owner.profile.lastName}`
-                        : selectedProperty.owner.name}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Email</p>
-                    <p className="font-medium">{selectedProperty.owner?.email}</p>
-                  </div>
-                  {selectedProperty.owner?.profile?.phone && (
-                    <div>
-                      <p className="text-muted-foreground">Phone</p>
-                      <p className="font-medium">{selectedProperty.owner.profile.phone}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Images */}
-              {selectedProperty.images && selectedProperty.images.length > 0 && (
-                <>
-                  <Separator />
-                  <div>
-                    <h3 className="font-semibold mb-2">Images</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      {selectedProperty.images.map((image, index) => {
-                        const imageObj = typeof image === 'object' ? image : { url: image };
-                        return (
-                          <div key={index} className="relative aspect-video rounded-lg overflow-hidden border">
-                            <img
-                              src={getImageUrl(image)}
-                              alt={imageObj.caption || `Property ${index + 1}`}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = DEFAULT_PROPERTY_IMAGE;
-                              }}
-                            />
-                            {imageObj.isPrimary && (
-                              <Badge className="absolute top-2 left-2" variant="default">Primary</Badge>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Videos */}
-              {selectedProperty.videos && selectedProperty.videos.length > 0 && (
-                <>
-                  <Separator />
-                  <div>
-                    <h3 className="font-semibold mb-2">Videos</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {selectedProperty.videos.map((video, index) => (
-                        <div key={index} className="space-y-2">
-                          <div className="relative aspect-video rounded-lg overflow-hidden border bg-black">
-                            {video.url && (video.url.includes('youtube.com') || video.url.includes('youtu.be')) ? (
-                              <iframe
-                                src={video.url.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
-                                className="w-full h-full"
-                                allowFullScreen
-                                title={video.caption || `Video ${index + 1}`}
-                              />
-                            ) : (
-                              <video
-                                src={video.url}
-                                controls
-                                className="w-full h-full object-contain"
-                                poster={video.thumbnail}
-                              />
-                            )}
-                          </div>
-                          {video.caption && (
-                            <p className="text-sm text-muted-foreground">{video.caption}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Virtual Tour */}
-              {selectedProperty.virtualTour && (
-                <>
-                  <Separator />
-                  <div>
-                    <h3 className="font-semibold mb-2">Virtual Tour</h3>
-                    <VirtualTourViewer url={selectedProperty.virtualTour} />
-                  </div>
-                </>
-              )}
-
-              {/* Rejection Reason (if rejected) */}
-              {selectedProperty.status === 'rejected' && selectedProperty.rejectionReason && (
-                <>
-                  <Separator />
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <h3 className="font-semibold text-red-700 mb-2">Rejection Reason</h3>
-                    <p className="text-sm text-red-600">{selectedProperty.rejectionReason}</p>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <ViewPropertyDialog 
+        property={viewDialogProperty as any} 
+        open={viewDialogOpen} 
+        onOpenChange={setViewDialogOpen} 
+      />
     </div>
   );
 };

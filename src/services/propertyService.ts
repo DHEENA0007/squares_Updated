@@ -127,6 +127,7 @@ export interface Property {
     comment: string;
     createdAt: string;
   };
+  customFields?: Record<string, any>;
 }
 
 export interface PropertyFilters {

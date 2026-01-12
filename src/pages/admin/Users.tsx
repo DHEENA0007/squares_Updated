@@ -22,6 +22,7 @@ const Users = () => {
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [roles, setRoles] = useState<Role[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -55,6 +56,7 @@ const Users = () => {
   const clearFilters = () => {
     setRoleFilter("all");
     setMonthFilter("all");
+    setStatusFilter("all");
   };
 
   return (
@@ -127,6 +129,22 @@ const Users = () => {
                 </Select>
               </div>
 
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Status</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex items-end">
                 <Button
                   variant="outline"
@@ -144,6 +162,7 @@ const Users = () => {
           searchQuery={debouncedSearchQuery}
           roleFilter={roleFilter === "all" ? "" : roleFilter}
           monthFilter={monthFilter === "all" ? "" : monthFilter}
+          statusFilter={statusFilter === "all" ? "" : statusFilter}
         />
       </div>
     </div>

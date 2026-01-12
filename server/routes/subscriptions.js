@@ -716,6 +716,10 @@ router.patch('/:id/renew', authenticateToken, async (req, res) => {
     subscription.startDate = startDate;
     subscription.endDate = endDate;
     subscription.amount = subscription.plan.price;
+
+    // Create a fresh plan snapshot when renewing (grandfathering)
+    // This captures the current plan limits at renewal time
+    await subscription.createPlanSnapshot();
     await subscription.save();
 
     await subscription.populate([
@@ -807,6 +811,10 @@ router.patch('/:id/upgrade', authenticateToken, async (req, res) => {
       paymentMethod: 'upgrade'
     });
 
+    // Create a fresh plan snapshot with the new plan (grandfathering)
+    // This captures the new plan limits at upgrade time
+    await subscription.populate('plan'); // Ensure plan is populated for snapshot
+    await subscription.createPlanSnapshot();
     await subscription.save();
 
     // Update plan subscriber counts

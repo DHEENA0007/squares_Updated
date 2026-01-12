@@ -2127,6 +2127,56 @@ router.post('/properties', authenticateToken, async (req, res) => {
   }
 });
 
+// @desc    Delete property (Admin)
+// @route   DELETE /api/admin/properties/:id
+// @access  Private (Admin)
+router.delete('/properties/:id', authenticateToken, async (req, res) => {
+  // Check permission: Allow if user is SuperAdmin OR has properties.delete permission
+  const isSuperAdminUser = req.user.role === 'superadmin';
+  const hasDeletePermission = hasPermission(req.user, PERMISSIONS.PROPERTIES_DELETE);
+
+  if (!isSuperAdminUser && !hasDeletePermission) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to delete properties'
+    });
+  }
+
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    const property = await Property.findById(id);
+
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    await Property.findByIdAndDelete(id);
+
+    res.json({
+      success: true,
+      message: 'Property deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete property error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete property'
+    });
+  }
+});
+
 // @desc    Update property status
 // @route   PATCH /api/admin/properties/:id/status
 // @access  Private/Admin
