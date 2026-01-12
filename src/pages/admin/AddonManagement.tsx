@@ -717,30 +717,51 @@ const AddonManagement: React.FC = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="billingCycleMonths">Billing Period (Months) *</Label>
-                <Input
-                  id="billingCycleMonths"
-                  type="number"
-                  min="0"
-                  max="120"
-                  value={formData.billingCycleMonths}
-                  onChange={(e) => {
-                    const months = parseInt(e.target.value) || 0;
-                    let billingPeriod = "custom";
-                    if (months === 0) billingPeriod = "one-time";
-                    else if (months === 1) billingPeriod = "monthly";
-                    else if (months === 12) billingPeriod = "yearly";
-                    else billingPeriod = `${months} months`;
-                    setFormData(prev => ({
-                      ...prev,
-                      billingPeriod,
-                      billingCycleMonths: months
-                    }));
-                  }}
-                  placeholder="Enter months (0 for one-time)"
-                />
-                <p className="text-xs text-muted-foreground">
-                  0 = One-time, 1 = Monthly, 12 = Yearly
-                </p>
+                <div className="flex gap-2">
+                  <Input
+                    id="billingCycleMonths"
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={formData.billingCycleMonths === 0 ? '' : formData.billingCycleMonths}
+                    onChange={(e) => {
+                      const months = parseInt(e.target.value) || 1;
+                      let billingPeriod = "custom";
+                      if (months === 1) billingPeriod = "monthly";
+                      else if (months === 12) billingPeriod = "yearly";
+                      else billingPeriod = `${months} months`;
+
+                      setFormData(prev => ({
+                        ...prev,
+                        billingPeriod,
+                        billingCycleMonths: months
+                      }));
+                    }}
+                    placeholder={formData.billingCycleMonths === 0 ? '∞ Infinity' : 'Enter months'}
+                    disabled={formData.billingCycleMonths === 0}
+                  />
+                  <Button
+                    type="button"
+                    variant={formData.billingCycleMonths === 0 ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => {
+                      const newMonths = formData.billingCycleMonths === 0 ? 1 : 0;
+                      let billingPeriod = "custom";
+                      if (newMonths === 0) billingPeriod = "lifetime";
+                      else if (newMonths === 1) billingPeriod = "monthly";
+
+                      setFormData(prev => ({
+                        ...prev,
+                        billingPeriod,
+                        billingCycleMonths: newMonths
+                      }));
+                    }}
+                    title={formData.billingCycleMonths === 0 ? "Set limited" : "Set infinity"}
+                  >
+                    ∞
+                  </Button>
+                </div>
+
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -884,30 +905,51 @@ const AddonManagement: React.FC = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-billingCycleMonths">Billing Period (Months) *</Label>
-                <Input
-                  id="edit-billingCycleMonths"
-                  type="number"
-                  min="0"
-                  max="120"
-                  value={formData.billingCycleMonths}
-                  onChange={(e) => {
-                    const months = parseInt(e.target.value) || 0;
-                    let billingPeriod = "custom";
-                    if (months === 0) billingPeriod = "one-time";
-                    else if (months === 1) billingPeriod = "monthly";
-                    else if (months === 12) billingPeriod = "yearly";
-                    else billingPeriod = `${months} months`;
-                    setFormData(prev => ({
-                      ...prev,
-                      billingPeriod,
-                      billingCycleMonths: months
-                    }));
-                  }}
-                  placeholder="Enter months (0 for one-time)"
-                />
-                <p className="text-xs text-muted-foreground">
-                  0 = One-time, 1 = Monthly, 12 = Yearly
-                </p>
+                <div className="flex gap-2">
+                  <Input
+                    id="edit-billingCycleMonths"
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={formData.billingCycleMonths === 0 ? '' : formData.billingCycleMonths}
+                    onChange={(e) => {
+                      const months = parseInt(e.target.value) || 1;
+                      let billingPeriod = "custom";
+                      if (months === 1) billingPeriod = "monthly";
+                      else if (months === 12) billingPeriod = "yearly";
+                      else billingPeriod = `${months} months`;
+
+                      setFormData(prev => ({
+                        ...prev,
+                        billingPeriod,
+                        billingCycleMonths: months
+                      }));
+                    }}
+                    placeholder={formData.billingCycleMonths === 0 ? '∞ Infinity' : 'Enter months'}
+                    disabled={formData.billingCycleMonths === 0}
+                  />
+                  <Button
+                    type="button"
+                    variant={formData.billingCycleMonths === 0 ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => {
+                      const newMonths = formData.billingCycleMonths === 0 ? 1 : 0;
+                      let billingPeriod = "custom";
+                      if (newMonths === 0) billingPeriod = "lifetime";
+                      else if (newMonths === 1) billingPeriod = "monthly";
+
+                      setFormData(prev => ({
+                        ...prev,
+                        billingPeriod,
+                        billingCycleMonths: newMonths
+                      }));
+                    }}
+                    title={formData.billingCycleMonths === 0 ? "Set limited" : "Set infinity"}
+                  >
+                    ∞
+                  </Button>
+                </div>
+
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

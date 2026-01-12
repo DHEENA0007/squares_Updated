@@ -35,9 +35,9 @@ services:
       - key: EMAIL_FROM
         value: onboarding@resend.dev
       - key: RAZORPAY_KEY_ID
-        value: rzp_test_RMylhPWMBGHzdi
+        value: rzp_live_S27W5yJCVHtIoq
       - key: RAZORPAY_KEY_SECRET
-        value: UhEfD2dXPxob6Y44b12mdB4W
+        value: VfzWHfRfGOzi37NKWRhwT4H5
       - key: GOOGLE_MAPS_API_KEY
         value: temp_google_maps_key
       - key: LOCATIONIQ_ACCESS_TOKEN
