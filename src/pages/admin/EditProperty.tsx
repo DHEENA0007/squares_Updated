@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, X, Loader2, Upload, MapPin } from "lucide-react";
+import { ArrowLeft, Plus, X, Loader2, Upload, MapPin, Shield, Check, Eye, Home } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import propertyService, { Property } from "@/services/propertyService";
 import EnhancedAddressInput from "@/components/form/EnhancedAddressInput";
 import { z } from "zod";
@@ -56,6 +57,9 @@ const propertyFormSchema = z.object({
   expectedPrice: z.string().min(1, "Price is required"),
   priceNegotiable: z.boolean().optional(),
   propertyDescription: z.string().optional(),
+  isVerified: z.boolean().optional(),
+  isFeatured: z.boolean().optional(),
+  status: z.string().optional(),
 });
 
 type PropertyFormValues = z.infer<typeof propertyFormSchema>;
@@ -155,6 +159,9 @@ const EditProperty = () => {
         expectedPrice: property.price?.toString() || "",
         priceNegotiable: property.priceNegotiable || false,
         propertyDescription: property.description || "",
+        isVerified: property.verified || false,
+        isFeatured: property.featured || false,
+        status: property.status || "pending",
       };
 
       console.log("Resetting form with:", formData);
@@ -215,7 +222,10 @@ const EditProperty = () => {
           plot: undefined, // Plot area should be handled via dynamic fields or specific plotArea field if added
           unit: data.carpetAreaUnit || 'sqft'
         },
-        customFields: dynamicFields
+        customFields: dynamicFields,
+        verified: data.isVerified,
+        featured: data.isFeatured,
+        status: data.status
       };
 
       // Handle image uploads if any (would need upload logic here, similar to AddProperty)
@@ -799,19 +809,148 @@ const EditProperty = () => {
                       render={({ field }) => (
                         <FormItem className="flex items-center gap-2 space-y-0">
                           <FormControl>
-                            <input
-                              type="checkbox"
+                            <Checkbox
                               checked={field.value}
-                              onChange={field.onChange}
-                              className="h-4 w-4 rounded border-input"
+                              onCheckedChange={field.onChange}
                             />
                           </FormControl>
-                          <FormLabel className="!mt-0 font-normal cursor-pointer">
-                            Price Negotiable
+                          <FormLabel className="font-normal cursor-pointer">
+                            Price is negotiable
                           </FormLabel>
                         </FormItem>
                       )}
                     />
+                  </div>
+                </div>
+
+                {/* Admin Settings */}
+                <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Shield className="w-5 h-5 text-primary" />
+                    <h2 className="text-xl font-semibold text-foreground">Admin Settings</h2>
+                  </div>
+
+                  <div className="grid gap-6">
+                    {/* Property Verification */}
+                    <div className="flex items-center justify-between p-4 bg-background/50 rounded-lg border border-primary/10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                          <Check className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div>
+                          <Label className="text-base font-medium">Verified Status</Label>
+                          <p className="text-sm text-muted-foreground">Mark property as verified</p>
+                        </div>
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="isVerified"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                className="h-5 w-5 border-2"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Featured Property */}
+                    <div className="flex items-center justify-between p-4 bg-background/50 rounded-lg border border-amber-200/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                          <Eye className="h-4 w-4 text-amber-600" />
+                        </div>
+                        <div>
+                          <Label className="text-base font-medium">Featured Status</Label>
+                          <p className="text-sm text-muted-foreground">Enhanced visibility</p>
+                        </div>
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="isFeatured"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                className="h-5 w-5 border-2"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Property Status */}
+                    <div className="space-y-3">
+                      <Label className="text-base font-medium">Property Status</Label>
+                      <FormField
+                        control={form.control}
+                        name="status"
+                        render={({ field }) => (
+                          <FormItem>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="h-12 border-2 border-blue-200/50 bg-background/50">
+                                  <SelectValue placeholder="Select property status" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="active">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                    Active
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="available">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                    Available
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="pending">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                                    Pending
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="rejected">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                    Rejected
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="sold">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                    Sold
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="rented">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                                    Rented
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="leased">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                                    Leased
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
                 </div>
 

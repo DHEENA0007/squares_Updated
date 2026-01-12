@@ -770,11 +770,36 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
       }
     }
 
+    // Determine initial status based on role and permissions
+    // Admin/Superadmin: Use provided status or default to 'available' & Verified
+    // Non-Agent with Create Permission: Available & Verified (Auto-approve)
+    // Agent/Vendor: Pending & Unverified
+    let initialStatus = 'pending';
+    let isVerified = false;
+
+    if (['admin', 'superadmin'].includes(req.user.role)) {
+      // If admin provided a status, use it (mapped to valid enum values)
+      // AddProperty sends 'active' which maps to 'available'
+      if (req.body.status === 'active') {
+        initialStatus = 'available';
+      } else if (req.body.status && ['available', 'sold', 'rented', 'leased', 'pending', 'rejected'].includes(req.body.status)) {
+        initialStatus = req.body.status;
+      } else {
+        initialStatus = 'available';
+      }
+
+      // Admin properties are verified by default unless explicitly set to false
+      isVerified = req.body.isVerified !== undefined ? req.body.isVerified : true;
+    } else if (req.user.role !== 'agent' && hasPermission(req.user, PERMISSIONS.PROPERTIES_CREATE)) {
+      initialStatus = 'available';
+      isVerified = true;
+    }
+
     const propertyData = {
       ...req.body,
       owner: req.user.id,
-      status: 'pending', // All vendor properties start as pending approval
-      verified: false, // Requires admin verification to be published
+      status: initialStatus,
+      verified: isVerified,
       createdAt: new Date()
     };
 
