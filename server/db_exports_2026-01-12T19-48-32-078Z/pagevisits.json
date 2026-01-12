@@ -1,0 +1,42 @@
+[
+  {
+    "_id": "69654fa8404f81c90020f056",
+    "page": "/en-new",
+    "pageType": "home",
+    "userId": null,
+    "sessionId": "992840cd-6c23-4ab5-948a-dfb56b91e9ae",
+    "visitorId": "383e0c28-20be-48a9-8c02-37775c921298",
+    "referrer": "http://localhost:3001/en-new/admin/users",
+    "referrerDomain": "buildhomemartsquares.com/en-new",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
+    "deviceType": "desktop",
+    "browser": {
+      "name": "Firefox",
+      "version": "140.0"
+    },
+    "os": {
+      "name": "Linux",
+      "version": ""
+    },
+    "screenResolution": "1920x1080",
+    "language": "en-US",
+    "ipAddress": "171.79.49.204",
+    "country": "IN",
+    "region": "TN",
+    "city": "Chennai",
+    "visitedAt": "2026-01-12T19:46:48.414Z",
+    "duration": 27,
+    "scrollDepth": 0,
+    "interactions": {
+      "clicks": 0,
+      "formSubmissions": 0,
+      "downloads": 0
+    },
+    "bounced": true,
+    "isEntryPage": false,
+    "isExitPage": false,
+    "createdAt": "2026-01-12T19:46:48.415Z",
+    "updatedAt": "2026-01-12T19:47:16.456Z",
+    "__v": 0
+  }
+]

@@ -1,0 +1,96 @@
+[
+  {
+    "_id": "68f8857275b9205ce27f8ea5",
+    "email": "superadmin@ninetyneacres.com",
+    "password": "$2b$12$J4rs8NEArWMsj8fiozVc1evkFH84oVLPOctetUcSVyWLi7fQn1rdC",
+    "role": "superadmin",
+    "status": "active",
+    "profile": {
+      "firstName": "Super",
+      "lastName": "Admin",
+      "phone": "+1234567890",
+      "bio": "System Administrator for Ninety Nine Acres Platform",
+      "address": {
+        "street": "123 Admin Street",
+        "city": "Admin City",
+        "state": "Admin State",
+        "zipCode": "12345",
+        "country": "India"
+      },
+      "emailVerified": true,
+      "preferences": {
+        "currency": "INR",
+        "language": "en",
+        "notifications": {
+          "email": true,
+          "push": true,
+          "desktop": true,
+          "sms": false,
+          "sound": true,
+          "typing": true,
+          "newMessages": true,
+          "newsUpdates": false,
+          "priceDrops": true,
+          "propertyAlerts": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": false,
+          "allowMessages": true,
+          "dataCollection": true,
+          "marketingConsent": false,
+          "showActivity": true,
+          "thirdPartySharing": false
+        },
+        "security": {
+          "loginAlerts": true,
+          "sessionTimeout": "30",
+          "twoFactorEnabled": false
+        }
+      },
+      "avatar": null,
+      "lastLogin": "2026-01-12T19:32:36.309Z",
+      "vendorInfo": {
+        "certifications": [],
+        "experience": 0,
+        "memberSince": "2025-10-27T06:00:50.161Z",
+        "rating": {
+          "average": 0,
+          "count": 0
+        },
+        "responseTime": "Not calculated",
+        "serviceAreas": [],
+        "specializations": [],
+        "vendorPreferences": {
+          "emailNotifications": true,
+          "leadAlerts": true,
+          "marketingEmails": false,
+          "smsNotifications": true,
+          "weeklyReports": true
+        }
+      },
+      "phoneVerified": false
+    },
+    "createdAt": "2025-10-22T07:19:14.070Z",
+    "updatedAt": "2026-01-12T19:33:35.968Z",
+    "__v": 2,
+    "isGuest": false,
+    "isOnline": false,
+    "rolePages": [
+      "dashboard",
+      "users",
+      "vendor_approvals",
+      "messages",
+      "roles",
+      "clients",
+      "properties",
+      "plans",
+      "addons",
+      "privacy_policy",
+      "refund_policy",
+      "filter"
+    ],
+    "lastSeen": "2026-01-12T19:33:35.967Z",
+    "vendorProfile": "692dc17efe2a56e830754bdd"
+  }
+]

@@ -369,7 +369,7 @@ const PropertyRejections = () => {
 
 
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs text-muted-foreground">From Date</Label>
+                  <Label className="text-xs text-muted-foreground">From</Label>
                   <Input
                     type="date"
                     value={startDate}
@@ -379,7 +379,7 @@ const PropertyRejections = () => {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs text-muted-foreground">To Date</Label>
+                  <Label className="text-xs text-muted-foreground">To</Label>
                   <Input
                     type="date"
                     value={endDate}

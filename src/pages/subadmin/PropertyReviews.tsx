@@ -587,7 +587,7 @@ const PropertyReviews = () => {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs text-muted-foreground">From Date</Label>
+                  <Label className="text-xs text-muted-foreground">From</Label>
                   <Input
                     type="date"
                     value={startDate}
@@ -597,7 +597,7 @@ const PropertyReviews = () => {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs text-muted-foreground">To Date</Label>
+                  <Label className="text-xs text-muted-foreground">To</Label>
                   <Input
                     type="date"
                     value={endDate}
@@ -1161,10 +1161,10 @@ const PropertyReviews = () => {
 
 
       {/* View Property Dialog */}
-      <ViewPropertyDialog 
-        property={viewDialogProperty as any} 
-        open={viewDialogOpen} 
-        onOpenChange={setViewDialogOpen} 
+      <ViewPropertyDialog
+        property={viewDialogProperty as any}
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
       />
     </div>
   );

@@ -1,0 +1,11 @@
+[
+  {
+    "_id": "696262615d3a69bc3ae87651",
+    "configKey": "navigation_categories",
+    "__v": 0,
+    "configValue": [],
+    "createdAt": "2026-01-10T14:29:53.881Z",
+    "description": "Navigation item categories for property types",
+    "updatedAt": "2026-01-10T14:30:25.176Z"
+  }
+]

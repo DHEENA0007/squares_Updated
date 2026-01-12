@@ -1,0 +1,19 @@
+[
+  {
+    "_id": "6961258f0f417fd1cc1f5b3c",
+    "name": "POSTS",
+    "description": "Creative posters",
+    "price": 100,
+    "currency": "INR",
+    "billingType": "recurring",
+    "billingPeriod": "monthly",
+    "billingCycleMonths": 1,
+    "category": "photography",
+    "icon": "",
+    "isActive": true,
+    "sortOrder": 0,
+    "createdAt": "2026-01-09T15:58:07.693Z",
+    "updatedAt": "2026-01-09T15:58:07.693Z",
+    "__v": 0
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "_id": "hero_settings",
+    "autoSlide": false,
+    "autoSlideInterval": 5000,
+    "showSearchBox": true,
+    "showSellDropdown": true,
+    "showFilters": true,
+    "createdAt": "2026-01-08T15:38:53.218Z",
+    "updatedAt": "2026-01-08T15:38:53.218Z",
+    "__v": 0
+  }
+]

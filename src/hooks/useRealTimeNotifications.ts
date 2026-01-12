@@ -330,11 +330,25 @@ export const useRealTimeNotifications = () => {
 
   // Request browser notification permission
   const requestNotificationPermission = async () => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      const permission = await Notification.requestPermission();
-      return permission === 'granted';
+    try {
+      if (!('Notification' in window)) {
+        console.warn('This browser does not support desktop notification');
+        return false;
+      }
+
+      if (Notification.permission === 'granted') {
+        return true;
+      }
+
+      if (Notification.permission !== 'denied') {
+        const permission = await Notification.requestPermission();
+        return permission === 'granted';
+      }
+    } catch (error) {
+      console.warn('Failed to request notification permission:', error);
+      return false;
     }
-    return Notification.permission === 'granted';
+    return false;
   };
 
   // Send test notification

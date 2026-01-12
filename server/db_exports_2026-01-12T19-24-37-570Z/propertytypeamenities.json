@@ -1,0 +1,1775 @@
+[
+  {
+    "_id": "69628250ce95659f7a0af67b",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824d5d3a69bc3ae8790b",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.108Z",
+    "updatedAt": "2026-01-10T16:46:08.108Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af688",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824e5d3a69bc3ae87918",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.110Z",
+    "updatedAt": "2026-01-10T16:46:08.110Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af692",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae87923",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.111Z",
+    "updatedAt": "2026-01-10T16:46:08.111Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af678",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824d5d3a69bc3ae87908",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.107Z",
+    "updatedAt": "2026-01-10T16:46:08.107Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af68c",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae8791c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.111Z",
+    "updatedAt": "2026-01-10T16:46:08.111Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af690",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae87921",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.111Z",
+    "updatedAt": "2026-01-10T16:46:08.111Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af686",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824e5d3a69bc3ae87916",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.110Z",
+    "updatedAt": "2026-01-10T16:46:08.110Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af694",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae87925",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.111Z",
+    "updatedAt": "2026-01-10T16:46:08.111Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af682",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824e5d3a69bc3ae87912",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.109Z",
+    "updatedAt": "2026-01-10T16:46:08.109Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af67a",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824d5d3a69bc3ae8790a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.108Z",
+    "updatedAt": "2026-01-10T16:46:08.108Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af68b",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae8791b",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.110Z",
+    "updatedAt": "2026-01-10T16:46:08.110Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af68e",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae8791e",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.111Z",
+    "updatedAt": "2026-01-10T16:46:08.111Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af679",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824d5d3a69bc3ae87909",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.108Z",
+    "updatedAt": "2026-01-10T16:46:08.108Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af68f",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae8791f",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.111Z",
+    "updatedAt": "2026-01-10T16:46:08.111Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af693",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae87924",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.111Z",
+    "updatedAt": "2026-01-10T16:46:08.111Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af67f",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824e5d3a69bc3ae8790f",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.109Z",
+    "updatedAt": "2026-01-10T16:46:08.109Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af68a",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae8791a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.110Z",
+    "updatedAt": "2026-01-10T16:46:08.110Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af696",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae87927",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.111Z",
+    "updatedAt": "2026-01-10T16:46:08.111Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af67c",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824e5d3a69bc3ae8790c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.109Z",
+    "updatedAt": "2026-01-10T16:46:08.109Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af695",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae87926",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.111Z",
+    "updatedAt": "2026-01-10T16:46:08.111Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af67e",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824e5d3a69bc3ae8790e",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.109Z",
+    "updatedAt": "2026-01-10T16:46:08.109Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af680",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824e5d3a69bc3ae87910",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.109Z",
+    "updatedAt": "2026-01-10T16:46:08.109Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af67d",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824e5d3a69bc3ae8790d",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.109Z",
+    "updatedAt": "2026-01-10T16:46:08.109Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af681",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824e5d3a69bc3ae87911",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.109Z",
+    "updatedAt": "2026-01-10T16:46:08.109Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af685",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824e5d3a69bc3ae87915",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.110Z",
+    "updatedAt": "2026-01-10T16:46:08.110Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af683",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824e5d3a69bc3ae87913",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.109Z",
+    "updatedAt": "2026-01-10T16:46:08.109Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af687",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824e5d3a69bc3ae87917",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.110Z",
+    "updatedAt": "2026-01-10T16:46:08.110Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af68d",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae8791d",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.111Z",
+    "updatedAt": "2026-01-10T16:46:08.111Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af684",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824e5d3a69bc3ae87914",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.110Z",
+    "updatedAt": "2026-01-10T16:46:08.110Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af689",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae87919",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.110Z",
+    "updatedAt": "2026-01-10T16:46:08.110Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af691",
+    "propertyTypeId": "696126450f417fd1cc1f5c3b",
+    "amenityId": "6962824f5d3a69bc3ae87922",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.111Z",
+    "updatedAt": "2026-01-10T16:46:08.111Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6a2",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824e5d3a69bc3ae87912",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6a3",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824e5d3a69bc3ae87913",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6b0",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae87921",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.205Z",
+    "updatedAt": "2026-01-10T16:46:08.205Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6b2",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae87923",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.205Z",
+    "updatedAt": "2026-01-10T16:46:08.205Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af698",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824d5d3a69bc3ae87908",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af69c",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824e5d3a69bc3ae8790c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6a9",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae87919",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af69f",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824e5d3a69bc3ae8790f",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6aa",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae8791a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.204Z",
+    "updatedAt": "2026-01-10T16:46:08.204Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6b4",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae87925",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.205Z",
+    "updatedAt": "2026-01-10T16:46:08.205Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6b6",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae87927",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.205Z",
+    "updatedAt": "2026-01-10T16:46:08.205Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af69a",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824d5d3a69bc3ae8790a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6ae",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae8791e",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.204Z",
+    "updatedAt": "2026-01-10T16:46:08.204Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6a5",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824e5d3a69bc3ae87915",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6b1",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae87922",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.205Z",
+    "updatedAt": "2026-01-10T16:46:08.205Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6b3",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae87924",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.205Z",
+    "updatedAt": "2026-01-10T16:46:08.205Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6a0",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824e5d3a69bc3ae87910",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6a4",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824e5d3a69bc3ae87914",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6ac",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae8791c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.204Z",
+    "updatedAt": "2026-01-10T16:46:08.204Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af69b",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824d5d3a69bc3ae8790b",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af69e",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824e5d3a69bc3ae8790e",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af69d",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824e5d3a69bc3ae8790d",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6a6",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824e5d3a69bc3ae87916",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6a7",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824e5d3a69bc3ae87917",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6a8",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824e5d3a69bc3ae87918",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6af",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae8791f",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.204Z",
+    "updatedAt": "2026-01-10T16:46:08.204Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af699",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824d5d3a69bc3ae87909",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6a1",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824e5d3a69bc3ae87911",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.203Z",
+    "updatedAt": "2026-01-10T16:46:08.203Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6b5",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae87926",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.205Z",
+    "updatedAt": "2026-01-10T16:46:08.205Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6ab",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae8791b",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.204Z",
+    "updatedAt": "2026-01-10T16:46:08.204Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6ad",
+    "propertyTypeId": "6961ebe50f417fd1cc1f752e",
+    "amenityId": "6962824f5d3a69bc3ae8791d",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.204Z",
+    "updatedAt": "2026-01-10T16:46:08.204Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6c7",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824e5d3a69bc3ae87917",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6ce",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae8791e",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.293Z",
+    "updatedAt": "2026-01-10T16:46:08.293Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6d5",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae87926",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.293Z",
+    "updatedAt": "2026-01-10T16:46:08.293Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6c2",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824e5d3a69bc3ae87912",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6d6",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae87927",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.293Z",
+    "updatedAt": "2026-01-10T16:46:08.293Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6b8",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824d5d3a69bc3ae87908",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6c5",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824e5d3a69bc3ae87915",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6cd",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae8791d",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.293Z",
+    "updatedAt": "2026-01-10T16:46:08.293Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6d1",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae87922",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.293Z",
+    "updatedAt": "2026-01-10T16:46:08.293Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6b9",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824d5d3a69bc3ae87909",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6be",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824e5d3a69bc3ae8790e",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6c0",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824e5d3a69bc3ae87910",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6ba",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824d5d3a69bc3ae8790a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6bb",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824d5d3a69bc3ae8790b",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6bd",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824e5d3a69bc3ae8790d",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6cb",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae8791b",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.293Z",
+    "updatedAt": "2026-01-10T16:46:08.293Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6ca",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae8791a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6cf",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae8791f",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.293Z",
+    "updatedAt": "2026-01-10T16:46:08.293Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6c8",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824e5d3a69bc3ae87918",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6d4",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae87925",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.293Z",
+    "updatedAt": "2026-01-10T16:46:08.293Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6c1",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824e5d3a69bc3ae87911",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6d0",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae87921",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.293Z",
+    "updatedAt": "2026-01-10T16:46:08.293Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6bc",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824e5d3a69bc3ae8790c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6c3",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824e5d3a69bc3ae87913",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6c9",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae87919",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6c4",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824e5d3a69bc3ae87914",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6cc",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae8791c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.293Z",
+    "updatedAt": "2026-01-10T16:46:08.293Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6d2",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae87923",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.293Z",
+    "updatedAt": "2026-01-10T16:46:08.293Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6bf",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824e5d3a69bc3ae8790f",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6c6",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824e5d3a69bc3ae87916",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.292Z",
+    "updatedAt": "2026-01-10T16:46:08.292Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6d3",
+    "propertyTypeId": "696265f55d3a69bc3ae876ac",
+    "amenityId": "6962824f5d3a69bc3ae87924",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.293Z",
+    "updatedAt": "2026-01-10T16:46:08.293Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6e3",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824e5d3a69bc3ae87913",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.359Z",
+    "updatedAt": "2026-01-10T16:46:08.359Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6e6",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824e5d3a69bc3ae87916",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.359Z",
+    "updatedAt": "2026-01-10T16:46:08.359Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6da",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824d5d3a69bc3ae8790a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.358Z",
+    "updatedAt": "2026-01-10T16:46:08.358Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6de",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824e5d3a69bc3ae8790e",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.358Z",
+    "updatedAt": "2026-01-10T16:46:08.358Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6ef",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae8791f",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.360Z",
+    "updatedAt": "2026-01-10T16:46:08.360Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6d8",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824d5d3a69bc3ae87908",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.358Z",
+    "updatedAt": "2026-01-10T16:46:08.358Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6d9",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824d5d3a69bc3ae87909",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.358Z",
+    "updatedAt": "2026-01-10T16:46:08.358Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6e1",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824e5d3a69bc3ae87911",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.359Z",
+    "updatedAt": "2026-01-10T16:46:08.359Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6eb",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae8791b",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.360Z",
+    "updatedAt": "2026-01-10T16:46:08.360Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6e2",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824e5d3a69bc3ae87912",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.359Z",
+    "updatedAt": "2026-01-10T16:46:08.359Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6e4",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824e5d3a69bc3ae87914",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.359Z",
+    "updatedAt": "2026-01-10T16:46:08.359Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6f1",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae87922",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.360Z",
+    "updatedAt": "2026-01-10T16:46:08.360Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6f0",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae87921",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.360Z",
+    "updatedAt": "2026-01-10T16:46:08.360Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6e0",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824e5d3a69bc3ae87910",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.359Z",
+    "updatedAt": "2026-01-10T16:46:08.359Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6e9",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae87919",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.359Z",
+    "updatedAt": "2026-01-10T16:46:08.359Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6ed",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae8791d",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.360Z",
+    "updatedAt": "2026-01-10T16:46:08.360Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6dc",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824e5d3a69bc3ae8790c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.358Z",
+    "updatedAt": "2026-01-10T16:46:08.358Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6e5",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824e5d3a69bc3ae87915",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.359Z",
+    "updatedAt": "2026-01-10T16:46:08.359Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6e8",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824e5d3a69bc3ae87918",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.359Z",
+    "updatedAt": "2026-01-10T16:46:08.359Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6f2",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae87923",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.360Z",
+    "updatedAt": "2026-01-10T16:46:08.360Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6f4",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae87925",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.360Z",
+    "updatedAt": "2026-01-10T16:46:08.360Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6dd",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824e5d3a69bc3ae8790d",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.358Z",
+    "updatedAt": "2026-01-10T16:46:08.358Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6e7",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824e5d3a69bc3ae87917",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.359Z",
+    "updatedAt": "2026-01-10T16:46:08.359Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6db",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824d5d3a69bc3ae8790b",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.358Z",
+    "updatedAt": "2026-01-10T16:46:08.358Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6f3",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae87924",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.360Z",
+    "updatedAt": "2026-01-10T16:46:08.360Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6ea",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae8791a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.359Z",
+    "updatedAt": "2026-01-10T16:46:08.359Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6ec",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae8791c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.360Z",
+    "updatedAt": "2026-01-10T16:46:08.360Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6f5",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae87926",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.360Z",
+    "updatedAt": "2026-01-10T16:46:08.360Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6f6",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae87927",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.360Z",
+    "updatedAt": "2026-01-10T16:46:08.360Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6df",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824e5d3a69bc3ae8790f",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.359Z",
+    "updatedAt": "2026-01-10T16:46:08.359Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6ee",
+    "propertyTypeId": "696265f55d3a69bc3ae876ae",
+    "amenityId": "6962824f5d3a69bc3ae8791e",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.360Z",
+    "updatedAt": "2026-01-10T16:46:08.360Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af713",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae87924",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.486Z",
+    "updatedAt": "2026-01-10T16:46:08.486Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6fb",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824d5d3a69bc3ae8790b",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6fe",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824e5d3a69bc3ae8790e",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6ff",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824e5d3a69bc3ae8790f",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6fd",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824e5d3a69bc3ae8790d",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af701",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824e5d3a69bc3ae87911",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af705",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824e5d3a69bc3ae87915",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af708",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824e5d3a69bc3ae87918",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.485Z",
+    "updatedAt": "2026-01-10T16:46:08.485Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af710",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae87921",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.485Z",
+    "updatedAt": "2026-01-10T16:46:08.485Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af716",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae87927",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.486Z",
+    "updatedAt": "2026-01-10T16:46:08.486Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af711",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae87922",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.485Z",
+    "updatedAt": "2026-01-10T16:46:08.485Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af70f",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae8791f",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.485Z",
+    "updatedAt": "2026-01-10T16:46:08.485Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af703",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824e5d3a69bc3ae87913",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af706",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824e5d3a69bc3ae87916",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6fa",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824d5d3a69bc3ae8790a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af70b",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae8791b",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.485Z",
+    "updatedAt": "2026-01-10T16:46:08.485Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af712",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae87923",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.485Z",
+    "updatedAt": "2026-01-10T16:46:08.485Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af702",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824e5d3a69bc3ae87912",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af707",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824e5d3a69bc3ae87917",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.485Z",
+    "updatedAt": "2026-01-10T16:46:08.485Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af70e",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae8791e",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.485Z",
+    "updatedAt": "2026-01-10T16:46:08.485Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af70c",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae8791c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.485Z",
+    "updatedAt": "2026-01-10T16:46:08.485Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6f9",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824d5d3a69bc3ae87909",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af700",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824e5d3a69bc3ae87910",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af709",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae87919",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.485Z",
+    "updatedAt": "2026-01-10T16:46:08.485Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6f8",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824d5d3a69bc3ae87908",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.480Z",
+    "updatedAt": "2026-01-10T16:46:08.480Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af6fc",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824e5d3a69bc3ae8790c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af70a",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae8791a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.485Z",
+    "updatedAt": "2026-01-10T16:46:08.485Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af714",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae87925",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.486Z",
+    "updatedAt": "2026-01-10T16:46:08.486Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af704",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824e5d3a69bc3ae87914",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.484Z",
+    "updatedAt": "2026-01-10T16:46:08.484Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af715",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae87926",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.486Z",
+    "updatedAt": "2026-01-10T16:46:08.486Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af70d",
+    "propertyTypeId": "696265f55d3a69bc3ae876b0",
+    "amenityId": "6962824f5d3a69bc3ae8791d",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.485Z",
+    "updatedAt": "2026-01-10T16:46:08.485Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af719",
+    "propertyTypeId": "696265f65d3a69bc3ae876b2",
+    "amenityId": "6962824d5d3a69bc3ae87909",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.822Z",
+    "updatedAt": "2026-01-10T16:46:08.822Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af71d",
+    "propertyTypeId": "696265f65d3a69bc3ae876b2",
+    "amenityId": "6962824e5d3a69bc3ae8790d",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.822Z",
+    "updatedAt": "2026-01-10T16:46:08.822Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af718",
+    "propertyTypeId": "696265f65d3a69bc3ae876b2",
+    "amenityId": "6962824d5d3a69bc3ae87908",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.822Z",
+    "updatedAt": "2026-01-10T16:46:08.822Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af71f",
+    "propertyTypeId": "696265f65d3a69bc3ae876b2",
+    "amenityId": "6962824e5d3a69bc3ae87912",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.822Z",
+    "updatedAt": "2026-01-10T16:46:08.822Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af71b",
+    "propertyTypeId": "696265f65d3a69bc3ae876b2",
+    "amenityId": "6962824d5d3a69bc3ae8790b",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.822Z",
+    "updatedAt": "2026-01-10T16:46:08.822Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af720",
+    "propertyTypeId": "696265f65d3a69bc3ae876b2",
+    "amenityId": "6962824e5d3a69bc3ae87914",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.822Z",
+    "updatedAt": "2026-01-10T16:46:08.822Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af721",
+    "propertyTypeId": "696265f65d3a69bc3ae876b2",
+    "amenityId": "6962824e5d3a69bc3ae87915",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.822Z",
+    "updatedAt": "2026-01-10T16:46:08.822Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af71c",
+    "propertyTypeId": "696265f65d3a69bc3ae876b2",
+    "amenityId": "6962824e5d3a69bc3ae8790c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.822Z",
+    "updatedAt": "2026-01-10T16:46:08.822Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af722",
+    "propertyTypeId": "696265f65d3a69bc3ae876b2",
+    "amenityId": "6962824e5d3a69bc3ae87916",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.823Z",
+    "updatedAt": "2026-01-10T16:46:08.823Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af71a",
+    "propertyTypeId": "696265f65d3a69bc3ae876b2",
+    "amenityId": "6962824d5d3a69bc3ae8790a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.822Z",
+    "updatedAt": "2026-01-10T16:46:08.822Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af71e",
+    "propertyTypeId": "696265f65d3a69bc3ae876b2",
+    "amenityId": "6962824e5d3a69bc3ae87911",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.822Z",
+    "updatedAt": "2026-01-10T16:46:08.822Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af72b",
+    "propertyTypeId": "696265f65d3a69bc3ae876b4",
+    "amenityId": "6962824e5d3a69bc3ae87912",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.922Z",
+    "updatedAt": "2026-01-10T16:46:08.922Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af725",
+    "propertyTypeId": "696265f65d3a69bc3ae876b4",
+    "amenityId": "6962824d5d3a69bc3ae87909",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.921Z",
+    "updatedAt": "2026-01-10T16:46:08.921Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af728",
+    "propertyTypeId": "696265f65d3a69bc3ae876b4",
+    "amenityId": "6962824e5d3a69bc3ae8790c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.921Z",
+    "updatedAt": "2026-01-10T16:46:08.921Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af724",
+    "propertyTypeId": "696265f65d3a69bc3ae876b4",
+    "amenityId": "6962824d5d3a69bc3ae87908",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.921Z",
+    "updatedAt": "2026-01-10T16:46:08.921Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af72a",
+    "propertyTypeId": "696265f65d3a69bc3ae876b4",
+    "amenityId": "6962824e5d3a69bc3ae87911",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.922Z",
+    "updatedAt": "2026-01-10T16:46:08.922Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af72d",
+    "propertyTypeId": "696265f65d3a69bc3ae876b4",
+    "amenityId": "6962824e5d3a69bc3ae87915",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.922Z",
+    "updatedAt": "2026-01-10T16:46:08.922Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af727",
+    "propertyTypeId": "696265f65d3a69bc3ae876b4",
+    "amenityId": "6962824d5d3a69bc3ae8790b",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.921Z",
+    "updatedAt": "2026-01-10T16:46:08.921Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af72c",
+    "propertyTypeId": "696265f65d3a69bc3ae876b4",
+    "amenityId": "6962824e5d3a69bc3ae87914",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.922Z",
+    "updatedAt": "2026-01-10T16:46:08.922Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af729",
+    "propertyTypeId": "696265f65d3a69bc3ae876b4",
+    "amenityId": "6962824e5d3a69bc3ae8790d",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.921Z",
+    "updatedAt": "2026-01-10T16:46:08.921Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af726",
+    "propertyTypeId": "696265f65d3a69bc3ae876b4",
+    "amenityId": "6962824d5d3a69bc3ae8790a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.921Z",
+    "updatedAt": "2026-01-10T16:46:08.921Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af736",
+    "propertyTypeId": "696265f65d3a69bc3ae876b6",
+    "amenityId": "6962824e5d3a69bc3ae87915",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.996Z",
+    "updatedAt": "2026-01-10T16:46:08.996Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af734",
+    "propertyTypeId": "696265f65d3a69bc3ae876b6",
+    "amenityId": "6962824e5d3a69bc3ae87912",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.995Z",
+    "updatedAt": "2026-01-10T16:46:08.995Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af72f",
+    "propertyTypeId": "696265f65d3a69bc3ae876b6",
+    "amenityId": "6962824d5d3a69bc3ae87908",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.995Z",
+    "updatedAt": "2026-01-10T16:46:08.995Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af730",
+    "propertyTypeId": "696265f65d3a69bc3ae876b6",
+    "amenityId": "6962824d5d3a69bc3ae87909",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.995Z",
+    "updatedAt": "2026-01-10T16:46:08.995Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af731",
+    "propertyTypeId": "696265f65d3a69bc3ae876b6",
+    "amenityId": "6962824d5d3a69bc3ae8790a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.995Z",
+    "updatedAt": "2026-01-10T16:46:08.995Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af735",
+    "propertyTypeId": "696265f65d3a69bc3ae876b6",
+    "amenityId": "6962824e5d3a69bc3ae87914",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.995Z",
+    "updatedAt": "2026-01-10T16:46:08.995Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af732",
+    "propertyTypeId": "696265f65d3a69bc3ae876b6",
+    "amenityId": "6962824e5d3a69bc3ae8790c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.995Z",
+    "updatedAt": "2026-01-10T16:46:08.995Z"
+  },
+  {
+    "_id": "69628250ce95659f7a0af733",
+    "propertyTypeId": "696265f65d3a69bc3ae876b6",
+    "amenityId": "6962824e5d3a69bc3ae87911",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:08.995Z",
+    "updatedAt": "2026-01-10T16:46:08.995Z"
+  },
+  {
+    "_id": "69628251ce95659f7a0af73f",
+    "propertyTypeId": "696265f65d3a69bc3ae876b8",
+    "amenityId": "6962824f5d3a69bc3ae8791b",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:09.081Z",
+    "updatedAt": "2026-01-10T16:46:09.081Z"
+  },
+  {
+    "_id": "69628251ce95659f7a0af739",
+    "propertyTypeId": "696265f65d3a69bc3ae876b8",
+    "amenityId": "6962824d5d3a69bc3ae8790a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:09.074Z",
+    "updatedAt": "2026-01-10T16:46:09.074Z"
+  },
+  {
+    "_id": "69628251ce95659f7a0af73c",
+    "propertyTypeId": "696265f65d3a69bc3ae876b8",
+    "amenityId": "6962824e5d3a69bc3ae87915",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:09.081Z",
+    "updatedAt": "2026-01-10T16:46:09.081Z"
+  },
+  {
+    "_id": "69628251ce95659f7a0af73b",
+    "propertyTypeId": "696265f65d3a69bc3ae876b8",
+    "amenityId": "6962824e5d3a69bc3ae87913",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:09.081Z",
+    "updatedAt": "2026-01-10T16:46:09.081Z"
+  },
+  {
+    "_id": "69628251ce95659f7a0af73d",
+    "propertyTypeId": "696265f65d3a69bc3ae876b8",
+    "amenityId": "6962824f5d3a69bc3ae87919",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:09.081Z",
+    "updatedAt": "2026-01-10T16:46:09.081Z"
+  },
+  {
+    "_id": "69628251ce95659f7a0af73e",
+    "propertyTypeId": "696265f65d3a69bc3ae876b8",
+    "amenityId": "6962824f5d3a69bc3ae8791a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:09.081Z",
+    "updatedAt": "2026-01-10T16:46:09.081Z"
+  },
+  {
+    "_id": "69628251ce95659f7a0af741",
+    "propertyTypeId": "696265f65d3a69bc3ae876b8",
+    "amenityId": "6962824f5d3a69bc3ae8791d",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:09.081Z",
+    "updatedAt": "2026-01-10T16:46:09.081Z"
+  },
+  {
+    "_id": "69628251ce95659f7a0af740",
+    "propertyTypeId": "696265f65d3a69bc3ae876b8",
+    "amenityId": "6962824f5d3a69bc3ae8791c",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:09.081Z",
+    "updatedAt": "2026-01-10T16:46:09.081Z"
+  },
+  {
+    "_id": "69628251ce95659f7a0af738",
+    "propertyTypeId": "696265f65d3a69bc3ae876b8",
+    "amenityId": "6962824d5d3a69bc3ae87909",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:09.074Z",
+    "updatedAt": "2026-01-10T16:46:09.074Z"
+  },
+  {
+    "_id": "69628251ce95659f7a0af73a",
+    "propertyTypeId": "696265f65d3a69bc3ae876b8",
+    "amenityId": "6962824e5d3a69bc3ae87911",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:09.074Z",
+    "updatedAt": "2026-01-10T16:46:09.074Z"
+  },
+  {
+    "_id": "69628251ce95659f7a0af745",
+    "propertyTypeId": "696265f65d3a69bc3ae876ba",
+    "amenityId": "6962824e5d3a69bc3ae87911",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:09.187Z",
+    "updatedAt": "2026-01-10T16:46:09.187Z"
+  },
+  {
+    "_id": "69628251ce95659f7a0af743",
+    "propertyTypeId": "696265f65d3a69bc3ae876ba",
+    "amenityId": "6962824d5d3a69bc3ae87909",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:09.187Z",
+    "updatedAt": "2026-01-10T16:46:09.187Z"
+  },
+  {
+    "_id": "69628251ce95659f7a0af744",
+    "propertyTypeId": "696265f65d3a69bc3ae876ba",
+    "amenityId": "6962824d5d3a69bc3ae8790a",
+    "isDefault": false,
+    "__v": 0,
+    "createdAt": "2026-01-10T16:46:09.187Z",
+    "updatedAt": "2026-01-10T16:46:09.187Z"
+  }
+]

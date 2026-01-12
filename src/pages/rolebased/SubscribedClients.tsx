@@ -432,7 +432,7 @@ const SubscribedClients = () => {
                             </Select>
                         </div>
                         <div>
-                            <label className="text-sm font-medium mb-2 block">Start Date From</label>
+                            <label className="text-sm font-medium mb-2 block">From</label>
                             <Input
                                 type="date"
                                 value={startDateFilter}
@@ -440,7 +440,7 @@ const SubscribedClients = () => {
                             />
                         </div>
                         <div>
-                            <label className="text-sm font-medium mb-2 block">Start Date To</label>
+                            <label className="text-sm font-medium mb-2 block">To</label>
                             <Input
                                 type="date"
                                 value={endDateFilter}

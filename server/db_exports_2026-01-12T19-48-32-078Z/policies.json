@@ -1,0 +1,12 @@
+[
+  {
+    "_id": "6961f813982cfb55124547d7",
+    "type": "refund-policy",
+    "content": "<h2>1. Subscription Refund Policy</h2><p>We offer a 7-day money-back guarantee on all subscription plans.</p><h2>2. Cancellation Process</h2><p>You may cancel your subscription at any time through your account settings.</p><h2>3. Refund Eligibility</h2><p>Refunds are available under specific conditions outlined in this section.</p><h2>4. Non-Refundable Items</h2><p>Certain items and services are not eligible for refunds.</p><h2>5. Refund Processing Time</h2><p>Approved refunds will be processed within 5-7 business days.</p>",
+    "updatedBy": "68f8857275b9205ce27f8ea5",
+    "lastUpdated": "2026-01-10T06:56:19.197Z",
+    "createdAt": "2026-01-10T06:56:19.197Z",
+    "updatedAt": "2026-01-10T06:56:19.197Z",
+    "__v": 0
+  }
+]

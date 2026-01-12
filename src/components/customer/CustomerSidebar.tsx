@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Home, Search, Heart, GitCompare, HomeIcon as HouseIcon, MessageSquare, Star, User, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Heart, GitCompare, MessageSquare, Star, User, Settings, LayoutDashboard, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { useRealtime } from "@/contexts/RealtimeContext";
@@ -42,7 +42,7 @@ const CustomerSidebar = ({
     {
       label: 'Dashboard',
       path: '/customer/dashboard',
-      icon: Home
+      icon: LayoutDashboard
     },
     {
       label: 'Search Properties',
@@ -62,7 +62,7 @@ const CustomerSidebar = ({
     {
       label: 'Owned Properties',
       path: '/customer/owned-properties',
-      icon: HouseIcon
+      icon: Building2
     },
     {
       label: 'Messages',

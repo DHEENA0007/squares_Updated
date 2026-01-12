@@ -1,0 +1,53 @@
+[
+  {
+    "_id": "695fe63c0f417fd1cc1f43e5",
+    "identifier": "free",
+    "name": "Lite",
+    "description": "FREE",
+    "price": 0,
+    "currency": "INR",
+    "billingPeriod": "monthly",
+    "billingCycleMonths": 1,
+    "features": [
+      {
+        "name": "FREE",
+        "description": "",
+        "enabled": true,
+        "_id": "695fe63c0f417fd1cc1f43e6"
+      }
+    ],
+    "limits": {
+      "properties": 5,
+      "featuredListings": 0,
+      "photos": 10,
+      "videoTours": 0,
+      "videos": 0,
+      "leads": 0,
+      "messages": 0,
+      "leadManagement": "basic",
+      "propertyImages": 10
+    },
+    "benefits": [],
+    "support": "email",
+    "whatsappSupport": {
+      "enabled": false,
+      "number": ""
+    },
+    "isActive": true,
+    "isPopular": false,
+    "sortOrder": 0,
+    "priceHistory": [
+      {
+        "price": 0,
+        "changedAt": "2026-01-08T17:15:40.792Z",
+        "changedBy": "68f8857275b9205ce27f8ea5",
+        "reason": "Initial price",
+        "_id": "695fe63c0f417fd1cc1f43e7"
+      }
+    ],
+    "featureHistory": [],
+    "createdAt": "2026-01-08T17:15:40.797Z",
+    "updatedAt": "2026-01-08T17:15:40.797Z",
+    "__v": 0
+  }
+]

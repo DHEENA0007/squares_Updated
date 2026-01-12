@@ -922,23 +922,29 @@ const VendorApprovals: React.FC = () => {
 
           {/* Date Filters */}
           <div className="grid gap-4 md:grid-cols-4 mt-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-              <Input
-                type="date"
-                placeholder="Start Date"
-                value={filters.startDate}
-                onChange={(e) => setFilters({ ...filters, startDate: e.target.value, page: 1 })}
-              />
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground">From</Label>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  placeholder="Start Date"
+                  value={filters.startDate}
+                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value, page: 1 })}
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-              <Input
-                type="date"
-                placeholder="End Date"
-                value={filters.endDate}
-                onChange={(e) => setFilters({ ...filters, endDate: e.target.value, page: 1 })}
-              />
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground">To</Label>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  placeholder="End Date"
+                  value={filters.endDate}
+                  onChange={(e) => setFilters({ ...filters, endDate: e.target.value, page: 1 })}
+                />
+              </div>
             </div>
             {(filters.startDate || filters.endDate) && (
               <Button

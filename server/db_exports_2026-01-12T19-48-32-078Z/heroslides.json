@@ -1,0 +1,82 @@
+[
+  {
+    "_id": "696251ddc97b419bd93c3b33",
+    "tabKey": "buy",
+    "title": "Find Your Dream Home",
+    "description": "Discover the perfect property to purchase across India with our comprehensive platform",
+    "imageUrl": "/assets/Buy.jpg",
+    "badge": {
+      "text": "India's Leading Property Platform",
+      "isVisible": true
+    },
+    "isActive": true,
+    "displayOrder": 0,
+    "__v": 0,
+    "createdAt": "2026-01-10T13:19:25.643Z",
+    "updatedAt": "2026-01-10T13:19:25.643Z"
+  },
+  {
+    "_id": "696251ddc97b419bd93c3b34",
+    "tabKey": "rent",
+    "title": "Discover Rental Properties",
+    "description": "Find comfortable and affordable rental homes across India's prime locations",
+    "imageUrl": "/assets/Rent.jpg",
+    "badge": {
+      "text": "India's Leading Property Platform",
+      "isVisible": true
+    },
+    "isActive": true,
+    "displayOrder": 1,
+    "__v": 0,
+    "createdAt": "2026-01-10T13:19:25.643Z",
+    "updatedAt": "2026-01-10T13:19:25.643Z"
+  },
+  {
+    "_id": "696251ddc97b419bd93c3b35",
+    "tabKey": "lease",
+    "title": "Lease Properties with Ease",
+    "description": "Explore premium lease options for residential and commercial properties",
+    "imageUrl": "/assets/Lease.jpg",
+    "badge": {
+      "text": "India's Leading Property Platform",
+      "isVisible": true
+    },
+    "isActive": true,
+    "displayOrder": 2,
+    "__v": 0,
+    "createdAt": "2026-01-10T13:19:25.643Z",
+    "updatedAt": "2026-01-10T13:19:25.643Z"
+  },
+  {
+    "_id": "696251ddc97b419bd93c3b36",
+    "tabKey": "commercial",
+    "title": "Commercial Real Estate Hub",
+    "description": "Find the ideal commercial space for your business across India's business districts",
+    "imageUrl": "/assets/commercial.jpg",
+    "badge": {
+      "text": "India's Leading Property Platform",
+      "isVisible": true
+    },
+    "isActive": true,
+    "displayOrder": 3,
+    "__v": 0,
+    "createdAt": "2026-01-10T13:19:25.643Z",
+    "updatedAt": "2026-01-10T13:19:25.643Z"
+  },
+  {
+    "_id": "696255915d3a69bc3ae8752f",
+    "tabKey": "Buy",
+    "__v": 0,
+    "badge": {
+      "text": "India's Leading Property Platform",
+      "isVisible": true
+    },
+    "createdAt": "2026-01-10T13:35:13.477Z",
+    "description": "Discover the perfect property to purchase across India with our comprehensive platform",
+    "displayOrder": 0,
+    "imageUrl": "/uploads/hero/hero-1768051651869-527984716.jpg",
+    "isActive": true,
+    "title": "Find Your Dream Home",
+    "updatedAt": "2026-01-10T13:50:45.724Z"
+  }
+]

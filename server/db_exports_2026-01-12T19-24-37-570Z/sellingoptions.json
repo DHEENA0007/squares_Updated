@@ -1,0 +1,54 @@
+[
+  {
+    "_id": "695fcf8d445bc4617faa1fc8",
+    "optionId": "property-valuation",
+    "label": "Property Valuation",
+    "description": "Get your property valued by experts",
+    "icon": "Calculator",
+    "action": "property-valuation",
+    "isActive": true,
+    "displayOrder": 1,
+    "__v": 0,
+    "createdAt": "2026-01-08T15:38:53.244Z",
+    "updatedAt": "2026-01-08T15:38:53.244Z"
+  },
+  {
+    "_id": "695fcf8d445bc4617faa1fc9",
+    "optionId": "quick-listing",
+    "label": "Quick Listing",
+    "description": "Fast-track your property listing",
+    "icon": "List",
+    "action": "quick-listing",
+    "isActive": true,
+    "displayOrder": 2,
+    "__v": 0,
+    "createdAt": "2026-01-08T15:38:53.244Z",
+    "updatedAt": "2026-01-08T15:38:53.244Z"
+  },
+  {
+    "_id": "695fcf8d445bc4617faa1fca",
+    "optionId": "manage-properties",
+    "label": "Manage Properties",
+    "description": "View and manage your listings",
+    "icon": "Settings",
+    "action": "manage-properties",
+    "isActive": true,
+    "displayOrder": 3,
+    "__v": 0,
+    "createdAt": "2026-01-08T15:38:53.244Z",
+    "updatedAt": "2026-01-08T15:38:53.244Z"
+  },
+  {
+    "_id": "695fcf8d445bc4617faa1fc7",
+    "optionId": "post-property",
+    "label": "Post Property",
+    "description": "List your property for sale or rent",
+    "icon": "Plus",
+    "action": "post-property",
+    "isActive": true,
+    "displayOrder": 0,
+    "__v": 0,
+    "createdAt": "2026-01-08T15:38:53.244Z",
+    "updatedAt": "2026-01-08T15:38:53.244Z"
+  }
+]
