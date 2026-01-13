@@ -38,11 +38,13 @@
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # 3. For asset requests that don't exist, return 404 (not index.html)
-  RewriteCond %{REQUEST_URI} \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|mp3|wav|webp)$ [NC]
-  RewriteRule ^ - [R=404,L]
+  # 3. Handle assets folder explicitly
+  RewriteCond %{REQUEST_URI} ^/en-new/assets/
+  RewriteCond %{DOCUMENT_ROOT}/en-new/assets/%{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
 
   # 4. SPA fallback - all other routes go to index.html
+  RewriteCond %{REQUEST_URI} !\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|mp3|wav|webp)$ [NC]
   RewriteRule ^ index.html [L]
 </IfModule>
 

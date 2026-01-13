@@ -228,9 +228,28 @@ class AdminRealtimeService {
     return alerts;
   }
 
+  // Check if MongoDB supports change streams (requires replica set)
+  async isReplicaSet() {
+    try {
+      const admin = mongoose.connection.db.admin();
+      const result = await admin.command({ replSetGetStatus: 1 });
+      return result.ok === 1;
+    } catch (error) {
+      // Error code 76 means not running as replica set
+      return false;
+    }
+  }
+
   // Setup MongoDB change streams for real-time notifications
-  setupChangeStreams() {
+  async setupChangeStreams() {
     if (this.changeStreams.size > 0) return; // Already setup
+
+    // Check if replica set is available
+    const hasReplicaSet = await this.isReplicaSet();
+    if (!hasReplicaSet) {
+      console.log('MongoDB is not a replica set - change streams disabled. Using polling for real-time updates.');
+      return;
+    }
 
     try {
       // Watch user changes
@@ -240,6 +259,11 @@ class AdminRealtimeService {
 
       userChangeStream.on('change', (change) => {
         this.broadcastChange('user', change);
+      });
+
+      userChangeStream.on('error', (error) => {
+        console.error('User change stream error:', error.message);
+        this.changeStreams.delete('users');
       });
 
       this.changeStreams.set('users', userChangeStream);
@@ -253,6 +277,11 @@ class AdminRealtimeService {
         this.broadcastChange('property', change);
       });
 
+      propertyChangeStream.on('error', (error) => {
+        console.error('Property change stream error:', error.message);
+        this.changeStreams.delete('properties');
+      });
+
       this.changeStreams.set('properties', propertyChangeStream);
 
       // Watch subscription changes
@@ -264,11 +293,16 @@ class AdminRealtimeService {
         this.broadcastChange('subscription', change);
       });
 
+      subscriptionChangeStream.on('error', (error) => {
+        console.error('Subscription change stream error:', error.message);
+        this.changeStreams.delete('subscriptions');
+      });
+
       this.changeStreams.set('subscriptions', subscriptionChangeStream);
 
       console.log('MongoDB change streams setup for admin real-time updates');
     } catch (error) {
-      console.error('Failed to setup change streams:', error);
+      console.error('Failed to setup change streams:', error.message);
     }
   }
 
