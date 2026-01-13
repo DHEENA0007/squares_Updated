@@ -25,11 +25,11 @@ services:
       - key: MONGODB_URI
         value: mongodb+srv://squares:HbpqwfWiJvR00bG7@cluster0.loonmqw.mongodb.net/ninety-nine-acres
       - key: CLOUDINARY_CLOUD_NAME
-        value: dm87kok62
+        value: daegy8ts7
       - key: CLOUDINARY_API_KEY
-        value: 999277858519233
+        value: 187735676337352
       - key: CLOUDINARY_API_SECRET
-        value: d4Wl2DMwVPlM4gkXWpzcNOv_ePY
+        value: pYmsnqL87FK7MQ6UVZFVpaH44Og
       - key: RESEND_API_KEY
         value: re_Lw3kDf93_FmnQPRSGpWeGejkXPkvF5iWb
       - key: EMAIL_FROM
