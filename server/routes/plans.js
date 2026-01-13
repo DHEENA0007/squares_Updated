@@ -176,7 +176,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
 
   // Track price changes
   if (changesToApply.price && changesToApply.price !== plan.price) {
-    await plan.updatePrice(changesToApply.price, req.user.id, changesToApply.priceChangeReason);
+    plan.updatePrice(changesToApply.price, req.user.id, changesToApply.priceChangeReason);
     delete changesToApply.price;
     delete changesToApply.priceChangeReason;
   }

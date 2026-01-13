@@ -1501,6 +1501,7 @@ const Clients = () => {
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-base truncate">{subscription.user.name}</div>
                             <div className="text-sm text-muted-foreground truncate">{subscription.user.email}</div>
+                            <div className="text-sm text-muted-foreground truncate">{subscription.user.phone || 'N/A'}</div>
                           </div>
                         </div>
                         <Badge
@@ -1592,6 +1593,7 @@ const Clients = () => {
                 <TableRow className="bg-muted/50">
                   <TableHead className="font-semibold w-[70px]">S.No</TableHead>
                   <TableHead className="font-semibold w-[250px] min-w-[200px]">Client</TableHead>
+                  <TableHead className="font-semibold w-[140px] min-w-[120px]">Phone</TableHead>
                   <TableHead className="font-semibold w-[200px] min-w-[150px]">Plan</TableHead>
                   <TableHead className="font-semibold w-[120px] min-w-[100px]">Amount</TableHead>
                   <TableHead className="font-semibold w-[130px] min-w-[110px]">Start Date</TableHead>
@@ -1604,7 +1606,7 @@ const Clients = () => {
               <TableBody>
                 {filteredSubscriptions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       No subscriptions found
                     </TableCell>
                   </TableRow>
@@ -1625,6 +1627,9 @@ const Clients = () => {
                           <div className="font-medium truncate">{subscription.user.name}</div>
                           <div className="text-sm text-muted-foreground truncate">{subscription.user.email}</div>
                         </div>
+                      </TableCell>
+                      <TableCell className="w-[140px] min-w-[120px]">
+                        <span className="whitespace-nowrap">{subscription.user.phone || 'N/A'}</span>
                       </TableCell>
                       <TableCell className="w-[200px] min-w-[150px]">
                         <div className="space-y-1">

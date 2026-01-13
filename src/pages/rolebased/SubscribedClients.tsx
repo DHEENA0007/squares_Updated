@@ -475,6 +475,7 @@ const SubscribedClients = () => {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Client</TableHead>
+                                        <TableHead>Phone</TableHead>
                                         <TableHead>Plan</TableHead>
                                         <TableHead>Amount</TableHead>
                                         <TableHead>Status</TableHead>
@@ -497,6 +498,9 @@ const SubscribedClients = () => {
                                                         <p className="text-sm text-muted-foreground">{subscription.user?.email}</p>
                                                     </div>
                                                 </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span>{subscription.user?.phone || 'N/A'}</span>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">

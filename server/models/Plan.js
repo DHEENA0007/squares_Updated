@@ -195,7 +195,7 @@ planSchema.pre('save', function(next) {
   next();
 });
 
-// Method to update price with tracking
+// Method to update price with tracking (does not save - caller must save)
 planSchema.methods.updatePrice = function(newPrice, userId, reason) {
   const oldPrice = this.price;
   this.price = newPrice;
@@ -205,10 +205,10 @@ planSchema.methods.updatePrice = function(newPrice, userId, reason) {
     changedBy: userId,
     reason: reason || `Price changed from ${oldPrice} to ${newPrice}`
   });
-  return this.save();
+  return this;
 };
 
-// Method to add/update feature with tracking
+// Method to add/update feature with tracking (does not save - caller must save)
 planSchema.methods.updateFeature = function(featureName, action, value, userId) {
   if (!this.featureHistory) {
     this.featureHistory = [];
@@ -222,7 +222,7 @@ planSchema.methods.updateFeature = function(featureName, action, value, userId) 
     changedBy: userId
   });
   
-  return this.save();
+  return this;
 };
 
 // Virtual for subscriber count
