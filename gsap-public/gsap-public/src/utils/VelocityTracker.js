@@ -24,7 +24,7 @@ let gsap, _coreInitted, _toArray, _getUnit, _first, _ticker, _time1, _time2, _ge
 			while (pt) {
 				val = pt.g(pt.t, pt.p);
 				if (val !== pt.v1 || time - pt.t1 > 0.2) { //use a threshold of 0.2 seconds for zeroing-out velocity. If we only use 0.05 and things update slightly slower, like some Android devices dispatch "touchmove" events sluggishly so 2 or 3 ticks of the gsap.ticker may elapse inbetween, thus it may appear like the object is not moving but it actually is but it's not updating as frequently. A threshold of 0.2 seconds seems to be a good balance. We want to update things frequently (0.05 seconds) when they're moving so that we can respond to fast motions accurately, but we want to be more resistant to go back to a zero velocity.
-					pt.v2 = pt.v1;
+					pt.v3 = pt.v1;
 					pt.v1 = val;
 					pt.t2 = pt.t1;
 					pt.t1 = time;
@@ -53,7 +53,7 @@ class PropTracker {
 		this.p = property;
 		this.g = target._gsap.get;
 		this.rCap = _types[type || _getUnit(this.g(target, property))]; //rotational cap (for degrees, "deg", it's 360 and for radians, "rad", it's Math.PI * 2)
-		this.v1 = this.v2 = 0;
+		this.v1 = this.v3 = 0;
 		this.t1 = this.t2 = _ticker.time;
 		if (next) {
 			this._next = next;
@@ -84,7 +84,7 @@ export class VelocityTracker {
 		let pt = this._props[property] || console.warn("Not tracking " + property + " velocity."),
 			val, dif, rotationCap;
 		val = parseFloat(skipRecentTick ? pt.v1 : pt.g(pt.t, pt.p));
-		dif = (val - parseFloat(pt.v2));
+		dif = (val - parseFloat(pt.v3));
 		rotationCap = pt.rCap;
 		if (rotationCap) { //rotational values need special interpretation so that if, for example, they go from 179 to -178 degrees it is interpreted as a change of 3 instead of -357.
 			dif = dif % rotationCap;

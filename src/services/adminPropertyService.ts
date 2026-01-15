@@ -1,5 +1,6 @@
 import { authService } from './authService';
 import { toast } from "@/hooks/use-toast";
+import { handleAuthError } from "@/utils/apiUtils";
 
 export interface AdminPropertyResponse {
   success: boolean;
@@ -31,7 +32,7 @@ class AdminPropertyService {
     options: RequestInit = {}
   ): Promise<T> {
     const token = authService.getToken();
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -42,7 +43,10 @@ class AdminPropertyService {
     };
 
     const response = await fetch(`${import.meta.env.VITE_API_URL}/admin${endpoint}`, config);
-    
+
+    // Check for auth error
+    handleAuthError(response);
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
@@ -54,7 +58,7 @@ class AdminPropertyService {
   async getProperties(filters: AdminPropertyFilters = {}): Promise<AdminPropertyResponse> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           queryParams.append(key, String(value));
@@ -154,7 +158,7 @@ class AdminPropertyService {
     } catch (error: any) {
       const errorData = error.response?.data || error;
       const errorMessage = errorData.message || error.message || "Failed to update property";
-      
+
       // Show specific message for subscription-related errors  
       if (errorData.upgradeRequired || errorData.limitReached) {
         toast({

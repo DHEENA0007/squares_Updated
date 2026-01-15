@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Clock,
   CheckCircle,
@@ -14,7 +15,9 @@ import {
   User,
   MapPin,
   Shield,
-  Key
+  Key,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from '../../hooks/use-toast';
 import { Input } from "@/components/ui/input";
@@ -45,7 +48,24 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useAuth } from '@/contexts/AuthContext';
+import { useDebounce } from '@/hooks/use-debounce';
 
 interface VendorApplication {
   _id: string;
@@ -79,6 +99,32 @@ interface VendorApplication {
       };
       email: string;
     };
+    phoneVerifiedBy?: {
+      _id: string;
+      profile: {
+        firstName: string;
+        lastName: string;
+      };
+      email: string;
+    };
+    assignedTo?: {
+      _id: string;
+      profile: {
+        firstName: string;
+        lastName: string;
+      };
+      email: string;
+    };
+    assignedAt?: string;
+    lockedBy?: {
+      _id: string;
+      profile: {
+        firstName: string;
+        lastName: string;
+      };
+      email: string;
+    };
+    lockedAt?: string;
     approvalNotes?: string;
     rejectionReason?: string;
     approverName?: string;
@@ -151,18 +197,32 @@ interface VendorApprovalStats {
 
 const VendorApprovals: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [applications, setApplications] = useState<VendorApplication[]>([]);
   const [stats, setStats] = useState<VendorApprovalStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isTableLoading, setIsTableLoading] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<VendorApplication | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [filters, setFilters] = useState({
-    status: 'pending',
+    status: 'all',
     search: '',
     businessType: '',
     experienceMin: '',
     experienceMax: '',
+    startDate: '',
+    endDate: '',
     page: 1,
+    limit: 10
+  });
+
+  const debouncedSearch = useDebounce(filters.search, 500);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 0,
+    totalCount: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
     limit: 10
   });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -218,17 +278,22 @@ const VendorApprovals: React.FC = () => {
         page: filters.page.toString(),
         limit: filters.limit.toString(),
         status: filters.status,
-        search: filters.search,
+        search: debouncedSearch,
         businessType: filters.businessType,
         experienceMin: filters.experienceMin,
         experienceMax: filters.experienceMax,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
         sortBy: 'submittedAt',
         sortOrder: 'desc'
       });
 
       const response = await fetchWithAuth(`/admin/vendor-approvals?${queryParams}`);
-      const data = await handleApiResponse<{ data: { vendors: VendorApplication[] } }>(response);
+      const data = await handleApiResponse<{ data: { vendors: VendorApplication[], pagination: typeof pagination } }>(response);
       setApplications(data.data.vendors || []);
+      if (data.data.pagination) {
+        setPagination(data.data.pagination);
+      }
     } catch (error) {
       console.error('Error fetching applications:', error);
       toast({
@@ -265,14 +330,33 @@ const VendorApprovals: React.FC = () => {
     }
   }, [user]);
 
+  // Handle vendorId from URL query parameter
+  useEffect(() => {
+    const vendorId = searchParams.get('vendorId');
+    if (vendorId && applications.length > 0) {
+      const vendor = applications.find(app => app._id === vendorId);
+      if (vendor) {
+        setSelectedApplication(vendor);
+        setShowDetails(true);
+      }
+    }
+  }, [searchParams, applications]);
+
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
+      if (isInitialLoading) {
+        // Keep initial loading true
+      } else {
+        setIsTableLoading(true);
+      }
+
       await Promise.all([fetchApplications(), fetchStats()]);
-      setLoading(false);
+
+      setIsInitialLoading(false);
+      setIsTableLoading(false);
     };
     loadData();
-  }, [filters.status, filters.page, filters.search, filters.businessType, filters.experienceMin, filters.experienceMax]);
+  }, [filters.status, filters.page, debouncedSearch, filters.businessType, filters.experienceMin, filters.experienceMax, filters.limit, filters.startDate, filters.endDate]);
 
   // Calculate time remaining for verification freeze
   useEffect(() => {
@@ -569,7 +653,7 @@ const VendorApprovals: React.FC = () => {
         approvalNotes: approvalComments,
         approverName: approverName,
         verificationChecklist: verificationChecklist,
-        verificationLevel: 'complete'
+        verificationLevel: 'basic'
       };
 
       const response = await fetchWithAuth(`/admin/vendor-approvals/${selectedApplication._id}/approve`, {
@@ -698,7 +782,7 @@ const VendorApprovals: React.FC = () => {
     return elapsed >= tenMinutes;
   };
 
-  if (loading) {
+  if (isInitialLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -722,7 +806,7 @@ const VendorApprovals: React.FC = () => {
 
       {/* Statistics Cards */}
       {stats && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
@@ -755,6 +839,16 @@ const VendorApprovals: React.FC = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+              <XCircle className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.overview.rejectedApplications}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Approval Rate</CardTitle>
               <CheckCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
@@ -774,13 +868,13 @@ const VendorApprovals: React.FC = () => {
               <Input
                 placeholder="Search by name or email..."
                 value={filters.search}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
               />
             </div>
 
             <Select
               value={filters.status}
-              onValueChange={(value) => setFilters({ ...filters, status: value })}
+              onValueChange={(value) => setFilters({ ...filters, status: value, page: 1 })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Filter by status" />
@@ -796,7 +890,7 @@ const VendorApprovals: React.FC = () => {
 
             <Select
               value={filters.businessType || "all"}
-              onValueChange={(value) => setFilters({ ...filters, businessType: value === "all" ? "" : value })}
+              onValueChange={(value) => setFilters({ ...filters, businessType: value === "all" ? "" : value, page: 1 })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Filter by business type" />
@@ -815,15 +909,73 @@ const VendorApprovals: React.FC = () => {
                 type="number"
                 placeholder="Min experience"
                 value={filters.experienceMin}
-                onChange={(e) => setFilters({ ...filters, experienceMin: e.target.value })}
+                onChange={(e) => setFilters({ ...filters, experienceMin: e.target.value, page: 1 })}
               />
               <Input
                 type="number"
                 placeholder="Max experience"
                 value={filters.experienceMax}
-                onChange={(e) => setFilters({ ...filters, experienceMax: e.target.value })}
+                onChange={(e) => setFilters({ ...filters, experienceMax: e.target.value, page: 1 })}
               />
             </div>
+          </div>
+
+          {/* Date Filters */}
+          <div className="grid gap-4 md:grid-cols-4 mt-4">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground">From</Label>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  placeholder="Start Date"
+                  value={filters.startDate}
+                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value, page: 1 })}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground">To</Label>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  placeholder="End Date"
+                  value={filters.endDate}
+                  onChange={(e) => setFilters({ ...filters, endDate: e.target.value, page: 1 })}
+                />
+              </div>
+            </div>
+            {(filters.startDate || filters.endDate) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFilters({ ...filters, startDate: '', endDate: '', page: 1 })}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Clear Dates
+              </Button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 mt-4">
+            <Label htmlFor="pageSize" className="text-sm text-muted-foreground whitespace-nowrap">
+              Items per page:
+            </Label>
+            <Select
+              value={filters.limit.toString()}
+              onValueChange={(value) => setFilters({ ...filters, limit: parseInt(value), page: 1 })}
+            >
+              <SelectTrigger id="pageSize" className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -834,85 +986,157 @@ const VendorApprovals: React.FC = () => {
           <CardTitle>Applications</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {applications.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No applications found
-              </div>
-            ) : (
-              applications.map((app) => (
-                <div
-                  key={app._id}
-                  className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors gap-4"
-                >
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-lg">{app.businessInfo.companyName}</h3>
-                      {getStatusBadge(app.approval.status)}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <User className="w-3 h-3" />
-                        {app.user.profile.firstName} {app.user.profile.lastName}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Mail className="w-3 h-3" />
-                        {app.user.email}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Phone className="w-3 h-3" />
-                        {app.user.profile.phone || 'N/A'}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Building className="w-3 h-3" />
-                        {app.businessInfo.businessType}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>S.no</TableHead>
+                  <TableHead>Company Name</TableHead>
+                  <TableHead>Applicant</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Business Type</TableHead>
+                  <TableHead>Submitted Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {applications.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      No applications found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  applications.map((app, index) => (
+                    <TableRow key={app._id}>
+                      <TableCell>{(pagination.currentPage - 1) * pagination.limit + index + 1}</TableCell>
+                      <TableCell className="font-medium">{app.businessInfo.companyName}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span>{app.user?.profile?.firstName} {app.user?.profile?.lastName}</span>
+                          <span className="text-xs text-muted-foreground">{app.user?.email}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{app.user?.profile?.phone || 'N/A'}</TableCell>
+                      <TableCell>{app.businessInfo.businessType}</TableCell>
+                      <TableCell>
                         {formatTimestamp(app.approval.submittedAt)}
-                      </div>
-                    </div>
-                  </div>
+                        {app.approval.status === 'approved' && user?.role === 'superadmin' && app.approval.approverName && (
+                          <span className="block text-xs text-green-600 mt-1">
+                            Approved by: {app.approval.approverName}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(app.approval.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedApplication(app);
+                              setShowDetails(true);
+                            }}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Review
+                          </Button>
 
-                  <div className="flex flex-col sm:flex-row gap-2">
+                          {app.approval.status === 'pending' || app.approval.status === 'under_review' ? (
+                            <>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => openApprovalDialog(app, 'approve')}
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                {app.approval.status === 'under_review' ? 'Update' : 'Approve'}
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => openApprovalDialog(app, 'reject')}
+                              >
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Reject
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
+          {applications.length > 0 && pagination.totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to{' '}
+                {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of{' '}
+                {pagination.totalCount} applications
+              </div>
+
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        setSelectedApplication(app);
-                        setShowDetails(true);
-                      }}
+                      onClick={() => setFilters({ ...filters, page: filters.page - 1 })}
+                      disabled={!pagination.hasPrevPage}
                     >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Review
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
                     </Button>
+                  </PaginationItem>
 
-                    {app.approval.status === 'pending' || app.approval.status === 'under_review' ? (
-                      <>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => openApprovalDialog(app, 'approve')}
+                  {/* Page numbers */}
+                  {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                    let pageNum: number;
+
+                    if (pagination.totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (pagination.currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (pagination.currentPage >= pagination.totalPages - 2) {
+                      pageNum = pagination.totalPages - 4 + i;
+                    } else {
+                      pageNum = pagination.currentPage - 2 + i;
+                    }
+
+                    return (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink
+                          onClick={() => setFilters({ ...filters, page: pageNum })}
+                          isActive={pagination.currentPage === pageNum}
+                          className="cursor-pointer"
                         >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          {app.approval.status === 'under_review' ? 'Update' : 'Approve'}
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => openApprovalDialog(app, 'reject')}
-                        >
-                          <XCircle className="w-4 h-4 mr-2" />
-                          Reject
-                        </Button>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+                          {pageNum}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+
+                  <PaginationItem>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
+                      disabled={!pagination.hasNextPage}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1097,12 +1321,59 @@ const VendorApprovals: React.FC = () => {
 
           {selectedApplication && (
             <div className="space-y-6">
+              {/* Lock Warning Alert */}
+              {selectedApplication.approval.lockedBy &&
+                String(selectedApplication.approval.lockedBy._id) !== String(user?.id) &&
+                user?.role !== 'superadmin' && (
+                  <Alert className="bg-yellow-50 border-yellow-200">
+                    <Shield className="h-4 w-4 text-yellow-600" />
+                    <AlertTitle>Application Locked</AlertTitle>
+                    <AlertDescription>
+                      This vendor application is currently being handled by{' '}
+                      <strong>
+                        {selectedApplication.approval.lockedBy.profile?.firstName
+                          ? `${selectedApplication.approval.lockedBy.profile.firstName} ${selectedApplication.approval.lockedBy.profile.lastName || ''}`
+                          : selectedApplication.approval.lockedBy.email}
+                      </strong>
+                      . You cannot approve or reject this application.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
               {/* Application Info */}
               <div className="p-4 bg-muted rounded-lg">
                 <h3 className="font-semibold mb-2">{selectedApplication.businessInfo.companyName}</h3>
                 <p className="text-sm text-muted-foreground">
                   {selectedApplication.user.profile.firstName} {selectedApplication.user.profile.lastName} • {selectedApplication.user.email}
                 </p>
+                {/* Show who is currently handling this */}
+                {selectedApplication.approval.lockedBy && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs font-medium text-primary">Currently Handling:</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedApplication.approval.lockedBy.profile?.firstName
+                        ? `${selectedApplication.approval.lockedBy.profile.firstName} ${selectedApplication.approval.lockedBy.profile.lastName || ''}`
+                        : selectedApplication.approval.lockedBy.email}
+                      {selectedApplication.approval.lockedBy._id === user?.id && ' (You)'}
+                    </p>
+                    {selectedApplication.approval.lockedAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Since: {new Date(selectedApplication.approval.lockedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {/* Show phone verifier if different from current handler */}
+                {selectedApplication.approval.phoneVerifiedBy && selectedApplication.approval.phoneVerifiedBy._id !== selectedApplication.approval.lockedBy?._id && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs font-medium text-blue-600">Phone Verified By:</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedApplication.approval.phoneVerifiedBy.profile?.firstName
+                        ? `${selectedApplication.approval.phoneVerifiedBy.profile.firstName} ${selectedApplication.approval.phoneVerifiedBy.profile.lastName || ''}`
+                        : selectedApplication.approval.phoneVerifiedBy.email}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Approver Name */}
@@ -1117,6 +1388,11 @@ const VendorApprovals: React.FC = () => {
                   placeholder="Enter your full name"
                   disabled={verificationChecklist.phoneVerified}
                 />
+                {selectedApplication.approval.lockedBy && selectedApplication.approval.lockedBy._id === user?.id && (
+                  <p className="text-xs text-muted-foreground">
+                    You are currently handling this application. Your name is pre-filled from the initial action.
+                  </p>
+                )}
               </div>
 
               {actionType === 'approve' && (
@@ -1423,7 +1699,8 @@ const VendorApprovals: React.FC = () => {
                 disabled={
                   actionLoading === 'approve' ||
                   !verificationChecklist.phoneVerified ||
-                  (timeRemaining !== null && timeRemaining > 0)
+                  (timeRemaining !== null && timeRemaining > 0) ||
+                  (selectedApplication?.approval.lockedBy && String(selectedApplication.approval.lockedBy._id) !== String(user?.id) && user?.role !== 'superadmin')
                 }
               >
                 {actionLoading === 'approve' ? (
@@ -1447,7 +1724,10 @@ const VendorApprovals: React.FC = () => {
               <Button
                 variant="destructive"
                 onClick={handleReject}
-                disabled={actionLoading === 'reject'}
+                disabled={
+                  actionLoading === 'reject' ||
+                  (selectedApplication?.approval.lockedBy && String(selectedApplication.approval.lockedBy._id) !== String(user?.id) && user?.role !== 'superadmin')
+                }
               >
                 {actionLoading === 'reject' ? (
                   <>

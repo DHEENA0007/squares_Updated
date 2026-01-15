@@ -45,7 +45,16 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useAuth } from '@/contexts/AuthContext';
+import { useDebounce } from '@/hooks/use-debounce';
 
 interface VendorApplication {
   _id: string;
@@ -79,6 +88,32 @@ interface VendorApplication {
       };
       email: string;
     };
+    phoneVerifiedBy?: {
+      _id: string;
+      profile: {
+        firstName: string;
+        lastName: string;
+      };
+      email: string;
+    };
+    assignedTo?: {
+      _id: string;
+      profile: {
+        firstName: string;
+        lastName: string;
+      };
+      email: string;
+    };
+    assignedAt?: string;
+    lockedBy?: {
+      _id: string;
+      profile: {
+        firstName: string;
+        lastName: string;
+      };
+      email: string;
+    };
+    lockedAt?: string;
     approvalNotes?: string;
     rejectionReason?: string;
     approverName?: string;
@@ -153,7 +188,8 @@ const VendorApprovals: React.FC = () => {
   const { user } = useAuth();
   const [applications, setApplications] = useState<VendorApplication[]>([]);
   const [stats, setStats] = useState<VendorApprovalStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isTableLoading, setIsTableLoading] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<VendorApplication | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [filters, setFilters] = useState({
@@ -162,9 +198,13 @@ const VendorApprovals: React.FC = () => {
     businessType: '',
     experienceMin: '',
     experienceMax: '',
+    startDate: '',
+    endDate: '',
     page: 1,
     limit: 10
   });
+
+  const debouncedSearch = useDebounce(filters.search, 500);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Auto-populate approver name from logged-in user
@@ -218,10 +258,12 @@ const VendorApprovals: React.FC = () => {
         page: filters.page.toString(),
         limit: filters.limit.toString(),
         status: filters.status,
-        search: filters.search,
+        search: debouncedSearch,
         businessType: filters.businessType,
         experienceMin: filters.experienceMin,
         experienceMax: filters.experienceMax,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
         sortBy: 'submittedAt',
         sortOrder: 'desc'
       });
@@ -267,12 +309,19 @@ const VendorApprovals: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
+      if (isInitialLoading) {
+        // Keep initial loading true
+      } else {
+        setIsTableLoading(true);
+      }
+
       await Promise.all([fetchApplications(), fetchStats()]);
-      setLoading(false);
+
+      setIsInitialLoading(false);
+      setIsTableLoading(false);
     };
     loadData();
-  }, [filters.status, filters.page, filters.search, filters.businessType, filters.experienceMin, filters.experienceMax]);
+  }, [filters.status, filters.page, debouncedSearch, filters.businessType, filters.experienceMin, filters.experienceMax, filters.limit, filters.startDate, filters.endDate]);
 
   // Calculate time remaining for verification freeze
   useEffect(() => {
@@ -569,7 +618,7 @@ const VendorApprovals: React.FC = () => {
         approvalNotes: approvalComments,
         approverName: approverName,
         verificationChecklist: verificationChecklist,
-        verificationLevel: 'complete'
+        verificationLevel: 'basic'
       };
 
       const response = await fetchWithAuth(`/admin/vendor-approvals/${selectedApplication._id}/approve`, {
@@ -698,7 +747,7 @@ const VendorApprovals: React.FC = () => {
     return elapsed >= tenMinutes;
   };
 
-  if (loading) {
+  if (isInitialLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -722,34 +771,74 @@ const VendorApprovals: React.FC = () => {
 
       {/* Statistics Cards */}
       {stats && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <Card
+            className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary/50 ${filters.status === 'all' ? 'border-primary ring-2 ring-primary/20' : ''}`}
+            onClick={() => setFilters({ ...filters, status: 'all', page: 1 })}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.overview.totalApplications}</div>
+              <p className="text-xs text-muted-foreground mt-1">All vendors</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-yellow-500/50 ${filters.status === 'pending' ? 'border-yellow-500 ring-2 ring-yellow-500/20' : ''}`}
+            onClick={() => setFilters({ ...filters, status: 'pending', page: 1 })}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
+              <Clock className="h-4 w-4 text-yellow-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.overview.pendingApplications}</div>
+              <div className="text-2xl font-bold text-yellow-600">{stats.overview.pendingApplications}</div>
+              <p className="text-xs text-muted-foreground mt-1">Awaiting action</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-blue-500/50 ${filters.status === 'under_review' ? 'border-blue-500 ring-2 ring-blue-500/20' : ''}`}
+            onClick={() => setFilters({ ...filters, status: 'under_review', page: 1 })}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Under Review</CardTitle>
+              <Eye className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{stats.overview.underReviewApplications}</div>
+              <p className="text-xs text-muted-foreground mt-1">Being processed</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-green-500/50 ${filters.status === 'approved' ? 'border-green-500 ring-2 ring-green-500/20' : ''}`}
+            onClick={() => setFilters({ ...filters, status: 'approved', page: 1 })}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Approved</CardTitle>
               <CheckCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.overview.approvedApplications}</div>
+              <div className="text-2xl font-bold text-green-600">{stats.overview.approvedApplications}</div>
+              <p className="text-xs text-muted-foreground mt-1">Verified vendors</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-red-500/50 ${filters.status === 'rejected' ? 'border-red-500 ring-2 ring-red-500/20' : ''}`}
+            onClick={() => setFilters({ ...filters, status: 'rejected', page: 1 })}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+              <XCircle className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{stats.overview.rejectedApplications}</div>
+              <p className="text-xs text-muted-foreground mt-1">Not approved</p>
             </CardContent>
           </Card>
 
@@ -760,6 +849,7 @@ const VendorApprovals: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.overview.approvalRate.toFixed(1)}%</div>
+              <p className="text-xs text-muted-foreground mt-1">Success rate</p>
             </CardContent>
           </Card>
         </div>
@@ -825,6 +915,44 @@ const VendorApprovals: React.FC = () => {
               />
             </div>
           </div>
+
+          {/* Date Filters */}
+          <div className="grid gap-4 md:grid-cols-4 mt-4">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground">From</Label>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  placeholder="Start Date"
+                  value={filters.startDate}
+                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value, page: 1 })}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground">To</Label>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  placeholder="End Date"
+                  value={filters.endDate}
+                  onChange={(e) => setFilters({ ...filters, endDate: e.target.value, page: 1 })}
+                />
+              </div>
+            </div>
+            {(filters.startDate || filters.endDate) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFilters({ ...filters, startDate: '', endDate: '', page: 1 })}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Clear Dates
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -834,84 +962,81 @@ const VendorApprovals: React.FC = () => {
           <CardTitle>Applications</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {applications.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No applications found
-              </div>
-            ) : (
-              applications.map((app) => (
-                <div
-                  key={app._id}
-                  className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors gap-4"
-                >
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-lg">{app.businessInfo.companyName}</h3>
-                      {getStatusBadge(app.approval.status)}
-                    </div>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Company Name</TableHead>
+                  <TableHead>Applicant</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Business Type</TableHead>
+                  <TableHead>Submitted Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {applications.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      No applications found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  applications.map((app) => (
+                    <TableRow key={app._id}>
+                      <TableCell className="font-medium">{app.businessInfo.companyName}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span>{app.user?.profile?.firstName || 'N/A'} {app.user?.profile?.lastName || ''}</span>
+                          <span className="text-xs text-muted-foreground">{app.user?.email || 'N/A'}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{app.user?.profile?.phone || 'N/A'}</TableCell>
+                      <TableCell>{app.businessInfo.businessType}</TableCell>
+                      <TableCell>{formatTimestamp(app.approval.submittedAt)}</TableCell>
+                      <TableCell>{getStatusBadge(app.approval.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedApplication(app);
+                              setShowDetails(true);
+                            }}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Review
+                          </Button>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <User className="w-3 h-3" />
-                        {app.user?.profile?.firstName || 'N/A'} {app.user?.profile?.lastName || ''}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Mail className="w-3 h-3" />
-                        {app.user?.email || 'N/A'}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Phone className="w-3 h-3" />
-                        {app.user?.profile?.phone || 'N/A'}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Building className="w-3 h-3" />
-                        {app.businessInfo.businessType}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {formatTimestamp(app.approval.submittedAt)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedApplication(app);
-                        setShowDetails(true);
-                      }}
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Review
-                    </Button>
-
-                    {app.approval.status === 'pending' || app.approval.status === 'under_review' ? (
-                      <>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => openApprovalDialog(app, 'approve')}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          {app.approval.status === 'under_review' ? 'Update' : 'Approve'}
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => openApprovalDialog(app, 'reject')}
-                        >
-                          <XCircle className="w-4 h-4 mr-2" />
-                          Reject
-                        </Button>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              ))
-            )}
+                          {app.approval.status === 'pending' || app.approval.status === 'under_review' ? (
+                            <>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => openApprovalDialog(app, 'approve')}
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                {app.approval.status === 'under_review' ? 'Update' : 'Approve'}
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => openApprovalDialog(app, 'reject')}
+                              >
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Reject
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
@@ -1097,12 +1222,59 @@ const VendorApprovals: React.FC = () => {
 
           {selectedApplication && (
             <div className="space-y-6">
+              {/* Lock Warning Alert */}
+              {selectedApplication.approval.lockedBy &&
+                String(selectedApplication.approval.lockedBy._id) !== String(user?.id) &&
+                user?.role !== 'superadmin' && (
+                  <Alert className="bg-yellow-50 border-yellow-200">
+                    <Shield className="h-4 w-4 text-yellow-600" />
+                    <AlertTitle>Application Locked</AlertTitle>
+                    <AlertDescription>
+                      This vendor application is currently being handled by{' '}
+                      <strong>
+                        {selectedApplication.approval.lockedBy.profile?.firstName
+                          ? `${selectedApplication.approval.lockedBy.profile.firstName} ${selectedApplication.approval.lockedBy.profile.lastName || ''}`
+                          : selectedApplication.approval.lockedBy.email}
+                      </strong>
+                      . You cannot approve or reject this application.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
               {/* Application Info */}
               <div className="p-4 bg-muted rounded-lg">
                 <h3 className="font-semibold mb-2">{selectedApplication.businessInfo.companyName}</h3>
                 <p className="text-sm text-muted-foreground">
                   {selectedApplication.user?.profile?.firstName || 'N/A'} {selectedApplication.user?.profile?.lastName || ''} • {selectedApplication.user?.email || 'N/A'}
                 </p>
+                {/* Show who is currently handling this */}
+                {selectedApplication.approval.lockedBy && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs font-medium text-primary">Currently Handling:</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedApplication.approval.lockedBy.profile?.firstName
+                        ? `${selectedApplication.approval.lockedBy.profile.firstName} ${selectedApplication.approval.lockedBy.profile.lastName || ''}`
+                        : selectedApplication.approval.lockedBy.email}
+                      {selectedApplication.approval.lockedBy._id === user?.id && ' (You)'}
+                    </p>
+                    {selectedApplication.approval.lockedAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Since: {new Date(selectedApplication.approval.lockedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {/* Show phone verifier if different from current handler */}
+                {selectedApplication.approval.phoneVerifiedBy && selectedApplication.approval.phoneVerifiedBy._id !== selectedApplication.approval.lockedBy?._id && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs font-medium text-blue-600">Phone Verified By:</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedApplication.approval.phoneVerifiedBy.profile?.firstName
+                        ? `${selectedApplication.approval.phoneVerifiedBy.profile.firstName} ${selectedApplication.approval.phoneVerifiedBy.profile.lastName || ''}`
+                        : selectedApplication.approval.phoneVerifiedBy.email}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Approver Name */}
@@ -1112,7 +1284,9 @@ const VendorApprovals: React.FC = () => {
                   <p className="font-medium text-sm">{approverName || 'Loading...'}</p>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Automatically set from your logged-in account
+                  {selectedApplication.approval.lockedBy && selectedApplication.approval.lockedBy._id === user?.id
+                    ? 'You are currently handling this application. Your name is pre-filled from the initial action.'
+                    : 'Automatically set from your logged-in account'}
                 </p>
               </div>
 
@@ -1420,7 +1594,8 @@ const VendorApprovals: React.FC = () => {
                 disabled={
                   actionLoading === 'approve' ||
                   !verificationChecklist.phoneVerified ||
-                  (timeRemaining !== null && timeRemaining > 0)
+                  (timeRemaining !== null && timeRemaining > 0) ||
+                  (selectedApplication?.approval.lockedBy && String(selectedApplication.approval.lockedBy._id) !== String(user?.id) && user?.role !== 'superadmin')
                 }
               >
                 {actionLoading === 'approve' ? (
@@ -1444,7 +1619,10 @@ const VendorApprovals: React.FC = () => {
               <Button
                 variant="destructive"
                 onClick={handleReject}
-                disabled={actionLoading === 'reject'}
+                disabled={
+                  actionLoading === 'reject' ||
+                  (selectedApplication?.approval.lockedBy && String(selectedApplication.approval.lockedBy._id) !== String(user?.id) && user?.role !== 'superadmin')
+                }
               >
                 {actionLoading === 'reject' ? (
                   <>

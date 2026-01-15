@@ -28,7 +28,11 @@ const roleSchema = new mongoose.Schema({
     default: 1, // 1 = lowest, 10 = highest
     min: 1,
     max: 10
-  }
+  },
+  permissions: [{
+    type: String,
+    trim: true
+  }]
 }, {
   timestamps: true
 });
@@ -45,7 +49,7 @@ roleSchema.set('toJSON', { virtuals: true });
 roleSchema.set('toObject', { virtuals: true });
 
 // Static method to get default roles with page-based access
-roleSchema.statics.getDefaultRoles = function() {
+roleSchema.statics.getDefaultRoles = function () {
   return [
     {
       name: 'customer',
@@ -117,7 +121,8 @@ roleSchema.statics.getDefaultRoles = function() {
         'plans',
         'addons',
         'privacy_policy',
-        'refund_policy'
+        'refund_policy',
+        'hero_management'
       ],
       isSystemRole: true,
       level: 10

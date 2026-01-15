@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Loader2, Eye, XCircle, RefreshCw, Calendar, CreditCard, User, Package, Star, Camera, Megaphone, Laptop, HeadphonesIcon, Users, Circle, Filter, X } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { PERMISSIONS } from "@/config/permissionConfig";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +11,7 @@ import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ExportUtils from "@/utils/exportUtils";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Custom currency formatter for exports to avoid encoding issues and handle null values
@@ -35,18 +39,48 @@ import { SearchFilter } from "@/components/adminpanel/shared/SearchFilter";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const Clients = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const permissions = user?.rolePermissions || [];
+
+  // Check if user has admin role
+  const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
+
+  // Permission checks - support both old role-based AND new permission-based
+  const hasPermission = (permission: string) => permissions.includes(permission);
+  const canViewClients = hasAdminRole || hasPermission(PERMISSIONS.CLIENTS_READ);
+  const canAccessActions = hasAdminRole || hasPermission(PERMISSIONS.CLIENTS_ACCESS_ACTIONS);
+  const canAccessDetails = hasAdminRole || hasPermission(PERMISSIONS.CLIENTS_ACCESS_DETAILS);
+  const canEditDetails = hasAdminRole || hasPermission(PERMISSIONS.CLIENTS_DETAILS_EDIT);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [planFilter, setPlanFilter] = useState("all");
   const [billingPeriodFilter, setBillingPeriodFilter] = useState("");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isTableLoading, setIsTableLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [subscriptionToCancel, setSubscriptionToCancel] = useState<Subscription | null>(null);
   const { toast } = useToast();
+
+  // Redirect if no view permission
+  useEffect(() => {
+    if (!canViewClients) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to view clients.",
+        variant: "destructive",
+      });
+      navigate('/rolebased');
+    }
+  }, [canViewClients, navigate, toast]);
 
   // Debounce search term to avoid excessive API calls
   useEffect(() => {
@@ -75,26 +109,26 @@ const Clients = () => {
     const periodsMap = new Map<number, string>();
     subscriptions.forEach(sub => {
       let months = sub.plan?.billingCycleMonths;
-      
+
       // Calculate months from startDate and endDate
       if (!months && sub.startDate && sub.endDate) {
         const start = new Date(sub.startDate);
         const end = new Date(sub.endDate);
-        
+
         // Calculate difference in months
         const yearDiff = end.getFullYear() - start.getFullYear();
         const monthDiff = end.getMonth() - start.getMonth();
         const dayDiff = end.getDate() - start.getDate();
-        
+
         // Calculate total months (round to nearest month)
         months = yearDiff * 12 + monthDiff + (dayDiff >= 15 ? 1 : 0);
-        
+
         // Ensure at least 1 month if there's a valid date range
         if (months < 1 && end > start) {
           months = 1;
         }
       }
-      
+
       // If still no months, derive from billingPeriod
       if (!months && sub.plan?.billingPeriod) {
         const period = sub.plan.billingPeriod.toLowerCase();
@@ -104,17 +138,17 @@ const Clients = () => {
         else if (period === 'yearly' || period === 'annual') months = 12;
         else if (period === 'lifetime') months = 120;
       }
-      
+
       if (months) {
         const period = sub.plan?.billingPeriod || 'custom';
         periodsMap.set(months, period);
       }
     });
-    
+
     // Sort by month value
     const sortedPeriods = Array.from(periodsMap.entries())
       .sort((a, b) => a[0] - b[0]);
-    
+
     return sortedPeriods.map(([months, period]) => ({
       value: months.toString(),
       label: `${months}`,
@@ -123,6 +157,9 @@ const Clients = () => {
     }));
   }, [subscriptions]);
 
+  const [startDateFilter, setStartDateFilter] = useState<string>("");
+  const [endDateFilter, setEndDateFilter] = useState<string>("");
+
   // Client-side filtering
   const filteredSubscriptions = useMemo(() => {
     return subscriptions.filter(sub => {
@@ -130,42 +167,50 @@ const Clients = () => {
       if (statusFilter !== "all" && sub.status !== statusFilter) {
         return false;
       }
-      
+
       // Plan filter
       if (planFilter !== "all" && sub.plan?.name !== planFilter) {
         return false;
       }
-      
+
+      // Date filter
+      if (startDateFilter && sub.startDate && new Date(sub.startDate) < new Date(startDateFilter)) {
+        return false;
+      }
+      if (endDateFilter && sub.startDate && new Date(sub.startDate) > new Date(endDateFilter)) {
+        return false;
+      }
+
       // Billing period filter - calculate months from start and end dates
       if (billingPeriodFilter && billingPeriodFilter.trim() !== "") {
         const filterMonths = parseInt(billingPeriodFilter.trim());
-        
+
         // Skip if not a valid number
         if (isNaN(filterMonths)) {
           return true; // Don't filter if invalid input
         }
-        
+
         let subMonths = sub.plan?.billingCycleMonths;
-        
+
         // Calculate months from startDate and endDate
         if (!subMonths && sub.startDate && sub.endDate) {
           const start = new Date(sub.startDate);
           const end = new Date(sub.endDate);
-          
+
           // Calculate difference in months
           const yearDiff = end.getFullYear() - start.getFullYear();
           const monthDiff = end.getMonth() - start.getMonth();
           const dayDiff = end.getDate() - start.getDate();
-          
+
           // Calculate total months (round to nearest month)
           subMonths = yearDiff * 12 + monthDiff + (dayDiff >= 15 ? 1 : 0);
-          
+
           // Ensure at least 1 month if there's a valid date range
           if (subMonths < 1 && end > start) {
             subMonths = 1;
           }
         }
-        
+
         // Fallback: derive from billingPeriod string
         if (!subMonths && sub.plan?.billingPeriod) {
           const period = sub.plan.billingPeriod.toLowerCase();
@@ -175,12 +220,12 @@ const Clients = () => {
           else if (period === 'yearly' || period === 'annual') subMonths = 12;
           else if (period === 'lifetime') subMonths = 120;
         }
-        
+
         if (subMonths !== filterMonths) {
           return false;
         }
       }
-      
+
       return true;
     });
   }, [subscriptions, statusFilter, planFilter, billingPeriodFilter]);
@@ -189,10 +234,12 @@ const Clients = () => {
     setStatusFilter("all");
     setPlanFilter("all");
     setBillingPeriodFilter("");
+    setStartDateFilter("");
+    setEndDateFilter("");
     setSearchTerm("");
   };
 
-  const hasActiveFilters = statusFilter !== "all" || planFilter !== "all" || billingPeriodFilter !== "" || searchTerm !== "";
+  const hasActiveFilters = statusFilter !== "all" || planFilter !== "all" || billingPeriodFilter !== "" || searchTerm !== "" || startDateFilter !== "" || endDateFilter !== "";
 
   const getAddonIcon = (category: string) => {
     const iconProps = { className: "w-4 h-4" };
@@ -215,7 +262,11 @@ const Clients = () => {
 
   const fetchSubscriptions = useCallback(async () => {
     try {
-      setLoading(true);
+      if (isInitialLoading) {
+        // Keep initial loading true
+      } else {
+        setIsTableLoading(true);
+      }
       const filters = {
         page: currentPage,
         limit: 10,
@@ -266,7 +317,8 @@ const Clients = () => {
         }
       }
     } finally {
-      setLoading(false);
+      setIsInitialLoading(false);
+      setIsTableLoading(false);
     }
   }, [currentPage, debouncedSearchTerm, statusFilter]);
 
@@ -301,7 +353,7 @@ const Clients = () => {
     }
 
     // Check if we have valid subscription data (even without populated user data)
-    const validSubscriptions = subscriptions.filter(sub => 
+    const validSubscriptions = subscriptions.filter(sub =>
       sub && sub._id && sub.user && sub.status
     );
 
@@ -325,10 +377,10 @@ const Clients = () => {
   // 4. Addon revenue only counted if actually purchased and paid
   const processDataForExport = () => {
     // Ensure we have valid data - fix to use the correct user structure
-    const validSubscriptions = subscriptions.filter(sub => 
-      sub && 
-      sub._id && 
-      sub.user && 
+    const validSubscriptions = subscriptions.filter(sub =>
+      sub &&
+      sub._id &&
+      sub.user &&
       sub.status
     );
 
@@ -344,19 +396,19 @@ const Clients = () => {
     // This handles: upgrades (no double counting), cancellations, unpaid subscriptions
     const calculateRevenue = (subscription: Subscription): number => {
       // Step 1: Check if there's actual payment data
-      const hasPaymentDetails = subscription.paymentDetails && 
+      const hasPaymentDetails = subscription.paymentDetails &&
         (subscription.paymentDetails.razorpayPaymentId || subscription.transactionId);
-      
+
       // Step 2: Check payment history for verified transactions
       let paidPayments: PaymentHistoryItem[] = [];
       if (subscription.paymentHistory && subscription.paymentHistory.length > 0) {
-        paidPayments = subscription.paymentHistory.filter(payment => 
-          payment && 
-          payment.amount && 
+        paidPayments = subscription.paymentHistory.filter(payment =>
+          payment &&
+          payment.amount &&
           payment.amount > 0 &&
-          (payment.type === 'subscription_purchase' || 
-           payment.type === 'renewal' || 
-           payment.type === 'upgrade')
+          (payment.type === 'subscription_purchase' ||
+            payment.type === 'renewal' ||
+            payment.type === 'upgrade')
         );
       }
 
@@ -368,13 +420,13 @@ const Clients = () => {
           const paymentDate = new Date(subscription.lastPaymentDate);
           const cancellationDate = new Date(subscription.updatedAt);
           const daysDiff = (cancellationDate.getTime() - paymentDate.getTime()) / (1000 * 3600 * 24);
-          
+
           // If cancelled within 1 day, don't count as revenue
           if (daysDiff <= 1) {
             return 0;
           }
         }
-        
+
         // Count as revenue if payment was made
         return subscription.amount || 0;
       }
@@ -385,7 +437,7 @@ const Clients = () => {
       }
 
       // Sort payments chronologically
-      const sortedPayments = paidPayments.sort((a, b) => 
+      const sortedPayments = paidPayments.sort((a, b) =>
         new Date(a.date || '').getTime() - new Date(b.date || '').getTime()
       );
 
@@ -397,16 +449,16 @@ const Clients = () => {
           // Initial subscription - full amount counts as revenue
           totalRevenue += payment.amount || 0;
           lastPlanAmount = payment.amount || 0;
-          
+
         } else if (payment.type === 'renewal') {
           // Renewal - full amount counts as revenue
           totalRevenue += payment.amount || 0;
-          
+
         } else if (payment.type === 'upgrade') {
           // Upgrade - only count the price difference to avoid double counting
           const newPlanAmount = payment.amount || 0;
           const upgradeDifference = newPlanAmount - lastPlanAmount;
-          
+
           // Only add positive differences (actual upgrades)
           if (upgradeDifference > 0) {
             totalRevenue += upgradeDifference;
@@ -421,7 +473,7 @@ const Clients = () => {
         const cancellationDate = new Date(subscription.updatedAt || '');
         const lastPaymentDate = new Date(lastPayment.date || '');
         const daysDiff = (cancellationDate.getTime() - lastPaymentDate.getTime()) / (1000 * 3600 * 24);
-        
+
         // If cancelled within 1 day of last payment, reduce revenue by 50%
         if (daysDiff <= 1) {
           totalRevenue *= 0.5;
@@ -466,43 +518,43 @@ const Clients = () => {
     // This ensures we only count addon revenue when payment was made
     const addonRevenue = validSubscriptions.reduce((sum, sub) => {
       if (!sub.addons || !Array.isArray(sub.addons) || sub.addons.length === 0) return sum;
-      
+
       let addonAmount = 0;
-      
+
       // Method 1: Check payment history for specific addon purchases
       if (sub.paymentHistory && sub.paymentHistory.length > 0) {
-        const addonPayments = sub.paymentHistory.filter(payment => 
-          payment && 
-          payment.type === 'addon_purchase' && 
+        const addonPayments = sub.paymentHistory.filter(payment =>
+          payment &&
+          payment.type === 'addon_purchase' &&
           payment.amount &&
           payment.amount > 0
         );
-        
+
         if (addonPayments.length > 0) {
-          addonAmount = addonPayments.reduce((total, payment) => 
+          addonAmount = addonPayments.reduce((total, payment) =>
             total + (payment.amount || 0), 0
           );
           return sum + addonAmount;
         }
       }
-      
-      // Method 2: If subscription has verified payment and addons, calculate addon contribution
-      const hasPayment = (sub.paymentDetails && sub.paymentDetails.razorpayPaymentId) || 
-                        sub.lastPaymentDate || 
-                        sub.transactionId;
-      
-  if (hasPayment && sub.status === 'active') {
-    // Calculate addon contribution from subscription amount
-    const planBasePrice = typeof sub.plan === 'object' && sub.plan !== null ? (sub.plan.price || 0) : 0;
-    const subscriptionAmount = sub.amount || 0;
-    const addonContribution = subscriptionAmount - planBasePrice;
 
-    // Only count positive contributions (when subscription amount > plan price)
-    if (addonContribution > 0) {
-      addonAmount = addonContribution;
-    }
-  }
-      
+      // Method 2: If subscription has verified payment and addons, calculate addon contribution
+      const hasPayment = (sub.paymentDetails && sub.paymentDetails.razorpayPaymentId) ||
+        sub.lastPaymentDate ||
+        sub.transactionId;
+
+      if (hasPayment && sub.status === 'active') {
+        // Calculate addon contribution from subscription amount
+        const planBasePrice = typeof sub.plan === 'object' && sub.plan !== null ? (sub.plan.price || 0) : 0;
+        const subscriptionAmount = sub.amount || 0;
+        const addonContribution = subscriptionAmount - planBasePrice;
+
+        // Only count positive contributions (when subscription amount > plan price)
+        if (addonContribution > 0) {
+          addonAmount = addonContribution;
+        }
+      }
+
       return sum + addonAmount;
     }, 0);
 
@@ -511,7 +563,7 @@ const Clients = () => {
     return {
       validSubscriptions,
       activeSubscriptions,
-      expiredSubscriptions, 
+      expiredSubscriptions,
       cancelledSubscriptions,
       totalActiveRevenue,
       totalRevenueAll,
@@ -526,14 +578,14 @@ const Clients = () => {
   // Generate client details with proper data validation based on actual subscription structure
   const generateClientDetails = (processedData: ReturnType<typeof processDataForExport>) => {
     const { validSubscriptions, calculateRevenue } = processedData;
-    
+
     return validSubscriptions.map((subscription, index) => {
       // Handle user data properly
-      const userName = typeof subscription.user === 'object' && subscription.user !== null 
+      const userName = typeof subscription.user === 'object' && subscription.user !== null
         ? (subscription.user.name || subscription.user.email || `Client ${index + 1}`)
         : `Client ${index + 1}`;
-      
-      const userEmail = typeof subscription.user === 'object' && subscription.user !== null 
+
+      const userEmail = typeof subscription.user === 'object' && subscription.user !== null
         ? (subscription.user.email || 'N/A')
         : 'N/A';
 
@@ -541,7 +593,7 @@ const Clients = () => {
       const planName = typeof subscription.plan === 'object' && subscription.plan !== null
         ? (subscription.plan.name || 'Unknown Plan')
         : 'Unknown Plan';
-      
+
       const planPrice = typeof subscription.plan === 'object' && subscription.plan !== null
         ? (subscription.plan.price || 0)
         : 0;
@@ -549,21 +601,21 @@ const Clients = () => {
       // Get the actual paid revenue for this subscription
       const paidRevenue = calculateRevenue(subscription);
       const addonCount = Array.isArray(subscription.addons) ? subscription.addons.length : 0;
-      
+
       // Calculate addon amount based on actual payments, not just addon prices
       let addonAmount = 0;
       if (Array.isArray(subscription.addons) && subscription.addons.length > 0) {
         // First, check payment history for actual addon purchase payments
         if (Array.isArray(subscription.paymentHistory)) {
           const addonPayments = subscription.paymentHistory
-            .filter(payment => 
-              payment && 
-              payment.type === 'addon_purchase' && 
+            .filter(payment =>
+              payment &&
+              payment.type === 'addon_purchase' &&
               payment.amount &&
               payment.amount > 0
             )
             .reduce((total, payment) => total + (payment?.amount || 0), 0);
-          
+
           if (addonPayments > 0) {
             addonAmount = addonPayments;
           } else {
@@ -594,6 +646,7 @@ const Clients = () => {
         'Paid Amount': formatCurrencyForExport(paidRevenue),
         'Status': subscriptionService.formatSubscriptionStatus(subscription.status || 'unknown').label,
         'Start Date': ExportUtils.formatDate(subscription.startDate),
+        'Purchase Time': subscription.createdAt ? new Date(subscription.createdAt).toLocaleTimeString() : 'N/A',
         'End Date': ExportUtils.formatDate(subscription.endDate),
         'Auto Renew': subscription.autoRenew ? 'Yes' : 'No',
         'Add-ons': addonCount,
@@ -618,7 +671,7 @@ const Clients = () => {
 
     validSubscriptions.forEach((subscription) => {
       // Handle case where user might be just an ID
-      const userName = typeof subscription.user === 'object' && subscription.user !== null 
+      const userName = typeof subscription.user === 'object' && subscription.user !== null
         ? (subscription.user.name || subscription.user.email || 'Unknown Client')
         : 'Unknown Client';
 
@@ -628,13 +681,13 @@ const Clients = () => {
           if (typeof addon === 'object' && addon !== null && addon.name) {
             const latestPayment = Array.isArray(subscription.paymentHistory)
               ? subscription.paymentHistory
-                  .filter(payment => 
-                    payment && 
-                    payment.type === 'addon_purchase' && 
-                    Array.isArray(payment.addons) &&
-                    payment.addons.includes(addon._id)
-                  )
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+                .filter(payment =>
+                  payment &&
+                  payment.type === 'addon_purchase' &&
+                  Array.isArray(payment.addons) &&
+                  payment.addons.includes(addon._id)
+                )
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
               : null;
 
             addonDetails.push({
@@ -693,20 +746,20 @@ const Clients = () => {
       // Status breakdown with corrected revenue - only showing verified paid amounts
       const totalPaidRevenue = processedData.totalActiveRevenue + processedData.cancelledRevenue + processedData.expiredRevenue;
       const statusBreakdownData = [
-        { 
-          'Status': 'Active (Verified Paid)', 
+        {
+          'Status': 'Active (Verified Paid)',
           'Count': processedData.activeSubscriptions.length,
           'Total Amount': formatCurrencyForExport(processedData.totalActiveRevenue),
           '% of Total Amount': totalPaidRevenue > 0 ? `${((processedData.totalActiveRevenue / totalPaidRevenue) * 100).toFixed(1)}%` : '0%'
         },
-        { 
-          'Status': 'Cancelled (Previously Paid)', 
+        {
+          'Status': 'Cancelled (Previously Paid)',
           'Count': processedData.cancelledSubscriptions.length,
           'Total Amount': formatCurrencyForExport(processedData.cancelledRevenue),
           '% of Total Amount': totalPaidRevenue > 0 ? `${((processedData.cancelledRevenue / totalPaidRevenue) * 100).toFixed(1)}%` : '0%'
         },
-        { 
-          'Status': 'Expired (Previously Paid)', 
+        {
+          'Status': 'Expired (Previously Paid)',
           'Count': processedData.expiredSubscriptions.length,
           'Total Amount': formatCurrencyForExport(processedData.expiredRevenue),
           '% of Total Amount': totalPaidRevenue > 0 ? `${((processedData.expiredRevenue / totalPaidRevenue) * 100).toFixed(1)}%` : '0%'
@@ -724,6 +777,7 @@ const Clients = () => {
         'Paid Amount': client['Paid Amount'],
         'Status': client['Status'],
         'Start Date': client['Start Date'],
+        'Purchase Time': client['Purchase Time'],
         'End Date': client['End Date'],
         'Auto Renew': client['Auto Renew'],
         'Add-ons': client['Add-ons'],
@@ -744,7 +798,7 @@ const Clients = () => {
         const revenue = processedData.calculateRevenue(sub);
         planRevenue[planName] = (planRevenue[planName] || 0) + revenue;
       });
-      const topPlan = Object.entries(planRevenue).sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'N/A';
+      const topPlan = Object.entries(planRevenue).sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0] || 'N/A';
 
       // Find most purchased addon with proper type handling
       const addonCount: Record<string, number> = {};
@@ -755,7 +809,7 @@ const Clients = () => {
           }
         });
       });
-      const topAddon = Object.entries(addonCount).sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'N/A';
+      const topAddon = Object.entries(addonCount).sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0] || 'N/A';
 
       const insightsData = [
         { 'Insight': 'Total Active Clients', 'Value': activeClients },
@@ -788,7 +842,7 @@ const Clients = () => {
           if (subscription.createdAt || subscription.startDate) {
             const startDate = new Date(subscription.createdAt || subscription.startDate);
             const monthKey = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
-            
+
             if (!monthlyData[monthKey]) {
               monthlyData[monthKey] = {
                 subscriptionRevenue: 0,
@@ -802,7 +856,7 @@ const Clients = () => {
 
             // Count new subscription
             monthlyData[monthKey].newSubscriptions += 1;
-            
+
             // Add subscription revenue if paid
             const paidRevenue = processedData.calculateRevenue(subscription);
             if (paidRevenue > 0) {
@@ -814,7 +868,7 @@ const Clients = () => {
           if (subscription.status === 'cancelled' && subscription.updatedAt) {
             const cancelDate = new Date(subscription.updatedAt);
             const monthKey = `${cancelDate.getFullYear()}-${String(cancelDate.getMonth() + 1).padStart(2, '0')}`;
-            
+
             if (!monthlyData[monthKey]) {
               monthlyData[monthKey] = {
                 subscriptionRevenue: 0,
@@ -834,7 +888,7 @@ const Clients = () => {
               if (payment.date && payment.amount && payment.amount > 0) {
                 const paymentDate = new Date(payment.date);
                 const monthKey = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`;
-                
+
                 if (!monthlyData[monthKey]) {
                   monthlyData[monthKey] = {
                     subscriptionRevenue: 0,
@@ -852,15 +906,15 @@ const Clients = () => {
                   monthlyData[monthKey].upgrades += 1;
                   // For upgrades, we need to handle properly to avoid double counting
                   // Find the previous plan amount to calculate the difference
-                  const previousPayments = subscription.paymentHistory?.filter(p => 
-                    p.date && new Date(p.date) < paymentDate && 
+                  const previousPayments = subscription.paymentHistory?.filter(p =>
+                    p.date && new Date(p.date) < paymentDate &&
                     (p.type === 'subscription_purchase' || p.type === 'upgrade')
                   ).sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
-                  
-                  const previousAmount = previousPayments && previousPayments.length > 0 ? 
+
+                  const previousAmount = previousPayments && previousPayments.length > 0 ?
                     previousPayments[0].amount || 0 : 0;
                   const upgradeDifference = payment.amount - previousAmount;
-                  
+
                   // Only add the upgrade difference, not the full amount
                   if (upgradeDifference > 0) {
                     monthlyData[monthKey].subscriptionRevenue += upgradeDifference;
@@ -897,7 +951,7 @@ const Clients = () => {
         const currentDate = new Date();
         const currentMonth = currentDate.getMonth();
         const currentYear = currentDate.getFullYear();
-        
+
         // Calculate year-over-year growth
         const thisYearRevenue = processedData.validSubscriptions
           .filter(sub => {
@@ -913,8 +967,8 @@ const Clients = () => {
           })
           .reduce((sum, sub) => sum + processedData.calculateRevenue(sub), 0);
 
-        const yearOverYearGrowth = lastYearRevenue > 0 
-          ? ((thisYearRevenue - lastYearRevenue) / lastYearRevenue * 100).toFixed(1) 
+        const yearOverYearGrowth = lastYearRevenue > 0
+          ? ((thisYearRevenue - lastYearRevenue) / lastYearRevenue * 100).toFixed(1)
           : 'N/A';
 
         // Calculate churn rate
@@ -992,7 +1046,7 @@ const Clients = () => {
           data: subscriptionDetails,
           columns: [
             { wch: 5 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, { wch: 15 },
-            { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, 
+            { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 10 },
             { wch: 8 }, { wch: 15 }, { wch: 12 }
           ]
         },
@@ -1052,12 +1106,12 @@ const Clients = () => {
           ['Total Active Revenue (Verified)', `₹${processedData.totalActiveRevenue.toLocaleString()}`],
           ['Add-on Revenue (Verified)', `₹${processedData.addonRevenue.toLocaleString()}`],
           ['Grand Total Revenue (All Verified)', `₹${processedData.grandTotalRevenue.toLocaleString()}`],
-  ].map(row => [row[0], row[1]]),
-  columnStyles: {
-    0: { cellWidth: 80 },
-    1: { cellWidth: 50, halign: 'right' as const },
-  },
-  theme: 'striped' as const,
+        ].map(row => [row[0], row[1]]),
+        columnStyles: {
+          0: { cellWidth: 80 },
+          1: { cellWidth: 50, halign: 'right' as const },
+        },
+        theme: 'striped' as const,
         fontSize: 9,
       };
 
@@ -1083,7 +1137,7 @@ const Clients = () => {
       // Convert client details to table rows
       const clientDetails = generateClientDetails(processedData);
       const clientTable = {
-        head: [['#', 'Client Name', 'Email', 'Plan', 'Plan Price', 'Total Amount', 'Status', 'Start Date', 'End Date', 'Auto Renew', 'Add-ons', 'Add-on Amount']],
+        head: [['#', 'Client Name', 'Email', 'Plan', 'Plan Price', 'Total Amount', 'Status', 'Start Date', 'Purchase Time', 'End Date', 'Auto Renew', 'Add-ons', 'Add-on Amount']],
         body: [
           ...clientDetails.map(client => [
             client['#'].toString(),
@@ -1094,6 +1148,7 @@ const Clients = () => {
             client['Total Amount'],
             client['Status'],
             client['Start Date'],
+            client['Purchase Time'],
             client['End Date'],
             client['Auto Renew'],
             client['Add-ons'].toString(),
@@ -1111,10 +1166,11 @@ const Clients = () => {
           '5': { cellWidth: 20, halign: 'right' as const },
           '6': { cellWidth: 15, halign: 'center' as const },
           '7': { cellWidth: 20, halign: 'center' as const },
-          '8': { cellWidth: 20, halign: 'center' as const },
-          '9': { cellWidth: 15, halign: 'center' as const },
-          '10': { cellWidth: 12, halign: 'center' as const },
-          '11': { cellWidth: 20, halign: 'right' as const },
+          '8': { cellWidth: 15, halign: 'center' as const },
+          '9': { cellWidth: 20, halign: 'center' as const },
+          '10': { cellWidth: 15, halign: 'center' as const },
+          '11': { cellWidth: 12, halign: 'center' as const },
+          '12': { cellWidth: 20, halign: 'right' as const },
         },
         theme: 'striped' as const,
         fontSize: 7,
@@ -1157,7 +1213,7 @@ const Clients = () => {
         const revenue = processedData.calculateRevenue(sub);
         planRevenue[planName] = (planRevenue[planName] || 0) + revenue;
       });
-      const topPlan = Object.entries(planRevenue).sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'N/A';
+      const topPlan = Object.entries(planRevenue).sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0] || 'N/A';
 
       const addonCount: Record<string, number> = {};
       processedData.validSubscriptions.forEach(sub => {
@@ -1167,7 +1223,7 @@ const Clients = () => {
           }
         });
       });
-      const topAddon = Object.entries(addonCount).sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'N/A';
+      const topAddon = Object.entries(addonCount).sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0] || 'N/A';
 
       const insightsTable = {
         head: [['Insight', 'Value']],
@@ -1233,6 +1289,15 @@ const Clients = () => {
   };
 
   const handleCancelSubscription = async (subscription: Subscription) => {
+    if (!canEditDetails) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to cancel subscriptions.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (subscription.status !== 'active') {
       toast({
         title: "Cannot Cancel",
@@ -1242,13 +1307,30 @@ const Clients = () => {
       return;
     }
 
+    setSubscriptionToCancel(subscription);
+    setIsCancelDialogOpen(true);
+  };
+
+  const confirmCancelSubscription = async () => {
+    if (!subscriptionToCancel || !cancelReason.trim()) {
+      toast({
+        title: "Reason Required",
+        description: "Please provide a reason for cancellation.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      await subscriptionService.cancelSubscription(subscription._id);
+      await subscriptionService.cancelSubscription(subscriptionToCancel._id, cancelReason);
       toast({
         title: "Subscription Cancelled",
-        description: `${subscription.user.name}'s subscription has been cancelled.`,
+        description: `${subscriptionToCancel.user.name}'s subscription has been cancelled. Email notification sent.`,
       });
-      fetchSubscriptions(); // Refresh the data
+      setIsCancelDialogOpen(false);
+      setCancelReason("");
+      setSubscriptionToCancel(null);
+      fetchSubscriptions();
     } catch (error) {
       toast({
         title: "Error",
@@ -1258,33 +1340,7 @@ const Clients = () => {
     }
   };
 
-  const handleRenewSubscription = async (subscription: Subscription) => {
-    if (subscription.status === 'active') {
-      toast({
-        title: "Cannot Renew",
-        description: "Subscription is already active.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      await subscriptionService.renewSubscription(subscription._id);
-      toast({
-        title: "Subscription Renewed",
-        description: `${subscription.user.name}'s subscription has been renewed.`,
-      });
-      fetchSubscriptions(); // Refresh the data
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to renew subscription. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  if (loading) {
+  if (isInitialLoading) {
     return (
       <div className="flex justify-center items-center py-12">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -1294,604 +1350,657 @@ const Clients = () => {
   }
 
   return (
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Subscribed Clients</h1>
-            <p className="text-muted-foreground mt-2">
-              Manage client subscriptions and details
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleExportExcel}>
-              <FileSpreadsheet className="w-4 h-4" />
-              <span className="ml-2">Export Excel</span>
-            </Button>
-            {/* <Button variant="outline" onClick={handleExportPDF}>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Subscribed Users</h1>
+          <p className="text-muted-foreground mt-2">
+            Manage user subscriptions and details
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportExcel}>
+            <FileSpreadsheet className="w-4 h-4" />
+            <span className="ml-2">Export Excel</span>
+          </Button>
+          {/* <Button variant="outline" onClick={handleExportPDF}>
               <FileText className="w-4 h-4" />
               <span className="ml-2">Export PDF</span>
             </Button> */}
-          </div>
         </div>
+      </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>All Clients</CardTitle>
-            <CardDescription>
-              {subscriptions.length} client{subscriptions.length !== 1 ? "s" : ""} found
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {/* Search and Filters */}
-            <div className="space-y-4 mb-6">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-1">
-                  <Input
-                    placeholder="Search by client name or email..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full"
-                  />
-                </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>All Clients</CardTitle>
+          <CardDescription>
+            {subscriptions.length} client{subscriptions.length !== 1 ? "s" : ""} found
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Search and Filters */}
+          <div className="space-y-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <Input
+                  placeholder="Search by client name or email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            {/* Column Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Column Filters */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="expired">Expired</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Select value={planFilter} onValueChange={setPlanFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Plans</SelectItem>
+                    {uniquePlans.map(plan => (
+                      <SelectItem key={plan} value={plan}>{plan}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <div>
-                  <Select value={planFilter} onValueChange={setPlanFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Filter by plan" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Plans</SelectItem>
-                      {uniquePlans.map(plan => (
-                        <SelectItem key={plan} value={plan}>{plan}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                <Input
+                  type="number"
+                  placeholder="Filter by months (e.g., 1, 3, 12)"
+                  value={billingPeriodFilter}
+                  onChange={(e) => setBillingPeriodFilter(e.target.value)}
+                  min="1"
+                  className="w-full"
+                />
+              </div>
 
-                <div>
+              <div className="flex gap-2 col-span-1 sm:col-span-2 lg:col-span-2">
+                <div className="w-full">
+                  <span className="text-xs text-muted-foreground mb-1 block">From</span>
                   <Input
-                    type="number"
-                    placeholder="Filter by months (e.g., 1, 3, 12)"
-                    value={billingPeriodFilter}
-                    onChange={(e) => setBillingPeriodFilter(e.target.value)}
-                    min="1"
+                    type="date"
+                    placeholder="dd / mm / yyyy"
+                    value={startDateFilter}
+                    onChange={(e) => setStartDateFilter(e.target.value)}
                     className="w-full"
                   />
                 </div>
-
-                {hasActiveFilters && (
-                  <div>
-                    <Button
-                      variant="outline"
-                      onClick={clearAllFilters}
-                      className="w-full"
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Clear Filters
-                    </Button>
-                  </div>
-                )}
+                <div className="w-full">
+                  <span className="text-xs text-muted-foreground mb-1 block">To</span>
+                  <Input
+                    type="date"
+                    placeholder="dd / mm / yyyy"
+                    value={endDateFilter}
+                    onChange={(e) => setEndDateFilter(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
               </div>
 
               {hasActiveFilters && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Filter className="w-4 h-4" />
-                  <span>
-                    Showing {filteredSubscriptions.length} of {subscriptions.length} results
-                  </span>
+                <div>
+                  <Button
+                    variant="outline"
+                    onClick={clearAllFilters}
+                    className="w-full"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Clear Filters
+                  </Button>
                 </div>
               )}
             </div>
 
-            {/* Mobile Card View */}
-            <div className="block sm:hidden space-y-4">
-              {filteredSubscriptions.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No subscriptions found
-                </div>
-              ) : (
-                filteredSubscriptions.map((subscription, index) => (
-                  <Card key={subscription._id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="space-y-3">
-                        {/* S.No and Client Info */}
-                        <div className="flex items-start justify-between">
-                          <div className="flex gap-3 flex-1 min-w-0">
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                              <span className="text-sm font-semibold text-primary">
-                                {(currentPage - 1) * 10 + index + 1}
-                              </span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-base truncate">{subscription.user.name}</div>
-                              <div className="text-sm text-muted-foreground truncate">{subscription.user.email}</div>
-                            </div>
+            {hasActiveFilters && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Filter className="w-4 h-4" />
+                <span>
+                  Showing {filteredSubscriptions.length} of {subscriptions.length} results
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="block sm:hidden space-y-4">
+            {filteredSubscriptions.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No subscriptions found
+              </div>
+            ) : (
+              filteredSubscriptions.map((subscription, index) => (
+                <Card key={subscription._id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="space-y-3">
+                      {/* S.No and Client Info */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex gap-3 flex-1 min-w-0">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span className="text-sm font-semibold text-primary">
+                              {(currentPage - 1) * 10 + index + 1}
+                            </span>
                           </div>
-                          <Badge
-                            variant={
-                              subscription.status === "active"
-                                ? "default"
-                                : subscription.status === "expired"
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-base truncate">{subscription.user.name}</div>
+                            <div className="text-sm text-muted-foreground truncate">{subscription.user.email}</div>
+                            <div className="text-sm text-muted-foreground truncate">{subscription.user.phone || 'N/A'}</div>
+                          </div>
+                        </div>
+                        <Badge
+                          variant={
+                            subscription.status === "active"
+                              ? "default"
+                              : subscription.status === "expired"
                                 ? "destructive"
                                 : "secondary"
-                            }
-                            className="ml-2 flex-shrink-0"
-                          >
-                            {subscriptionService.formatSubscriptionStatus(subscription.status).label}
-                          </Badge>
-                        </div>
+                          }
+                          className="ml-2 flex-shrink-0"
+                        >
+                          {subscriptionService.formatSubscriptionStatus(subscription.status).label}
+                        </Badge>
+                      </div>
 
-                        {/* Plan Info */}
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">Plan:</span>
-                          <div className="text-right">
-                            <div className="font-medium">{subscription.plan?.name || 'N/A'}</div>
-                            <div className="text-muted-foreground capitalize">
-                              {subscription.plan?.billingPeriod || 'N/A'}
-                            </div>
+                      {/* Plan Info */}
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Plan:</span>
+                        <div className="text-right">
+                          <div className="font-medium">{subscription.plan?.name || 'N/A'}</div>
+                          <div className="text-muted-foreground capitalize">
+                            {subscription.plan?.billingPeriod || 'N/A'}
                           </div>
                         </div>
+                      </div>
 
-                        {/* Amount */}
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">Amount:</span>
-                          <span className="font-semibold">
-                            {subscriptionService.formatAmount(subscription)}
-                          </span>
-                        </div>
+                      {/* Amount */}
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Amount:</span>
+                        <span className="font-semibold">
+                          {subscriptionService.formatAmount(subscription)}
+                        </span>
+                      </div>
 
-                        {/* Dates */}
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Start:</span>
-                            <div className="font-medium">
-                              {new Date(subscription.startDate).toLocaleDateString()}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">End:</span>
-                            <div className="font-medium">
-                              {new Date(subscription.endDate).toLocaleDateString()}
-                            </div>
+                      {/* Dates */}
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Start:</span>
+                          <div className="font-medium">
+                            {new Date(subscription.startDate).toLocaleDateString()}
                           </div>
                         </div>
+                        <div>
+                          <span className="text-muted-foreground">Purchase Time:</span>
+                          <div className="font-medium">
+                            {subscription.createdAt ? new Date(subscription.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">End:</span>
+                          <div className="font-medium">
+                            {new Date(subscription.endDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
 
-                        {/* Action Button */}
-                        <div className="pt-2 border-t">
+                      {/* Action Button */}
+                      <div className="pt-2 border-t">
+                        {canAccessActions && (
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleViewDetails(subscription)}
                             className="w-full"
+                            disabled={!canAccessDetails}
                           >
                             <Eye className="w-4 h-4 mr-2" />
                             View Details
                           </Button>
-                        </div>
+                        )}
+                        {!canAccessActions && (
+                          <p className="text-xs text-muted-foreground text-center py-2">
+                            No actions available
+                          </p>
+                        )}
                       </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
 
-            {/* Desktop Table View */}
-            <div className="hidden sm:block rounded-lg border border-border bg-card overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="font-semibold w-[70px]">S.No</TableHead>
-                    <TableHead className="font-semibold w-[250px] min-w-[200px]">Client</TableHead>
-                    <TableHead className="font-semibold w-[200px] min-w-[150px]">Plan</TableHead>
-                    <TableHead className="font-semibold w-[120px] min-w-[100px]">Amount</TableHead>
-                    <TableHead className="font-semibold w-[130px] min-w-[110px]">Start Date</TableHead>
-                    <TableHead className="font-semibold w-[130px] min-w-[110px]">End Date</TableHead>
-                    <TableHead className="font-semibold w-[120px] min-w-[100px]">Status</TableHead>
-                    <TableHead className="font-semibold text-center w-[120px] min-w-[100px]">Actions</TableHead>
+          {/* Desktop Table View */}
+          <div className="hidden sm:block rounded-lg border border-border bg-card overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="font-semibold w-[70px]">S.No</TableHead>
+                  <TableHead className="font-semibold w-[250px] min-w-[200px]">Client</TableHead>
+                  <TableHead className="font-semibold w-[140px] min-w-[120px]">Phone</TableHead>
+                  <TableHead className="font-semibold w-[200px] min-w-[150px]">Plan</TableHead>
+                  <TableHead className="font-semibold w-[120px] min-w-[100px]">Amount</TableHead>
+                  <TableHead className="font-semibold w-[130px] min-w-[110px]">Start Date</TableHead>
+                  <TableHead className="font-semibold w-[130px] min-w-[110px]">Purchase Time</TableHead>
+                  <TableHead className="font-semibold w-[130px] min-w-[110px]">End Date</TableHead>
+                  <TableHead className="font-semibold w-[120px] min-w-[100px]">Status</TableHead>
+                  <TableHead className="font-semibold text-center w-[120px] min-w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSubscriptions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                      No subscriptions found
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredSubscriptions.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        No subscriptions found
+                ) : (
+                  filteredSubscriptions.map((subscription, index) => (
+                    <TableRow key={subscription._id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="w-[70px] text-center">
+                        <div className="flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span className="text-sm font-semibold text-primary">
+                              {(currentPage - 1) * 10 + index + 1}
+                            </span>
+                          </div>
+                        </div>
                       </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredSubscriptions.map((subscription, index) => (
-                      <TableRow key={subscription._id} className="hover:bg-muted/30 transition-colors">
-                        <TableCell className="w-[70px] text-center">
-                          <div className="flex items-center justify-center">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                              <span className="text-sm font-semibold text-primary">
-                                {(currentPage - 1) * 10 + index + 1}
-                              </span>
-                            </div>
+                      <TableCell className="w-[250px] min-w-[200px]">
+                        <div className="space-y-1">
+                          <div className="font-medium truncate">{subscription.user.name}</div>
+                          <div className="text-sm text-muted-foreground truncate">{subscription.user.email}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="w-[140px] min-w-[120px]">
+                        <span className="whitespace-nowrap">{subscription.user.phone || 'N/A'}</span>
+                      </TableCell>
+                      <TableCell className="w-[200px] min-w-[150px]">
+                        <div className="space-y-1">
+                          <div className="font-medium truncate">{subscription.plan?.name || 'N/A'}</div>
+                          <div className="text-sm text-muted-foreground capitalize truncate">
+                            {subscription.plan?.billingPeriod || 'N/A'}
                           </div>
-                        </TableCell>
-                        <TableCell className="w-[250px] min-w-[200px]">
-                          <div className="space-y-1">
-                            <div className="font-medium truncate">{subscription.user.name}</div>
-                            <div className="text-sm text-muted-foreground truncate">{subscription.user.email}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="w-[200px] min-w-[150px]">
-                          <div className="space-y-1">
-                            <div className="font-medium truncate">{subscription.plan?.name || 'N/A'}</div>
-                            <div className="text-sm text-muted-foreground capitalize truncate">
-                              {subscription.plan?.billingPeriod || 'N/A'}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="w-[120px] min-w-[100px]">
-                          <span className="font-semibold whitespace-nowrap">
-                            {subscriptionService.formatAmount(subscription)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="w-[130px] min-w-[110px]">
-                          <span className="whitespace-nowrap">
-                            {new Date(subscription.startDate).toLocaleDateString()}
-                          </span>
-                        </TableCell>
-                        <TableCell className="w-[130px] min-w-[110px]">
-                          <span className="whitespace-nowrap">
-                            {new Date(subscription.endDate).toLocaleDateString()}
-                          </span>
-                        </TableCell>
-                        <TableCell className="w-[120px] min-w-[100px]">
-                          <Badge
-                            variant={
-                              subscription.status === "active"
-                                ? "default"
-                                : subscription.status === "expired"
+                        </div>
+                      </TableCell>
+                      <TableCell className="w-[120px] min-w-[100px]">
+                        <span className="font-semibold whitespace-nowrap">
+                          {subscriptionService.formatAmount(subscription)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="w-[130px] min-w-[110px]">
+                        <span className="whitespace-nowrap">
+                          {new Date(subscription.startDate).toLocaleDateString()}
+                        </span>
+                      </TableCell>
+                      <TableCell className="w-[130px] min-w-[110px]">
+                        <span className="whitespace-nowrap">
+                          {subscription.createdAt ? new Date(subscription.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="w-[130px] min-w-[110px]">
+                        <span className="whitespace-nowrap">
+                          {new Date(subscription.endDate).toLocaleDateString()}
+                        </span>
+                      </TableCell>
+                      <TableCell className="w-[120px] min-w-[100px]">
+                        <Badge
+                          variant={
+                            subscription.status === "active"
+                              ? "default"
+                              : subscription.status === "expired"
                                 ? "destructive"
                                 : "secondary"
-                            }
-                            className="whitespace-nowrap"
-                          >
-                            {subscriptionService.formatSubscriptionStatus(subscription.status).label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center w-[120px] min-w-[100px]">
+                          }
+                          className="whitespace-nowrap"
+                        >
+                          {subscriptionService.formatSubscriptionStatus(subscription.status).label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center w-[120px] min-w-[100px]">
+                        {canAccessActions ? (
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleViewDetails(subscription)}
                             className="whitespace-nowrap"
+                            disabled={!canAccessDetails}
                           >
                             <Eye className="w-4 h-4" />
                             <span className="ml-2">View</span>
                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="mt-6">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={previousPage}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => goToPage(page)}
+                        isActive={currentPage === page}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={nextPage}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
+          )}
+        </CardContent>
+      </Card>
 
-            {totalPages > 1 && (
-              <div className="mt-6">
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={previousPage}
-                        className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                      />
-                    </PaginationItem>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => goToPage(page)}
-                          isActive={currentPage === page}
-                          className="cursor-pointer"
+      {/* Subscription Details Dialog */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Subscription Details</DialogTitle>
+            <DialogDescription>
+              Complete information about {selectedSubscription?.user.name}'s subscription
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedSubscription && (
+            <div className="space-y-6">
+              {/* Client Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    Client Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Name</p>
+                      <p className="text-base">{selectedSubscription.user.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Email</p>
+                      <p className="text-base">{selectedSubscription.user.email}</p>
+                    </div>
+                    {selectedSubscription.user.phone && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Phone</p>
+                        <p className="text-base">{selectedSubscription.user.phone}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">User ID</p>
+                      <p className="text-sm font-mono">{selectedSubscription.user._id}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Plan Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="w-5 h-5" />
+                    Plan Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Plan Name</p>
+                      <p className="text-base font-semibold">{selectedSubscription.plan?.name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Description</p>
+                      <p className="text-base">{selectedSubscription.plan?.description || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Plan Price</p>
+                      <p className="text-base font-semibold">
+                        {selectedSubscription.plan?.price
+                          ? subscriptionService.formatAmount({
+                            ...selectedSubscription,
+                            amount: selectedSubscription.plan.price
+                          })
+                          : 'N/A'
+                        }
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Billing Period</p>
+                      <p className="text-base">{selectedSubscription.plan?.billingPeriod || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Plan ID</p>
+                      <p className="text-sm font-mono">{selectedSubscription.plan?._id || 'N/A'}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Purchased Addons */}
+              {selectedSubscription.addons && selectedSubscription.addons.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Star className="w-5 h-5" />
+                      Purchased Addons ({selectedSubscription.addons.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid gap-4">
+                      {selectedSubscription.addons.map((addon, index) => (
+                        <div
+                          key={addon._id || index}
+                          className="flex items-start gap-3 p-4 border border-border rounded-lg bg-muted/30"
                         >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    ))}
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={nextPage}
-                        className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Subscription Details Dialog */}
-        <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Subscription Details</DialogTitle>
-              <DialogDescription>
-                Complete information about {selectedSubscription?.user.name}'s subscription
-              </DialogDescription>
-            </DialogHeader>
-            
-            {selectedSubscription && (
-              <div className="space-y-6">
-                {/* Client Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <User className="w-5 h-5" />
-                      Client Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Name</p>
-                        <p className="text-base">{selectedSubscription.user.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Email</p>
-                        <p className="text-base">{selectedSubscription.user.email}</p>
-                      </div>
-                      {selectedSubscription.user.phone && (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Phone</p>
-                          <p className="text-base">{selectedSubscription.user.phone}</p>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">User ID</p>
-                        <p className="text-sm font-mono">{selectedSubscription.user._id}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Plan Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Package className="w-5 h-5" />
-                      Plan Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Plan Name</p>
-                        <p className="text-base font-semibold">{selectedSubscription.plan?.name || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Description</p>
-                        <p className="text-base">{selectedSubscription.plan?.description || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Plan Price</p>
-                        <p className="text-base font-semibold">
-                          {selectedSubscription.plan?.price 
-                            ? subscriptionService.formatAmount({
-                                ...selectedSubscription,
-                                amount: selectedSubscription.plan.price
-                              })
-                            : 'N/A'
-                          }
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Billing Period</p>
-                        <p className="text-base">{selectedSubscription.plan?.billingPeriod || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Plan ID</p>
-                        <p className="text-sm font-mono">{selectedSubscription.plan?._id || 'N/A'}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Purchased Addons */}
-                {selectedSubscription.addons && selectedSubscription.addons.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Star className="w-5 h-5" />
-                        Purchased Addons ({selectedSubscription.addons.length})
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="grid gap-4">
-                        {selectedSubscription.addons.map((addon, index) => (
-                          <div 
-                            key={addon._id || index}
-                            className="flex items-start gap-3 p-4 border border-border rounded-lg bg-muted/30"
-                          >
-                            <div className="p-2 rounded-lg bg-background border">
-                              {getAddonIcon(addon.category)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="min-w-0 flex-1">
-                                  <h4 className="font-semibold text-base text-foreground">
-                                    {addon.name}
-                                  </h4>
-                                  <p className="text-sm text-muted-foreground mt-1 overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                                    {addon.description}
-                                  </p>
-                                  <div className="flex items-center gap-3 mt-2">
-                                    <Badge variant="outline" className="capitalize text-xs">
-                                      {addon.category}
-                                    </Badge>
-                                    <Badge variant="secondary" className="text-xs">
-                                      {addon.billingType?.replace('_', ' ') || 'N/A'}
-                                    </Badge>
-                                  </div>
+                          <div className="p-2 rounded-lg bg-background border">
+                            {getAddonIcon(addon.category)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="min-w-0 flex-1">
+                                <h4 className="font-semibold text-base text-foreground">
+                                  {addon.name}
+                                </h4>
+                                <p className="text-sm text-muted-foreground mt-1 overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                                  {addon.description}
+                                </p>
+                                <div className="flex items-center gap-3 mt-2">
+                                  <Badge variant="outline" className="capitalize text-xs">
+                                    {addon.category}
+                                  </Badge>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {addon.billingType?.replace('_', ' ') || 'N/A'}
+                                  </Badge>
                                 </div>
-                                <div className="text-right flex-shrink-0">
-                                  <p className="font-semibold text-lg text-foreground">
-                                    {addon.price 
-                                      ? `${addon.currency === 'INR' ? '₹' : '$'}${addon.price}`
-                                      : 'Free'
-                                    }
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {addon.billingType === 'monthly' ? '/month' :
-                                     addon.billingType === 'yearly' ? '/year' :
-                                     addon.billingType === 'per_property' ? '/property' :
-                                     addon.billingType === 'one_time' ? 'one-time' : ''}
-                                  </p>
-                                </div>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="font-semibold text-lg text-foreground">
+                                  {addon.price
+                                    ? `${addon.currency === 'INR' ? '₹' : '$'}${addon.price}`
+                                    : 'Free'
+                                  }
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {addon.billingType === 'monthly' ? '/month' :
+                                    addon.billingType === 'yearly' ? '/year' :
+                                      addon.billingType === 'per_property' ? '/property' :
+                                        addon.billingType === 'one_time' ? 'one-time' : ''}
+                                </p>
                               </div>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                      
-                      {/* Addons Summary */}
-                      <div className="mt-4 p-4 bg-blue-50/50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-blue-900">Total Addons</p>
-                            <p className="text-sm text-blue-700">
-                              {selectedSubscription.addons.length} addon{selectedSubscription.addons.length !== 1 ? 's' : ''} purchased
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-blue-900">
-                              {selectedSubscription.addons
-                                .reduce((total, addon) => total + (addon.price || 0), 0) > 0
-                                ? `${selectedSubscription.currency === 'INR' ? '₹' : '$'}${selectedSubscription.addons
-                                    .reduce((total, addon) => total + (addon.price || 0), 0)}`
-                                : 'Free'}
-                            </p>
-                            <p className="text-xs text-blue-700">addons value</p>
-                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                      ))}
+                    </div>
 
-                {/* Subscription Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calendar className="w-5 h-5" />
-                      Subscription Details
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Status</p>
-                        <Badge
-                          variant={
-                            selectedSubscription.status === "active"
-                              ? "default"
-                              : selectedSubscription.status === "expired"
-                              ? "destructive"
-                              : "secondary"
-                          }
-                          className="mt-1"
-                        >
-                          {subscriptionService.formatSubscriptionStatus(selectedSubscription.status).label}
-                        </Badge>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Auto Renew</p>
-                        <Badge variant={selectedSubscription.autoRenew ? "default" : "secondary"} className="mt-1">
-                          {selectedSubscription.autoRenew ? "Enabled" : "Disabled"}
-                        </Badge>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Start Date</p>
-                        <p className="text-base">{new Date(selectedSubscription.startDate).toLocaleDateString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">End Date</p>
-                        <p className="text-base">{new Date(selectedSubscription.endDate).toLocaleDateString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Days Remaining</p>
-                        <p className="text-base">
-                          {selectedSubscription.status === 'active' 
-                            ? `${subscriptionService.getDaysUntilExpiry(selectedSubscription)} days`
-                            : 'N/A'
-                          }
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Created At</p>
-                        <p className="text-base">{new Date(selectedSubscription.createdAt).toLocaleDateString()}</p>
+                    {/* Addons Summary */}
+                    <div className="mt-4 p-4 bg-blue-50/50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-blue-900">Total Addons</p>
+                          <p className="text-sm text-blue-700">
+                            {selectedSubscription.addons.length} addon{selectedSubscription.addons.length !== 1 ? 's' : ''} purchased
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-blue-900">
+                            {selectedSubscription.addons
+                              .reduce((total, addon) => total + (addon.price || 0), 0) > 0
+                              ? `${selectedSubscription.currency === 'INR' ? '₹' : '$'}${selectedSubscription.addons
+                                .reduce((total, addon) => total + (addon.price || 0), 0)}`
+                              : 'Free'}
+                          </p>
+                          <p className="text-xs text-blue-700">addons value</p>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
+              )}
 
-                {/* Payment Information */}
+              {/* Subscription Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5" />
+                    Subscription Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Status</p>
+                      <Badge
+                        variant={
+                          selectedSubscription.status === "active"
+                            ? "default"
+                            : selectedSubscription.status === "expired"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                        className="mt-1"
+                      >
+                        {subscriptionService.formatSubscriptionStatus(selectedSubscription.status).label}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Auto Renew</p>
+                      <Badge variant={selectedSubscription.autoRenew ? "default" : "secondary"} className="mt-1">
+                        {selectedSubscription.autoRenew ? "Enabled" : "Disabled"}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Start Date</p>
+                      <p className="text-base">{new Date(selectedSubscription.startDate).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">End Date</p>
+                      <p className="text-base">{new Date(selectedSubscription.endDate).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Days Remaining</p>
+                      <p className="text-base">
+                        {selectedSubscription.status === 'active'
+                          ? `${subscriptionService.getDaysUntilExpiry(selectedSubscription)} days`
+                          : 'N/A'
+                        }
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Created At</p>
+                      <p className="text-base">{new Date(selectedSubscription.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Payment Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5" />
+                    Payment Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Amount Paid</p>
+                      <p className="text-base font-semibold">{subscriptionService.formatAmount(selectedSubscription)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Currency</p>
+                      <p className="text-base">{selectedSubscription.currency}</p>
+                    </div>
+                    {selectedSubscription.paymentMethod && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Payment Method</p>
+                        <p className="text-base capitalize">{selectedSubscription.paymentMethod.replace('_', ' ')}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Subscription ID</p>
+                      <p className="text-sm font-mono">{selectedSubscription._id}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Payment History */}
+              {selectedSubscription.paymentHistory && selectedSubscription.paymentHistory.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <CreditCard className="w-5 h-5" />
-                      Payment Information
+                      Payment History ({selectedSubscription.paymentHistory.length})
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Amount Paid</p>
-                        <p className="text-base font-semibold">{subscriptionService.formatAmount(selectedSubscription)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Currency</p>
-                        <p className="text-base">{selectedSubscription.currency}</p>
-                      </div>
-                      {selectedSubscription.paymentMethod && (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Payment Method</p>
-                          <p className="text-base capitalize">{selectedSubscription.paymentMethod.replace('_', ' ')}</p>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Subscription ID</p>
-                        <p className="text-sm font-mono">{selectedSubscription._id}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Payment History */}
-                {selectedSubscription.paymentHistory && selectedSubscription.paymentHistory.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <CreditCard className="w-5 h-5" />
-                        Payment History ({selectedSubscription.paymentHistory.length})
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="space-y-4">
-                        {selectedSubscription.paymentHistory
-                          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                          .map((payment, index) => (
-                          <div 
+                    <div className="space-y-4">
+                      {selectedSubscription.paymentHistory
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                        .map((payment, index) => (
+                          <div
                             key={payment._id || index}
                             className="flex items-start gap-3 p-4 border border-border rounded-lg bg-muted/20"
                           >
@@ -1910,13 +2019,13 @@ const Clients = () => {
                               <div className="flex items-start justify-between gap-4">
                                 <div className="min-w-0 flex-1">
                                   <h4 className="font-semibold text-base text-foreground">
-                                    {payment.type === 'addon_purchase' 
+                                    {payment.type === 'addon_purchase'
                                       ? `Addon Purchase (${payment.addons?.length || 0} addon${(payment.addons?.length || 0) !== 1 ? 's' : ''})`
                                       : payment.type === 'subscription_purchase'
-                                      ? 'Subscription Purchase'
-                                      : payment.type === 'renewal'
-                                      ? 'Subscription Renewal'
-                                      : 'Subscription Upgrade'
+                                        ? 'Subscription Purchase'
+                                        : payment.type === 'renewal'
+                                          ? 'Subscription Renewal'
+                                          : 'Subscription Upgrade'
                                     }
                                   </h4>
                                   <p className="text-sm text-muted-foreground mt-1">
@@ -1928,7 +2037,7 @@ const Clients = () => {
                                       minute: '2-digit'
                                     })}
                                   </p>
-                                  
+
                                   {/* Show addon details for addon purchases */}
                                   {payment.type === 'addon_purchase' && payment.addons && payment.addons.length > 0 && (
                                     <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-md">
@@ -1948,10 +2057,10 @@ const Clients = () => {
                                       </div>
                                     </div>
                                   )}
-                                  
+
                                   <div className="flex items-center gap-3 mt-2">
-                                    <Badge 
-                                      variant={payment.type === 'addon_purchase' ? "default" : "secondary"} 
+                                    <Badge
+                                      variant={payment.type === 'addon_purchase' ? "default" : "secondary"}
                                       className="capitalize text-xs"
                                     >
                                       {payment.type.replace('_', ' ')}
@@ -1975,81 +2084,119 @@ const Clients = () => {
                             </div>
                           </div>
                         ))}
-                      </div>
-                      
-                      {/* Payment History Summary */}
-                      <div className="mt-4 p-4 bg-green-50/50 border border-green-200 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-green-900">Total Payments</p>
-                            <p className="text-sm text-green-700">
-                              {selectedSubscription.paymentHistory.length} transaction{selectedSubscription.paymentHistory.length !== 1 ? 's' : ''}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-green-900">
-                              {selectedSubscription.currency === 'INR' ? '₹' : '$'}
-                              {selectedSubscription.paymentHistory
-                                .reduce((total, payment) => total + (payment.amount || 0), 0)}
-                            </p>
-                            <p className="text-xs text-green-700">total paid</p>
-                          </div>
+                    </div>
+
+                    {/* Payment History Summary */}
+                    <div className="mt-4 p-4 bg-green-50/50 border border-green-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-green-900">Total Payments</p>
+                          <p className="text-sm text-green-700">
+                            {selectedSubscription.paymentHistory.length} transaction{selectedSubscription.paymentHistory.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-green-900">
+                            {selectedSubscription.currency === 'INR' ? '₹' : '$'}
+                            {selectedSubscription.paymentHistory
+                              .reduce((total, payment) => total + (payment.amount || 0), 0)}
+                          </p>
+                          <p className="text-xs text-green-700">total paid</p>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Quick Actions */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Quick Actions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-2 flex-wrap">
-                      {selectedSubscription.status === 'active' && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            handleCancelSubscription(selectedSubscription);
-                            setIsDetailsDialogOpen(false);
-                          }}
-                        >
-                          <XCircle className="w-4 h-4 mr-2" />
-                          Cancel Subscription
-                        </Button>
-                      )}
-                      
-                      {(selectedSubscription.status === 'expired' || selectedSubscription.status === 'cancelled') && (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => {
-                            handleRenewSubscription(selectedSubscription);
-                            setIsDetailsDialogOpen(false);
-                          }}
-                        >
-                          <RefreshCw className="w-4 h-4 mr-2" />
-                          Renew Subscription
-                        </Button>
-                      )}
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsDetailsDialogOpen(false)}
-                      >
-                        Close
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-      </div>
+              )}
+
+              {/* Quick Actions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedSubscription.status === 'active' && canEditDetails && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          handleCancelSubscription(selectedSubscription);
+                          setIsDetailsDialogOpen(false);
+                        }}
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Cancel Subscription
+                      </Button>
+                    )}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsDetailsDialogOpen(false)}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Subscription Dialog */}
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel Subscription</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for cancelling {subscriptionToCancel?.user.name}'s subscription.
+              An email will be sent to the customer with this information.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Cancellation Reason *
+              </label>
+              <Textarea
+                placeholder="e.g., Customer requested cancellation due to budget constraints..."
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={5}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                This reason will be included in the email sent to the customer.
+              </p>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsCancelDialogOpen(false);
+                  setCancelReason("");
+                  setSubscriptionToCancel(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmCancelSubscription}
+                disabled={!cancelReason.trim()}
+              >
+                <XCircle className="w-4 h-4 mr-2" />
+                Confirm Cancellation
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 

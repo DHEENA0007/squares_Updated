@@ -14,7 +14,7 @@ const authenticateToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     // Verify user exists and is active
     const user = await User.findById(decoded.userId);
 
@@ -32,12 +32,25 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
+    // Fetch role permissions from database for all roles (including default roles)
+    let rolePermissions = [];
+    let roleObject = null;
+    const Role = require('../models/Role');
+    const roleDoc = await Role.findOne({ name: user.role, isActive: true });
+
+    if (roleDoc && roleDoc.permissions) {
+      rolePermissions = roleDoc.permissions;
+      roleObject = roleDoc;
+    }
+
     req.user = {
       id: user._id,
       email: user.email,
       role: user.role,
       name: user.profile ? `${user.profile.firstName} ${user.profile.lastName}` : user.email,
-      profile: user.profile
+      profile: user.profile,
+      rolePermissions: rolePermissions, // For backward compatibility and user-specific overrides
+      roleObject: roleObject // Full role document with permissions
     };
 
     next();
@@ -48,7 +61,7 @@ const authenticateToken = async (req, res, next) => {
         message: 'Invalid token'
       });
     }
-    
+
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         success: false,
@@ -73,17 +86,31 @@ const authorizeRoles = (...roles) => {
       });
     }
 
-    console.log(`[AuthMiddleware] User role: ${req.user.role}, Allowed roles: [${roles.join(', ')}]`);
-
-    if (!roles.includes(req.user.role)) {
-      console.log(`[AuthMiddleware] Access denied for role: ${req.user.role}`);
-      return res.status(403).json({
-        success: false,
-        message: 'Insufficient permissions'
-      });
+    // Check if user's role is explicitly allowed
+    if (roles.includes(req.user.role)) {
+      return next();
     }
 
-    next();
+    // For custom roles, check if they have the proper permissions/level
+    // Do NOT grant access just because it's a custom role
+    const defaultRoles = ['customer', 'agent', 'admin', 'subadmin', 'superadmin'];
+    const isCustomRole = !defaultRoles.includes(req.user.role);
+
+    if (isCustomRole && req.user.roleObject) {
+      // Check if custom role has sufficient level for admin routes
+      if (roles.includes('admin') && req.user.roleObject.level >= 8) {
+        return next();
+      }
+      // Check if custom role has sufficient level for subadmin routes
+      if (roles.includes('subadmin') && req.user.roleObject.level >= 7) {
+        return next();
+      }
+    }
+
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions'
+    });
   };
 };
 
@@ -98,7 +125,7 @@ const optionalAuth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     const user = await User.findById(decoded.userId);
 
     if (user && user.status === 'active') {
@@ -128,14 +155,23 @@ const requireAdmin = (req, res, next) => {
     });
   }
 
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
-    return res.status(403).json({
-      success: false,
-      message: 'Admin access required'
-    });
+  // Check if user has admin or superadmin role
+  if (['admin', 'superadmin'].includes(req.user.role)) {
+    return next();
   }
 
-  next();
+  // Check if custom role has admin-level permissions (level >= 8)
+  const defaultRoles = ['customer', 'agent', 'admin', 'subadmin', 'superadmin'];
+  const isCustomRole = !defaultRoles.includes(req.user.role);
+
+  if (isCustomRole && req.user.roleObject && req.user.roleObject.level >= 8) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    message: 'Admin access required'
+  });
 };
 
 const requireSubAdmin = (req, res, next) => {
@@ -146,14 +182,23 @@ const requireSubAdmin = (req, res, next) => {
     });
   }
 
-  if (!['subadmin', 'admin', 'superadmin'].includes(req.user.role)) {
-    return res.status(403).json({
-      success: false,
-      message: 'SubAdmin access required'
-    });
+  // Check if user has subadmin, admin, or superadmin role
+  if (['subadmin', 'admin', 'superadmin'].includes(req.user.role)) {
+    return next();
   }
 
-  next();
+  // Check if custom role has subadmin-level permissions (level >= 7)
+  const defaultRoles = ['customer', 'agent', 'admin', 'subadmin', 'superadmin'];
+  const isCustomRole = !defaultRoles.includes(req.user.role);
+
+  if (isCustomRole && req.user.roleObject && req.user.roleObject.level >= 7) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    message: 'SubAdmin access required'
+  });
 };
 
 module.exports = {

@@ -18,6 +18,60 @@ class NotificationService extends EventEmitter {
   }
 
   /**
+   * Get all user IDs that should receive admin-level notifications
+   * This includes admin, superadmin, subadmin roles AND custom roles with specific permissions
+   * @param {string} permission - Optional specific permission to check (e.g., 'properties.approve')
+   * @returns {Promise<Array<string>>} Array of user IDs
+   */
+  async getAdminUserIds(permission = null) {
+    try {
+      const User = require('../models/User');
+      const Role = require('../models/Role');
+
+      // Get standard admin roles
+      const standardAdminRoles = ['admin', 'superadmin', 'subadmin'];
+
+      // Find custom roles that have admin-level permissions
+      let customRolesWithPermission = [];
+      if (permission) {
+        const rolesWithPermission = await Role.find({
+          isActive: true,
+          permissions: permission
+        }).select('name');
+        customRolesWithPermission = rolesWithPermission.map(r => r.name);
+      } else {
+        // Get any custom role with admin pages access
+        const adminPages = ['dashboard', 'users', 'vendor_approvals', 'properties', 'support'];
+        const rolesWithAdminAccess = await Role.find({
+          isActive: true,
+          pages: { $in: adminPages }
+        }).select('name');
+        customRolesWithPermission = rolesWithAdminAccess.map(r => r.name);
+      }
+
+      // Combine all roles
+      const allAdminRoles = [...new Set([...standardAdminRoles, ...customRolesWithPermission])];
+
+      // Get active users with these roles
+      const adminUsers = await User.find({
+        role: { $in: allAdminRoles },
+        status: 'active'
+      }).select('_id');
+
+      return adminUsers.map(u => u._id.toString());
+    } catch (error) {
+      console.error('Error getting admin user IDs:', error);
+      // Fall back to standard admin roles only
+      const User = require('../models/User');
+      const adminUsers = await User.find({
+        role: { $in: ['admin', 'superadmin', 'subadmin'] },
+        status: 'active'
+      }).select('_id');
+      return adminUsers.map(u => u._id.toString());
+    }
+  }
+
+  /**
    * Check if user is connected
    * @param {string} userId - User ID
    * @returns {boolean}
@@ -31,20 +85,103 @@ class NotificationService extends EventEmitter {
    * Send queued notifications to a user via Socket.IO
    * @param {string} userId - User ID
    */
-  sendQueuedNotifications(userId) {
+
+  async sendQueuedNotifications(userId) {
     if (!this.io) return;
-    
+
+    // 1. Check in-memory queue
     if (this.notificationQueue.has(userId)) {
       const notifications = this.notificationQueue.get(userId);
-      
+
       if (this.isUserConnected(userId)) {
         notifications.forEach(notification => {
           this.io.to(`user:${userId}`).emit('notification', notification);
         });
-        
+
         // Clear queue after sending
         this.notificationQueue.delete(userId);
       }
+    }
+
+    // 2. Check database for persistent undelivered notifications
+    try {
+      const UserNotification = require('../models/UserNotification');
+      const undeliveredNotifications = await UserNotification.find({
+        user: userId,
+        delivered: false
+      }).sort({ createdAt: 1 });
+
+      if (undeliveredNotifications.length > 0 && this.isUserConnected(userId)) {
+        console.log(`Found ${undeliveredNotifications.length} undelivered notifications for user ${userId}`);
+
+        for (const notification of undeliveredNotifications) {
+          const notificationData = {
+            _id: notification._id,
+            type: notification.type,
+            title: notification.title,
+            message: notification.message,
+            data: notification.data,
+            timestamp: notification.createdAt,
+            userId: userId
+          };
+
+          this.io.to(`user:${userId}`).emit('notification', notificationData);
+
+          // Mark as delivered
+          notification.delivered = true;
+          notification.deliveredAt = new Date();
+          await notification.save();
+        }
+      }
+    } catch (error) {
+      console.error('Error sending queued notifications from DB:', error);
+    }
+  }
+
+  /**
+   * Check if user has notifications enabled for a specific type
+   * @param {string} userId - User ID
+   * @param {string} notificationType - Type of notification
+   * @returns {Promise<boolean>}
+   */
+  async checkUserNotificationPreferences(userId, notificationType) {
+    try {
+      const User = require('../models/User');
+      const user = await User.findById(userId).select('profile.preferences.notifications');
+
+      if (!user || !user.profile?.preferences?.notifications) {
+        return true; // Default to enabled if preferences not found
+      }
+
+      const prefs = user.profile.preferences.notifications;
+
+      // Check if push notifications are globally disabled
+      if (prefs.push === false) {
+        return false;
+      }
+
+      // Check specific notification type preferences
+      const typeMapping = {
+        'property_alert': 'propertyAlerts',
+        'price_alert': 'priceDrops',
+        'new_message': 'newMessages',
+        'service_update': 'newsUpdates',
+        'lead_alert': 'propertyAlerts',
+        'inquiry_received': 'propertyAlerts',
+        'weekly_report': 'newsUpdates',
+        'business_update': 'newsUpdates',
+        'property_update': 'propertyAlerts'
+      };
+
+      const prefKey = typeMapping[notificationType];
+      if (prefKey && prefs[prefKey] === false) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error checking notification preferences:', error);
+      return true; // Default to enabled on error
     }
   }
 
@@ -52,16 +189,42 @@ class NotificationService extends EventEmitter {
    * Send real-time notification to user(s) via Socket.IO
    * @param {string|Array} userIds - User ID(s) to send notification to
    * @param {object} notification - Notification data
+   * @param {object} options - Additional options (persistToDb: boolean)
    */
-  sendNotification(userIds, notification) {
+  async sendNotification(userIds, notification, options = { persistToDb: true }) {
     if (!this.io) {
       console.warn('Socket.IO not initialized, cannot send notification');
       return;
     }
 
     const targetUsers = Array.isArray(userIds) ? userIds : [userIds];
-    
-    targetUsers.forEach(userId => {
+
+    // Filter users based on their notification preferences
+    const filteredUsers = [];
+    for (const userId of targetUsers) {
+      const hasPermission = await this.checkUserNotificationPreferences(userId, notification.type);
+      if (hasPermission) {
+        filteredUsers.push(userId);
+      } else {
+        console.log(`Skipping notification for user ${userId} - preferences disabled for type: ${notification.type}`);
+      }
+    }
+
+    if (filteredUsers.length === 0) {
+      console.log('No users to notify after filtering by preferences');
+      return;
+    }
+
+    // Persist to database if requested (for offline delivery)
+    if (options.persistToDb) {
+      try {
+        await this.persistNotification(filteredUsers, notification);
+      } catch (error) {
+        console.error('Failed to persist notification to database:', error);
+      }
+    }
+
+    filteredUsers.forEach(userId => {
       const notificationData = {
         ...notification,
         timestamp: new Date().toISOString(),
@@ -69,16 +232,23 @@ class NotificationService extends EventEmitter {
       };
 
       if (this.isUserConnected(userId)) {
-        // User is online - send immediately via Socket.IO
+        // User is online - send immediately via Socket.IO and mark as delivered
         this.io.to(`user:${userId}`).emit('notification', notificationData);
+
+        // Mark as delivered in database
+        if (options.persistToDb) {
+          this.markAsDelivered(userId, notificationData).catch(err =>
+            console.error('Failed to mark notification as delivered:', err)
+          );
+        }
       } else {
-        // User is offline - queue notification
+        // User is offline - queue notification in memory as backup
         if (!this.notificationQueue.has(userId)) {
           this.notificationQueue.set(userId, []);
         }
-        
+
         this.notificationQueue.get(userId).push(notificationData);
-        
+
         // Limit queue size (keep only last 50 notifications)
         const queue = this.notificationQueue.get(userId);
         if (queue.length > 50) {
@@ -88,7 +258,60 @@ class NotificationService extends EventEmitter {
     });
 
     // Emit event for other services to listen
-    this.emit('notification_sent', { userIds: targetUsers, notification });
+    this.emit('notification_sent', { userIds: filteredUsers, notification });
+  }
+
+  /**
+   * Persist notification to database for offline users
+   * @param {Array} userIds - User IDs
+   * @param {object} notification - Notification data
+   */
+  async persistNotification(userIds, notification) {
+    const UserNotification = require('../models/UserNotification');
+
+    console.log(`💾 Persisting ${userIds.length} UserNotifications with title: "${notification.title}"`);
+
+    const notifications = userIds.map(userId => ({
+      user: userId,
+      type: notification.type || 'general',
+      title: notification.title,
+      message: notification.message,
+      data: notification.data || {},
+      delivered: false,
+      read: false
+    }));
+
+    try {
+      const result = await UserNotification.insertMany(notifications);
+      console.log(`✅ Successfully persisted ${result.length} UserNotifications`);
+    } catch (error) {
+      console.error('❌ Failed to persist UserNotifications:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark notification as delivered for a user
+   * @param {string} userId - User ID
+   * @param {object} notificationData - Notification data
+   */
+  async markAsDelivered(userId, notificationData) {
+    const UserNotification = require('../models/UserNotification');
+
+    await UserNotification.updateOne(
+      {
+        user: userId,
+        title: notificationData.title,
+        message: notificationData.message,
+        delivered: false
+      },
+      {
+        $set: {
+          delivered: true,
+          deliveredAt: new Date()
+        }
+      }
+    );
   }
 
   /**
@@ -277,6 +500,334 @@ class NotificationService extends EventEmitter {
   }
 
   /**
+   * Send notification to admin(s) when a new property is submitted for approval
+   * @param {Array|string} adminUserIds - Admin user ID(s) to notify
+   * @param {object} propertyData - Property information
+   */
+  async sendPropertySubmissionNotification(adminUserIds, propertyData) {
+    const notification = {
+      type: 'property_submission',
+      title: '🏠 New Property Pending Approval',
+      message: `New property "${propertyData.title}" submitted by ${propertyData.vendorName} requires your approval`,
+      data: {
+        propertyId: propertyData.propertyId,
+        propertyTitle: propertyData.title,
+        vendorId: propertyData.vendorId,
+        vendorName: propertyData.vendorName,
+        propertyType: propertyData.type,
+        listingType: propertyData.listingType,
+        location: propertyData.location,
+        price: propertyData.price,
+        action: 'review_property'
+      }
+    };
+
+    await this.sendNotification(adminUserIds, notification);
+    console.log(`📬 Property submission notification sent to ${Array.isArray(adminUserIds) ? adminUserIds.length : 1} admin(s)`);
+  }
+
+  /**
+   * Send notification to vendor when their property is approved or rejected
+   * @param {string} vendorUserId - Vendor user ID
+   * @param {object} propertyData - Property information
+   * @param {string} action - 'approved' or 'rejected'
+   * @param {string} reason - Rejection reason (if rejected)
+   */
+  async sendPropertyApprovalNotification(vendorUserId, propertyData, action, reason = null) {
+    const isApproved = action === 'approved';
+
+    const notification = {
+      type: 'property_approval',
+      title: isApproved ? '✅ Property Approved!' : '❌ Property Rejected',
+      message: isApproved
+        ? `Great news! Your property "${propertyData.title}" has been approved and is now live on the platform.`
+        : `Your property "${propertyData.title}" has been rejected. Reason: ${reason || 'Not specified'}`,
+      data: {
+        propertyId: propertyData.propertyId,
+        propertyTitle: propertyData.title,
+        status: action,
+        rejectionReason: reason,
+        approvedBy: propertyData.approvedBy,
+        action: isApproved ? 'view_property' : 'edit_property'
+      }
+    };
+
+    await this.sendNotification(vendorUserId, notification);
+    console.log(`📬 Property ${action} notification sent to vendor ${vendorUserId}`);
+  }
+
+  /**
+   * Send notification when a support ticket receives a new message
+   * @param {string} recipientUserId - Recipient user ID (admin or customer)
+   * @param {object} ticketData - Ticket information
+   * @param {boolean} isAdminResponse - Whether this is an admin responding
+   */
+  async sendSupportTicketNotification(recipientUserId, ticketData, isAdminResponse) {
+    const notification = {
+      type: 'support_ticket_message',
+      title: isAdminResponse ? '💬 Support Response Received' : '📩 New Support Ticket Message',
+      message: isAdminResponse
+        ? `You have a new response on ticket #${ticketData.ticketNumber}: "${ticketData.subject}"`
+        : `New message from ${ticketData.senderName} on ticket #${ticketData.ticketNumber}`,
+      data: {
+        ticketId: ticketData.ticketId,
+        ticketNumber: ticketData.ticketNumber,
+        subject: ticketData.subject,
+        senderName: ticketData.senderName,
+        messagePreview: ticketData.messagePreview,
+        status: ticketData.status,
+        priority: ticketData.priority,
+        isAdminResponse,
+        action: 'view_ticket'
+      }
+    };
+
+    await this.sendNotification(recipientUserId, notification);
+    console.log(`📬 Support ticket notification sent to user ${recipientUserId}`);
+  }
+
+  /**
+   * Send notification to admins when a new support ticket is created
+   * @param {Array|string} adminUserIds - Admin user ID(s) to notify
+   * @param {object} ticketData - Ticket information
+   */
+  async sendNewSupportTicketNotification(adminUserIds, ticketData) {
+    const notification = {
+      type: 'new_support_ticket',
+      title: '🎫 New Support Ticket',
+      message: `New support ticket #${ticketData.ticketNumber}: "${ticketData.subject}" from ${ticketData.customerName}`,
+      data: {
+        ticketId: ticketData.ticketId,
+        ticketNumber: ticketData.ticketNumber,
+        subject: ticketData.subject,
+        category: ticketData.category,
+        priority: ticketData.priority,
+        customerName: ticketData.customerName,
+        customerEmail: ticketData.customerEmail,
+        action: 'view_ticket'
+      }
+    };
+
+    await this.sendNotification(adminUserIds, notification);
+    console.log(`📬 New support ticket notification sent to ${Array.isArray(adminUserIds) ? adminUserIds.length : 1} admin(s)`);
+  }
+
+  /**
+   * Send notification to vendor when their application is approved or rejected
+   * @param {string} vendorUserId - Vendor user ID
+   * @param {object} vendorData - Vendor information
+   * @param {string} action - 'approved' or 'rejected'
+   * @param {string} reason - Rejection reason (if rejected)
+   */
+  async sendVendorApprovalNotification(vendorUserId, vendorData, action, reason = null) {
+    const isApproved = action === 'approved';
+
+    const notification = {
+      type: 'vendor_approval',
+      title: isApproved ? '🎉 Congratulations! You\'re Approved!' : '❌ Application Status Update',
+      message: isApproved
+        ? `Your vendor application for "${vendorData.companyName}" has been approved! You can now start listing properties.`
+        : `Your vendor application has been rejected. Reason: ${reason || 'Not specified'}. Please contact support for more information.`,
+      data: {
+        vendorId: vendorData.vendorId,
+        companyName: vendorData.companyName,
+        status: action,
+        rejectionReason: reason,
+        approvedBy: vendorData.approvedBy,
+        action: isApproved ? 'view_dashboard' : 'contact_support'
+      }
+    };
+
+    await this.sendNotification(vendorUserId, notification);
+    console.log(`📬 Vendor ${action} notification sent to user ${vendorUserId}`);
+  }
+
+  /**
+   * Send notification to admins when a new vendor application is submitted
+   * @param {Array|string} adminUserIds - Admin user ID(s) to notify
+   * @param {object} vendorData - Vendor application information
+   */
+  async sendVendorApplicationNotification(adminUserIds, vendorData) {
+    const notification = {
+      type: 'new_vendor_application',
+      title: '👤 New Vendor Application',
+      message: `New vendor application from ${vendorData.vendorName} - ${vendorData.companyName}`,
+      data: {
+        vendorId: vendorData.vendorId,
+        vendorName: vendorData.vendorName,
+        companyName: vendorData.companyName,
+        businessType: vendorData.businessType,
+        email: vendorData.email,
+        phone: vendorData.phone,
+        action: 'review_vendor'
+      }
+    };
+
+    await this.sendNotification(adminUserIds, notification);
+    console.log(`📬 New vendor application notification sent to ${Array.isArray(adminUserIds) ? adminUserIds.length : 1} admin(s)`);
+  }
+
+  /**
+   * Send notification when support ticket status changes
+   * @param {string} recipientUserId - Recipient user ID
+   * @param {object} ticketData - Ticket information
+   * @param {string} newStatus - New status
+   */
+  async sendTicketStatusChangeNotification(recipientUserId, ticketData, newStatus) {
+    const statusMessages = {
+      'in_progress': 'Your support ticket is now being worked on',
+      'resolved': 'Your support ticket has been resolved',
+      'closed': 'Your support ticket has been closed',
+      'open': 'Your support ticket has been reopened'
+    };
+
+    const notification = {
+      type: 'ticket_status_change',
+      title: '🎫 Ticket Status Updated',
+      message: `Ticket #${ticketData.ticketNumber}: ${statusMessages[newStatus] || `Status changed to ${newStatus}`}`,
+      data: {
+        ticketId: ticketData.ticketId,
+        ticketNumber: ticketData.ticketNumber,
+        subject: ticketData.subject,
+        oldStatus: ticketData.oldStatus,
+        newStatus: newStatus,
+        action: 'view_ticket'
+      }
+    };
+
+    await this.sendNotification(recipientUserId, notification);
+    console.log(`📬 Ticket status change notification sent to user ${recipientUserId}`);
+  }
+
+  /**
+   * Send notification to vendor when they receive a new review
+   * @param {string} vendorUserId - Vendor user ID
+   * @param {object} reviewData - Review information
+   */
+  async sendNewReviewNotification(vendorUserId, reviewData) {
+    const notification = {
+      type: 'new_review',
+      title: '⭐ New Review Received',
+      message: `${reviewData.customerName} left a ${reviewData.rating}-star review${reviewData.propertyTitle ? ` for "${reviewData.propertyTitle}"` : ''}`,
+      data: {
+        reviewId: reviewData.reviewId,
+        rating: reviewData.rating,
+        title: reviewData.title,
+        customerName: reviewData.customerName,
+        propertyId: reviewData.propertyId,
+        propertyTitle: reviewData.propertyTitle,
+        preview: reviewData.commentPreview,
+        action: 'view_reviews'
+      }
+    };
+
+    await this.sendNotification(vendorUserId, notification);
+    console.log(`📬 New review notification sent to vendor ${vendorUserId}`);
+  }
+
+  /**
+   * Send notification to customer when vendor replies to their review
+   * @param {string} customerUserId - Customer user ID
+   * @param {object} reviewData - Review information
+   */
+  async sendReviewReplyNotification(customerUserId, reviewData) {
+    const notification = {
+      type: 'review_reply',
+      title: '💬 Vendor Response to Your Review',
+      message: `${reviewData.vendorName} has responded to your review${reviewData.propertyTitle ? ` for "${reviewData.propertyTitle}"` : ''}`,
+      data: {
+        reviewId: reviewData.reviewId,
+        vendorName: reviewData.vendorName,
+        propertyId: reviewData.propertyId,
+        propertyTitle: reviewData.propertyTitle,
+        replyPreview: reviewData.replyPreview,
+        action: 'view_review'
+      }
+    };
+
+    await this.sendNotification(customerUserId, notification);
+    console.log(`📬 Review reply notification sent to customer ${customerUserId}`);
+  }
+
+  /**
+   * Send notification to admins when a review is reported
+   * @param {Array|string} adminUserIds - Admin user ID(s)
+   * @param {object} reportData - Report information
+   */
+  async sendReviewReportNotification(adminUserIds, reportData) {
+    const notification = {
+      type: 'review_reported',
+      title: '🚨 Review Reported',
+      message: `A review has been reported by ${reportData.reporterName}: "${reportData.reason || 'No reason provided'}"`,
+      data: {
+        reviewId: reportData.reviewId,
+        reviewTitle: reportData.reviewTitle,
+        reporterName: reportData.reporterName,
+        reporterId: reportData.reporterId,
+        reason: reportData.reason,
+        vendorId: reportData.vendorId,
+        action: 'moderate_reviews'
+      }
+    };
+
+    await this.sendNotification(adminUserIds, notification);
+    console.log(`📬 Review report notification sent to ${Array.isArray(adminUserIds) ? adminUserIds.length : 1} admin(s)`);
+  }
+
+  /**
+   * Send notification to user when their role is changed/promoted
+   * @param {string} userId - User ID
+   * @param {object} promotionData - Promotion information
+   */
+  async sendRolePromotionNotification(userId, promotionData) {
+    const notification = {
+      type: 'role_change',
+      title: '🎯 Role Updated',
+      message: `Your account role has been changed from "${promotionData.oldRole}" to "${promotionData.newRole}"`,
+      data: {
+        oldRole: promotionData.oldRole,
+        newRole: promotionData.newRole,
+        promotedBy: promotionData.promotedBy,
+        promotedAt: new Date().toISOString(),
+        action: 'view_dashboard'
+      }
+    };
+
+    await this.sendNotification(userId, notification);
+    console.log(`📬 Role promotion notification sent to user ${userId}`);
+  }
+
+  /**
+   * Send notification to user when their account status changes
+   * @param {string} userId - User ID
+   * @param {object} statusData - Status change information
+   */
+  async sendAccountStatusNotification(userId, statusData) {
+    const statusMessages = {
+      'active': 'Your account has been activated',
+      'inactive': 'Your account has been deactivated',
+      'suspended': 'Your account has been suspended',
+      'pending': 'Your account is pending verification'
+    };
+
+    const notification = {
+      type: 'account_status_change',
+      title: '🔔 Account Status Update',
+      message: statusMessages[statusData.newStatus] || `Your account status has been changed to ${statusData.newStatus}`,
+      data: {
+        oldStatus: statusData.oldStatus,
+        newStatus: statusData.newStatus,
+        reason: statusData.reason || null,
+        changedBy: statusData.changedBy,
+        action: 'view_profile'
+      }
+    };
+
+    await this.sendNotification(userId, notification);
+    console.log(`📬 Account status notification sent to user ${userId}`);
+  }
+
+  /**
    * Get connection statistics
    * @returns {object} Connection stats
    */
@@ -291,13 +842,13 @@ class NotificationService extends EventEmitter {
 
     const sockets = this.io.sockets.sockets;
     const connectedUsers = new Set();
-    
+
     sockets.forEach(socket => {
       if (socket.userId) {
         connectedUsers.add(socket.userId);
       }
     });
-    
+
     return {
       connectedUsers: connectedUsers.size,
       totalConnections: sockets.size,
@@ -312,12 +863,12 @@ class NotificationService extends EventEmitter {
    */
   cleanupQueue(maxAge = 24 * 60 * 60 * 1000) {
     const cutoffTime = Date.now() - maxAge;
-    
+
     for (const [userId, notifications] of this.notificationQueue.entries()) {
       const filteredNotifications = notifications.filter(
         notification => new Date(notification.timestamp).getTime() > cutoffTime
       );
-      
+
       if (filteredNotifications.length === 0) {
         this.notificationQueue.delete(userId);
       } else {

@@ -31,8 +31,19 @@ export interface Plan {
     verifiedBadge?: boolean;
     marketingManager?: boolean;
     commissionBased?: boolean;
-  };
+    [key: string]: boolean | undefined;
+  } | Array<{
+    key: string;
+    name: string;
+    description?: string;
+    enabled: boolean;
+    icon?: string;
+  }>;
   support?: 'none' | 'email' | 'priority' | 'phone' | 'dedicated';
+  whatsappSupport?: {
+    enabled: boolean;
+    number: string;
+  };
   isActive: boolean;
   isPopular: boolean;
   sortOrder: number;
@@ -85,7 +96,7 @@ export interface SinglePlanResponse {
 }
 
 class PlanService {
-  private baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  private baseUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;

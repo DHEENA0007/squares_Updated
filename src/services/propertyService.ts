@@ -1,8 +1,9 @@
 import { authService } from './authService';
 import { toast } from "@/hooks/use-toast";
 import { DEFAULT_PROPERTY_IMAGE } from '@/utils/imageUtils';
+import { handleAuthError } from "@/utils/apiUtils";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://app.buildhomemartsquares.com/api";
 
 export interface Property {
   _id: string;
@@ -109,14 +110,24 @@ export interface Property {
   featured: boolean;
   verified: boolean;
   rejectionReason?: string;
-  approvedBy?: string;
+  approvedBy?: string | any;
   approvedAt?: string;
-  rejectedBy?: string;
+  rejectedBy?: string | any;
   rejectedAt?: string;
   ownerType?: 'admin' | 'client';
   clientName?: string;
   createdAt: string;
   updatedAt: string;
+  hasReviewed?: boolean;
+  reviewId?: string;
+  review?: {
+    _id: string;
+    rating: number;
+    title: string;
+    comment: string;
+    createdAt: string;
+  };
+  customFields?: Record<string, any>;
 }
 
 export interface PropertyFilters {
@@ -130,6 +141,7 @@ export interface PropertyFilters {
   listingType?: 'sale' | 'rent' | 'lease';
   search?: string;
   amenities?: string[];
+  [key: string]: any;
 }
 
 export interface PropertyResponse {
@@ -154,15 +166,28 @@ export interface SinglePropertyResponse {
 }
 
 class PropertyService {
+  private getDeviceId(): string {
+    let deviceId = localStorage.getItem('device_id');
+    if (!deviceId) {
+      deviceId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+      localStorage.setItem('device_id', deviceId);
+    }
+    return deviceId;
+  }
+
   private async makeRequest<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
+        "x-device-id": this.getDeviceId(),
         ...options.headers,
       },
       ...options,
@@ -179,18 +204,21 @@ class PropertyService {
 
     try {
       const response = await fetch(url, config);
-      
+
+      // Check for auth error
+      handleAuthError(response);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
           message: `HTTP ${response.status}: ${response.statusText}`,
         }));
-        
+
         // Better error message for validation errors
         if (errorData.errors && Array.isArray(errorData.errors)) {
           throw new Error(`Validation failed: ${errorData.errors.join(', ')}`);
         }
-        
+
         throw new Error(errorData.message || "An error occurred");
       }
 
@@ -201,10 +229,21 @@ class PropertyService {
     }
   }
 
+  async updateViewDuration(propertyId: string, duration: number): Promise<void> {
+    try {
+      await this.makeRequest(`/properties/${propertyId}/view-duration`, {
+        method: 'POST',
+        body: JSON.stringify({ duration })
+      });
+    } catch (error) {
+      console.error('Failed to update view duration:', error);
+    }
+  }
+
   async getProperties(filters: PropertyFilters = {}): Promise<PropertyResponse> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           // Handle arrays (like amenities)
@@ -316,7 +355,7 @@ class PropertyService {
       // Check user role to determine which endpoint to use
       const userStr = localStorage.getItem("user");
       let endpoint = `/properties/${id}`;
-      
+
       if (userStr) {
         try {
           const user = JSON.parse(userStr);
@@ -377,7 +416,7 @@ class PropertyService {
   formatPrice(price: number, listingType: 'sale' | 'rent' | 'lease'): string {
     if (listingType === 'rent') return `₹${price.toLocaleString('en-IN')}/month`;
     if (listingType === 'lease') return `₹${price.toLocaleString('en-IN')}/year`;
-    
+
     if (price >= 10000000) return `₹${(price / 10000000).toFixed(1)} Cr`;
     if (price >= 100000) return `₹${(price / 100000).toFixed(1)} Lac`;
     return `₹${price.toLocaleString('en-IN')}`;
@@ -401,11 +440,24 @@ class PropertyService {
     return 'Area not specified';
   }
 
+  hasValidArea(area: Property['area']): boolean {
+    return !!(area.builtUp || area.plot || area.carpet);
+  }
+
+  async getOwnedProperties(): Promise<PropertyResponse> {
+    try {
+      return await this.makeRequest<PropertyResponse>('/customer/owned-properties');
+    } catch (error) {
+      console.error("Failed to fetch owned properties:", error);
+      throw error;
+    }
+  }
+
   // Vendor-specific methods
   async getVendorProperties(filters: PropertyFilters = {}): Promise<PropertyResponse> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           queryParams.append(key, value.toString());
@@ -526,7 +578,7 @@ class PropertyService {
     } catch (error: any) {
       const errorData = error.response?.data || error;
       const errorMessage = errorData.message || error.message || "Failed to update property featured status";
-      
+
       // Show specific message for subscription-related errors
       if (errorData.upgradeRequired || errorData.limitReached) {
         toast({
@@ -546,20 +598,20 @@ class PropertyService {
   }
 
   async assignPropertyToCustomer(
-    propertyId: string, 
-    customerId: string, 
+    propertyId: string,
+    customerId: string,
     status: string,
     notes?: string
   ): Promise<SinglePropertyResponse> {
     try {
       const response = await this.makeRequest<SinglePropertyResponse>(
-        `/properties/${propertyId}/assign-customer`, 
+        `/properties/${propertyId}/assign-customer`,
         {
           method: "POST",
-          body: JSON.stringify({ 
-            customerId, 
+          body: JSON.stringify({
+            customerId,
             status,
-            notes 
+            notes
           }),
         }
       );
@@ -582,6 +634,8 @@ class PropertyService {
       case "pending": return "bg-yellow-500";
       case "sold": return "bg-blue-500";
       case "rented": return "bg-purple-500";
+      case "leased": return "bg-indigo-500";
+      case "rejected": return "bg-red-500";
       case "inactive": return "bg-gray-500";
       default: return "bg-gray-500";
     }
@@ -589,6 +643,90 @@ class PropertyService {
 
   getStatusText(status: string): string {
     return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+
+  // Track customer interactions with properties (phone clicks, message clicks, and shares)
+  async trackInteraction(propertyId: string, interactionType: 'clickedPhone' | 'clickedMessage' | 'sharedProperty'): Promise<void> {
+    try {
+      await this.makeRequest(`/properties/${propertyId}/track-interaction`, {
+        method: 'POST',
+        body: JSON.stringify({ interactionType })
+      });
+    } catch (error) {
+      console.error('Failed to track interaction:', error);
+      // Don't throw error for tracking - it's non-critical
+    }
+  }
+
+  async registerInterest(propertyId: string): Promise<void> {
+    try {
+      await this.makeRequest(`/properties/${propertyId}/interest`, {
+        method: 'POST'
+      });
+
+      toast({
+        title: "Interest Registered",
+        description: "The property owner has been notified of your interest.",
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to register interest";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  // Get property interaction stats (phone clicks, message clicks, shares, favorites)
+  async getPropertyInteractionStats(propertyId: string): Promise<{
+    views: number;
+    uniqueViewers: number;
+    phoneClicks: number;
+    messageClicks: number;
+    shares: number;
+    favorites: number;
+  }> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: {
+          propertyId: string;
+          stats: {
+            views: number;
+            uniqueViewers: number;
+            phoneClicks: number;
+            messageClicks: number;
+            shares: number;
+            favorites: number;
+          };
+        };
+      }>(`/properties/${propertyId}/interaction-stats`);
+
+      if (response.success && response.data?.stats) {
+        return response.data.stats;
+      }
+
+      return {
+        views: 0,
+        uniqueViewers: 0,
+        phoneClicks: 0,
+        messageClicks: 0,
+        shares: 0,
+        favorites: 0
+      };
+    } catch (error) {
+      console.error('Failed to fetch property interaction stats:', error);
+      return {
+        views: 0,
+        uniqueViewers: 0,
+        phoneClicks: 0,
+        messageClicks: 0,
+        shares: 0,
+        favorites: 0
+      };
+    }
   }
 }
 

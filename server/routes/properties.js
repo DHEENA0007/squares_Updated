@@ -1,9 +1,14 @@
 const express = require('express');
 const Property = require('../models/Property');
+const User = require('../models/User');
 const PropertyView = require('../models/PropertyView');
+const UserNotification = require('../models/UserNotification');
 const { asyncHandler, validateRequest } = require('../middleware/errorMiddleware');
 const { authenticateToken, optionalAuth } = require('../middleware/authMiddleware');
+const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 const mongoose = require('mongoose');
+const adminRealtimeService = require('../services/adminRealtimeService');
+const notificationService = require('../services/notificationService');
 const router = express.Router();
 
 // Handle OPTIONS preflight requests
@@ -25,19 +30,22 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
       maxPrice,
       propertyType,
       bedrooms,
+      bedroom,
+      bathrooms,
+      bathroom,
       listingType
     } = req.query;
 
     const skip = (page - 1) * limit;
-    
+
     // Debug: Log user info
     console.log('Properties API - User:', req.user ? { id: req.user.id, role: req.user.role } : 'Not authenticated');
-    console.log('Query params:', { page, limit, location, search, propertyType, bedrooms, listingType });
-    
+    console.log('Query params:', { page, limit, location, search, propertyType, bedrooms, bedroom, listingType });
+
     // Admin users can see all properties, customers only see available/active verified properties
     let queryFilter = {};
-    
-    if (!req.user || !['admin', 'superadmin', 'subadmin'].includes(req.user.role)) {
+
+    if (!req.user || !hasPermission(req.user, PERMISSIONS.PROPERTIES_VIEW)) {
       // For customers: show only available and non-archived properties
       queryFilter = {
         status: 'available',
@@ -46,14 +54,47 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
           { archived: false }
         ]
       };
-      console.log('Applying customer filter - showing only available and non-archived properties');
+
+      // Exclude properties from suspended users
+      const suspendedUsers = await User.find({ status: 'suspended' }).select('_id');
+      if (suspendedUsers.length > 0) {
+        const suspendedUserIds = suspendedUsers.map(u => u._id);
+        queryFilter.owner = { $nin: suspendedUserIds };
+      }
+
+      console.log('Applying customer filter - showing only available and non-archived properties from active users');
     } else {
       console.log('Admin user detected - showing all properties');
     }
     // Admin users: show all properties (no status filter)
 
     // Apply search filter (searches in title, description, city, district, state, locality)
+    // Apply search filter (searches in title, description, city, district, state, locality, property type, and navigation items)
     if (search) {
+      const { PropertyType, NavigationItem } = require('../models/Configuration');
+
+      // 1. Find matching Property Types (by name or category)
+      const matchingTypes = await PropertyType.find({
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { category: { $regex: search, $options: 'i' } }
+        ]
+      }).select('value');
+
+      // 2. Find matching Navigation Items (by name)
+      const matchingNavItems = await NavigationItem.find({
+        name: { $regex: search, $options: 'i' }
+      }).select('value');
+
+      // Collect all unique type values
+      const typeValues = [
+        ...matchingTypes.map(t => t.value),
+        ...matchingNavItems.map(n => n.value)
+      ];
+
+      // Deduplicate
+      const uniqueTypeValues = [...new Set(typeValues)];
+
       queryFilter.$or = [
         { title: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
@@ -61,10 +102,12 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
         { 'address.district': { $regex: search, $options: 'i' } },
         { 'address.state': { $regex: search, $options: 'i' } },
         { 'address.locality': { $regex: search, $options: 'i' } },
-        { 'address.locationName': { $regex: search, $options: 'i' } }
+        { 'address.locationName': { $regex: search, $options: 'i' } },
+        { type: { $regex: search, $options: 'i' } }, // Direct type match
+        ...(uniqueTypeValues.length > 0 ? [{ type: { $in: uniqueTypeValues } }] : []) // Match by mapped type values
       ];
     }
-    
+
     // Apply location filter (backward compatibility)
     if (location && !search) {
       queryFilter.$or = [
@@ -84,19 +127,32 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
     if (propertyType) {
       // Handle comma-separated property types (e.g., "commercial,office")
       if (propertyType.includes(',')) {
-        const propertyTypeArray = propertyType.split(',').map(type => type.trim());
+        const propertyTypeArray = propertyType.split(',').map(type => new RegExp(`^${type.trim()}$`, 'i'));
         queryFilter.type = { $in: propertyTypeArray };
       } else {
-        queryFilter.type = propertyType;
+        queryFilter.type = { $regex: new RegExp(`^${propertyType}$`, 'i') };
       }
     }
 
-    if (bedrooms) {
-      const bedroomsNum = parseInt(bedrooms);
+    // Handle bedrooms (accept both 'bedrooms' and 'bedroom')
+    const targetBedrooms = bedrooms || bedroom;
+    if (targetBedrooms) {
+      const bedroomsNum = parseInt(targetBedrooms);
       if (!isNaN(bedroomsNum) && bedroomsNum > 0) {
         queryFilter.bedrooms = bedroomsNum;
       } else {
-        console.warn(`Invalid bedrooms filter value: ${bedrooms}`);
+        console.warn(`Invalid bedrooms filter value: ${targetBedrooms}`);
+      }
+    }
+
+    // Handle bathrooms (accept both 'bathrooms' and 'bathroom')
+    const targetBathrooms = bathrooms || bathroom;
+    if (targetBathrooms) {
+      const bathroomsNum = parseInt(targetBathrooms);
+      if (!isNaN(bathroomsNum) && bathroomsNum > 0) {
+        queryFilter.bathrooms = bathroomsNum;
+      } else {
+        console.warn(`Invalid bathrooms filter value: ${targetBathrooms}`);
       }
     }
 
@@ -106,10 +162,10 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
 
     // Apply amenities filter
     if (req.query.amenities) {
-      const amenitiesList = Array.isArray(req.query.amenities) 
-        ? req.query.amenities 
+      const amenitiesList = Array.isArray(req.query.amenities)
+        ? req.query.amenities
         : [req.query.amenities];
-      
+
       // Properties must have all selected amenities
       if (amenitiesList.length > 0) {
         queryFilter.amenities = { $all: amenitiesList };
@@ -120,7 +176,7 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
 
     const totalProperties = await Property.countDocuments(queryFilter);
     console.log(`Total properties matching filter: ${totalProperties}`);
-    
+
     const properties = await Property.find(queryFilter)
       .populate('owner', 'profile.firstName profile.lastName profile.phone email role')
       .sort({ createdAt: -1 })
@@ -151,13 +207,185 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
   }
 }));
 
+// @desc    Get featured vendors with badges (public endpoint)
+// @route   GET /api/properties/featured-vendors
+// @access  Public
+// NOTE: This route MUST be defined BEFORE the /:id route to avoid route matching conflict
+router.get('/featured-vendors', asyncHandler(async (req, res) => {
+  try {
+    const { limit = 8 } = req.query;
+
+    // Validate limit parameter
+    const parsedLimit = parseInt(limit);
+    if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid limit parameter. Must be a number between 1 and 50.'
+      });
+    }
+
+    // Import models
+    const User = require('../models/User');
+    const Vendor = require('../models/Vendor');
+    const Subscription = require('../models/Subscription');
+
+    // Get active subscriptions count
+    const subscriptionCount = await Subscription.countDocuments({
+      status: 'active',
+      endDate: { $gt: new Date() }
+    });
+
+    if (subscriptionCount === 0) {
+      return res.json({
+        success: true,
+        data: {
+          vendors: [],
+          totalCount: 0
+        }
+      });
+    }
+
+    // Get all active subscriptions first, then filter in code
+    const activeSubscriptions = await Subscription.find({
+      status: 'active',
+      endDate: { $gt: new Date() }
+    })
+      .populate('plan')
+      .populate({
+        path: 'user',
+        select: 'email profile role status',
+        match: {
+          role: 'agent',
+          status: 'active'
+        }
+      })
+      .sort({ updatedAt: -1 });
+
+    // Filter subscriptions where plan and user exist, and plan has any enabled badges
+    const validSubscriptions = activeSubscriptions.filter(sub => {
+      if (!sub.plan || !sub.user) return false;
+
+      const plan = sub.plan;
+
+      // Check if plan has any enabled badges
+      if (Array.isArray(plan.benefits)) {
+        return plan.benefits.some(benefit => benefit.enabled);
+      } else if (plan.benefits && typeof plan.benefits === 'object') {
+        return Object.values(plan.benefits).some(value => value === true);
+      }
+
+      return false;
+    });
+
+    // Get vendor profiles for these users
+    const vendorProfiles = await Promise.all(
+      validSubscriptions.slice(0, parsedLimit).map(async (subscription) => {
+        const vendor = await Vendor.findOne({ user: subscription.user._id })
+          .populate('user', 'email profile');
+
+        if (!vendor || !vendor.user) return null;
+
+        const fullName = `${vendor.user.profile?.firstName || ''} ${vendor.user.profile?.lastName || ''}`.trim();
+
+        return {
+          _id: vendor._id,
+          name: fullName || 'Professional Vendor',
+          email: vendor.user.email,
+          avatar: vendor.user.profile?.avatar || null,
+          phone: vendor.user.profile?.phone || null,
+          bio: vendor.user.profile?.bio || null,
+          companyName: vendor.businessInfo?.companyName || null,
+          specialization: vendor.businessInfo?.specialization || [],
+          location: {
+            city: vendor.user.profile?.address?.city || null,
+            state: vendor.user.profile?.address?.state || null
+          },
+          badges: (() => {
+            if (Array.isArray(subscription.plan.benefits)) {
+              return subscription.plan.benefits
+                .filter(benefit => benefit.enabled)
+                .map(benefit => ({
+                  key: benefit.key,
+                  name: benefit.name,
+                  description: benefit.description || '',
+                  enabled: true,
+                  icon: benefit.icon || 'star'
+                }));
+            } else if (subscription.plan.benefits && typeof subscription.plan.benefits === 'object') {
+              const legacyBadgeMap = {
+                topRated: { name: 'Top Rated', icon: 'star', description: 'Highly rated professional' },
+                verifiedBadge: { name: 'Verified', icon: 'shield-check', description: 'Identity verified' },
+                marketingManager: { name: 'Marketing Pro', icon: 'trending-up', description: 'Advanced marketing tools' },
+                commissionBased: { name: 'Commission Based', icon: 'dollar-sign', description: 'Performance-based pricing' }
+              };
+
+              return Object.entries(subscription.plan.benefits)
+                .filter(([_, isActive]) => isActive === true)
+                .map(([badgeKey, _]) => ({
+                  key: badgeKey,
+                  name: legacyBadgeMap[badgeKey]?.name || badgeKey,
+                  description: legacyBadgeMap[badgeKey]?.description || '',
+                  enabled: true,
+                  icon: legacyBadgeMap[badgeKey]?.icon || 'star'
+                }));
+            }
+            return [];
+          })(),
+          rating: {
+            average: vendor.user.profile?.vendorInfo?.rating?.average || 0,
+            count: vendor.user.profile?.vendorInfo?.rating?.count || 0
+          },
+          responseTime: vendor.user.profile?.vendorInfo?.responseTime || null,
+          planName: subscription.plan.name
+        };
+      })
+    );
+
+    // Filter out null results and sort by badge count, then rating
+    const featuredVendors = vendorProfiles
+      .filter(vendor => vendor !== null)
+      .sort((a, b) => {
+        const aBadgeCount = Array.isArray(a.badges) ? a.badges.length : 0;
+        const bBadgeCount = Array.isArray(b.badges) ? b.badges.length : 0;
+
+        if (aBadgeCount !== bBadgeCount) {
+          return bBadgeCount - aBadgeCount;
+        }
+        return b.rating.average - a.rating.average;
+      });
+
+    res.json({
+      success: true,
+      data: {
+        vendors: featuredVendors,
+        totalCount: featuredVendors.length,
+        message: featuredVendors.length > 0
+          ? `Showing ${featuredVendors.length} premium vendors with active subscriptions and badges`
+          : 'No premium vendors with badges available yet'
+      }
+    });
+  } catch (error) {
+    console.error('Get featured vendors error:', error);
+
+    const isValidationError = error.name === 'ValidationError' ||
+      error.name === 'CastError' ||
+      error.message?.includes('Cast to ObjectId failed');
+
+    res.status(isValidationError ? 400 : 500).json({
+      success: false,
+      message: isValidationError ? 'Invalid request parameters' : 'Failed to fetch featured vendors',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+}));
+
 // @desc    Get single property
 // @route   GET /api/properties/:id
-// @access  Public
-router.get('/:id', asyncHandler(async (req, res) => {
+// @access  Public (with optional auth to track logged-in viewers)
+router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     console.log('Fetching property with ID:', id);
 
     // Validate ObjectId format
@@ -170,7 +398,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     }
 
     const property = await Property.findById(id)
-      .populate('owner', 'profile.firstName profile.lastName profile.phone email role')
+      .populate('owner', 'profile.firstName profile.lastName profile.phone email role status')
       .populate('agent', 'profile.firstName profile.lastName profile.phone email role')
       .populate('assignedTo', 'profile.firstName profile.lastName profile.phone email role')
       .populate('approvedBy', 'profile.firstName profile.lastName email')
@@ -180,6 +408,22 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
     if (!property) {
       console.log('Property not found with ID:', id);
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Check if owner is suspended (for non-admins)
+    const isAdmin = req.user && (
+      req.user.role === 'admin' ||
+      req.user.role === 'superadmin' ||
+      req.user.role === 'subadmin' ||
+      hasPermission(req.user, PERMISSIONS.PROPERTIES_VIEW)
+    );
+
+    if (!isAdmin && property.owner?.status === 'suspended') {
+      console.log('Property owner is suspended, hiding property:', id);
       return res.status(404).json({
         success: false,
         message: 'Property not found'
@@ -202,22 +446,81 @@ router.get('/:id', asyncHandler(async (req, res) => {
     });
 
     // Track property view using PropertyView model
-    const sessionId = req.sessionID || req.ip + '-' + Date.now();
-    const viewData = {
-      property: property._id,
-      viewer: req.user?.id || null,
-      sessionId,
-      ipAddress: req.ip || req.connection.remoteAddress,
-      userAgent: req.get('user-agent'),
-      referrer: req.get('referer'),
-      viewedAt: new Date()
-    };
-    
-    // Create view record
-    await PropertyView.create(viewData);
-    
-    // Increment view count in property
-    await Property.findByIdAndUpdate(id, { $inc: { views: 1 } });
+    // Only count views from customers and guests (non-logged in users)
+    // Don't count views from admin, superadmin, subadmin, or vendor/agent roles
+    try {
+      const userRole = req.user?.role || 'guest';
+      const isPropertyOwner = req.user && property.owner._id.toString() === req.user.id;
+      const isPropertyAgent = req.user && property.agent && property.agent._id?.toString() === req.user.id;
+
+      // Only track views from registered customers (not guests, admins, or vendors)
+      const shouldTrackView = userRole === 'customer';
+
+      // Never count views from admin roles
+      const isAdminRole = ['admin', 'superadmin', 'subadmin'].includes(userRole);
+
+      if (shouldTrackView && !isAdminRole) {
+        // Use device ID from header if available, otherwise fallback to IP
+        // Remove timestamp from fallback to allow grouping of guest views by IP
+        const sessionId = req.headers['x-device-id'] || req.sessionID || req.ip;
+        const viewerId = req.user?.id || req.user?._id || null;
+
+        const viewData = {
+          property: property._id,
+          viewer: viewerId,
+          sessionId,
+          ipAddress: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress,
+          userAgent: req.get('user-agent'),
+          referrer: req.get('referer'),
+          viewedAt: new Date()
+        };
+
+        console.log('📊 Tracking property view:', {
+          propertyId: property._id,
+          propertyTitle: property.title,
+          viewerId: viewerId,
+          userRole: userRole,
+          sessionId: sessionId.toString().substring(0, 20) + '...'
+        });
+
+        // Create view record
+        const createdView = await PropertyView.create(viewData);
+        console.log('✅ Property view tracked successfully:', createdView._id);
+
+        // Increment view count in property
+        await Property.findByIdAndUpdate(id, { $inc: { views: 1 } });
+
+        // Return viewId in response header for duration tracking
+        res.set('X-View-Id', createdView._id.toString());
+      } else {
+        console.log('⏭️ Skipping view tracking for:', {
+          propertyId: property._id,
+          userRole: userRole,
+          isPropertyOwner: isPropertyOwner,
+          isAdminRole: isAdminRole
+        });
+      }
+    } catch (viewError) {
+      // Log the error but don't fail the main request
+      console.error('❌ Error tracking property view:', viewError.message);
+    }
+
+    // Emit real-time notification to property owner about new view (if viewer is logged in)
+    if (req.user && property.owner._id.toString() !== req.user.id) {
+      const socketService = require('../services/socketService');
+      const ownerId = property.owner._id.toString();
+
+      if (socketService.isUserOnline(ownerId)) {
+        socketService.sendToUser(ownerId, 'vendor:property_viewed', {
+          propertyId: property._id,
+          propertyTitle: property.title,
+          viewerName: req.user.profile?.firstName ?
+            `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim() :
+            'Anonymous',
+          timestamp: new Date()
+        });
+      }
+    }
 
     res.json({
       success: true,
@@ -233,18 +536,188 @@ router.get('/:id', asyncHandler(async (req, res) => {
   }
 }));
 
+// @desc    Update view duration
+// @route   POST /api/properties/:id/view-duration
+// @access  Public
+router.post('/:id/view-duration', optionalAuth, asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { duration, viewId } = req.body;
+
+    if (!duration || isNaN(duration)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid duration'
+      });
+    }
+
+    // If viewId is provided, update that specific view
+    if (viewId) {
+      await PropertyView.findByIdAndUpdate(viewId, {
+        $set: { viewDuration: duration }
+      });
+    } else {
+      // Fallback: update the most recent view for this session/IP
+      const sessionId = req.headers['x-device-id'] || req.sessionID || req.ip;
+      const viewerId = req.user?.id || null;
+
+      const query = {
+        property: id,
+        sessionId: sessionId,
+        viewedAt: { $gte: new Date(Date.now() - 3600000) } // Within last hour
+      };
+
+      if (viewerId) {
+        query.viewer = viewerId;
+      }
+
+      await PropertyView.findOneAndUpdate(
+        query,
+        { $set: { viewDuration: duration } },
+        { sort: { viewedAt: -1 } }
+      );
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update view duration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update view duration'
+    });
+  }
+}));
+
+// @desc    Register interest in property
+// @route   POST /api/properties/:id/interest
+// @access  Private
+router.post('/:id/interest', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    const property = await Property.findById(id).populate('owner');
+
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Track interest interaction
+    const sessionId = req.sessionID || req.ip + '-' + Date.now();
+    const viewerId = req.user.id;
+
+    // Find existing view for today or create new
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let view = await PropertyView.findOne({
+      property: id,
+      viewer: viewerId,
+      viewedAt: { $gte: today }
+    });
+
+    if (view) {
+      view.interactions.clickedInterest = true;
+      await view.save();
+    } else {
+      view = await PropertyView.create({
+        property: id,
+        viewer: viewerId,
+        sessionId,
+        ipAddress: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress,
+        userAgent: req.get('user-agent'),
+        referrer: req.get('referer'),
+        viewedAt: new Date(),
+        interactions: { clickedInterest: true }
+      });
+    }
+
+    // Send socket notification to owner
+    const ownerId = property.owner._id.toString();
+
+    // Create persistent notification
+    const notification = await UserNotification.create({
+      user: ownerId,
+      type: 'lead_alert',
+      title: 'New Interest Registered',
+      message: `${req.user.profile?.firstName || 'User'} ${req.user.profile?.lastName || ''} is interested in ${property.title}`,
+      data: {
+        propertyId: property._id,
+        propertyTitle: property.title,
+        customerId: req.user.id,
+        customerName: `${req.user.profile?.firstName || ''} ${req.user.profile?.lastName || ''}`.trim() || req.user.email,
+        customerPhone: req.user.profile?.phone || 'N/A',
+        timestamp: new Date()
+      },
+      priority: 'high'
+    });
+
+    // Send socket notification to owner
+    const socketService = require('../services/socketService');
+
+    if (socketService.isUserOnline(ownerId)) {
+      const sent = socketService.sendToUser(ownerId, 'vendor:property_interest', {
+        notificationId: notification._id,
+        propertyId: property._id,
+        propertyTitle: property.title,
+        customerName: `${req.user.profile.firstName} ${req.user.profile.lastName}`.trim(),
+        customerPhone: req.user.profile.phone,
+        timestamp: new Date()
+      });
+
+      if (sent) {
+        notification.delivered = true;
+        notification.deliveredAt = new Date();
+        await notification.save();
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Interest registered successfully'
+    });
+  } catch (error) {
+    console.error('Interest registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to register interest'
+    });
+  }
+}));
+
 // @desc    Create property
 // @route   POST /api/properties
 // @access  Private
 router.post('/', authenticateToken, asyncHandler(async (req, res) => {
+  // Check permission for property creation
+  if (!hasPermission(req.user, PERMISSIONS.PROPERTIES_CREATE)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to create properties'
+    });
+  }
+
   try {
     const User = require('../models/User');
     const Vendor = require('../models/Vendor');
     const Subscription = require('../models/Subscription');
-    
+
+    // Declare activeSubscription outside the if block
+    let activeSubscription = null;
+
     // Check user's subscription limits
     if (req.user.role === 'agent') {
-      const activeSubscription = await Subscription.findOne({
+      activeSubscription = await Subscription.findOne({
         user: req.user.id,
         status: 'active',
         endDate: { $gt: new Date() }
@@ -297,11 +770,36 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
       }
     }
 
+    // Determine initial status based on role and permissions
+    // Admin/Superadmin: Use provided status or default to 'available' & Verified
+    // Non-Agent with Create Permission: Available & Verified (Auto-approve)
+    // Agent/Vendor: Pending & Unverified
+    let initialStatus = 'pending';
+    let isVerified = false;
+
+    if (['admin', 'superadmin'].includes(req.user.role)) {
+      // If admin provided a status, use it (mapped to valid enum values)
+      // AddProperty sends 'active' which maps to 'available'
+      if (req.body.status === 'active') {
+        initialStatus = 'available';
+      } else if (req.body.status && ['available', 'sold', 'rented', 'leased', 'pending', 'rejected'].includes(req.body.status)) {
+        initialStatus = req.body.status;
+      } else {
+        initialStatus = 'available';
+      }
+
+      // Admin properties are verified by default unless explicitly set to false
+      isVerified = req.body.isVerified !== undefined ? req.body.isVerified : true;
+    } else if (req.user.role !== 'agent' && hasPermission(req.user, PERMISSIONS.PROPERTIES_CREATE)) {
+      initialStatus = 'available';
+      isVerified = true;
+    }
+
     const propertyData = {
       ...req.body,
       owner: req.user.id,
-      status: 'pending', // All vendor properties start as pending approval
-      verified: false, // Requires admin verification to be published
+      status: initialStatus,
+      verified: isVerified,
       createdAt: new Date()
     };
 
@@ -322,6 +820,39 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
     const property = await Property.create(propertyData);
     await property.populate('owner', 'profile.firstName profile.lastName profile.phone email role');
 
+    // Notify admins about new property (real-time broadcast)
+    adminRealtimeService.broadcastNotification({
+      type: 'property_created',
+      title: 'New Property Submitted',
+      message: `New property "${property.title}" submitted by ${req.user.profile.firstName} ${req.user.profile.lastName}`,
+      data: {
+        propertyId: property._id,
+        ownerId: req.user.id,
+        ownerName: `${req.user.profile.firstName} ${req.user.profile.lastName}`
+      }
+    });
+
+    // Send push notifications to all admins, subadmins, and custom roles with property permissions
+    try {
+      const adminIds = await notificationService.getAdminUserIds('properties.approve');
+
+      if (adminIds.length > 0) {
+        await notificationService.sendPropertySubmissionNotification(adminIds, {
+          propertyId: property._id.toString(),
+          title: property.title,
+          vendorId: req.user.id,
+          vendorName: `${req.user.profile.firstName} ${req.user.profile.lastName}`.trim(),
+          type: property.type,
+          listingType: property.listingType,
+          location: property.address?.city || property.address?.state || 'Unknown',
+          price: property.price
+        });
+      }
+    } catch (notifError) {
+      console.error('Failed to send property submission notifications:', notifError);
+      // Don't fail the request if notifications fail
+    }
+
     res.status(201).json({
       success: true,
       data: { property },
@@ -329,7 +860,7 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
     });
   } catch (error) {
     console.error('Create property error:', error);
-    
+
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(e => e.message);
       return res.status(400).json({
@@ -338,7 +869,7 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
         errors
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to create property'
@@ -370,17 +901,17 @@ router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
       });
     }
 
-    // Check if user owns this property, is the agent for this property, or is admin
+    // Check if user owns this property, is the agent for this property, or has edit permission
     const isOwner = property.owner.toString() === req.user.id.toString();
     const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
-    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    
+    const canEdit = hasPermission(req.user, PERMISSIONS.PROPERTIES_EDIT);
+
     console.log('Property update - User ID:', req.user.id, 'Role:', req.user.role);
     console.log('Property update - Property owner:', property.owner?.toString());
     console.log('Property update - Property agent:', property.agent?.toString());
-    console.log('Property update - Is Owner:', isOwner, 'Is Agent:', isAgent, 'Is Admin:', isAdmin);
-    
-    if (!isOwner && !isAgent && !isAdmin) {
+    console.log('Property update - Is Owner:', isOwner, 'Is Agent:', isAgent, 'Can Edit:', canEdit);
+
+    if (!isOwner && !isAgent && !canEdit) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this property'
@@ -401,7 +932,7 @@ router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
     });
   } catch (error) {
     console.error('Update property error:', error);
-    
+
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(e => e.message);
       return res.status(400).json({
@@ -410,7 +941,7 @@ router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
         errors
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to update property'
@@ -447,7 +978,7 @@ router.patch('/:id/status', authenticateToken, asyncHandler(async (req, res) => 
     const isOwner = property.owner.toString() === req.user.id.toString();
     const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    
+
     if (!isOwner && !isAgent && !isAdmin) {
       return res.status(403).json({
         success: false,
@@ -455,12 +986,12 @@ router.patch('/:id/status', authenticateToken, asyncHandler(async (req, res) => 
       });
     }
 
-    // Validate status for vendors/customers (they can't set to pending)
-    const validStatusesForOwner = ['available', 'sold', 'rented'];
-    if (!['admin', 'superadmin'].includes(req.user.role) && !validStatusesForOwner.includes(status)) {
+    // Validate status for vendors/customers (they can't set to pending/rejected)
+    const validStatusesForOwner = ['available', 'sold', 'rented', 'leased'];
+    if (!hasPermission(req.user, PERMISSIONS.PROPERTIES_EDIT) && !validStatusesForOwner.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid status. Available options: available, sold, rented'
+        message: 'Invalid status. Available options: available, sold, rented, leased'
       });
     }
 
@@ -514,7 +1045,7 @@ router.patch('/:id/featured', authenticateToken, asyncHandler(async (req, res) =
     const isOwner = property.owner.toString() === req.user.id.toString();
     const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    
+
     if (!isOwner && !isAgent && !isAdmin) {
       return res.status(403).json({
         success: false,
@@ -525,7 +1056,7 @@ router.patch('/:id/featured', authenticateToken, asyncHandler(async (req, res) =
     // For non-admin users, check subscription limits when featuring a property
     if (!isAdmin && featured === true && !property.featured) {
       const Subscription = require('../models/Subscription');
-      
+
       // Check if user has active subscription with featured listing limits
       const activeSubscription = await Subscription.findOne({
         user: property.owner,
@@ -540,7 +1071,8 @@ router.patch('/:id/featured', authenticateToken, asyncHandler(async (req, res) =
         });
       }
 
-      const plan = activeSubscription.plan;
+      // Use planSnapshot for limits (grandfathering existing subscribers)
+      const plan = activeSubscription.planSnapshot || activeSubscription.plan;
       const featuredLimit = plan.limits?.featuredListings || 0;
 
       // Check if plan allows featured listings
@@ -589,6 +1121,113 @@ router.patch('/:id/featured', authenticateToken, asyncHandler(async (req, res) =
     res.status(500).json({
       success: false,
       message: 'Failed to update property featured status'
+    });
+  }
+}));
+
+// @desc    Approve/Reject property
+// @route   PATCH /api/properties/:id/approve
+// @access  Private (Requires properties.approve permission)
+router.patch('/:id/approve', authenticateToken, asyncHandler(async (req, res) => {
+  // Check permission for property approval
+  if (!hasPermission(req.user, PERMISSIONS.PROPERTIES_APPROVE)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to approve properties'
+    });
+  }
+
+  try {
+    const { id } = req.params;
+    const { action, rejectionReason } = req.body; // action: 'approve' or 'reject'
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    // Validate action
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid action. Must be "approve" or "reject"'
+      });
+    }
+
+    // Find property
+    const property = await Property.findById(id);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Update property based on action
+    const updateData = {
+      updatedAt: new Date()
+    };
+
+    if (action === 'approve') {
+      updateData.status = 'available';
+      updateData.verified = true;
+      updateData.approvedBy = req.user.id;
+      updateData.approvedAt = new Date();
+      updateData.rejectedBy = undefined;
+      updateData.rejectionReason = undefined;
+    } else {
+      updateData.status = 'rejected';
+      updateData.verified = false;
+      updateData.rejectedBy = req.user.id;
+      updateData.rejectedAt = new Date();
+      updateData.rejectionReason = rejectionReason || 'No reason provided';
+      updateData.approvedBy = undefined;
+    }
+
+    const updatedProperty = await Property.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    )
+      .populate('owner', 'profile.firstName profile.lastName profile.phone email role')
+      .populate('approvedBy', 'profile.firstName profile.lastName email')
+      .populate('rejectedBy', 'profile.firstName profile.lastName email');
+
+    // Send push notification to property owner
+    try {
+      const ownerId = property.owner.toString();
+      const approverName = req.user.profile?.firstName
+        ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+        : req.user.email;
+
+      await notificationService.sendPropertyApprovalNotification(
+        ownerId,
+        {
+          propertyId: property._id.toString(),
+          title: property.title,
+          approvedBy: approverName
+        },
+        action === 'approve' ? 'approved' : 'rejected',
+        action === 'reject' ? (rejectionReason || 'No reason provided') : null
+      );
+    } catch (notifError) {
+      console.error('Failed to send property approval notification:', notifError);
+      // Don't fail the request if notification fails
+    }
+
+    res.json({
+      success: true,
+      data: { property: updatedProperty },
+      message: `Property ${action === 'approve' ? 'approved' : 'rejected'} successfully`
+    });
+  } catch (error) {
+    console.error('Approve/reject property error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process property approval'
     });
   }
 }));
@@ -652,8 +1291,8 @@ router.post('/:id/assign-customer', authenticateToken, asyncHandler(async (req, 
     const finalStatus = correctStatus;
 
     // Check if user owns this property or is admin/agent
-    if (property.owner.toString() !== req.user.id.toString() && 
-        !['admin', 'superadmin', 'agent'].includes(req.user.role)) {
+    if (property.owner.toString() !== req.user.id.toString() &&
+      !['admin', 'superadmin', 'agent'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to assign this property'
@@ -680,7 +1319,7 @@ router.post('/:id/assign-customer', authenticateToken, asyncHandler(async (req, 
     // Update property status and assign to customer
     const updatedProperty = await Property.findByIdAndUpdate(
       id,
-      { 
+      {
         status: finalStatus,
         assignedTo: customerId,
         assignedAt: new Date(),
@@ -690,13 +1329,13 @@ router.post('/:id/assign-customer', authenticateToken, asyncHandler(async (req, 
       },
       { new: true, runValidators: true }
     ).populate('owner', 'profile.firstName profile.lastName email')
-     .populate('assignedTo', 'profile.firstName profile.lastName email');
+      .populate('assignedTo', 'profile.firstName profile.lastName email');
 
     // Update vendor statistics if property is sold
     if (finalStatus === 'sold') {
       const Vendor = require('../models/Vendor');
       const vendor = await Vendor.findByUserId(property.owner);
-      
+
       if (vendor) {
         // Initialize statistics if not exists
         if (!vendor.performance) {
@@ -708,24 +1347,24 @@ router.post('/:id/assign-customer', authenticateToken, asyncHandler(async (req, 
         if (!vendor.performance.statistics) {
           vendor.performance.statistics = {};
         }
-        
+
         // Increment sold properties count
-        vendor.performance.statistics.soldProperties = 
+        vendor.performance.statistics.soldProperties =
           (vendor.performance.statistics.soldProperties || 0) + 1;
-        
+
         // Calculate total revenue (sum of all sold properties)
-        const soldProps = await Property.find({ 
-          owner: property.owner, 
-          status: 'sold' 
+        const soldProps = await Property.find({
+          owner: property.owner,
+          status: 'sold'
         }).select('price');
-        
+
         const totalRevenue = soldProps.reduce((sum, prop) => {
           const price = parseFloat(prop.price.toString().replace(/[^0-9.]/g, ''));
           return sum + (isNaN(price) ? 0 : price);
         }, 0);
-        
+
         vendor.performance.statistics.totalRevenue = totalRevenue;
-        
+
         await vendor.save();
       }
     }
@@ -743,6 +1382,165 @@ router.post('/:id/assign-customer', authenticateToken, asyncHandler(async (req, 
     res.status(500).json({
       success: false,
       message: 'Failed to assign property to customer'
+    });
+  }
+}));
+
+// @desc    Track property interaction (phone click, share)
+// @route   POST /api/properties/:id/track-interaction
+// @access  Private (customers only)
+router.post('/:id/track-interaction', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { interactionType } = req.body;
+
+    // Only track interactions from customers
+    if (req.user.role !== 'customer') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only customer interactions are tracked'
+      });
+    }
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    // Validate interaction type (phone clicks, message clicks, and shares)
+    const validInteractionTypes = ['clickedPhone', 'clickedMessage', 'sharedProperty'];
+    if (!validInteractionTypes.includes(interactionType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid interaction type'
+      });
+    }
+
+    // Find property
+    const property = await Property.findById(id);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Get PropertyView model for tracking
+    const PropertyView = require('../models/PropertyView');
+
+    // Create property view with interaction (customer only)
+    const interactionData = {
+      property: id,
+      viewer: req.user.id, // Always set viewer since it's authenticated
+      viewerRole: 'customer',
+      sessionId: req.sessionID || req.headers['x-session-id'] || `customer-${Date.now()}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      referrer: req.headers.referer || req.headers.referrer,
+      [`interactions.${interactionType}`]: true
+    };
+
+    await PropertyView.create(interactionData);
+
+    res.json({
+      success: true,
+      message: 'Interaction tracked successfully'
+    });
+  } catch (error) {
+    console.error('Track interaction error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to track interaction'
+    });
+  }
+}));
+
+// @desc    Get property interaction stats (phone clicks, message clicks, shares, favorites)
+// @route   GET /api/properties/:id/interaction-stats
+// @access  Private (property owner or admin)
+router.get('/:id/interaction-stats', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid property ID format'
+      });
+    }
+
+    // Find property
+    const property = await Property.findById(id);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    // Check if user owns this property or is admin
+    const isOwner = property.owner.toString() === req.user.id.toString();
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view interaction stats for this property'
+      });
+    }
+
+    // Get interaction counts from PropertyView
+    const [phoneClicks, messageClicks, shares, totalViews] = await Promise.all([
+      PropertyView.countDocuments({
+        property: id,
+        'interactions.clickedPhone': true
+      }),
+      PropertyView.countDocuments({
+        property: id,
+        'interactions.clickedMessage': true
+      }),
+      PropertyView.countDocuments({
+        property: id,
+        'interactions.sharedProperty': true
+      }),
+      PropertyView.countDocuments({
+        property: id
+      })
+    ]);
+
+    // Get favorites count
+    const Favorite = require('../models/Favorite');
+    const favorites = await Favorite.countDocuments({ property: id });
+
+    // Get unique viewers
+    const uniqueViewers = await PropertyView.distinct('viewer', {
+      property: id,
+      viewer: { $ne: null }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        propertyId: id,
+        stats: {
+          views: totalViews,
+          uniqueViewers: uniqueViewers.length,
+          phoneClicks,
+          messageClicks,
+          shares,
+          favorites
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get property interaction stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get interaction stats'
     });
   }
 }));
@@ -775,7 +1573,7 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req, res) => {
     const isOwner = property.owner.toString() === req.user.id.toString();
     const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    
+
     if (!isOwner && !isAgent && !isAdmin) {
       return res.status(403).json({
         success: false,

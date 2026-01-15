@@ -20,7 +20,7 @@ import { PageLoader } from "@/components/ui/loader/PageLoader";
 
 const UserRoutes = () => {
   return (
-    <Suspense fallback={<PageLoader/>}>
+    <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />

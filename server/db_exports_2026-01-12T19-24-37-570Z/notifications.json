@@ -1,0 +1,72 @@
+[
+  {
+    "_id": "6964d70fbb5101ad090515a1",
+    "title": "New Properties in Your Area!",
+    "subject": "New Properties in Your Area!",
+    "message": "Discover amazing new properties that match your preferences. Check them out now!",
+    "type": "informational",
+    "targetAudience": "all_users",
+    "channels": [
+      "push"
+    ],
+    "recipients": [
+      {
+        "user": "68f8857275b9205ce27f8ea5",
+        "delivered": true,
+        "deliveredAt": "2026-01-12T11:12:15.268Z",
+        "opened": false,
+        "openedAt": null,
+        "clicked": false,
+        "clickedAt": null,
+        "_id": "6964d70fbb5101ad090515a2"
+      },
+      {
+        "user": "6909834d404a2c48e422ea56",
+        "delivered": true,
+        "deliveredAt": "2026-01-12T11:12:15.268Z",
+        "opened": false,
+        "openedAt": null,
+        "clicked": false,
+        "clickedAt": null,
+        "_id": "6964d70fbb5101ad090515a3"
+      },
+      {
+        "user": "6963d4d23c65e42e72ec220a",
+        "delivered": true,
+        "deliveredAt": "2026-01-12T11:12:15.268Z",
+        "opened": false,
+        "openedAt": null,
+        "clicked": false,
+        "clickedAt": null,
+        "_id": "6964d70fbb5101ad090515a4"
+      }
+    ],
+    "status": "sent",
+    "isScheduled": false,
+    "scheduledDate": null,
+    "sentAt": "2026-01-12T11:12:15.241Z",
+    "sentBy": "68f8857275b9205ce27f8ea5",
+    "statistics": {
+      "totalRecipients": 3,
+      "delivered": 3,
+      "opened": 0,
+      "clicked": 0,
+      "deliveryRate": 100,
+      "openRate": 0,
+      "clickRate": 0
+    },
+    "settings": {
+      "cityFilter": [],
+      "userTypeFilter": []
+    },
+    "templateId": null,
+    "attachments": [],
+    "metadata": {
+      "tags": [],
+      "priority": "medium"
+    },
+    "createdAt": "2026-01-12T11:12:15.245Z",
+    "updatedAt": "2026-01-12T11:12:15.270Z",
+    "__v": 0
+  }
+]

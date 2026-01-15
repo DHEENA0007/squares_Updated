@@ -1,7 +1,8 @@
 import { toast } from "@/hooks/use-toast";
 import { reviewsService } from "./reviewsService";
+import { handleAuthError } from "@/utils/apiUtils";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://app.buildhomemartsquares.com/api";
 
 export interface VendorProfile {
   id: string;
@@ -22,6 +23,13 @@ export interface VendorProfile {
         newMessages: boolean;
         newsUpdates: boolean;
         marketing: boolean;
+      };
+      business?: {
+        emailNotifications: boolean;
+        smsNotifications: boolean;
+        leadAlerts: boolean;
+        marketingEmails: boolean;
+        weeklyReports: boolean;
       };
       privacy?: {
         showEmail: boolean;
@@ -82,9 +90,32 @@ export interface VendorProfile {
     totalMessages: number;
     totalSales?: number;
     totalValue?: string;
+    leadsGenerated?: number;
+    totalViews?: number;
   };
   createdAt: string;
   updatedAt: string;
+}
+
+export interface VendorBadge {
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  type: 'custom' | 'legacy';
+}
+
+export interface VendorBadgeResponse {
+  hasSubscription: boolean;
+  badges: VendorBadge[];
+  planName: string | null;
+  planLevel: string;
+  profile?: {
+    name: string;
+    email: string;
+    avatar: string | null;
+    companyName?: string | null;
+  };
 }
 
 export interface UpdateVendorData {
@@ -101,6 +132,13 @@ export interface UpdateVendorData {
         newMessages?: boolean;
         newsUpdates?: boolean;
         marketing?: boolean;
+      };
+      business?: {
+        emailNotifications?: boolean;
+        smsNotifications?: boolean;
+        leadAlerts?: boolean;
+        marketingEmails?: boolean;
+        weeklyReports?: boolean;
       };
       privacy?: {
         showEmail?: boolean;
@@ -154,7 +192,7 @@ class VendorService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
@@ -174,7 +212,10 @@ class VendorService {
 
     try {
       const response = await fetch(url, config);
-      
+
+      // Check for auth error
+      handleAuthError(response);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
@@ -190,7 +231,7 @@ class VendorService {
     }
   }
 
-  // Helper function to recursively remove undefined values from objects
+  // Helper function to recursively remove undefined values and ensure nested objects are valid
   private cleanObject(obj: any): any {
     if (obj === null || typeof obj !== 'object') {
       return obj;
@@ -202,11 +243,27 @@ class VendorService {
 
     const cleaned: any = {};
     for (const [key, value] of Object.entries(obj)) {
+      // Skip undefined values completely
+      if (value === undefined) {
+        continue;
+      }
+
       const cleanedValue = this.cleanObject(value);
+
+      // Only add if cleanedValue is not undefined and not an empty object
       if (cleanedValue !== undefined) {
-        cleaned[key] = cleanedValue;
+        // For objects, check if they have any keys
+        if (typeof cleanedValue === 'object' && !Array.isArray(cleanedValue)) {
+          if (Object.keys(cleanedValue).length > 0) {
+            cleaned[key] = cleanedValue;
+          }
+        } else {
+          cleaned[key] = cleanedValue;
+        }
       }
     }
+
+    // Return undefined for empty objects instead of {}
     return Object.keys(cleaned).length > 0 ? cleaned : undefined;
   }
 
@@ -229,7 +286,7 @@ class VendorService {
 
       if (response.success && response.data) {
         const vendorProfile = response.data.user;
-        
+
         // Sync rating data from reviews if available
         try {
           const reviewStats = await reviewsService.getReviewStats();
@@ -245,7 +302,7 @@ class VendorService {
         } catch (reviewError) {
           console.log("Could not sync rating data:", reviewError);
         }
-        
+
         return vendorProfile;
       }
 
@@ -264,10 +321,10 @@ class VendorService {
   async updateVendorProfile(userData: UpdateVendorData): Promise<VendorProfile> {
     try {
       console.log("Starting vendor profile update with data:", userData);
-      
+
       // Get user data from localStorage or token
       let userId = null;
-      
+
       // Try to get user ID from stored user object
       const storedUser = localStorage.getItem("user");
       if (storedUser) {
@@ -303,7 +360,7 @@ class VendorService {
             success: boolean;
             data: { user: { id: string; _id: string } };
           }>("/auth/me");
-          
+
           if (currentUserResponse.success && currentUserResponse.data) {
             userId = currentUserResponse.data.user.id || currentUserResponse.data.user._id;
             console.log("Found user ID from API:", userId);
@@ -351,7 +408,7 @@ class VendorService {
         // Update stored user data
         localStorage.setItem("user", JSON.stringify(response.data.user));
         console.log("Profile update successful, updated localStorage");
-        
+
         toast({
           title: "Success",
           description: "Profile updated successfully!",
@@ -463,11 +520,13 @@ class VendorService {
     try {
       const response = await this.makeRequest<{
         success: boolean;
-        data: { subscriptions: Array<{
-          name: string;
-          isActive: boolean;
-          expiresAt?: string;
-        }> };
+        data: {
+          subscriptions: Array<{
+            name: string;
+            isActive: boolean;
+            expiresAt?: string;
+          }>
+        };
       }>("/vendors/subscriptions");
 
       if (response.success && response.data) {
@@ -482,23 +541,25 @@ class VendorService {
   }
 
   async getSubscriptionLimits(): Promise<{
-    maxProperties: number;
+    maxProperties: number | null;
     currentProperties: number;
     canAddMore: boolean;
     planName: string;
     features: string[];
     maxPropertyImages: number;
+    isUnlimited?: boolean;
   }> {
     try {
       const response = await this.makeRequest<{
         success: boolean;
         data: {
-          maxProperties: number;
+          maxProperties: number | null;
           currentProperties: number;
           canAddMore: boolean;
           planName: string;
           features: string[];
           maxPropertyImages: number;
+          isUnlimited?: boolean;
         };
       }>("/vendors/subscription-limits");
 
@@ -533,10 +594,10 @@ class VendorService {
           title: "Subscriptions Cleaned Up",
           description: `Deactivated ${response.deactivatedCount} old subscriptions. Using latest subscription now.`,
         });
-        
+
         // Refresh subscription data after cleanup
         await this.refreshSubscriptionData();
-        
+
         return {
           success: true,
           activeSubscription: response.activeSubscription,
@@ -584,7 +645,7 @@ class VendorService {
           }
         }
         keysToRemove.forEach(key => localStorage.removeItem(key));
-        
+
         toast({
           title: "Success",
           description: response.message || "Subscription data refreshed successfully!",
@@ -628,7 +689,7 @@ class VendorService {
       if (response.success) {
         // Update localStorage with synced data
         localStorage.setItem('dynamicVendorSettings', JSON.stringify(response.data));
-        
+
         toast({
           title: "✅ Settings Synced",
           description: "All vendor preferences saved successfully.",
@@ -650,14 +711,14 @@ class VendorService {
           supportEmail: "support@buildhomemartsquares.com"
         }
       };
-      
+
       localStorage.setItem(settingsKey, JSON.stringify(offlineData));
-      
+
       toast({
         title: "💾 Settings Saved Offline",
         description: "Settings cached locally. Will sync when online.",
       });
-      
+
       return offlineData;
     }
   }
@@ -686,7 +747,7 @@ class VendorService {
       if (savedSettings) {
         return JSON.parse(savedSettings);
       }
-      
+
       console.error("Failed to fetch vendor settings:", error);
       return null;
     }
@@ -705,7 +766,7 @@ class VendorService {
 
       // Log for debugging
       console.log(`✅ In-app notification created: ${settingsType}`);
-      
+
       // In-app notification will be handled by the notification service/backend
       // No email sent for settings updates
     } catch (error) {
@@ -718,7 +779,7 @@ class VendorService {
     try {
       // Get current settings
       const currentSettings = await this.getVendorSettings() || {};
-      
+
       // Update specific preference
       const updatedSettings = {
         ...currentSettings,
@@ -735,14 +796,14 @@ class VendorService {
 
       // Save updated settings
       await this.updateVendorSettings(updatedSettings);
-      
+
       // Send real-time notification email
       const settingName = preferenceKey.replace(/([A-Z])/g, ' $1').toLowerCase();
       const statusText = typeof value === 'boolean' ? (value ? 'enabled' : 'disabled') : 'updated';
-      
+
       // In-app notification only - no email
       console.log(`Vendor preference "${settingName}" has been ${statusText}`);
-      
+
     } catch (error) {
       console.error("Failed to update vendor preference:", error);
       toast({
@@ -806,7 +867,7 @@ class VendorService {
       if (message.trim()) {
         await this.updateVendorPreferences('business.autoResponseMessage', message);
       }
-      
+
       toast({
         title: "Auto-Response Updated",
         description: enabled ? "Auto-responses are now enabled" : "Auto-responses have been disabled",
@@ -817,21 +878,122 @@ class VendorService {
     }
   }
 
-  async isVendorEnterpriseProperty(vendorId: string): Promise<boolean> {
+  async checkVendorWhatsAppSupport(vendorId: string): Promise<{ whatsappEnabled: boolean; whatsappNumber: string | null }> {
     try {
       const response = await this.makeRequest<{
         success: boolean;
-        data: { isEnterprise: boolean };
-      }>(`/vendors/${vendorId}/enterprise-check`);
+        data: { whatsappEnabled: boolean; whatsappNumber: string | null };
+      }>(`/vendors/${vendorId}/whatsapp-check`);
 
       if (response.success && response.data) {
-        return response.data.isEnterprise;
+        return {
+          whatsappEnabled: response.data.whatsappEnabled,
+          whatsappNumber: response.data.whatsappNumber
+        };
       }
 
-      return false;
+      return { whatsappEnabled: false, whatsappNumber: null };
     } catch (error) {
-      console.error("Failed to check vendor enterprise status:", error);
-      return false;
+      console.error("Failed to check vendor WhatsApp support:", error);
+      return { whatsappEnabled: false, whatsappNumber: null };
+    }
+  }
+
+  // Badge management methods
+  async getMyBadges(): Promise<VendorBadgeResponse> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        data: VendorBadgeResponse;
+      }>("/vendors/subscription/badges");
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      throw new Error("Failed to fetch badges from server");
+    } catch (error) {
+      console.error("Failed to fetch vendor badges:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load badge information.",
+        variant: "destructive",
+      });
+      return {
+        hasSubscription: false,
+        badges: [],
+        planName: null,
+        planLevel: 'free'
+      };
+    }
+  }
+
+  async getVendorBadges(vendorId: string): Promise<VendorBadgeResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/vendors/${vendorId}/badges`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || "Failed to fetch vendor badges");
+      }
+
+      return result.data;
+    } catch (error) {
+      console.error("Failed to fetch vendor badges:", error);
+      return {
+        hasSubscription: false,
+        badges: [],
+        planName: null,
+        planLevel: 'free'
+      };
+    }
+  }
+
+  async getFeaturedVendors(limit: number = 8): Promise<{
+    success: boolean;
+    data: any[];
+  }> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/properties/featured-vendors?limit=${limit}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || "Failed to fetch featured vendors");
+      }
+
+      return {
+        success: true,
+        data: result.data.vendors || [],
+      };
+    } catch (error) {
+      console.error("Failed to fetch featured vendors:", error);
+      return {
+        success: false,
+        data: [],
+      };
     }
   }
 }

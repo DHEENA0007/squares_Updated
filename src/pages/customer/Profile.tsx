@@ -387,6 +387,11 @@ const Profile = () => {
         privacy: {
           showEmail: false,
           showPhone: false
+        },
+        security: {
+          twoFactorEnabled: false,
+          loginAlerts: true,
+          sessionTimeout: '30'
         }
       };
 
@@ -400,6 +405,11 @@ const Profile = () => {
         privacy: {
           showEmail: currentPreferences.privacy?.showEmail ?? defaultPreferences.privacy.showEmail,
           showPhone: currentPreferences.privacy?.showPhone ?? defaultPreferences.privacy.showPhone
+        },
+        security: {
+          twoFactorEnabled: currentPreferences.security?.twoFactorEnabled ?? defaultPreferences.security.twoFactorEnabled,
+          loginAlerts: currentPreferences.security?.loginAlerts ?? defaultPreferences.security.loginAlerts,
+          sessionTimeout: currentPreferences.security?.sessionTimeout ?? defaultPreferences.security.sessionTimeout
         }
       } : defaultPreferences;
 

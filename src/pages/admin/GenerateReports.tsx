@@ -49,7 +49,7 @@ const GenerateReports = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
+
       toast({
         title: "Download Started",
         description: "JSON report downloaded successfully",
@@ -65,7 +65,7 @@ const GenerateReports = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
+
       toast({
         title: "Download Started",
         description: "CSV report downloaded successfully",
@@ -80,13 +80,13 @@ const GenerateReports = () => {
 
   const convertToCSV = (data: any): string => {
     let csv = '';
-    
+
     if (Array.isArray(data)) {
       if (data.length === 0) return 'No data available';
-      
+
       const headers = Object.keys(data[0]);
       csv = headers.join(',') + '\n';
-      
+
       data.forEach(row => {
         const values = headers.map(header => {
           const val = row[header];
@@ -106,7 +106,7 @@ const GenerateReports = () => {
         }
       });
     }
-    
+
     return csv;
   };
 
@@ -189,7 +189,7 @@ const GenerateReports = () => {
   ];
 
   const cities = [
-    'all', 'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 
+    'all', 'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai',
     'Kolkata', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow'
   ];
 
@@ -236,7 +236,7 @@ const GenerateReports = () => {
 
     setGenerating(true);
     setReportResult(null);
-    
+
     try {
       const payload = {
         reportType: selectedReport,
@@ -263,7 +263,7 @@ const GenerateReports = () => {
 
       if (response.ok && data.success) {
         setReportResult(data.data);
-        
+
         toast({
           title: "Success",
           description: "Report generated successfully! Click download button to save.",
@@ -316,17 +316,15 @@ const GenerateReports = () => {
                   return (
                     <div
                       key={report.type}
-                      className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                        selectedReport === report.type 
-                          ? 'border-primary bg-primary/5' 
+                      className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedReport === report.type
+                          ? 'border-primary bg-primary/5'
                           : 'border-gray-200 hover:border-gray-300'
-                      }`}
+                        }`}
                       onClick={() => handleReportTypeChange(report.type)}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-md ${
-                          selectedReport === report.type ? 'bg-primary text-white' : 'bg-gray-100'
-                        }`}>
+                        <div className={`p-2 rounded-md ${selectedReport === report.type ? 'bg-primary text-white' : 'bg-gray-100'
+                          }`}>
                           <Icon className="w-5 h-5" />
                         </div>
                         <div className="flex-1">
@@ -384,8 +382,8 @@ const GenerateReports = () => {
                   {formats.map((format) => {
                     const isAvailable = selectedReportConfig.formats.includes(format.id);
                     return (
-                      <div 
-                        key={format.id} 
+                      <div
+                        key={format.id}
                         className={`flex items-center space-x-3 ${!isAvailable ? 'opacity-50' : ''}`}
                       >
                         <Checkbox
@@ -419,7 +417,7 @@ const GenerateReports = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-sm font-medium">From Date</label>
+                  <label className="text-sm font-medium">From</label>
                   <Input
                     type="date"
                     value={dateRange?.from?.toISOString().split('T')[0] || ''}
@@ -430,7 +428,7 @@ const GenerateReports = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">To Date</label>
+                  <label className="text-sm font-medium">To</label>
                   <Input
                     type="date"
                     value={dateRange?.to?.toISOString().split('T')[0] || ''}
@@ -442,9 +440,9 @@ const GenerateReports = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="w-full"
                   onClick={() => setDateRange({
                     from: new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000),
@@ -453,9 +451,9 @@ const GenerateReports = () => {
                 >
                   Last 30 Days
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="w-full"
                   onClick={() => setDateRange({
                     from: new Date(new Date().getTime() - 90 * 24 * 60 * 60 * 1000),
@@ -604,7 +602,7 @@ const GenerateReports = () => {
               {/* Download Buttons */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {reportResult.formats?.includes('json') !== false && (
-                  <Button 
+                  <Button
                     onClick={() => handleDownloadReport('json')}
                     variant="outline"
                   >
@@ -613,7 +611,7 @@ const GenerateReports = () => {
                   </Button>
                 )}
                 {reportResult.formats?.includes('csv') && (
-                  <Button 
+                  <Button
                     onClick={() => handleDownloadReport('csv')}
                     variant="outline"
                   >
@@ -622,7 +620,7 @@ const GenerateReports = () => {
                   </Button>
                 )}
                 {reportResult.formats?.includes('pdf') && (
-                  <Button 
+                  <Button
                     onClick={() => handleDownloadReport('pdf')}
                     variant="outline"
                   >
@@ -631,7 +629,7 @@ const GenerateReports = () => {
                   </Button>
                 )}
                 {reportResult.formats?.includes('excel') && (
-                  <Button 
+                  <Button
                     onClick={() => handleDownloadReport('excel')}
                     variant="outline"
                   >

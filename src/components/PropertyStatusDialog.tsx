@@ -45,48 +45,55 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
   const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
-  // Check if property is approved (active status means admin approved)
+  // Check if property is approved (available status means admin approved)
   const isPropertyApproved = property?.status === 'available';
-  
-  // Get the target status based on listing type
+
+  // Check if property can be made available again (for rent/lease only)
+  const canMakeAvailable = property?.status && ['rented', 'leased'].includes(property.status);
+
+  // Get the target status based on listing type and current status
   const getTargetStatus = () => {
     if (!property) return null;
-    
+
     const listingType = property.listingType || 'sale';
-    
-    if (listingType === 'sale') {
-      return { value: 'sold', label: 'Mark as Sold', color: 'bg-blue-500' };
-    } else if (listingType === 'rent') {
-      return { value: 'rented', label: 'Mark as Rented', color: 'bg-purple-500' };
-    } else if (listingType === 'lease') {
-      return { value: 'leased', label: 'Mark as Leased', color: 'bg-indigo-500' };
+    const currentStatus = property.status;
+
+    // If rented/leased, allow making it available again
+    if (currentStatus === 'rented' && listingType === 'rent') {
+      return { value: 'available', label: 'Mark as Available', color: 'bg-green-500', isRevert: true, requiresCustomer: false };
+    } else if (currentStatus === 'leased' && listingType === 'lease') {
+      return { value: 'available', label: 'Mark as Available', color: 'bg-green-500', isRevert: true, requiresCustomer: false };
     }
-    
-    return null;
+
+    // Normal flow - mark as sold/rented/leased
+    if (listingType === 'sale') {
+      return { value: 'sold', label: 'Mark as Sold', color: 'bg-blue-500', isRevert: false, requiresCustomer: true };
+    } else if (listingType === 'rent') {
+      return { value: 'rented', label: 'Mark as Rented', color: 'bg-purple-500', isRevert: false, requiresCustomer: true };
+    } else if (listingType === 'lease') {
+      return { value: 'leased', label: 'Mark as Leased', color: 'bg-indigo-500', isRevert: false, requiresCustomer: true };
+    } else {
+      // Fallback for custom or unknown listing types
+      return { value: 'sold', label: 'Mark as Sold/Unavailable', color: 'bg-gray-600', isRevert: false, requiresCustomer: false };
+    }
   };
 
   const targetStatus = getTargetStatus();
 
-  // Load customers when dialog opens
-  useEffect(() => {
-    if (open && isPropertyApproved && targetStatus) {
-      loadCustomers();
-    }
-  }, [open]);
-
+  // Load customers only when needed
   const loadCustomers = async () => {
     try {
       setLoadingCustomers(true);
       console.log('[PropertyStatusDialog] Loading customers with role: customer');
-      
-      const response = await userService.getUsers({ 
+
+      const response = await userService.getUsers({
         role: 'customer',
         limit: 100,
-        status: 'available' // Only available properties
+        status: 'active'
       });
-      
+
       console.log('[PropertyStatusDialog] Customer response:', response);
-      
+
       if (response.success && response.data?.users) {
         console.log(`[PropertyStatusDialog] Loaded ${response.data.users.length} customers`);
         setCustomers(response.data.users);
@@ -114,9 +121,9 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
     const searchLower = customerSearch.toLowerCase();
     const fullName = `${customer.profile?.firstName || ''} ${customer.profile?.lastName || ''}`.toLowerCase();
     const email = customer.email?.toLowerCase() || '';
-    
-    return fullName.includes(searchLower) || 
-           email.includes(searchLower);
+
+    return fullName.includes(searchLower) ||
+      email.includes(searchLower);
   });
 
   React.useEffect(() => {
@@ -131,13 +138,18 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
   const handleMarkAsStatus = () => {
     if (!targetStatus) return;
     setSelectedStatus(targetStatus.value);
+
+    // Load customers if this status might need one
+    if (!targetStatus.isRevert) {
+      loadCustomers();
+    }
   };
 
   const handleSubmit = async () => {
     if (!property || !selectedStatus) return;
-    
-    // Validate customer selection
-    if (!selectedCustomer) {
+
+    // Validate customer selection only if strictly required
+    if (targetStatus?.requiresCustomer && !selectedCustomer) {
       toast({
         title: "Customer Required",
         description: `Please select a customer to assign this ${selectedStatus} property to.`,
@@ -145,13 +157,13 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
       });
       return;
     }
-    
+
     setUpdating(true);
     try {
       await onUpdateStatus(
-        property._id, 
-        selectedStatus, 
-        selectedCustomer,
+        property._id,
+        selectedStatus,
+        targetStatus?.isRevert ? undefined : selectedCustomer,
         reason.trim() || undefined
       );
       onOpenChange(false);
@@ -163,7 +175,7 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
   };
 
   const getStatusBadgeColor = (status: string) => {
-    switch(status) {
+    switch (status) {
       case 'active': return 'bg-green-500';
       case 'pending': return 'bg-yellow-500';
       case 'sold': return 'bg-blue-500';
@@ -175,7 +187,7 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
   };
 
   const getStatusLabel = (status: string) => {
-    switch(status) {
+    switch (status) {
       case 'active': return 'Active';
       case 'pending': return 'Pending Approval';
       case 'sold': return 'Sold';
@@ -189,17 +201,17 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle>Update Property Status</DialogTitle>
-        <DialogDescription>
-          {property?.title}
-        </DialogDescription>
-        {property?.listingType && (
-          <div className="text-xs text-muted-foreground">
-            Listing Type: <Badge variant="outline" className="ml-1">{property.listingType}</Badge>
-          </div>
-        )}
-      </DialogHeader>        <div className="grid gap-4 py-4">
+        <DialogHeader>
+          <DialogTitle>Update Property Status</DialogTitle>
+          <DialogDescription>
+            {property?.title}
+          </DialogDescription>
+          {property?.listingType && (
+            <div className="text-xs text-muted-foreground">
+              Listing Type: <Badge variant="outline" className="ml-1">{property.listingType}</Badge>
+            </div>
+          )}
+        </DialogHeader>        <div className="grid gap-4 py-4">
           {/* Current Status */}
           <div className="space-y-2">
             <Label>Current Status</Label>
@@ -211,7 +223,7 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
           </div>
 
           {/* Not Approved Alert */}
-          {!isPropertyApproved && (
+          {!isPropertyApproved && !canMakeAvailable && (
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -220,8 +232,15 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
             </Alert>
           )}
 
-          {/* Already Sold/Rented/Leased Alert */}
-          {property?.status === 'sold' || property?.status === 'rented' || property?.status === 'leased' ? (
+          {/* Already Sold Alert (Sold properties cannot be reverted) */}
+          {property?.status === 'sold' ? (
+            <Alert>
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>
+                This property has been sold and cannot be made available again.
+              </AlertDescription>
+            </Alert>
+          ) : (property?.status === 'rented' || property?.status === 'leased') && !canMakeAvailable ? (
             <Alert>
               <CheckCircle className="h-4 w-4" />
               <AlertDescription>
@@ -235,82 +254,108 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
                 <Label>Action</Label>
                 <Button
                   onClick={handleMarkAsStatus}
-                  disabled={!isPropertyApproved || !targetStatus}
+                  disabled={(!isPropertyApproved && !canMakeAvailable) || !targetStatus}
                   className={`w-full ${targetStatus?.color || 'bg-primary'} hover:opacity-90 text-white`}
                   size="lg"
                 >
                   {targetStatus?.label || 'Update Status'}
                 </Button>
-                {!isPropertyApproved && (
+                {!isPropertyApproved && !canMakeAvailable && (
                   <p className="text-xs text-muted-foreground">
                     Button will be enabled once admin approves your property
+                  </p>
+                )}
+                {targetStatus?.isRevert && (
+                  <p className="text-xs text-muted-foreground">
+                    This will make the property available for {property?.listingType} again
                   </p>
                 )}
               </div>
             </>
           ) : (
             <>
-              {/* Customer Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="customer-search">Search Customer</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    id="customer-search"
-                    placeholder="Search by name or email..."
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
+              {/* Customer Selection - Only show for non-revert actions */}
+              {!targetStatus?.isRevert && (
+                <div className="space-y-3">
+                  <Label>
+                    Assign To Customer
+                    {targetStatus?.requiresCustomer && <span className="text-red-500 ml-1">*</span>}
+                  </Label>
 
-              <div className="space-y-2">
-                <Label htmlFor="customer-select">Assign To Customer *</Label>
-                {loadingCustomers ? (
-                  <div className="text-sm text-muted-foreground">Loading customers...</div>
-                ) : (
-                  <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select customer who bought/rented this property" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredCustomers.length === 0 ? (
-                        <div className="p-2 text-sm text-muted-foreground text-center">
-                          {customerSearch ? 'No customers found' : 'No customers available'}
+                  {selectedCustomer ? (
+                    <div className="flex items-center justify-between p-3 border rounded-lg bg-primary/5 border-primary/20">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                          {customers.find(c => c._id === selectedCustomer)?.profile?.firstName?.[0] || 'C'}
                         </div>
-                      ) : (
-                        filteredCustomers.map((customer) => {
-                          // Hide phone and show partial email for privacy
-                          const maskEmail = (email: string) => {
-                            const [localPart, domain] = email.split('@');
-                            const maskedLocal = localPart.length > 3 
-                              ? localPart.substring(0, 2) + '*'.repeat(localPart.length - 3) + localPart.slice(-1)
-                              : localPart.substring(0, 1) + '*'.repeat(localPart.length - 1);
-                            return `${maskedLocal}@${domain}`;
-                          };
+                        <div>
+                          <p className="font-medium text-sm">
+                            {customers.find(c => c._id === selectedCustomer)?.profile?.firstName} {customers.find(c => c._id === selectedCustomer)?.profile?.lastName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {customers.find(c => c._id === selectedCustomer)?.email}
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedCustomer('')} className="h-8 w-8 p-0">
+                        <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                        <Input
+                          placeholder="Search customer by name or email..."
+                          value={customerSearch}
+                          onChange={(e) => setCustomerSearch(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
 
-                          return (
-                            <SelectItem key={customer._id} value={customer._id}>
-                              <div className="flex flex-col">
-                                <span className="font-medium">
-                                  {customer.profile?.firstName} {customer.profile?.lastName}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {maskEmail(customer.email)}
-                                </span>
+                      {customerSearch.length > 0 && (
+                        loadingCustomers ? (
+                          <div className="text-sm text-muted-foreground text-center py-2">Loading customers...</div>
+                        ) : (
+                          <div className="border rounded-md max-h-[200px] overflow-y-auto bg-popover shadow-sm mt-1">
+                            {filteredCustomers.length === 0 ? (
+                              <div className="p-4 text-sm text-muted-foreground text-center">
+                                No customers found
                               </div>
-                            </SelectItem>
-                          );
-                        })
+                            ) : (
+                              <div className="divide-y">
+                                {filteredCustomers.map((customer) => (
+                                  <div
+                                    key={customer._id}
+                                    className="p-3 hover:bg-muted cursor-pointer transition-colors flex items-center justify-between group"
+                                    onClick={() => setSelectedCustomer(customer._id)}
+                                  >
+                                    <div className="flex flex-col">
+                                      <span className="font-medium text-sm">
+                                        {customer.profile?.firstName} {customer.profile?.lastName}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {customer.email}
+                                      </span>
+                                    </div>
+                                    <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 h-7 text-xs">
+                                      Select
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
                       )}
-                    </SelectContent>
-                  </Select>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  This property will be added to the selected customer's portfolio
-                </p>
-              </div>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground">
+                    This property will be added to the selected customer's portfolio
+                  </p>
+                </div>
+              )}
 
               {/* Notes */}
               <div className="space-y-2">
@@ -346,9 +391,9 @@ const PropertyStatusDialog: React.FC<PropertyStatusDialogProps> = ({
             Cancel
           </Button>
           {selectedStatus && (
-            <Button 
-              onClick={handleSubmit} 
-              disabled={updating || !selectedCustomer}
+            <Button
+              onClick={handleSubmit}
+              disabled={updating || (targetStatus?.requiresCustomer && !selectedCustomer)}
               className={`${targetStatus?.color || 'bg-primary'} hover:opacity-90 text-white`}
             >
               {updating ? 'Updating...' : `Confirm ${targetStatus?.label}`}

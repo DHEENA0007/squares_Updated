@@ -38,7 +38,7 @@
 	      val = pt.g(pt.t, pt.p);
 
 	      if (val !== pt.v1 || time - pt.t1 > 0.2) {
-	        pt.v2 = pt.v1;
+	        pt.v3 = pt.v1;
 	        pt.v1 = val;
 	        pt.t2 = pt.t1;
 	        pt.t1 = time;
@@ -69,7 +69,7 @@
 	  this.p = property;
 	  this.g = target._gsap.get;
 	  this.rCap = _types[type || _getUnit(this.g(target, property))];
-	  this.v1 = this.v2 = 0;
+	  this.v1 = this.v3 = 0;
 	  this.t1 = this.t2 = _ticker.time;
 
 	  if (next) {
@@ -104,7 +104,7 @@
 	        dif,
 	        rotationCap;
 	    val = parseFloat(skipRecentTick ? pt.v1 : pt.g(pt.t, pt.p));
-	    dif = val - parseFloat(pt.v2);
+	    dif = val - parseFloat(pt.v3);
 	    rotationCap = pt.rCap;
 
 	    if (rotationCap) {

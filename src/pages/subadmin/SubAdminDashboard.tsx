@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Clock, Users, Building, TrendingUp, TrendingDown, BarChart3, Activity, FileText, Timer } from "lucide-react";
 import subAdminService from "@/services/subAdminService";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeEvent } from "@/contexts/RealtimeContext";
 import { Badge } from "@/components/ui/badge";
+import { formatLocalDate, formatLocalDateTime, getRelativeTime } from "@/utils/dateTime";
 
 interface DashboardStats {
   totalPropertiesApproved: number;
@@ -13,7 +15,6 @@ interface DashboardStats {
   rejectedPropertiesApproved: number;
   totalSupport: number;
   openSupport: number;
-  resolvedSupport: number;
   closedSupport: number;
   analytics?: {
     propertiesApprovedLast7Days: number;
@@ -119,7 +120,7 @@ const SubAdminDashboard = () => {
             Content moderation and support management overview
           </p>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i}>
@@ -145,74 +146,82 @@ const SubAdminDashboard = () => {
 
       {/* Main Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">My Property Approvals</CardTitle>
-            <Building className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalPropertiesApproved || 0}</div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <p className="text-xs text-green-600">
-                {stats?.availablePropertiesApproved || 0} Available
-              </p>
-              <p className="text-xs text-red-600">
-                {stats?.rejectedPropertiesApproved || 0} Rejected
-              </p>
-            </div>
-            {stats?.analytics && (
+        <Link to="/subadmin/property-reviews" className="block">
+          <Card className="cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all duration-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">My Property Approvals</CardTitle>
+              <Building className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.totalPropertiesApproved || 0}</div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <p className="text-xs text-green-600">
+                  {stats?.availablePropertiesApproved || 0} Available
+                </p>
+                <p className="text-xs text-red-600">
+                  {stats?.rejectedPropertiesApproved || 0} Rejected
+                </p>
+              </div>
+              {stats?.analytics && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {stats.analytics.propertiesApprovedLast7Days} in last 7 days
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/subadmin/property-reviews" className="block">
+          <Card className="cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all duration-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Reviews</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.pendingProperties || 0}</div>
               <p className="text-xs text-muted-foreground mt-2">
-                {stats.analytics.propertiesApprovedLast7Days} in last 7 days
+                Properties awaiting review
               </p>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Reviews</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.pendingProperties || 0}</div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Properties awaiting review
-            </p>
-          </CardContent>
-        </Card>
+        <Link to="/subadmin/support-tickets" className="block">
+          <Card className="cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all duration-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">My Support Tickets</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.totalSupport || 0}</div>
+              <div className="flex gap-2 mt-2">
+                <p className="text-xs text-orange-600">
+                  {stats?.openSupport || 0} Open
+                </p>
+                <p className="text-xs text-green-600">
+                  {stats?.closedSupport || 0} Closed
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">My Support Tickets</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalSupport || 0}</div>
-            <div className="flex gap-2 mt-2">
-              <p className="text-xs text-orange-600">
-                {stats?.openSupport || 0} Open
+        <Link to="/subadmin/reports" className="block">
+          <Card className="cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all duration-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
+              <Timer className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {stats?.analytics?.avgResponseTimeHours || 0}h
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Average ticket resolution time
               </p>
-              <p className="text-xs text-green-600">
-                {stats?.resolvedSupport || 0} Resolved
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
-            <Timer className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats?.analytics?.avgResponseTimeHours || 0}h
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Average ticket resolution time
-            </p>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Analytics Section */}
@@ -246,7 +255,7 @@ const SubAdminDashboard = () => {
                   <p className="text-xs text-muted-foreground">vs last month</p>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950">
                   <p className="text-xs text-muted-foreground">Last 7 Days</p>
@@ -288,14 +297,14 @@ const SubAdminDashboard = () => {
                   <p className="text-xs text-muted-foreground">vs last month</p>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950">
-                  <p className="text-xs text-muted-foreground">Resolved (7d)</p>
+                  <p className="text-xs text-muted-foreground">Closed (7d)</p>
                   <p className="text-xl font-bold">{stats.analytics.supportTicketsResolvedLast7Days}</p>
                 </div>
                 <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-950">
-                  <p className="text-xs text-muted-foreground">Resolved (30d)</p>
+                  <p className="text-xs text-muted-foreground">Closed (30d)</p>
                   <p className="text-xl font-bold">{stats.analytics.supportTicketsResolvedLast30Days}</p>
                 </div>
               </div>
@@ -314,26 +323,26 @@ const SubAdminDashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <a 
-              href="/subadmin/property-reviews" 
+            <Link
+              to="/subadmin/property-reviews"
               className="block p-3 rounded-lg border hover:bg-accent transition-colors"
             >
               <div className="font-medium">Review Properties</div>
               <div className="text-sm text-muted-foreground">
                 {stats?.pendingProperties} properties awaiting approval
               </div>
-            </a>
-            <a 
-              href="/subadmin/support-tickets" 
+            </Link>
+            <Link
+              to="/subadmin/support-tickets"
               className="block p-3 rounded-lg border hover:bg-accent transition-colors"
             >
               <div className="font-medium">Handle Support</div>
               <div className="text-sm text-muted-foreground">
                 {stats?.openSupport} open tickets
               </div>
-            </a>
-            <a 
-              href="/subadmin/reports" 
+            </Link>
+            <Link
+              to="/subadmin/reports"
               className="block p-3 rounded-lg border hover:bg-accent transition-colors"
             >
               <div className="font-medium flex items-center gap-2">
@@ -343,7 +352,7 @@ const SubAdminDashboard = () => {
               <div className="text-sm text-muted-foreground">
                 Generate detailed analytics reports
               </div>
-            </a>
+            </Link>
           </CardContent>
         </Card>
 
@@ -363,7 +372,7 @@ const SubAdminDashboard = () => {
                     <div className="flex-1">
                       <p className="text-sm font-medium">{approval.title}</p>
                       <p className="text-xs text-muted-foreground">
-                        Approved • {new Date(approval.approvedAt).toLocaleDateString()}
+                        Approved • {formatLocalDate(approval.approvedAt)}
                       </p>
                     </div>
                     <Badge variant="outline" className="text-xs">
@@ -371,7 +380,7 @@ const SubAdminDashboard = () => {
                     </Badge>
                   </div>
                 ))}
-                
+
                 {stats.recentActivity.tickets && stats.recentActivity.tickets.slice(0, 2).map((ticket) => (
                   <div key={ticket._id} className="flex items-start gap-3 p-2 rounded-lg bg-blue-50 dark:bg-blue-950">
                     <Users className="h-4 w-4 text-blue-600 mt-0.5" />
@@ -427,7 +436,7 @@ const SubAdminDashboard = () => {
                 </div>
                 <p className="text-2xl font-bold">{stats.totalSupport}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {((stats.resolvedSupport / stats.totalSupport) * 100 || 0).toFixed(1)}% resolved
+                  {((stats.closedSupport / stats.totalSupport) * 100 || 0).toFixed(1)}% closed
                 </p>
               </div>
 

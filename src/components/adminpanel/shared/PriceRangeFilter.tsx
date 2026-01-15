@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 
 interface PriceRangeFilterProps {
   minPrice: string;
@@ -18,22 +18,30 @@ export const PriceRangeFilter: React.FC<PriceRangeFilterProps> = ({
   maxPossiblePrice = 100000,
   currency = 'INR'
 }) => {
-  const [sliderValue, setSliderValue] = useState<number>(
+  const [minValue, setMinValue] = useState<number>(
     minPrice ? parseFloat(minPrice) : 0
+  );
+  const [maxValue, setMaxValue] = useState<number>(
+    maxPrice ? parseFloat(maxPrice) : maxPossiblePrice
   );
 
   useEffect(() => {
     const min = minPrice ? parseFloat(minPrice) : 0;
-    setSliderValue(min);
-    // Always set max to maxPossiblePrice
-    onMaxPriceChange(maxPossiblePrice.toString());
-  }, [minPrice, maxPossiblePrice, onMaxPriceChange]);
+    const max = maxPrice ? parseFloat(maxPrice) : maxPossiblePrice;
+    setMinValue(min);
+    setMaxValue(max);
+  }, [minPrice, maxPrice, maxPossiblePrice]);
 
-  const handleSliderChange = (values: number[]) => {
-    const [min] = values; // Only use min value
-    setSliderValue(min);
-    onMinPriceChange(min.toString());
-    onMaxPriceChange(maxPossiblePrice.toString()); // Always set max to maxPossiblePrice
+  const handleMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    setMinValue(val);
+    onMinPriceChange(val.toString());
+  };
+
+  const handleMaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    setMaxValue(val);
+    onMaxPriceChange(val.toString());
   };
 
   const formatCurrency = (amount: number) => {
@@ -44,17 +52,33 @@ export const PriceRangeFilter: React.FC<PriceRangeFilterProps> = ({
   return (
     <div className="space-y-2">
       <div className="px-2">
-        <Slider
-          value={[sliderValue]}
-          onValueChange={handleSliderChange}
-          max={maxPossiblePrice}
-          min={0}
-          step={100}
-          className="w-full"
-        />
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-xs text-muted-foreground">Min</label>
+            <Input
+              type="number"
+              value={minValue}
+              onChange={handleMinChange}
+              className="h-8"
+              min={0}
+              max={maxValue}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Max</label>
+            <Input
+              type="number"
+              value={maxValue}
+              onChange={handleMaxChange}
+              className="h-8"
+              min={minValue}
+              max={maxPossiblePrice}
+            />
+          </div>
+        </div>
         <div className="flex justify-between text-xs font-medium mt-1">
-          <span>Min: {formatCurrency(sliderValue)}</span>
-          <span>Max: {formatCurrency(maxPossiblePrice)}</span>
+          <span>Min: {formatCurrency(minValue)}</span>
+          <span>Max: {formatCurrency(maxValue)}</span>
         </div>
       </div>
     </div>

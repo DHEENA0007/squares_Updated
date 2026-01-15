@@ -3,8 +3,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Slider } from "@/components/ui/slider";
+
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Search,
   MapPin,
@@ -24,6 +25,119 @@ import { useToast } from "@/hooks/use-toast";
 import { favoriteService } from "@/services/favoriteService";
 import { configurationService } from "@/services/configurationService";
 import type { PropertyType as PropertyTypeConfig, FilterConfiguration, Amenity } from "@/types/configuration";
+import { locaService, type PincodeSuggestion } from "@/services/locaService";
+import { useRef } from "react";
+import { cn } from "@/lib/utils";
+
+const LocationSearch = ({ value, onChange }: { value?: string, onChange: (value: string) => void }) => {
+  const [query, setQuery] = useState(value || "");
+  const [suggestions, setSuggestions] = useState<PincodeSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [isReady, setIsReady] = useState(locaService.isReady());
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    locaService.initialize().then(() => setIsReady(true));
+  }, []);
+
+  // Sync state with prop
+  useEffect(() => {
+    if (value !== undefined) {
+      setQuery(value);
+    }
+  }, [value]);
+
+  // Click outside to close
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVal = e.target.value;
+    setQuery(newVal);
+    // Don't trigger onChange here to prevent auto-refreshing properties
+
+    if (newVal.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setLoading(true);
+    // Small delay to allow UI update
+    setTimeout(() => {
+      const results = locaService.searchLocations(newVal);
+      setSuggestions(results);
+      setLoading(false);
+      setShowSuggestions(true);
+    }, 100);
+  };
+
+  const handleSelect = (suggestion: PincodeSuggestion) => {
+    setQuery(suggestion.city);
+    onChange(suggestion.city);
+    setShowSuggestions(false);
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative w-full">
+      <div className="relative">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder={isReady ? "Search Location..." : "Loading..."}
+          value={query}
+          onChange={handleInputChange}
+          className="pl-10"
+          disabled={!isReady}
+          onFocus={() => {
+            if (query.length >= 2) setShowSuggestions(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              onChange(query);
+              setShowSuggestions(false);
+            }
+          }}
+        />
+        {loading && (
+          <div className="absolute right-3 top-3">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        )}
+      </div>
+
+      {showSuggestions && (
+        <div className="absolute z-[100] w-full mt-1 bg-popover border rounded-md shadow-md max-h-[200px] overflow-y-auto bg-white dark:bg-slate-950">
+          {suggestions.length > 0 ? (
+            suggestions.map((suggestion, index) => (
+              <div
+                key={`${suggestion.pincode}-${index}`}
+                className="px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground border-b last:border-0"
+                onClick={() => handleSelect(suggestion)}
+              >
+                <div className="font-medium">{suggestion.city}</div>
+                <div className="text-xs text-muted-foreground">
+                  {suggestion.district}, {suggestion.state}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-sm text-muted-foreground text-center">
+              No locations found
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const PropertySearch = () => {
   const [propertyTypes, setPropertyTypes] = useState<PropertyTypeConfig[]>([]);
@@ -36,6 +150,7 @@ const PropertySearch = () => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
 
   // Filters - using dynamic state for all filter types
   const [listingType, setListingType] = useState<string>("all");
@@ -46,11 +161,11 @@ const PropertySearch = () => {
 
   // Dynamic filter state - will hold all filter values
   const [dynamicFilters, setDynamicFilters] = useState<Record<string, string>>({});
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // Favorites
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
@@ -66,16 +181,46 @@ const PropertySearch = () => {
     return Array.from(new Set(filterConfigurations.map(f => f.filterType)));
   }, [filterConfigurations]);
 
+  const [priceLimits, setPriceLimits] = useState<{ min: number; max: number }>({ min: 0, max: 50000000 }); // Default fallback
+  const [areaLimits, setAreaLimits] = useState<{ min: number; max: number }>({ min: 0, max: 10000 }); // Default fallback
+
+  const [filterDependencies, setFilterDependencies] = useState<import('@/types/configuration').FilterDependency[]>([]);
+
   // Fetch property types and filter configurations on mount
   useEffect(() => {
     const fetchConfigurations = async () => {
       try {
-        const [typesData, filtersData] = await Promise.all([
+        const [typesData, filtersData, dependenciesData] = await Promise.all([
           configurationService.getAllPropertyTypes(false),
-          configurationService.getAllFilterConfigurations(false)
+          configurationService.getAllFilterConfigurations(false),
+          configurationService.getFilterDependencies(),
         ]);
         setPropertyTypes(typesData);
         setFilterConfigurations(filtersData);
+        setFilterDependencies(dependenciesData);
+
+        // Calculate Price Limits from Budget filters
+        const budgetFilters = filtersData.filter(f => f.filterType === 'budget');
+        if (budgetFilters.length > 0) {
+          const min = Math.min(...budgetFilters.map(f => f.minValue || 0));
+          const max = Math.max(...budgetFilters.map(f => f.maxValue || 0));
+          if (max > 0) {
+            setPriceLimits({ min, max });
+            setPriceRange([min, max]);
+          }
+        }
+
+        // Calculate Area Limits from Area filters
+        const areaFilters = filtersData.filter(f => f.filterType === 'area');
+        if (areaFilters.length > 0) {
+          const min = Math.min(...areaFilters.map(f => f.minValue || 0));
+          const max = Math.max(...areaFilters.map(f => f.maxValue || 0));
+          if (max > 0) {
+            setAreaLimits({ min, max });
+            setAreaRange([min, max]);
+          }
+        }
+
       } catch (error) {
         console.error('Error fetching configurations:', error);
       }
@@ -83,6 +228,24 @@ const PropertySearch = () => {
 
     fetchConfigurations();
   }, []);
+
+  // Helper to check if a filter should be shown
+  const shouldShowFilter = (filterType: string) => {
+    const dependency = filterDependencies.find(d => d.targetFilterType === filterType);
+    if (!dependency) return true;
+
+    let sourceValue;
+    if (dependency.sourceFilterType === 'property_type') {
+      sourceValue = propertyType;
+    } else if (dependency.sourceFilterType === 'listing_type') {
+      sourceValue = listingType;
+    } else {
+      sourceValue = dynamicFilters[dependency.sourceFilterType];
+    }
+
+    if (!sourceValue || sourceValue === 'all' || sourceValue === 'any') return false;
+    return dependency.sourceFilterValues.includes(sourceValue);
+  };
 
   // Fetch amenities based on selected property type
   useEffect(() => {
@@ -137,7 +300,7 @@ const PropertySearch = () => {
   // Load properties
   useEffect(() => {
     loadProperties();
-  }, [searchQuery, listingType, propertyType, priceRange, areaRange, selectedAmenities, dynamicFilters, currentPage]);
+  }, [searchQuery, locationQuery, listingType, propertyType, priceRange, areaRange, selectedAmenities, dynamicFilters, currentPage]);
 
   const loadProperties = async () => {
     setLoading(true);
@@ -148,6 +311,7 @@ const PropertySearch = () => {
       };
 
       if (searchQuery.trim()) filters.search = searchQuery;
+      if (locationQuery.trim()) filters.location = locationQuery;
       if (listingType !== "all") filters.listingType = listingType;
       if (propertyType !== "all") filters.propertyType = propertyType;
 
@@ -159,20 +323,20 @@ const PropertySearch = () => {
       });
 
       // Price filters
-      if (priceRange[0] > 0) {
+      if (priceRange[0] > priceLimits.min) {
         filters.minPrice = priceRange[0];
       }
 
-      if (priceRange[1] < 20000000) {
+      if (priceRange[1] < priceLimits.max) {
         filters.maxPrice = priceRange[1];
       }
 
       // Area filters
-      if (areaRange[0] > 0) {
+      if (areaRange[0] > areaLimits.min) {
         filters.minArea = areaRange[0];
       }
 
-      if (areaRange[1] < 10000) {
+      if (areaRange[1] < areaLimits.max) {
         filters.maxArea = areaRange[1];
       }
 
@@ -182,7 +346,7 @@ const PropertySearch = () => {
       }
 
       const response = await propertyService.getProperties(filters);
-      
+
       if (response.success) {
         setProperties(response.data.properties);
         setTotalPages(response.data.pagination.totalPages);
@@ -249,13 +413,19 @@ const PropertySearch = () => {
 
   const resetFilters = () => {
     setSearchQuery("");
+    setLocationQuery("");
     setListingType("all");
     setPropertyType("all");
-    setPriceRange([0, 20000000]);
-    setAreaRange([0, 10000]);
+    setPriceRange([priceLimits.min, priceLimits.max]);
+    setAreaRange([areaLimits.min, areaLimits.max]);
     setSelectedAmenities([]);
     setDynamicFilters({});
     setCurrentPage(1);
+  };
+
+  const getListingTypeLabel = (value: string) => {
+    const config = filterConfigurations.find(c => c.value === value && (c.filterType === 'listing_type' || c.filterType === 'listingType'));
+    return config ? (config.displayLabel || config.name) : value.charAt(0).toUpperCase() + value.slice(1);
   };
 
   const formatPrice = (price: number) => {
@@ -284,14 +454,23 @@ const PropertySearch = () => {
             <Card className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto">
               <CardContent className="p-6">
                 <h2 className="text-lg font-semibold mb-4">Filters</h2>
-                
-                {/* Search Bar */}
+
+                {/* Location Search Bar */}
                 <div className="mb-4">
-                  <label className="text-sm font-medium mb-2 block">Search</label>
+                  <label className="text-sm font-medium mb-2 block">Location</label>
+                  <LocationSearch
+                    value={locationQuery}
+                    onChange={setLocationQuery}
+                  />
+                </div>
+
+                {/* General Search Bar */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium mb-2 block">Keyword Search</label>
                   <div className="relative">
                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Location, property name..."
+                      placeholder="Property name, ID..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10"
@@ -344,18 +523,22 @@ const PropertySearch = () => {
 
                 {/* Dynamic Filters from Admin Configuration */}
                 {filterTypes
-                  .filter(type => type !== 'listing_type') // Exclude listing_type as it's handled separately
+                  .filter(type => !['listing_type', 'budget', 'area', 'property_type'].includes(type)) // Exclude handled types
+                  .filter(type => shouldShowFilter(type)) // Check dependencies
                   .map((filterType) => {
-                    const filtersForType = getFiltersByType(filterType);
-                    if (filtersForType.length === 0) return null;
+                    const options = filterConfigurations
+                      .filter(f => f.filterType === filterType)
+                      .sort((a, b) => a.displayOrder - b.displayOrder);
+
+                    if (options.length === 0) return null;
+
+                    const label = filterType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
                     return (
-                      <div key={filterType} className="mb-4">
-                        <label className="text-sm font-medium mb-2 block capitalize">
-                          {filterType.replace(/_/g, ' ')}
-                        </label>
+                      <div key={filterType} className="space-y-2">
+                        <Label>{label}</Label>
                         <Select
-                          value={dynamicFilters[filterType] || "any"}
+                          value={dynamicFilters[filterType] || 'any'}
                           onValueChange={(value) => {
                             setDynamicFilters(prev => ({
                               ...prev,
@@ -364,13 +547,13 @@ const PropertySearch = () => {
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder={`Select ${filterType.replace(/_/g, ' ')}`} />
+                            <SelectValue placeholder={`Select ${label}`} />
                           </SelectTrigger>
-                          <SelectContent className="max-h-[300px] overflow-y-auto">
-                            <SelectItem value="any">Any</SelectItem>
-                            {filtersForType.map((filter) => (
-                              <SelectItem key={filter._id} value={filter.value}>
-                                {filter.displayLabel?.trim() || filter.name}
+                          <SelectContent>
+                            <SelectItem value="any">Any {label}</SelectItem>
+                            {options.map((option) => (
+                              <SelectItem key={option.id || option._id} value={option.value}>
+                                {option.displayLabel || option.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -380,62 +563,52 @@ const PropertySearch = () => {
                   })}
 
                 {/* Price Range */}
-                <div className="mb-4">
-                  <label className="text-sm font-medium mb-2 block">Price Range</label>
-                  <div className="space-y-4">
-                    <Slider
-                      value={priceRange}
-                      onValueChange={setPriceRange}
-                      min={0}
-                      max={20000000}
-                      step={100000}
-                      className="w-full"
-                    />
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex flex-col">
-                        <span className="text-muted-foreground text-xs">Min Price</span>
-                        <span className="font-semibold text-primary">
+                {priceLimits.max > 0 && (
+                  <div className="mb-4">
+                    <label className="text-sm font-medium mb-2 block">Price Range</label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">Min Price</label>
+                        <Input
+                          type="number"
+                          defaultValue={priceRange[0]}
+                          onBlur={(e) => setPriceRange([Number(e.target.value), priceRange[1]])}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              setPriceRange([Number(e.currentTarget.value), priceRange[1]]);
+                            }
+                          }}
+                          min={priceLimits.min}
+                          max={priceLimits.max}
+                          className="w-full"
+                        />
+                        <div className="text-xs text-muted-foreground">
                           {formatPrice(priceRange[0])}
-                        </span>
+                        </div>
                       </div>
-                      <div className="flex flex-col items-end">
-                        <span className="text-muted-foreground text-xs">Max Price</span>
-                        <span className="font-semibold text-primary">
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">Max Price</label>
+                        <Input
+                          type="number"
+                          defaultValue={priceRange[1]}
+                          onBlur={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              setPriceRange([priceRange[0], Number(e.currentTarget.value)]);
+                            }
+                          }}
+                          min={priceLimits.min}
+                          max={priceLimits.max}
+                          className="w-full"
+                        />
+                        <div className="text-xs text-muted-foreground text-right">
                           {formatPrice(priceRange[1])}
-                        </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
 
-                {/* Area Range */}
-                <div className="mb-4">
-                  <label className="text-sm font-medium mb-2 block">Area (sq ft)</label>
-                  <div className="space-y-4">
-                    <Slider
-                      value={areaRange}
-                      onValueChange={setAreaRange}
-                      min={0}
-                      max={10000}
-                      step={100}
-                      className="w-full"
-                    />
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex flex-col">
-                        <span className="text-muted-foreground text-xs">Min</span>
-                        <span className="font-semibold text-primary">
-                          {areaRange[0]} sqft
-                        </span>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <span className="text-muted-foreground text-xs">Max</span>
-                        <span className="font-semibold text-primary">
-                          {areaRange[1]} sqft
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
                 {/* Amenities - Dynamic from Admin Configuration */}
                 {amenities.length > 0 && (
@@ -511,11 +684,11 @@ const PropertySearch = () => {
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {properties.map((property) => (
-                    <Card 
-                      key={property._id} 
+                    <Card
+                      key={property._id}
                       className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
                     >
-                      <div 
+                      <div
                         className="relative h-48 bg-muted"
                         onClick={() => navigate(`/property/${property._id}`)}
                       >
@@ -534,7 +707,7 @@ const PropertySearch = () => {
                             <Home className="h-12 w-12 text-muted-foreground" />
                           </div>
                         )}
-                        
+
                         {/* Favorite Button */}
                         <Button
                           size="icon"
@@ -546,19 +719,23 @@ const PropertySearch = () => {
                           }}
                         >
                           <Heart
-                            className={`h-4 w-4 ${
-                              favorites.has(property._id) ? "fill-red-500 text-red-500" : ""
-                            }`}
+                            className={`h-4 w-4 ${favorites.has(property._id) ? "fill-red-500 text-red-500" : ""
+                              }`}
                           />
                         </Button>
-
-                        {/* Listing Type Badge */}
-                        <Badge className="absolute top-2 left-2 capitalize">
-                          {property.listingType}
-                        </Badge>
                       </div>
 
                       <CardContent className="p-4" onClick={() => navigate(`/customer/property/${property._id}`)}>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <Badge className="bg-blue-50 text-blue-700 border-blue-100 capitalize">
+                            {getListingTypeLabel(property.listingType).toLowerCase().startsWith('for ')
+                              ? getListingTypeLabel(property.listingType)
+                              : `For ${getListingTypeLabel(property.listingType)}`}
+                          </Badge>
+                          <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">
+                            {property.type}
+                          </Badge>
+                        </div>
                         <div className="mb-2">
                           <h3 className="font-semibold text-lg line-clamp-1">{property.title}</h3>
                           <div className="flex items-center text-sm text-muted-foreground mt-1">

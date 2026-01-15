@@ -9,9 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  ArrowLeft, 
-  Save, 
+import {
+  ArrowLeft,
+  Save,
   Loader2,
   Upload,
   X,
@@ -20,6 +20,8 @@ import {
   Camera
 } from "lucide-react";
 import { propertyService, type Property } from "@/services/propertyService";
+import { configurationService } from "@/services/configurationService";
+import type { Amenity } from "@/types/configuration";
 
 // Upload function using server-side endpoint
 const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
@@ -28,7 +30,7 @@ const uploadToCloudinary = async (file: File, folder: string): Promise<string> =
   formData.append('folder', folder);
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/upload/single`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api'}/upload/single`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -44,7 +46,7 @@ const uploadToCloudinary = async (file: File, folder: string): Promise<string> =
     if (!data.success) {
       throw new Error(data.message || 'Upload failed');
     }
-    
+
     return data.data.url;
   } catch (error) {
     console.error('File upload error:', error);
@@ -56,10 +58,12 @@ const EditProperty = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [propertyTypes, setPropertyTypes] = useState<Array<{ value: string; label: string }>>([]);
+  const [isLoadingPropertyTypes, setIsLoadingPropertyTypes] = useState(true);
   const [uploadedImages, setUploadedImages] = useState<Array<{
     id: string | number;
     name: string;
@@ -94,24 +98,86 @@ const EditProperty = () => {
     virtualTour: ""
   });
 
-  const propertyTypes = [
-    { value: "apartment", label: "Apartment" },
-    { value: "villa", label: "Villa" },
-    { value: "house", label: "House" },
-    { value: "commercial", label: "Commercial" },
-    { value: "plot", label: "Plot" },
-    { value: "land", label: "Land" },
-    { value: "office", label: "Office Space" },
-    { value: "pg", label: "PG (Paying Guest)" }
-  ];
+  // Dynamic amenities from admin configuration
+  const [amenitiesList, setAmenitiesList] = useState<string[]>([]);
+  const [isLoadingAmenities, setIsLoadingAmenities] = useState(true);
 
-  const amenitiesList = [
-    "Swimming Pool", "Gym/Fitness Center", "Parking", "Security",
-    "Garden/Park", "Playground", "Clubhouse", "Power Backup",
-    "Elevator", "WiFi", "CCTV Surveillance", "Intercom",
-    "Water Supply", "Waste Management", "Fire Safety", "Visitor Parking",
-    "Shopping Complex", "Restaurant", "Spa", "Jogging Track"
-  ];
+  // Fetch property types from configuration
+  useEffect(() => {
+    const fetchPropertyTypes = async () => {
+      try {
+        setIsLoadingPropertyTypes(true);
+        const propertyTypesData = await configurationService.getAllPropertyTypes(false);
+
+        // Map property types to the format expected by the form
+        const mappedPropertyTypes = propertyTypesData
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map(type => ({
+            value: type.value,
+            label: type.name
+          }));
+
+        setPropertyTypes(mappedPropertyTypes);
+      } catch (error) {
+        console.error('Error fetching property types:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load property types. Using default types.",
+          variant: "destructive",
+        });
+        // Fallback to hardcoded types
+        setPropertyTypes([
+          { value: "apartment", label: "Apartment" },
+          { value: "villa", label: "Villa" },
+          { value: "house", label: "House" },
+          { value: "commercial", label: "Commercial" },
+          { value: "plot", label: "Plot" },
+          { value: "land", label: "Land" },
+          { value: "office", label: "Office Space" },
+          { value: "pg", label: "PG (Paying Guest)" }
+        ]);
+      } finally {
+        setIsLoadingPropertyTypes(false);
+      }
+    };
+
+    fetchPropertyTypes();
+  }, []);
+
+  // Fetch amenities from admin configuration
+  useEffect(() => {
+    const fetchAmenities = async () => {
+      try {
+        setIsLoadingAmenities(true);
+        const amenitiesData = await configurationService.getAllAmenities(false);
+
+        // Sort by displayOrder and map to just the names
+        const sortedAmenities = amenitiesData
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map(amenity => amenity.name);
+
+        setAmenitiesList(sortedAmenities);
+      } catch (error) {
+        console.error('Error fetching amenities:', error);
+        toast({
+          title: "Warning",
+          description: "Failed to load amenities. Using default list.",
+          variant: "destructive",
+        });
+        // Fallback to default amenities if API fails
+        setAmenitiesList([
+          "Swimming Pool", "Gym/Fitness Center", "Parking", "Security",
+          "Garden/Park", "Playground", "Clubhouse", "Power Backup",
+          "Elevator", "WiFi", "CCTV Surveillance", "Intercom",
+          "Water Supply", "Waste Management", "Fire Safety", "Visitor Parking"
+        ]);
+      } finally {
+        setIsLoadingAmenities(false);
+      }
+    };
+
+    fetchAmenities();
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -124,9 +190,9 @@ const EditProperty = () => {
       setLoading(true);
       const response = await propertyService.getProperty(propertyId);
       const propertyData = response.data.property;
-      
+
       setProperty(propertyData);
-      
+
       // Populate form data
       setFormData({
         title: propertyData.title,
@@ -356,7 +422,7 @@ const EditProperty = () => {
 
       // Update property
       await propertyService.updateProperty(property._id, propertyData);
-      
+
       toast({
         title: "Success!",
         description: "Property updated successfully.",
@@ -365,12 +431,12 @@ const EditProperty = () => {
       navigate(`/vendor/properties/details/${property._id}`);
     } catch (error) {
       console.error("Error updating property:", error);
-      
+
       let errorMessage = "Failed to update property. Please try again.";
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
+
       toast({
         title: "Error",
         description: errorMessage,
@@ -439,19 +505,36 @@ const EditProperty = () => {
                     required
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="type">Property Type *</Label>
-                  <Select value={formData.type} onValueChange={(value) => handleInputChange('type', value)}>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value) => handleInputChange('type', value)}
+                    disabled={isLoadingPropertyTypes}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select property type" />
+                      <SelectValue placeholder={isLoadingPropertyTypes ? "Loading property types..." : "Select property type"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {propertyTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
+                      {isLoadingPropertyTypes ? (
+                        <SelectItem value="loading" disabled>
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Loading...
+                          </div>
                         </SelectItem>
-                      ))}
+                      ) : propertyTypes.length === 0 ? (
+                        <SelectItem value="no-types" disabled>
+                          No property types available
+                        </SelectItem>
+                      ) : (
+                        propertyTypes.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -459,8 +542,8 @@ const EditProperty = () => {
 
               <div className="space-y-2">
                 <Label>Listing Type *</Label>
-                <RadioGroup 
-                  value={formData.listingType} 
+                <RadioGroup
+                  value={formData.listingType}
                   onValueChange={(value) => handleInputChange('listingType', value)}
                   className="flex flex-row space-x-6"
                 >
@@ -526,7 +609,7 @@ const EditProperty = () => {
                         min="0"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="bathrooms">{formData.type === 'pg' ? 'Bathroom Type' : 'Bathrooms'}</Label>
                       <Input
@@ -563,7 +646,7 @@ const EditProperty = () => {
                           placeholder="Carpet area"
                         />
                       </div>
-                      
+
                       <div className="space-y-2">
                         <Label htmlFor="plotArea">Plot Area (sq ft)</Label>
                         <Input
@@ -593,7 +676,7 @@ const EditProperty = () => {
                         placeholder="Total built-up area"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="carpetArea">Carpet Area (sq ft)</Label>
                       <Input
@@ -634,7 +717,7 @@ const EditProperty = () => {
                         placeholder="Total plot area"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="builtUpArea">Total Area (sq ft) *</Label>
                       <Input
@@ -667,7 +750,7 @@ const EditProperty = () => {
                     placeholder="Street address"
                   />
                 </div>
-                
+
 
               </div>
 
@@ -682,7 +765,7 @@ const EditProperty = () => {
                     required
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="state">State *</Label>
                   <Input
@@ -693,7 +776,7 @@ const EditProperty = () => {
                     required
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="pincode">PIN Code *</Label>
                   <Input
@@ -717,18 +800,29 @@ const EditProperty = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {amenitiesList.map((amenity) => (
-                  <div key={amenity} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={amenity}
-                      checked={formData.amenities.includes(amenity)}
-                      onCheckedChange={() => handleAmenityToggle(amenity)}
-                    />
-                    <Label htmlFor={amenity} className="text-sm">
-                      {amenity}
-                    </Label>
+                {isLoadingAmenities ? (
+                  <div className="col-span-full flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    <span className="text-sm text-muted-foreground">Loading amenities...</span>
                   </div>
-                ))}
+                ) : amenitiesList.length === 0 ? (
+                  <div className="col-span-full text-center py-4 text-muted-foreground">
+                    No amenities configured. Please contact admin.
+                  </div>
+                ) : (
+                  amenitiesList.map((amenity) => (
+                    <div key={amenity} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={amenity}
+                        checked={formData.amenities.includes(amenity)}
+                        onCheckedChange={() => handleAmenityToggle(amenity)}
+                      />
+                      <Label htmlFor={amenity} className="text-sm">
+                        {amenity}
+                      </Label>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -881,9 +975,9 @@ const EditProperty = () => {
 
           {/* Submit Button */}
           <div className="flex justify-end gap-4">
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => navigate('/vendor/properties')}
             >
               Cancel

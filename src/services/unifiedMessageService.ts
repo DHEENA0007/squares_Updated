@@ -270,12 +270,16 @@ class UnifiedMessageService {
 
   private canDeleteMessages(): boolean {
     if (!this.config) return false;
-    return ['admin', 'subadmin'].includes(this.config.role);
+    // Admins and subadmins can delete any message
+    // Customers and vendors can delete their own messages
+    return ['admin', 'subadmin', 'customer', 'vendor'].includes(this.config.role);
   }
 
   private canDeleteConversations(): boolean {
     if (!this.config) return false;
-    return ['admin', 'subadmin'].includes(this.config.role);
+    // Admins and subadmins can delete any conversation
+    // Customers and vendors can delete their own conversations
+    return ['admin', 'subadmin', 'customer', 'vendor'].includes(this.config.role);
   }
 
   private canAccessAdminFeatures(): boolean {

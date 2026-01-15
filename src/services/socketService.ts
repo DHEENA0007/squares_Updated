@@ -3,7 +3,7 @@ import { authService } from './authService';
 
 // Properly construct Socket.IO URL from API URL
 const getSocketUrl = () => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  const apiUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
   
   // Remove /api suffix if present
   let baseUrl = apiUrl.replace(/\/api\/?$/, '');
@@ -139,6 +139,12 @@ class SocketService {
       this.emit('message_notification', data);
     });
 
+    // General notification (Push)
+    this.socket.on('notification', (data: any) => {
+      console.log(' Notification received:', data);
+      this.emit('notification', data);
+    });
+
     // Typing indicator
     this.socket.on('user_typing', (data: TypingIndicator) => {
       console.log(' User typing:', data);
@@ -191,6 +197,32 @@ class SocketService {
     this.socket.on('online_users_status', (data: Record<string, boolean>) => {
       console.log(' Online users status:', data);
       this.emit('online_users_status', data);
+    });
+
+    // Vendor-specific events
+    this.socket.on('vendor:activities_updated', (data: any) => {
+      console.log(' Vendor activities updated:', data);
+      this.emit('vendor:activities_updated', data);
+    });
+
+    this.socket.on('vendor:leads_updated', (data: any) => {
+      console.log(' Vendor leads updated:', data);
+      this.emit('vendor:leads_updated', data);
+    });
+
+    this.socket.on('vendor:new_inquiry', (data: any) => {
+      console.log(' Vendor new inquiry:', data);
+      this.emit('vendor:new_inquiry', data);
+    });
+
+    this.socket.on('vendor:property_viewed', (data: any) => {
+      console.log(' Vendor property viewed:', data);
+      this.emit('vendor:property_viewed', data);
+    });
+
+    this.socket.on('vendor:property_updated', (data: any) => {
+      console.log(' Vendor property updated:', data);
+      this.emit('vendor:property_updated', data);
     });
 
     // Error
@@ -270,6 +302,22 @@ class SocketService {
     if (!this.socket?.connected) return;
 
     this.socket.emit('conversation_read', { conversationId });
+  }
+
+  // Mark notification as read/opened
+  markNotificationAsRead(data: {
+    notificationTimestamp: string;
+    notificationTitle: string;
+    notificationType: string;
+    userId?: string;
+  }) {
+    if (!this.socket?.connected) {
+      console.warn('⚠️ Socket not connected, cannot mark notification as read');
+      return;
+    }
+
+    console.log('✓ Marking notification as read:', data);
+    this.socket.emit('notification_read', data);
   }
 
   // Update online status

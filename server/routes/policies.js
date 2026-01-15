@@ -3,6 +3,8 @@ const router = express.Router();
 const Policy = require('../models/Policy');
 const User = require('../models/User');
 const authMiddleware = require('../middleware/authMiddleware');
+const { hasPermission } = require('../middleware/roleMiddleware');
+const { PERMISSIONS } = require('../utils/permissions');
 const { sendEmail } = require('../utils/emailService');
 
 const { authenticateToken, requireAdmin, requireSubAdmin } = authMiddleware;
@@ -224,8 +226,8 @@ router.put('/admin/:type', authenticateToken, requireAdmin, async (req, res) => 
   }
 });
 
-// SubAdmin: Get policy
-router.get('/subadmin/:type', authenticateToken, requireSubAdmin, async (req, res) => {
+// SubAdmin: Get policy (with permission check)
+router.get('/subadmin/:type', authenticateToken, requireSubAdmin, hasPermission(PERMISSIONS.POLICIES_READ), async (req, res) => {
   try {
     const { type } = req.params;
     
@@ -264,7 +266,7 @@ router.get('/subadmin/:type', authenticateToken, requireSubAdmin, async (req, re
   }
 });
 
-// SubAdmin: Update policy
+// SubAdmin: Update policy (with permission check based on type)
 router.put('/subadmin/:type', authenticateToken, requireSubAdmin, async (req, res) => {
   try {
     const { type } = req.params;
@@ -274,6 +276,22 @@ router.put('/subadmin/:type', authenticateToken, requireSubAdmin, async (req, re
       return res.status(400).json({
         success: false,
         message: 'Invalid policy type'
+      });
+    }
+
+    // Check specific permission based on policy type
+    const requiredPermission = type === 'privacy-policy' 
+      ? PERMISSIONS.POLICIES_EDIT_PRIVACY 
+      : PERMISSIONS.POLICIES_EDIT_REFUND;
+    
+    // Check if user has admin role or specific permission
+    const hasAdminRole = req.user.role === 'admin' || req.user.role === 'superadmin' || req.user.role === 'subadmin';
+    const hasRequiredPermission = req.user.rolePermissions && req.user.rolePermissions.includes(requiredPermission);
+    
+    if (!hasAdminRole && !hasRequiredPermission) {
+      return res.status(403).json({
+        success: false,
+        message: `You don't have permission to edit the ${type === 'privacy-policy' ? 'Privacy Policy' : 'Refund Policy'}`
       });
     }
 

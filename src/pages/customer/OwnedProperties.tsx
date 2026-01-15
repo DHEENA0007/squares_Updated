@@ -1,893 +1,692 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { 
-  Home, 
-  Search, 
-  Star,
-  Calendar,
-  MapPin,
-  Eye,
-  MessageSquare,
-  Camera,
-  CheckCircle,
-  AlertCircle,
-  RefreshCw,
-  Edit3,
-  StarOff,
-  TrendingUp,
-  Phone,
-  Mail
-} from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger, 
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
   DialogFooter,
-  DialogDescription
-} from "@/components/ui/dialog";
-import { toast } from "@/hooks/use-toast";
-import { useRealtime } from "@/contexts/RealtimeContext";
-import { authService } from "@/services/authService";
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  Home,
+  Search,
+  MapPin,
+  Calendar,
+  DollarSign,
+  Star,
+  MessageSquare,
+  Eye,
+  Edit3,
+  RefreshCw,
+  CheckCircle,
+  TrendingUp,
+  Camera,
+  Phone,
+  Mail,
+  AlertCircle
+} from 'lucide-react';
+import { propertyService, type Property } from '@/services/propertyService';
+import { customerReviewsService } from '@/services/customerReviewsService';
+import { configurationService } from '@/services/configurationService';
+import type { FilterConfiguration } from '@/types/configuration';
+import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface OwnedProperty {
-  _id: string;
-  title: string;
-  description: string;
-  type: string;
-  status: 'sold' | 'rented';
-  listingType: 'sale' | 'rent' | 'lease';
-  price: number;
-  area: {
-    builtUp?: number;
-    carpet?: number;
-    plot?: number;
-    unit: 'sqft' | 'sqm' | 'acre';
-  };
-  bedrooms: number;
-  bathrooms: number;
-  address: {
-    street: string;
-    locality?: string;
-    city: string;
-    district?: string;
-    state: string;
-    pincode: string;
-    coordinates?: {
-      latitude: number;
-      longitude: number;
-    };
-  };
-  images: Array<{
-    url: string;
-    caption?: string;
-    isPrimary: boolean;
-  }>;
-  assignedAt: string;
-  assignedBy?: {
-    _id: string;
-    name: string;
-    email: string;
-  };
-  owner?: {
-    _id: string;
-    name: string;
-    email: string;
-    phone?: string;
-  };
-  hasReviewed?: boolean;
-  reviewId?: string;
-  review?: {
-    _id: string;
-    rating: number;
-    title: string;
-    comment: string;
-    createdAt: string;
-  };
-}
-
-interface ReviewFormData {
-  propertyId: string;
-  vendorId: string;
-  rating: number;
-  title: string;
-  comment: string;
-  tags: string[];
-  isPublic: boolean;
-}
-
-const OwnedProperties = () => {
-  const { isConnected } = useRealtime();
+const OwnedProperties: React.FC = () => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const { user } = useAuth();
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [properties, setProperties] = useState<OwnedProperty[]>([]);
-  const [selectedProperty, setSelectedProperty] = useState<OwnedProperty | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [filterConfigs, setFilterConfigs] = useState<FilterConfiguration[]>([]);
+
+  // Review Dialog State
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewTitle, setReviewTitle] = useState('');
+  const [reviewComment, setReviewComment] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [isEditingReview, setIsEditingReview] = useState(false);
-  const [submittingReview, setSubmittingReview] = useState(false);
+
+  // Contact Dialog State
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
 
-  const [reviewForm, setReviewForm] = useState<ReviewFormData>({
-    propertyId: '',
-    vendorId: '',
-    rating: 0,
-    title: '',
-    comment: '',
-    tags: [],
-    isPublic: true,
-  });
-
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
-  // Fetch owned properties
-  const loadOwnedProperties = useCallback(async () => {
+  const fetchProperties = useCallback(async () => {
     try {
-      setLoading(true);
-      const token = authService.getToken();
-      
-      const response = await fetch(`${baseUrl}/customer/owned-properties`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setProperties(data.data.properties || []);
-      } else {
-        toast({
-          title: "Error",
-          description: data.message || "Failed to load owned properties",
-          variant: "destructive",
-        });
-      }
+      const response = await propertyService.getOwnedProperties();
+      setProperties(response.data.properties);
     } catch (error) {
-      console.error('Failed to load owned properties:', error);
+      console.error('Error fetching owned properties:', error);
       toast({
         title: "Error",
-        description: "Failed to load owned properties. Please try again.",
-        variant: "destructive",
+        description: "Failed to load your properties",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [baseUrl]);
+  }, []);
 
-  // Refresh properties
-  const refreshProperties = useCallback(async () => {
-    setRefreshing(true);
-    await loadOwnedProperties();
-    setRefreshing(false);
-  }, [loadOwnedProperties]);
-
-  // Load properties on mount
-  useEffect(() => {
-    loadOwnedProperties();
-  }, [loadOwnedProperties]);
-
-  // Filter properties
-  const filteredProperties = properties.filter(property => {
-    const matchesSearch = property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         `${property.address.city}, ${property.address.district || ''}, ${property.address.state}`.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || property.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  // Handle review submission
-  const handleSubmitReview = async () => {
-    if (!selectedProperty) return;
-
-    if (reviewForm.rating === 0) {
-      toast({
-        title: "Rating Required",
-        description: "Please select a rating for the property",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!reviewForm.title.trim() || !reviewForm.comment.trim()) {
-      toast({
-        title: "Missing Information",
-        description: "Please provide both a title and comment for your review",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const fetchFilterConfigs = useCallback(async () => {
     try {
-      setSubmittingReview(true);
-      const token = authService.getToken();
-
-      const endpoint = isEditingReview && selectedProperty.reviewId
-        ? `${baseUrl}/customer/reviews/${selectedProperty.reviewId}`
-        : `${baseUrl}/customer/reviews`;
-
-      const method = isEditingReview ? 'PUT' : 'POST';
-
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          propertyId: selectedProperty._id,
-          vendorId: selectedProperty.owner?._id || selectedProperty.assignedBy?._id,
-          rating: reviewForm.rating,
-          title: reviewForm.title,
-          comment: reviewForm.comment,
-          reviewType: 'property',
-          tags: reviewForm.tags,
-          isPublic: reviewForm.isPublic,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: isEditingReview ? "Review updated successfully" : "Review submitted successfully",
-        });
-        
-        // Reset form and close dialog first
-        setIsReviewDialogOpen(false);
-        setSelectedProperty(null);
-        setReviewForm({
-          propertyId: '',
-          vendorId: '',
-          rating: 0,
-          title: '',
-          comment: '',
-          tags: [],
-          isPublic: true,
-        });
-        setIsEditingReview(false);
-        
-        // Reload properties from server to get the updated data
-        await loadOwnedProperties();
-      } else {
-        toast({
-          title: "Error",
-          description: data.message || "Failed to submit review",
-          variant: "destructive",
-        });
-      }
+      const configs = await configurationService.getAllFilterConfigurations();
+      setFilterConfigs(configs);
     } catch (error) {
-      console.error('Failed to submit review:', error);
-      toast({
-        title: "Error",
-        description: "Failed to submit review. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setSubmittingReview(false);
+      console.error('Error fetching filter configurations:', error);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchProperties();
+    fetchFilterConfigs();
+  }, [fetchProperties, fetchFilterConfigs]);
+
+  const refreshProperties = () => {
+    setRefreshing(true);
+    fetchProperties();
   };
 
-  // Open review dialog
-  const handleOpenReviewDialog = (property: OwnedProperty, isEdit: boolean = false) => {
+  const getListingTypeLabel = (value: string) => {
+    const config = filterConfigs.find(c => c.value === value);
+    return config ? (config.displayLabel || config.name) : value.charAt(0).toUpperCase() + value.slice(1);
+  };
+
+  const handleOpenReviewDialog = (property: Property, isEdit: boolean) => {
     setSelectedProperty(property);
     setIsEditingReview(isEdit);
-    
+
     if (isEdit && property.review) {
-      setReviewForm({
-        propertyId: property._id,
-        vendorId: property.owner?._id || property.assignedBy?._id || '',
-        rating: property.review.rating,
-        title: property.review.title,
-        comment: property.review.comment,
-        tags: [],
-        isPublic: true,
-      });
+      setReviewRating(property.review.rating);
+      setReviewTitle(property.review.title);
+      setReviewComment(property.review.comment);
     } else {
-      setReviewForm({
-        propertyId: property._id,
-        vendorId: property.owner?._id || property.assignedBy?._id || '',
-        rating: 0,
-        title: '',
-        comment: '',
-        tags: [],
-        isPublic: true,
-      });
+      setReviewRating(0);
+      setReviewTitle('');
+      setReviewComment('');
     }
-    
+
     setIsReviewDialogOpen(true);
   };
 
-  // Format price
-  const formatPrice = (price: number, listingType: 'sale' | 'rent' | 'lease'): string => {
-    if (listingType === 'rent') {
-      return `₹${price.toLocaleString('en-IN')}/month`;
-    } else if (listingType === 'lease') {
-      return `₹${price.toLocaleString('en-IN')}/year`;
-    } else {
-      if (price >= 10000000) {
-        return `₹${(price / 10000000).toFixed(1)} Cr`;
-      } else if (price >= 100000) {
-        return `₹${(price / 100000).toFixed(1)} Lac`;
+  const handleSubmitReview = async () => {
+    if (!selectedProperty) return;
+
+    if (reviewRating === 0) {
+      toast({
+        title: "Rating Required",
+        description: "Please select a star rating",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!reviewTitle.trim() || !reviewComment.trim()) {
+      toast({
+        title: "Fields Required",
+        description: "Please fill in both title and comment",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmittingReview(true);
+
+    try {
+      const reviewData = {
+        propertyId: selectedProperty._id,
+        rating: reviewRating,
+        title: reviewTitle,
+        comment: reviewComment,
+        reviewType: 'property' as const
+      };
+
+      if (isEditingReview && selectedProperty.review) {
+        await customerReviewsService.updateReview(selectedProperty.review._id, reviewData);
+        toast({
+          title: "Success",
+          description: "Review updated successfully",
+        });
       } else {
-        return `₹${price.toLocaleString('en-IN')}`;
+        await customerReviewsService.createReview(reviewData);
+        toast({
+          title: "Success",
+          description: "Review submitted successfully",
+        });
       }
+
+      setIsReviewDialogOpen(false);
+      fetchProperties(); // Refresh to show new review
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit review",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmittingReview(false);
     }
   };
 
-  // Format area
-  const formatArea = (area: OwnedProperty['area']): string => {
-    if (area.builtUp) {
-      return `${area.builtUp} ${area.unit}`;
-    } else if (area.plot) {
-      return `${area.plot} ${area.unit}`;
-    } else if (area.carpet) {
-      return `${area.carpet} ${area.unit}`;
+  const listingTypeConfigs = filterConfigs
+    .filter(c => c.filterType === 'listing_type' || c.filterType === 'listingType')
+    .sort((a, b) => a.displayOrder - b.displayOrder);
+
+  const filteredProperties = properties.filter(property => {
+    const matchesSearch =
+      property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      property.address.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (property.address.district && property.address.district.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesStatus = statusFilter === 'all' ||
+      property.status === statusFilter ||
+      property.listingType === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const handleDeleteReview = async () => {
+    if (!selectedProperty?.review) return;
+
+    if (!confirm("Are you sure you want to delete this review?")) return;
+
+    try {
+      await customerReviewsService.deleteReview(selectedProperty.review._id);
+      toast({
+        title: "Success",
+        description: "Review deleted successfully",
+      });
+      setIsReviewDialogOpen(false);
+      fetchProperties();
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete review",
+        variant: "destructive"
+      });
     }
-    return 'Area not specified';
   };
 
-  // Format date
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-IN', {
+  const getPrimaryImage = (property: Property) => {
+    if (property.images && property.images.length > 0) {
+      const primary = property.images.find(img => img.isPrimary);
+      return primary ? primary.url : property.images[0].url;
+    }
+    return '/placeholder-image.jpg';
+  };
+
+  const formatPrice = (price: number, type: string) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(price) + (type === 'rent' || type === 'lease' ? '' : '');
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-IN', {
       year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+      month: 'short',
+      day: 'numeric'
     });
   };
 
-  // Get primary image
-  const getPrimaryImage = (property: OwnedProperty): string => {
-    const primaryImage = property.images.find(img => img.isPrimary);
-    return primaryImage?.url || property.images[0]?.url || '/placeholder-property.jpg';
+  const formatArea = (area: any) => {
+    if (!area) return 'N/A';
+    if (typeof area === 'object') {
+      const value = area.builtUp || area.plot || area.carpet;
+      const unit = area.unit || 'sqft';
+      return value ? `${value} ${unit}` : 'N/A';
+    }
+    return area;
   };
 
   return (
-    <div className="space-y-6 pt-16">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Home className="w-8 h-8 text-primary" />
-            Owned Properties
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Properties you have purchased or rented
-          </p>
-        </div>
-        
-        <Button 
-          variant="outline" 
-          onClick={refreshProperties}
-          disabled={refreshing}
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Refreshing...' : 'Refresh'}
-        </Button>
-      </div>
-
-      {/* Stats Cards */}
-      {!loading && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-primary">{properties.length}</p>
-                <p className="text-sm text-muted-foreground">Total Owned</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">
-                  {properties.filter(p => p.status === 'sold').length}
-                </p>
-                <p className="text-sm text-muted-foreground">Purchased</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-blue-600">
-                  {properties.filter(p => p.status === 'rented').length}
-                </p>
-                <p className="text-sm text-muted-foreground">Rented</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search properties..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="sold">Purchased</SelectItem>
-                <SelectItem value="rented">Rented</SelectItem>
-              </SelectContent>
-            </Select>
+    <div className="min-h-screen bg-background pb-12 pt-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Owned Properties</h1>
+            <p className="text-muted-foreground mt-1">
+              Manage your purchased and rented properties
+            </p>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Properties List */}
-      {!loading && (
-        <div className="space-y-4">
-          {filteredProperties.map((property) => (
-            <Card key={property._id} className="overflow-hidden">
-              <CardContent className="p-0">
-                <div className="flex flex-col lg:flex-row">
-                  {/* Property Image */}
-                  <div className="lg:w-64 h-48 lg:h-auto bg-muted relative">
-                    {property.images.length > 0 ? (
-                      <img 
-                        src={getPrimaryImage(property)}
-                        alt={property.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Camera className="w-12 h-12 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="absolute top-3 left-3 flex gap-2">
-                      <Badge className={property.status === 'sold' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'}>
-                        {property.status === 'sold' ? 'Purchased' : 'Rented'}
+          <Button
+            variant="outline"
+            onClick={refreshProperties}
+            disabled={refreshing}
+            className="w-full md:w-auto"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        </div>
+
+        {/* Stats Cards */}
+        {!loading && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="border-none shadow-sm bg-card">
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="p-3 bg-primary/10 rounded-full">
+                  <Home className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground font-medium">Total Owned</p>
+                  <p className="text-2xl font-bold text-foreground">{properties.length}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm bg-card">
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-full">
+                  <CheckCircle className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground font-medium">Purchased</p>
+                  <p className="text-2xl font-bold text-foreground">
+                    {properties.filter(p => p.status === 'sold').length}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm bg-card">
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-full">
+                  <TrendingUp className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground font-medium">Rented</p>
+                  <p className="text-2xl font-bold text-foreground">
+                    {properties.filter(p => p.status === 'rented').length}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Search & Filter Bar */}
+        <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by location, title..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 border-input bg-background"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full md:w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              {listingTypeConfigs.length > 0 ? (
+                listingTypeConfigs.map(config => (
+                  <SelectItem key={config.value} value={config.value}>
+                    {config.displayLabel || config.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <>
+                  <SelectItem value="sold">Purchased</SelectItem>
+                  <SelectItem value="rented">Rented</SelectItem>
+                </>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Properties Grid */}
+        {!loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProperties.map((property) => (
+              <Card key={property._id} className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 bg-card">
+                {/* Image Section */}
+                <div className="relative aspect-[4/3] bg-muted overflow-hidden">
+                  {property.images.length > 0 ? (
+                    <img
+                      src={getPrimaryImage(property)}
+                      alt={property.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                      <Camera className="w-12 h-12 opacity-20" />
+                    </div>
+                  )}
+
+                  {/* Overlay Gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
+
+                  {/* Price Tag */}
+                  <div className="absolute bottom-3 left-3 text-white">
+                    <p className="text-xl font-bold">
+                      {formatPrice(property.price, property.listingType)}
+                    </p>
+                    <p className="text-xs text-white/80">
+                      {property.status === 'sold' ? 'Purchase Price' : 'Rent Amount'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Content Section */}
+                <CardContent className="p-4 space-y-4">
+                  <div>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      <Badge className={`${property.status === 'sold' ? 'bg-purple-600 dark:bg-purple-900/50' : 'bg-blue-600 dark:bg-blue-900/50'} border-0`}>
+                        {property.status === 'sold' ? 'Purchased' : getListingTypeLabel(property.listingType)}
+                      </Badge>
+                      <Badge variant="outline" className="border-border text-muted-foreground capitalize">
+                        {property.type}
                       </Badge>
                       {property.hasReviewed && (
-                        <Badge className="bg-green-600 text-white">
+                        <Badge className="bg-green-600 dark:bg-green-900/50 border-0">
                           <Star className="w-3 h-3 mr-1 fill-white" />
                           Reviewed
                         </Badge>
                       )}
                     </div>
-                  </div>
-
-                  {/* Property Details */}
-                  <div className="flex-1 p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-semibold mb-1">{property.title}</h3>
-                        <div className="flex items-center gap-4 text-muted-foreground text-sm mb-2">
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
-                            {property.address.district ? `${property.address.city}, ${property.address.district}, ${property.address.state}` : `${property.address.city}, ${property.address.state}`}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            {property.status === 'sold' ? 'Purchased' : 'Rented'} on {formatDate(property.assignedAt)}
-                          </span>
-                        </div>
-                        <p className="text-muted-foreground text-sm line-clamp-2 mb-3">
-                          {property.description}
-                        </p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                          <span>{formatArea(property.area)}</span>
-                          <span>{property.bedrooms} BHK</span>
-                          <span className="capitalize">{property.listingType}</span>
-                        </div>
-                        <p className="text-2xl font-bold text-primary">
-                          {formatPrice(property.price, property.listingType)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Owner/Seller Information */}
-                    {property.owner && (
-                      <div className="p-4 bg-muted/50 rounded-lg mb-4">
-                        <h4 className="font-semibold mb-2 text-sm">Seller Information</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Name: </span>
-                            <span className="font-medium">{property.owner.name}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Email: </span>
-                            <span className="font-medium">{property.owner.email}</span>
-                          </div>
-                          {property.owner.phone && (
-                            <div>
-                              <span className="text-muted-foreground">Phone: </span>
-                              <span className="font-medium">{property.owner.phone}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Review Section */}
-                    {property.hasReviewed && property.review ? (
-                      <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-semibold text-green-800 dark:text-green-200">Your Review</h4>
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            onClick={() => handleOpenReviewDialog(property, true)}
-                          >
-                            <Edit3 className="w-4 h-4 mr-2" />
-                            Edit Review
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="flex">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star
-                                key={star}
-                                className={`w-4 h-4 ${
-                                  star <= property.review!.rating
-                                    ? 'fill-yellow-400 text-yellow-400'
-                                    : 'text-gray-300'
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          <span className="text-sm text-muted-foreground">
-                            {formatDate(property.review.createdAt)}
-                          </span>
-                        </div>
-                        <h5 className="font-medium mb-1">{property.review.title}</h5>
-                        <p className="text-sm text-muted-foreground">{property.review.comment}</p>
-                      </div>
-                    ) : (
-                      <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg mb-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">
-                              Share Your Experience
-                            </h4>
-                            <p className="text-sm text-muted-foreground">
-                              Help others by reviewing this property
-                            </p>
-                          </div>
-                          <Button 
-                            size="sm"
-                            onClick={() => handleOpenReviewDialog(property, false)}
-                          >
-                            <Star className="w-4 h-4 mr-2" />
-                            Write Review
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => navigate(`/property/${property._id}`)}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Details
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedProperty(property);
-                          setContactDialogOpen(true);
-                        }}
-                      >
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        Contact Seller
-                      </Button>
+                    <h3 className="font-semibold text-lg text-foreground line-clamp-1 mb-1">
+                      {property.title}
+                    </h3>
+                    <div className="flex items-center text-muted-foreground text-sm">
+                      <MapPin className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
+                      <span className="line-clamp-1">
+                        {property.address.district ? `${property.address.city}, ${property.address.district}` : property.address.city}
+                      </span>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
 
-      {/* Loading State */}
-      {loading && (
-        <Card>
-          <CardContent className="flex items-center justify-center h-32">
-            <div className="flex items-center gap-2">
-              <RefreshCw className="w-5 h-5 animate-spin" />
-              <span>Loading your properties...</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  {/* Key Specs */}
+                  <div className="flex items-center justify-between py-3 border-t border-b border-border">
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Bed</p>
+                      <p className="font-semibold text-foreground">{property.bedrooms || '-'}</p>
+                    </div>
+                    <div className="w-px h-8 bg-border" />
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Bath</p>
+                      <p className="font-semibold text-foreground">{property.bathrooms || '-'}</p>
+                    </div>
+                    <div className="w-px h-8 bg-border" />
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Area</p>
+                      <p className="font-semibold text-foreground">
+                        {property.area && typeof property.area === 'object'
+                          ? ((property.area as any).builtUp || (property.area as any).plot || '-')
+                          : '-'}
+                      </p>
+                    </div>
+                  </div>
 
-      {/* Empty State */}
-      {!loading && filteredProperties.length === 0 && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Home className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">
-              {properties.length === 0 ? 'No owned properties found' : 'No properties match your filters'}
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              {properties.length === 0 
-                ? 'You haven\'t purchased or rented any properties yet.'
-                : 'Try adjusting your search criteria or clear some filters.'
-              }
-            </p>
-            {properties.length > 0 && (
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setSearchQuery("");
-                  setStatusFilter("all");
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                  {/* Review Section */}
+                  {property.hasReviewed && property.review ? (
+                    <div className="bg-green-50 dark:bg-green-900/10 rounded-lg p-3 border border-green-100 dark:border-green-900/30">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex gap-0.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`w-3 h-3 ${star <= property.review!.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`}
+                            />
+                          ))}
+                        </div>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          onClick={() => handleOpenReviewDialog(property, true)}
+                        >
+                          <Edit3 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-green-800 dark:text-green-300 line-clamp-1 font-medium">{property.review.title}</p>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-dashed text-muted-foreground hover:text-primary hover:border-primary"
+                      onClick={() => handleOpenReviewDialog(property, false)}
+                    >
+                      <Star className="w-4 h-4 mr-2" />
+                      Write a Review
+                    </Button>
+                  )}
 
-      {/* Review Dialog */}
-      <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {isEditingReview ? 'Edit Your Review' : 'Write a Review'}
-            </DialogTitle>
-            <DialogDescription>
-              Share your experience with this property to help other buyers make informed decisions.
-            </DialogDescription>
-          </DialogHeader>
+                  {/* Action Buttons */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        setSelectedProperty(property);
+                        setContactDialogOpen(true);
+                      }}
+                    >
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Contact
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={() => navigate(`/property/${property._id}`)}
+                    >
+                      View Details
+                    </Button>
+                  </div>
 
-          {selectedProperty && (
-            <div className="space-y-4">
-              {/* Property Info */}
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-semibold mb-1">{selectedProperty.title}</h4>
-                <p className="text-sm text-muted-foreground">
-                  {selectedProperty.address.district ? `${selectedProperty.address.city}, ${selectedProperty.address.district}, ${selectedProperty.address.state}` : `${selectedProperty.address.city}, ${selectedProperty.address.state}`}
-                </p>
+                  <div className="text-xs text-center text-muted-foreground pt-1">
+                    {property.status === 'sold' ? 'Purchased' : 'Rented'} on {formatDate(property.assignedAt)}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <Card>
+            <CardContent className="flex items-center justify-center h-32">
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                <span>Loading your properties...</span>
               </div>
+            </CardContent>
+          </Card>
+        )}
 
-              {/* Rating */}
-              <div>
-                <Label>Rating *</Label>
-                <div className="flex gap-2 mt-2">
+        {/* Empty State */}
+        {!loading && filteredProperties.length === 0 && (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Home className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">
+                {properties.length === 0 ? 'No owned properties found' : 'No properties match your filters'}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {properties.length === 0
+                  ? 'You haven\'t purchased or rented any properties yet.'
+                  : 'Try adjusting your search criteria or clear some filters.'
+                }
+              </p>
+              {properties.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStatusFilter("all");
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Review Dialog */}
+        <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {isEditingReview ? 'Edit Your Review' : 'Write a Review'}
+              </DialogTitle>
+              <DialogDescription>
+                Share your experience with this property to help other buyers make informed decisions.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6 py-4">
+              <div className="flex flex-col items-center gap-2">
+                <Label>Your Rating</Label>
+                <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
                       type="button"
-                      onClick={() => setReviewForm({ ...reviewForm, rating: star })}
-                      className="focus:outline-none"
+                      onClick={() => setReviewRating(star)}
+                      className="focus:outline-none transition-transform hover:scale-110"
                     >
                       <Star
-                        className={`w-8 h-8 cursor-pointer transition-colors ${
-                          star <= reviewForm.rating
-                            ? 'fill-yellow-400 text-yellow-400'
-                            : 'text-gray-300 hover:text-yellow-200'
-                        }`}
+                        className={`w-8 h-8 ${star <= reviewRating
+                          ? 'fill-yellow-400 text-yellow-400'
+                          : 'text-gray-300 hover:text-yellow-200'
+                          }`}
                       />
                     </button>
                   ))}
                 </div>
-                {reviewForm.rating > 0 && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {reviewForm.rating === 1 && 'Poor'}
-                    {reviewForm.rating === 2 && 'Fair'}
-                    {reviewForm.rating === 3 && 'Good'}
-                    {reviewForm.rating === 4 && 'Very Good'}
-                    {reviewForm.rating === 5 && 'Excellent'}
-                  </p>
-                )}
               </div>
 
-              {/* Title */}
-              <div>
-                <Label htmlFor="review-title">Review Title *</Label>
+              <div className="space-y-2">
+                <Label htmlFor="title">Review Title</Label>
                 <Input
-                  id="review-title"
-                  placeholder="Sum up your experience in one line"
-                  value={reviewForm.title}
-                  onChange={(e) => setReviewForm({ ...reviewForm, title: e.target.value })}
-                  className="mt-2"
-                  maxLength={200}
+                  id="title"
+                  placeholder="Summarize your experience"
+                  value={reviewTitle}
+                  onChange={(e) => setReviewTitle(e.target.value)}
                 />
               </div>
 
-              {/* Comment */}
-              <div>
-                <Label htmlFor="review-comment">Your Review *</Label>
+              <div className="space-y-2">
+                <Label htmlFor="comment">Detailed Review</Label>
                 <Textarea
-                  id="review-comment"
-                  placeholder="Share your experience with this property..."
-                  value={reviewForm.comment}
-                  onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
-                  className="mt-2"
-                  rows={6}
-                  maxLength={1000}
+                  id="comment"
+                  placeholder="What did you like or dislike? How was the neighborhood?"
+                  className="min-h-[150px]"
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {reviewForm.comment.length}/1000 characters
-                </p>
-              </div>
-
-              {/* Public/Private */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="public-review"
-                  checked={reviewForm.isPublic}
-                  onChange={(e) => setReviewForm({ ...reviewForm, isPublic: e.target.checked })}
-                  className="rounded"
-                />
-                <Label htmlFor="public-review" className="cursor-pointer">
-                  Make this review public
-                </Label>
               </div>
             </div>
-          )}
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsReviewDialogOpen(false);
-                setSelectedProperty(null);
-                setIsEditingReview(false);
-              }}
-              disabled={submittingReview}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSubmitReview}
-              disabled={submittingReview}
-            >
-              {submittingReview ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                <>
-                  {isEditingReview ? 'Update Review' : 'Submit Review'}
-                </>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2">
+              {isEditingReview && (
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteReview}
+                  className="sm:mr-auto"
+                >
+                  Delete Review
+                </Button>
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <Button
+                variant="outline"
+                onClick={() => setIsReviewDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmitReview}
+                disabled={isSubmittingReview}
+              >
+                {isSubmittingReview ? 'Submitting...' : (isEditingReview ? 'Update Review' : 'Submit Review')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Contact Seller Dialog */}
-      <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Contact Seller</DialogTitle>
-            <DialogDescription>
-              Choose your preferred method to get in touch with the property seller.
-            </DialogDescription>
-          </DialogHeader>
+        {/* Contact Seller Dialog */}
+        <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Contact Seller</DialogTitle>
+              <DialogDescription>
+                Choose your preferred method to get in touch with the property seller.
+              </DialogDescription>
+            </DialogHeader>
 
-          {selectedProperty && selectedProperty.owner && (
-            <div className="space-y-4">
-              {/* Seller Info */}
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-semibold mb-2">Seller Information</h4>
-                <p className="text-sm mb-1">
-                  <span className="text-muted-foreground">Name: </span>
-                  <span className="font-medium">{selectedProperty.owner.name}</span>
-                </p>
-                {selectedProperty.owner.email && (
-                  <p className="text-sm mb-1">
-                    <span className="text-muted-foreground">Email: </span>
-                    <span className="font-medium">{selectedProperty.owner.email}</span>
-                  </p>
-                )}
-                {selectedProperty.owner.phone && (
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">Phone: </span>
-                    <span className="font-medium">{selectedProperty.owner.phone}</span>
-                  </p>
-                )}
-              </div>
+            {selectedProperty && selectedProperty.owner && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-primary font-semibold text-lg">
+                      {selectedProperty.owner.profile.firstName.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-medium">{selectedProperty.owner.profile.firstName} {selectedProperty.owner.profile.lastName}</p>
+                    <p className="text-sm text-muted-foreground">Property Owner</p>
+                  </div>
+                </div>
 
-              {/* Property Info */}
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-semibold mb-1">{selectedProperty.title}</h4>
-                <p className="text-sm text-muted-foreground">
-                  {selectedProperty.address.district ? `${selectedProperty.address.city}, ${selectedProperty.address.district}, ${selectedProperty.address.state}` : `${selectedProperty.address.city}, ${selectedProperty.address.state}`}
-                </p>
-              </div>
+                <div className="grid gap-3">
+                  {selectedProperty.owner.profile.phone && (
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => window.location.href = `tel:${selectedProperty.owner.profile.phone}`}
+                    >
+                      <Phone className="w-4 h-4 mr-2" />
+                      Call {selectedProperty.owner.profile.phone}
+                    </Button>
+                  )}
 
-              {/* Contact Actions */}
-              <div className="flex flex-col gap-2">
-                {selectedProperty.owner.phone && (
-                  <Button
-                    className="w-full"
-                    onClick={() => {
-                      window.location.href = `tel:${selectedProperty.owner!.phone}`;
-                    }}
-                  >
-                    <Phone className="w-4 h-4 mr-2" />
-                    Call Seller
-                  </Button>
-                )}
-                {selectedProperty.owner.email && (
                   <Button
                     variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      window.location.href = `mailto:${selectedProperty.owner!.email}?subject=Inquiry about ${selectedProperty.title}`;
-                    }}
+                    className="w-full justify-start"
+                    onClick={() => window.location.href = `mailto:${selectedProperty.owner?.email}`}
                   >
                     <Mail className="w-4 h-4 mr-2" />
-                    Email Seller
+                    Email {selectedProperty.owner.email}
                   </Button>
-                )}
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    setContactDialogOpen(false);
-                    navigate('/customer/messages');
-                  }}
-                >
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Send Message
-                </Button>
+                </div>
               </div>
-            </div>
-          )}
-
-          {selectedProperty && !selectedProperty.owner && (
-            <div className="p-4 text-center text-muted-foreground">
-              <AlertCircle className="w-12 h-12 mx-auto mb-2" />
-              <p>Seller contact information is not available.</p>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setContactDialogOpen(false)}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 };
 
 export default OwnedProperties;
-

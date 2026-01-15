@@ -1,0 +1,84 @@
+Clients {
+Permission.readClients - view only
+permission.accessClientsAction - enables action button
+permission.accessClientDetails - view only
+permission.accessClientsDetailsEdit - able to cancel subscription(with messege)
+
+NOTE: REMOVE THE RENEW SUBSCRIPTION OR ADD SEND EMAIL TO SUBSCRIBE
+}
+
+Properties {
+permission.readProperties - view only(have only view details action)
+permission.editProperties - enables edit property button
+permission.deleteProperties - enable the delete button
+
+}
+
+Plans {
+permission.readPlans - view only action buttons will be removed from the table
+permission.ceratePlan - enable create plan button
+permission.editPlan - enable actions in the table
+}
+
+
+Addons {
+permission.readAddon - view only action buttons will be removed from the table
+permission.createAddon - enable to create new addon service
+permission.editAddon - enable edit actions
+permission.deactivateAddon - enable Deactivate button in table
+permission.deleteAddon - enable delete "" "" ""
+
+}
+
+
+PropertyManagement {
+permission.read - access property management page (view both property types and amenities)
+permission.pmTCreate - create property type category and property type
+permission.pmTEdit - edit property type
+permission.pmTDelete - delete property type
+permission.pmTStatus - toggle property type status (on/off)
+permission.pmTManageFields - manage property type fields
+permission.pmTOrder - manage property type order
+permission.pmACreate - create amenity
+permission.pmAEdit - edit amenity
+permission.pmADelete - delete amenity
+permission.pmAStatus - toggle amenity status (on/off)
+permission.pmAOrder - manage amenity order
+}
+
+
+Filter Management {
+permission.read - read only
+permission.createNTP - enable create filter type
+permission.createFTO - enable create filter type option button
+permission.order - order
+permission.status - status
+permission.edit - edit
+permission.delete - delete
+}
+
+
+Support Tickets {
+permission.supportTicketsRead - view support tickets
+permission.supportTicketsView - view full conversation
+permission.supportTicketsReply - reply to tickets
+permission.supportTicketsStatus - update ticket status
+}
+
+
+Addon Services {
+permission.addonServicesRead - view vendor addon services
+permission.addonServicesSchedule - schedule addon services
+permission.addonServicesManage - manage service schedules
+permission.addonServicesStatus - update schedule status
+permission.addonServicesNotes - add notes to schedules
+}
+
+Policies {
+permission.policiesRead - view policies (privacy, refund)
+permission.policiesEditPrivacy - edit privacy policy
+permission.policiesEditRefund - edit refund policy
+}
+
+
+

@@ -1,0 +1,75 @@
+[
+  {
+    "_id": "696233df856fea44f3283ee4",
+    "user": "68f8b1214f4741e752f0e18b",
+    "type": "lead_alert",
+    "title": "New Interest Registered",
+    "message": "Dheena S is interested in assa",
+    "data": {
+      "propertyId": "6961fe9b927d125074c4fb2d",
+      "propertyTitle": "assa",
+      "customerId": "68f76792ae8ba267e353c0e9",
+      "customerName": "Dheena S",
+      "customerPhone": "7397705271",
+      "timestamp": "2026-01-10T11:11:27.323Z"
+    },
+    "delivered": true,
+    "deliveredAt": "2026-01-10T11:12:05.184Z",
+    "read": false,
+    "readAt": null,
+    "priority": "high",
+    "expiresAt": null,
+    "createdAt": "2026-01-10T11:11:27.324Z",
+    "updatedAt": "2026-01-10T11:12:05.185Z",
+    "__v": 0
+  },
+  {
+    "_id": "6962343b856fea44f32840a6",
+    "user": "68f8b1214f4741e752f0e18b",
+    "type": "new_message",
+    "title": "New Message",
+    "message": "New message from Dheena S",
+    "data": {
+      "conversationId": "68f76792ae8ba267e353c0e9_68f8b1214f4741e752f0e18b",
+      "senderId": "68f76792ae8ba267e353c0e9",
+      "senderName": "Dheena S",
+      "preview": "Hi",
+      "action": "view_messages"
+    },
+    "delivered": true,
+    "deliveredAt": "2026-01-10T11:12:59.718Z",
+    "read": false,
+    "readAt": null,
+    "priority": "medium",
+    "expiresAt": null,
+    "__v": 0,
+    "createdAt": "2026-01-10T11:12:59.703Z",
+    "updatedAt": "2026-01-10T11:12:59.718Z"
+  },
+  {
+    "_id": "6962343b856fea44f32840aa",
+    "user": "68f8b1214f4741e752f0e18b",
+    "type": "inquiry_received",
+    "title": "Property Inquiry Received",
+    "message": "Dheena S is interested in \"sad\"",
+    "data": {
+      "inquiryId": "6962343b856fea44f328409d",
+      "propertyId": "6962132a856fea44f3280d98",
+      "propertyTitle": "sad",
+      "customerName": "Dheena S",
+      "customerEmail": "customer@gmail.com",
+      "customerPhone": "7397705271",
+      "message": "Hi",
+      "action": "view_inquiries"
+    },
+    "delivered": true,
+    "deliveredAt": "2026-01-10T11:12:59.729Z",
+    "read": false,
+    "readAt": null,
+    "priority": "medium",
+    "expiresAt": null,
+    "__v": 0,
+    "createdAt": "2026-01-10T11:12:59.721Z",
+    "updatedAt": "2026-01-10T11:12:59.729Z"
+  }
+]

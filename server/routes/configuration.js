@@ -25,7 +25,7 @@ const isSuperAdmin = (req, res, next) => {
 router.get('/property-type-categories', async (req, res) => {
   try {
     const propertyTypes = await PropertyType.find({}).select('category').distinct('category');
-    
+
     const categories = propertyTypes.sort();
 
     res.json({
@@ -147,6 +147,29 @@ router.post('/property-types', authenticateToken, isSuperAdmin, async (req, res)
     const propertyType = new PropertyType(req.body);
     await propertyType.save();
 
+    // Auto-create Filter Configuration for Property Type
+    try {
+      const existingFilter = await FilterConfiguration.findOne({
+        filterType: 'property_type',
+        value: propertyType.value
+      });
+
+      if (!existingFilter) {
+        await new FilterConfiguration({
+          filterType: 'property_type',
+          name: propertyType.name,
+          value: propertyType.value,
+          displayLabel: propertyType.name,
+          displayOrder: propertyType.displayOrder,
+          isActive: propertyType.isActive
+        }).save();
+        console.log(`Auto-created filter configuration for property type: ${propertyType.name}`);
+      }
+    } catch (filterError) {
+      console.error('Error auto-creating filter for property type:', filterError);
+      // Don't fail the request if filter creation fails
+    }
+
     res.status(201).json({
       success: true,
       data: propertyType,
@@ -176,6 +199,22 @@ router.put('/property-types/:id', authenticateToken, isSuperAdmin, async (req, r
         success: false,
         message: 'Property type not found',
       });
+    }
+
+    // Auto-update Filter Configuration
+    try {
+      await FilterConfiguration.findOneAndUpdate(
+        { filterType: 'property_type', value: propertyType.value },
+        {
+          name: propertyType.name,
+          displayLabel: propertyType.name,
+          isActive: propertyType.isActive,
+          displayOrder: propertyType.displayOrder
+        }
+      );
+      console.log(`Auto-updated filter configuration for property type: ${propertyType.name}`);
+    } catch (filterError) {
+      console.error('Error auto-updating filter for property type:', filterError);
     }
 
     res.json({
@@ -208,6 +247,17 @@ router.delete('/property-types/:id', authenticateToken, isSuperAdmin, async (req
     // Also delete related fields and mappings
     await PropertyTypeField.deleteMany({ propertyTypeId: req.params.id });
     await PropertyTypeAmenity.deleteMany({ propertyTypeId: req.params.id });
+
+    // Auto-delete Filter Configuration
+    try {
+      await FilterConfiguration.findOneAndDelete({
+        filterType: 'property_type',
+        value: propertyType.value
+      });
+      console.log(`Auto-deleted filter configuration for property type: ${propertyType.name}`);
+    } catch (filterError) {
+      console.error('Error auto-deleting filter for property type:', filterError);
+    }
 
     res.json({
       success: true,
@@ -352,6 +402,25 @@ router.get('/amenities', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch amenities',
+      error: error.message,
+    });
+  }
+});
+
+// Get all property type amenity mappings
+router.get('/property-type-amenities', async (req, res) => {
+  try {
+    const mappings = await PropertyTypeAmenity.find({});
+
+    res.json({
+      success: true,
+      data: mappings,
+    });
+  } catch (error) {
+    console.error('Error fetching all property type amenities:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch property type amenities',
       error: error.message,
     });
   }
@@ -618,6 +687,63 @@ router.delete('/filters/:id', authenticateToken, isSuperAdmin, async (req, res) 
   }
 });
 
+// ============= Filter Dependencies =============
+
+// Get filter dependencies
+router.get('/filter-dependencies', async (req, res) => {
+  try {
+    const metadata = await ConfigurationMetadata.findOne({ configKey: 'filter_dependencies' });
+    res.json({
+      success: true,
+      data: metadata?.configValue || [],
+    });
+  } catch (error) {
+    console.error('Error fetching filter dependencies:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch filter dependencies',
+      error: error.message,
+    });
+  }
+});
+
+// Update filter dependencies (superadmin only)
+router.post('/filter-dependencies', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const dependencies = req.body;
+
+    if (!Array.isArray(dependencies)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Dependencies must be an array',
+      });
+    }
+
+    const metadata = await ConfigurationMetadata.findOneAndUpdate(
+      { configKey: 'filter_dependencies' },
+      {
+        configKey: 'filter_dependencies',
+        configValue: dependencies,
+        description: 'Configuration for filter visibility dependencies'
+      },
+      { upsert: true, new: true, runValidators: true }
+    );
+
+    res.json({
+      success: true,
+      data: metadata.configValue,
+      message: 'Filter dependencies updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating filter dependencies:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update filter dependencies',
+      error: error.message,
+    });
+  }
+});
+
 // ============= Navigation Items =============
 
 // Get all navigation items
@@ -763,6 +889,70 @@ router.delete('/navigation-items/:id', authenticateToken, isSuperAdmin, async (r
     res.status(500).json({
       success: false,
       message: 'Failed to delete navigation item',
+      error: error.message,
+    });
+  }
+});
+
+// ============= Navigation Categories =============
+
+// Get all navigation categories
+router.get('/navigation-categories', async (req, res) => {
+  try {
+    const categories = await ConfigurationMetadata.findOne({ configKey: 'navigation_categories' });
+
+    const defaultCategories = [
+      { value: 'residential', label: 'Residential', isActive: true, displayOrder: 1 },
+      { value: 'commercial', label: 'Commercial', isActive: true, displayOrder: 2 },
+      { value: 'agricultural', label: 'Agricultural', isActive: true, displayOrder: 3 },
+    ];
+
+    res.json({
+      success: true,
+      data: categories?.configValue || defaultCategories,
+    });
+  } catch (error) {
+    console.error('Error fetching navigation categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch navigation categories',
+      error: error.message,
+    });
+  }
+});
+
+// Update navigation categories (superadmin only)
+router.post('/navigation-categories', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const { categories } = req.body;
+
+    if (!Array.isArray(categories)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Categories must be an array',
+      });
+    }
+
+    const metadata = await ConfigurationMetadata.findOneAndUpdate(
+      { configKey: 'navigation_categories' },
+      {
+        configKey: 'navigation_categories',
+        configValue: categories,
+        description: 'Navigation item categories for property types'
+      },
+      { upsert: true, new: true, runValidators: true }
+    );
+
+    res.json({
+      success: true,
+      data: metadata.configValue,
+      message: 'Navigation categories updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating navigation categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update navigation categories',
       error: error.message,
     });
   }

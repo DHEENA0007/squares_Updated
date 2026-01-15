@@ -1,7 +1,7 @@
 import { toast } from "@/hooks/use-toast";
 import { reviewsService } from "./reviewsService";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://app.buildhomemartsquares.com/api";
 
 export interface AnalyticsOverviewStats {
   totalViews: number;
@@ -61,6 +61,8 @@ export interface PerformanceMetrics {
   propertyPerformance: Array<{
     propertyId: string;
     title: string;
+    status: string;
+    listingType?: string;
     views: number;
     leads: number;
     conversionRate: number;
@@ -77,7 +79,7 @@ class AnalyticsService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
@@ -97,7 +99,7 @@ class AnalyticsService {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
@@ -122,7 +124,7 @@ class AnalyticsService {
       if (filters.dateTo) queryParams.append('dateTo', filters.dateTo);
 
       const endpoint = `/vendors/analytics/overview?${queryParams.toString()}`;
-      
+
       const response = await this.makeRequest<{
         success: boolean;
         data: AnalyticsOverviewStats;
@@ -164,7 +166,7 @@ class AnalyticsService {
       };
     } catch (error) {
       console.error("Failed to fetch overview stats:", error);
-      
+
       // Return default stats with real rating on error
       let averageRating = 0;
       try {
@@ -200,7 +202,7 @@ class AnalyticsService {
       if (filters.dateTo) queryParams.append('dateTo', filters.dateTo);
 
       const endpoint = `/vendors/analytics/performance?${queryParams.toString()}`;
-      
+
       const response = await this.makeRequest<{
         success: boolean;
         data: PerformanceMetrics;
@@ -245,7 +247,7 @@ class AnalyticsService {
       if (filters.dateTo) queryParams.append('dateTo', filters.dateTo);
 
       const endpoint = `/vendors/analytics/export?${queryParams.toString()}`;
-      
+
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -257,7 +259,7 @@ class AnalyticsService {
       }
 
       const blob = await response.blob();
-      
+
       toast({
         title: "Success",
         description: `Analytics data exported as ${format.toUpperCase()}!`,
@@ -279,7 +281,7 @@ class AnalyticsService {
     if (amount === undefined || amount === null || isNaN(amount)) {
       return '₹0';
     }
-    
+
     return `₹${amount.toLocaleString('en-IN')}`;
   }
 
@@ -287,7 +289,7 @@ class AnalyticsService {
     if (num === undefined || num === null || isNaN(num)) {
       return '0';
     }
-    
+
     if (num >= 1000000) {
       return `${(num / 1000000).toFixed(1)}M`;
     } else if (num >= 1000) {
@@ -326,7 +328,7 @@ class AnalyticsService {
   generateDateRange(timeframe: string): ChartData[] {
     const now = new Date();
     const data: ChartData[] = [];
-    
+
     switch (timeframe) {
       case '7days':
         for (let i = 6; i >= 0; i--) {
@@ -369,7 +371,7 @@ class AnalyticsService {
         }
         break;
     }
-    
+
     return data;
   }
 
@@ -382,6 +384,237 @@ class AnalyticsService {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
+  }
+
+  // V3 Consolidated Admin Analytics - fetches all analytics data in one call
+  async getConsolidatedAdminAnalytics(dateRange: string = '30', startDate?: Date, endDate?: Date) {
+    let query = `/analytics/en-new/admin?dateRange=${dateRange}`;
+    if (startDate) query += `&startDate=${startDate.toISOString()}`;
+    if (endDate) query += `&endDate=${endDate.toISOString()}`;
+
+    return this.makeRequest<{
+      success: boolean;
+      data: {
+        overview: {
+          totalUsers: number;
+          totalProperties: number;
+          totalViews: number;
+          totalRegistrations: number;
+          totalRevenue: number;
+          usersByRole: Array<{ _id: string; count: number }>;
+          recentActivity: any[];
+        };
+        propertyViews: {
+          viewsByProperty: any[];
+          viewsByDate: any[];
+          viewerTypes: any[];
+          interactions: any;
+        };
+        conversion: {
+          totalViews: number;
+          guestViews: number;
+          registeredViews: number;
+          newRegistrations: number;
+          conversionRate: number;
+          registrationsByDate: any[];
+        };
+        traffic: {
+          trafficBySource: any[];
+          trafficByDevice: any[];
+          peakHours: any[];
+        };
+        engagement: {
+          activeUsers: any[];
+          messageActivity: any[];
+          reviewActivity: any[];
+        };
+      };
+    }>(query);
+  }
+
+  async getOverview(dateRange: string = '30') {
+    return this.makeRequest<any>(`/analytics/overview?dateRange=${dateRange}`);
+  }
+
+  async getPropertyViews(dateRange: string = '30', propertyId?: string) {
+    const params = new URLSearchParams({ dateRange });
+    if (propertyId) params.append('propertyId', propertyId);
+    return this.makeRequest<any>(`/analytics/property-views?${params.toString()}`);
+  }
+
+  async getUserConversion(dateRange: string = '30') {
+    return this.makeRequest<any>(`/analytics/user-conversion?dateRange=${dateRange}`);
+  }
+
+  async getTrafficAnalytics(dateRange: string = '30') {
+    return this.makeRequest<any>(`/analytics/traffic?dateRange=${dateRange}`);
+  }
+
+  async getEngagementAnalytics(dateRange: string = '30') {
+    return this.makeRequest<any>(`/analytics/engagement?dateRange=${dateRange}`);
+  }
+
+  async getPropertyViewDetails(propertyId: string, dateRange: string = '30') {
+    return this.makeRequest<any>(`/analytics/property-views/${propertyId}?dateRange=${dateRange}`);
+  }
+
+  async getAllPropertyViewers(dateRange: string = '30', propertyId?: string, startDate?: Date, endDate?: Date) {
+    let query = `/analytics/all-property-viewers?dateRange=${dateRange}`;
+    if (propertyId) query += `&propertyId=${propertyId}`;
+    if (startDate) query += `&startDate=${startDate.toISOString()}`;
+    if (endDate) query += `&endDate=${endDate.toISOString()}`;
+    return this.makeRequest<any>(query);
+  }
+
+  // Get analytics job status (superadmin only)
+  async getAnalyticsJobStatus() {
+    return this.makeRequest<{
+      success: boolean;
+      data: {
+        lastRunStats: {
+          runAt: string;
+          duration: number;
+          metrics: Record<string, {
+            days: number;
+            startDate: string;
+            totalUsers: number;
+            totalProperties: number;
+            totalViews: number;
+            guestViews: number;
+            registeredViews: number;
+            newRegistrations: number;
+            conversionRate: number;
+            totalRevenue: number;
+            calculatedAt: string;
+          }>;
+        } | null;
+        jobRunning: boolean;
+      };
+    }>('/analytics/job-status');
+  }
+
+  // Trigger manual analytics recalculation (superadmin only)
+  async triggerAnalyticsRecalculation() {
+    return this.makeRequest<{
+      success: boolean;
+      message: string;
+      data: {
+        runAt: string;
+        duration: number;
+        metrics: Record<string, any>;
+      };
+    }>('/analytics/recalculate', { method: 'POST' });
+  }
+
+  // Get cached snapshot stats from cron job (fast, pre-calculated)
+  async getAnalyticsSnapshot(dateRange: string = '30') {
+    return this.makeRequest<{
+      success: boolean;
+      data: {
+        days: number;
+        startDate: string;
+        calculatedAt: string;
+        // User metrics
+        totalUsers: number;
+        totalCustomers: number;
+        newRegistrations: number;
+        // Property metrics
+        totalProperties: number;
+        // View metrics
+        totalViews: number;
+        uniqueViewers: number;
+        guestViews: number;
+        registeredViews: number;
+        avgViewDuration: number;
+        // Customer interaction metrics (ONLY customers)
+        totalInteractions: number;
+        interactions: {
+          phoneClicks: number;
+          messageClicks: number;
+        };
+        // Conversion metrics
+        conversionRate: number;
+        // Revenue metrics
+        totalRevenue: number;
+      };
+      meta: {
+        calculatedAt: string;
+        duration: number;
+        cached: boolean;
+      };
+    }>(`/analytics/snapshot?dateRange=${dateRange}`);
+  }
+
+  // Get comprehensive traffic analytics from the new traffic tracking system
+  async getComprehensiveTrafficAnalytics(dateRange: string = '30') {
+    return this.makeRequest<{
+      success: boolean;
+      data: {
+        overview: {
+          totalVisits: number;
+          uniqueVisitors: number;
+          totalSessions: number;
+          pagesPerSession: string;
+          avgDuration: number;
+          avgScrollDepth: number;
+          bounceRate: string;
+        };
+        trafficBySource: Array<{ _id: string; count: number; uniqueVisitors: number }>;
+        trafficByDevice: Array<{ _id: string; count: number }>;
+        trafficByCountry: Array<{ _id: string; count: number }>;
+        trafficByBrowser: Array<{ _id: string; count: number }>;
+        visitsByDate: Array<{ _id: string; visits: number; uniqueVisitors: number }>;
+        peakHours: Array<{ _id: number; count: number }>;
+        topPages: Array<{ _id: string; pageTitle: string; views: number; avgDuration: number; bounceRate: number }>;
+        entryPages: Array<{ _id: string; count: number }>;
+        exitPages: Array<{ _id: string; count: number }>;
+      };
+    }>(`/traffic/analytics?dateRange=${dateRange}`);
+  }
+
+  // Get real-time traffic stats
+  async getRealtimeTraffic() {
+    return this.makeRequest<{
+      success: boolean;
+      data: {
+        activeVisitors: number;
+        visitsLastHour: number;
+        topPages: any[];
+        devices: any[];
+      };
+    }>('/traffic/realtime');
+  }
+  // Get comprehensive property report
+  async getPropertyReport() {
+    return this.makeRequest<{
+      success: boolean;
+      data: Array<{
+        _id: string;
+        title: string;
+        type: string;
+        listingType: string;
+        price: number;
+        status: string;
+        address: {
+          city: string;
+          state: string;
+          pincode: string;
+          street?: string;
+        };
+        owner: {
+          name: string;
+          email: string;
+          phone?: string;
+        };
+        subscription: {
+          status: string;
+          planName?: string;
+          endDate?: string;
+        };
+        createdAt: string;
+        views: number;
+      }>;
+    }>('/analytics/en-new/admin/property-report');
   }
 }
 

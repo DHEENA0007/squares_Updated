@@ -487,6 +487,10 @@ const Profile = () => {
     try {
       setSaving(true);
 
+      // Get the current user's existing preferences to preserve all fields
+      const currentUser = await userService.getCurrentUser();
+      const existingPreferences = currentUser.data?.user?.profile?.preferences || {};
+
       // Prepare update data from formData
       const updateData = {
         email: formData.email,
@@ -501,18 +505,36 @@ const Profile = () => {
           designation: formData.profile.designation,
           address: formData.profile.address,
           avatar: avatarUrl !== `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.email}` ? avatarUrl : undefined,
-        },
-        // Convert admin preferences to user preferences format
-        preferences: {
-          language: 'en',
-          currency: 'INR',
-          notifications: {
-            email: adminPreferences.notifications.email,
-            push: adminPreferences.notifications.browser,
-
-            newMessages: adminPreferences.notifications.mobile,
-            newsUpdates: true,
-            marketing: false,
+          // Preserve and update preferences properly
+          preferences: {
+            language: existingPreferences.language || 'en',
+            currency: existingPreferences.currency || 'INR',
+            notifications: {
+              email: adminPreferences.notifications.email,
+              sms: existingPreferences.notifications?.sms || false,
+              push: adminPreferences.notifications.browser,
+              propertyAlerts: existingPreferences.notifications?.propertyAlerts !== undefined ? existingPreferences.notifications.propertyAlerts : true,
+              priceDrops: existingPreferences.notifications?.priceDrops !== undefined ? existingPreferences.notifications.priceDrops : true,
+              newMessages: adminPreferences.notifications.mobile,
+              newsUpdates: existingPreferences.notifications?.newsUpdates || false,
+              desktop: existingPreferences.notifications?.desktop !== undefined ? existingPreferences.notifications.desktop : true,
+              sound: existingPreferences.notifications?.sound !== undefined ? existingPreferences.notifications.sound : true,
+              typing: existingPreferences.notifications?.typing !== undefined ? existingPreferences.notifications.typing : true
+            },
+            privacy: {
+              showEmail: existingPreferences.privacy?.showEmail || false,
+              showPhone: existingPreferences.privacy?.showPhone || false,
+              showActivity: existingPreferences.privacy?.showActivity !== undefined ? existingPreferences.privacy.showActivity : true,
+              dataCollection: existingPreferences.privacy?.dataCollection !== undefined ? existingPreferences.privacy.dataCollection : true,
+              marketingConsent: existingPreferences.privacy?.marketingConsent || false,
+              thirdPartySharing: existingPreferences.privacy?.thirdPartySharing || false,
+              allowMessages: existingPreferences.privacy?.allowMessages !== undefined ? existingPreferences.privacy.allowMessages : true
+            },
+            security: {
+              twoFactorEnabled: existingPreferences.security?.twoFactorEnabled || false,
+              loginAlerts: existingPreferences.security?.loginAlerts !== undefined ? existingPreferences.security.loginAlerts : true,
+              sessionTimeout: existingPreferences.security?.sessionTimeout || '30'
+            }
           }
         }
       };

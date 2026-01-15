@@ -7,13 +7,13 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdminUser, getOwnerDisplayName, getPropertyListingLabel } from '@/utils/propertyUtils';
-import { 
-  ArrowLeft, 
-  MapPin, 
-  Heart, 
-  Share2, 
-  Phone, 
-  MessageSquare, 
+import {
+  ArrowLeft,
+  MapPin,
+  Heart,
+  Share2,
+  Phone,
+  MessageSquare,
   Building2,
   Bed,
   Bath,
@@ -33,41 +33,44 @@ import EnterprisePropertyContactDialog from '@/components/EnterprisePropertyCont
 const PublicPropertyDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
-  
+  const { isAuthenticated, isCustomer } = useAuth();
+
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [showEnterpriseDialog, setShowEnterpriseDialog] = useState(false);
-  const [isEnterpriseProperty, setIsEnterpriseProperty] = useState(false);
-  const [checkingEnterprise, setCheckingEnterprise] = useState(false);
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
+  const [hasWhatsAppSupport, setHasWhatsAppSupport] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
+  const [checkingWhatsApp, setCheckingWhatsApp] = useState(false);
 
   const loadProperty = useCallback(async () => {
     if (!id) return;
-    
+
     try {
       setLoading(true);
       const response = await propertyService.getProperty(id);
-      
+
       if (response.success) {
         console.log('Property data received:', response.data.property);
         console.log('Owner data:', response.data.property.owner);
         console.log('Owner profile:', response.data.property.owner?.profile);
         console.log('Owner phone:', response.data.property.owner?.profile?.phone);
         setProperty(response.data.property);
-        
-        // Check if property is from enterprise vendor
+
+        // Check if vendor's plan has WhatsApp support enabled
         if (response.data.property.vendor?._id || response.data.property.owner?._id) {
           try {
-            setCheckingEnterprise(true);
+            setCheckingWhatsApp(true);
             const vendorId = response.data.property.vendor?._id || response.data.property.owner?._id;
-            const isEnterprise = await vendorService.isVendorEnterpriseProperty(vendorId);
-            setIsEnterpriseProperty(isEnterprise);
+            const whatsappData = await vendorService.checkVendorWhatsAppSupport(vendorId);
+            setHasWhatsAppSupport(whatsappData.whatsappEnabled);
+            setWhatsappNumber(whatsappData.whatsappNumber);
           } catch (error) {
-            console.error("Failed to check enterprise status:", error);
-            setIsEnterpriseProperty(false);
+            console.error("Failed to check WhatsApp support:", error);
+            setHasWhatsAppSupport(false);
+            setWhatsappNumber(null);
           } finally {
-            setCheckingEnterprise(false);
+            setCheckingWhatsApp(false);
           }
         }
       } else {
@@ -112,8 +115,13 @@ const PublicPropertyDetails: React.FC = () => {
   };
 
   const handleShare = async () => {
-    const publicUrl = `${window.location.origin}/v2/property/${id}`;
-    
+    const publicUrl = `${window.location.origin}/en-new/property/${id}`;
+
+    // Track share interaction
+    if (id) {
+      propertyService.trackInteraction(id, 'sharedProperty');
+    }
+
     if (navigator.share && property) {
       try {
         await navigator.share({
@@ -155,7 +163,7 @@ const PublicPropertyDetails: React.FC = () => {
 
   const formatArea = (area: Property['area']) => {
     if (!area) return 'N/A';
-    
+
     if (typeof area === 'object') {
       if (area.builtUp) {
         return `${area.builtUp} ${area.unit || 'sq ft'}`;
@@ -165,24 +173,24 @@ const PublicPropertyDetails: React.FC = () => {
         return `${area.carpet} ${area.unit || 'sq ft'}`;
       }
     }
-    
+
     if (typeof area === 'number') {
       return `${area} sq ft`;
     }
-    
+
     return 'N/A';
   };
 
   const calculatePricePerSqft = (property: Property) => {
     const area = property.area;
     let areaValue = 0;
-    
+
     if (typeof area === 'object' && area !== null) {
       areaValue = area.builtUp || area.carpet || area.plot || 0;
     } else if (typeof area === 'number') {
       areaValue = area;
     }
-    
+
     if (areaValue === 0) return 0;
     return Math.round(property.price / areaValue);
   };
@@ -190,7 +198,7 @@ const PublicPropertyDetails: React.FC = () => {
   const getLocationString = (property: Property) => {
     const address = property.address;
     if (typeof address === 'string') return address;
-    
+
     const parts = [];
     if (address.street) parts.push(address.street);
     if (address.locationName) parts.push(address.locationName);
@@ -301,11 +309,11 @@ const PublicPropertyDetails: React.FC = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="flex gap-2">
             {isAuthenticated ? (
               <>
-                <Button 
+                <Button
                   variant="outline"
                   onClick={() => navigate(`/customer/property/${id}`)}
                 >
@@ -364,8 +372,8 @@ const PublicPropertyDetails: React.FC = () => {
             <CardContent className="p-0">
               <div className="aspect-video bg-muted rounded-lg overflow-hidden">
                 <img
-                  src={typeof property.images[selectedImageIndex] === 'string' 
-                    ? property.images[selectedImageIndex] 
+                  src={typeof property.images[selectedImageIndex] === 'string'
+                    ? property.images[selectedImageIndex]
                     : (property.images[selectedImageIndex] as any).url
                   }
                   alt={property.title}
@@ -381,9 +389,8 @@ const PublicPropertyDetails: React.FC = () => {
                     <button
                       key={index}
                       onClick={() => setSelectedImageIndex(index)}
-                      className={`flex-shrink-0 w-20 h-16 rounded-lg overflow-hidden border-2 ${
-                        index === selectedImageIndex ? 'border-primary' : 'border-transparent'
-                      }`}
+                      className={`flex-shrink-0 w-20 h-16 rounded-lg overflow-hidden border-2 ${index === selectedImageIndex ? 'border-primary' : 'border-transparent'
+                        }`}
                     >
                       <img
                         src={typeof image === 'string' ? image : image.url}
@@ -567,22 +574,22 @@ const PublicPropertyDetails: React.FC = () => {
                     {getPropertyListingLabel(property)}
                   </p>
                 </div>
-                
+
                 <Separator />
-                
+
                 <div className="space-y-3">
                   {!isAuthenticated ? (
                     <>
-                      <Button 
-                        className="w-full" 
+                      <Button
+                        className="w-full"
                         onClick={() => handleAuthRequired('contact the owner')}
                       >
                         <Phone className="w-4 h-4 mr-2" />
                         Login to Contact
                       </Button>
-                      <Button 
+                      <Button
                         variant="outline"
-                        className="w-full" 
+                        className="w-full"
                         onClick={() => handleAuthRequired('send message')}
                       >
                         <MessageSquare className="w-4 h-4 mr-2" />
@@ -591,16 +598,16 @@ const PublicPropertyDetails: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Button 
-                        className="w-full" 
+                      <Button
+                        className="w-full"
                         onClick={() => navigate(`/customer/property/${id}`)}
                       >
                         <Phone className="w-4 h-4 mr-2" />
                         View Contact Details
                       </Button>
-                      <Button 
+                      <Button
                         variant="outline"
-                        className="w-full" 
+                        className="w-full"
                         onClick={() => navigate(`/customer/property/${id}`)}
                       >
                         <MessageSquare className="w-4 h-4 mr-2" />
@@ -641,8 +648,8 @@ const PublicPropertyDetails: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 {property.virtualTour && (
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full justify-start"
                     onClick={() => window.open(property.virtualTour, '_blank')}
                   >
@@ -650,18 +657,18 @@ const PublicPropertyDetails: React.FC = () => {
                     Virtual Tour
                   </Button>
                 )}
-                {isAuthenticated ? (
+                {isAuthenticated && isCustomer ? (
                   <>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="w-full justify-start"
                       onClick={() => navigate(`/customer/property/${id}`)}
                     >
                       <Heart className="w-4 h-4 mr-2" />
                       Add to Favorites
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="w-full justify-start"
                       onClick={() => navigate(`/customer/property/${id}`)}
                     >
@@ -669,16 +676,16 @@ const PublicPropertyDetails: React.FC = () => {
                       Compare Property
                     </Button>
                   </>
-                ) : (
-                  <Button 
-                    variant="outline" 
+                ) : !isAuthenticated ? (
+                  <Button
+                    variant="outline"
                     className="w-full justify-start"
                     onClick={() => handleAuthRequired('save to favorites')}
                   >
                     <LogIn className="w-4 h-4 mr-2" />
                     Login for More Actions
                   </Button>
-                )}
+                ) : null}
                 <Button variant="outline" className="w-full justify-start" onClick={handleShare}>
                   <Share2 className="w-4 h-4 mr-2" />
                   Share Property
@@ -689,11 +696,12 @@ const PublicPropertyDetails: React.FC = () => {
         </div>
       </div>
 
-      {/* Enterprise Contact Dialog */}
+      {/* WhatsApp Contact Dialog */}
       <EnterprisePropertyContactDialog
-        open={showEnterpriseDialog}
-        onOpenChange={setShowEnterpriseDialog}
+        open={showWhatsAppDialog}
+        onOpenChange={setShowWhatsAppDialog}
         property={property}
+        whatsappNumber={whatsappNumber}
       />
     </div>
   );

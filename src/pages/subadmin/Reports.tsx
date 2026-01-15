@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Download, 
+import {
+  BarChart3,
+  TrendingUp,
+  Download,
   Calendar,
   Building,
   Users,
@@ -24,6 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 const Reports = () => {
   const { toast } = useToast();
@@ -58,14 +61,89 @@ const Reports = () => {
         description: `Preparing ${format.toUpperCase()} report...`,
       });
 
-      // TODO: Implement export functionality
-      // await subAdminService.exportReport(timeRange, format);
+      const data = await subAdminService.getExportData(timeRange);
+
+      if (format === 'csv') {
+        // Generate CSV/Excel
+        const wb = XLSX.utils.book_new();
+
+        // Properties Sheet
+        if (data.properties && data.properties.length > 0) {
+          const wsProperties = XLSX.utils.json_to_sheet(data.properties);
+          XLSX.utils.book_append_sheet(wb, wsProperties, "Properties");
+        }
+
+        // Tickets Sheet
+        if (data.tickets && data.tickets.length > 0) {
+          const wsTickets = XLSX.utils.json_to_sheet(data.tickets);
+          XLSX.utils.book_append_sheet(wb, wsTickets, "Support Tickets");
+        }
+
+        XLSX.writeFile(wb, `subadmin_report_${timeRange}_${new Date().toISOString().split('T')[0]}.xlsx`);
+      } else {
+        // Generate PDF
+        const doc = new jsPDF();
+
+        // Title
+        doc.setFontSize(18);
+        doc.text('Sub-Admin Activity Report', 14, 22);
+
+        doc.setFontSize(11);
+        doc.text(`Date Range: ${timeRange}`, 14, 30);
+        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 36);
+
+        let yPos = 45;
+
+        // Properties Table
+        if (data.properties && data.properties.length > 0) {
+          doc.setFontSize(14);
+          doc.text('Approved Properties', 14, yPos);
+          yPos += 5;
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [['Title', 'Type', 'Price', 'Owner', 'Approved Date']],
+            body: data.properties.map((p: any) => [
+              p.title,
+              p.type,
+              p.price,
+              p.ownerName,
+              new Date(p.approvedAt).toLocaleDateString()
+            ]),
+          });
+
+          yPos = (doc as any).lastAutoTable.finalY + 15;
+        }
+
+        // Tickets Table
+        if (data.tickets && data.tickets.length > 0) {
+          doc.setFontSize(14);
+          doc.text('Support Tickets Handled', 14, yPos);
+          yPos += 5;
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [['Ticket #', 'Subject', 'Status', 'Priority', 'User', 'Updated']],
+            body: data.tickets.map((t: any) => [
+              t.ticketNumber,
+              t.subject,
+              t.status,
+              t.priority,
+              t.userName,
+              new Date(t.updatedAt).toLocaleDateString()
+            ]),
+          });
+        }
+
+        doc.save(`subadmin_report_${timeRange}_${new Date().toISOString().split('T')[0]}.pdf`);
+      }
 
       toast({
         title: "Success",
         description: `Report exported as ${format.toUpperCase()}`,
       });
     } catch (error: any) {
+      console.error("Export error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to export report",
@@ -109,7 +187,7 @@ const Reports = () => {
             Comprehensive insights into your moderation activities
           </p>
         </div>
-        
+
         <div className="flex gap-3">
           <Select value={timeRange} onValueChange={(value: any) => setTimeRange(value)}>
             <SelectTrigger className="w-[180px]">
@@ -122,7 +200,7 @@ const Reports = () => {
               <SelectItem value="all">All Time</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <Button variant="outline" onClick={() => handleExportReport('pdf')}>
             <Download className="h-4 w-4 mr-2" />
             PDF
@@ -160,7 +238,7 @@ const Reports = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats?.totalPropertiesApproved > 0 
+              {stats?.totalPropertiesApproved > 0
                 ? ((stats.availablePropertiesApproved / stats.totalPropertiesApproved) * 100).toFixed(1)
                 : 0}%
             </div>
@@ -178,7 +256,7 @@ const Reports = () => {
           <CardContent>
             <div className="text-2xl font-bold">{stats?.totalSupport || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {stats?.resolvedSupport || 0} resolved, {stats?.openSupport || 0} open
+              {stats?.closedSupport || 0} closed, {stats?.openSupport || 0} open
             </p>
           </CardContent>
         </Card>
@@ -289,34 +367,25 @@ const Reports = () => {
                   <div className="flex items-center gap-3">
                     <CheckCircle className="h-5 w-5 text-green-600" />
                     <div>
-                      <p className="font-medium">Resolved Tickets</p>
-                      <p className="text-sm text-muted-foreground">Successfully closed</p>
-                    </div>
-                  </div>
-                  <p className="text-2xl font-bold">{stats.resolvedSupport}</p>
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-950">
-                  <div className="flex items-center gap-3">
-                    <XCircle className="h-5 w-5 text-gray-600" />
-                    <div>
                       <p className="font-medium">Closed Tickets</p>
-                      <p className="text-sm text-muted-foreground">All completed</p>
+                      <p className="text-sm text-muted-foreground">Successfully completed</p>
                     </div>
                   </div>
                   <p className="text-2xl font-bold">{stats.closedSupport}</p>
                 </div>
+
+
               </div>
 
               <div className="pt-4 border-t">
                 <h4 className="font-semibold mb-3">Resolution Analytics</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950">
-                    <p className="text-xs text-muted-foreground">Resolved (7d)</p>
+                    <p className="text-xs text-muted-foreground">Closed (7d)</p>
                     <p className="text-xl font-bold">{stats.analytics.supportTicketsResolvedLast7Days}</p>
                   </div>
                   <div className="p-3 rounded-lg bg-teal-50 dark:bg-teal-950">
-                    <p className="text-xs text-muted-foreground">Resolved (30d)</p>
+                    <p className="text-xs text-muted-foreground">Closed (30d)</p>
                     <p className="text-xl font-bold">{stats.analytics.supportTicketsResolvedLast30Days}</p>
                   </div>
                 </div>
@@ -347,9 +416,8 @@ const Reports = () => {
                     <p className="text-3xl font-bold">{stats.analytics.propertiesApprovedThisMonth}</p>
                   </div>
                   <div className="text-right">
-                    <div className={`flex items-center gap-1 text-lg font-semibold ${
-                      stats.analytics.propertyApprovalTrend >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
+                    <div className={`flex items-center gap-1 text-lg font-semibold ${stats.analytics.propertyApprovalTrend >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
                       {stats.analytics.propertyApprovalTrend >= 0 ? (
                         <TrendingUp className="h-5 w-5" />
                       ) : (
@@ -375,9 +443,8 @@ const Reports = () => {
                     <p className="text-3xl font-bold">{stats.analytics.supportTicketsThisMonth}</p>
                   </div>
                   <div className="text-right">
-                    <div className={`flex items-center gap-1 text-lg font-semibold ${
-                      stats.analytics.supportTicketTrend >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
+                    <div className={`flex items-center gap-1 text-lg font-semibold ${stats.analytics.supportTicketTrend >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
                       {stats.analytics.supportTicketTrend >= 0 ? (
                         <TrendingUp className="h-5 w-5" />
                       ) : (
@@ -409,7 +476,7 @@ const Reports = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {stats?.analytics && (
+            {stats?.analytics ? (
               <>
                 {stats.analytics.propertyApprovalTrend > 10 && (
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-950">
@@ -424,8 +491,8 @@ const Reports = () => {
                     </div>
                   </div>
                 )}
-                
-                {stats.analytics.avgResponseTimeHours < 24 && (
+
+                {stats.analytics.avgResponseTimeHours > 0 && stats.analytics.avgResponseTimeHours < 24 && (
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950">
                     <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
                     <div>
@@ -453,7 +520,7 @@ const Reports = () => {
                   </div>
                 )}
 
-                {stats.totalPropertiesApproved === 0 && (
+                {stats.totalPropertiesApproved === 0 && stats.totalSupport === 0 && (
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-950">
                     <FileText className="h-5 w-5 text-gray-600 mt-0.5" />
                     <div>
@@ -466,7 +533,31 @@ const Reports = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Default insights when no specific conditions are met */}
+                {stats.totalPropertiesApproved > 0 &&
+                  stats.analytics.propertyApprovalTrend <= 10 &&
+                  (stats.analytics.avgResponseTimeHours === 0 || stats.analytics.avgResponseTimeHours >= 24) &&
+                  stats.openSupport <= 10 && (
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950">
+                      <Activity className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-blue-900 dark:text-blue-100">
+                          Steady Performance
+                        </p>
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                          You've reviewed {stats.totalPropertiesApproved} properties and handled {stats.totalSupport} support tickets.
+                          {stats.analytics.propertiesApprovedThisMonth > 0 && ` This month: ${stats.analytics.propertiesApprovedThisMonth} properties approved.`}
+                        </p>
+                      </div>
+                    </div>
+                  )}
               </>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No performance data available yet</p>
+              </div>
             )}
           </div>
         </CardContent>

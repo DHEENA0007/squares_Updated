@@ -2,6 +2,7 @@
 
 export interface PropertyType {
   _id: string;
+  id?: string;
   name: string;
   value: string;
   category: string; // Allow any category, not just predefined ones
@@ -14,6 +15,7 @@ export interface PropertyType {
 
 export interface PropertyTypeField {
   _id: string;
+  id?: string;
   propertyTypeId: string;
   fieldName: string;
   fieldLabel: string;
@@ -28,6 +30,7 @@ export interface PropertyTypeField {
 
 export interface Amenity {
   _id: string;
+  id?: string;
   name: string;
   category?: 'basic' | 'luxury' | 'security' | 'recreational';
   icon?: string;
@@ -47,6 +50,7 @@ export interface PropertyTypeAmenity {
 
 export interface FilterConfiguration {
   _id: string;
+  id?: string;
   filterType: string; // Allow any filter type, not just predefined ones
   name: string;
   value: string;
@@ -64,7 +68,7 @@ export interface NavigationItem {
   name: string;
   value: string;
   displayLabel?: string;
-  category: 'main' | 'residential' | 'commercial' | 'agricultural';
+  category: string; // Allow any category
   parentId?: string;
   queryParams?: Record<string, string>;
   isActive: boolean;
@@ -80,6 +84,12 @@ export interface ConfigurationMetadata {
   description?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface FilterDependency {
+  targetFilterType: string;
+  sourceFilterType: string;
+  sourceFilterValues: string[];
 }
 
 // DTOs for API operations (camelCase for MongoDB)
@@ -138,7 +148,7 @@ export interface CreateNavigationItemDTO {
   name: string;
   value: string;
   displayLabel?: string;
-  category: 'main' | 'residential' | 'commercial' | 'agricultural';
+  category: string; // Allow any category
   parentId?: string;
   queryParams?: Record<string, string>;
   displayOrder?: number;

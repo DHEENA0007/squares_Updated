@@ -117,7 +117,7 @@ export interface SubscriptionStatsResponse {
 }
 
 class SubscriptionService {
-  private baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  private baseUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
@@ -257,10 +257,11 @@ class SubscriptionService {
     }
   }
 
-  async cancelSubscription(id: string): Promise<SingleSubscriptionResponse> {
+  async cancelSubscription(id: string, reason?: string): Promise<SingleSubscriptionResponse> {
     try {
       const response = await this.makeRequest<SingleSubscriptionResponse>(`/subscriptions/${id}/cancel`, {
         method: "PATCH",
+        body: JSON.stringify({ reason }),
       });
 
       toast({

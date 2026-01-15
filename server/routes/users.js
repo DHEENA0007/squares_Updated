@@ -8,7 +8,9 @@ const Subscription = require('../models/Subscription');
 const Notification = require('../models/Notification');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
+const { PERMISSIONS, hasPermission, hasPermissionOrIsAdmin, isAdmin } = require('../utils/permissions');
 const bcrypt = require('bcrypt');
+const notificationService = require('../services/notificationService');
 const router = express.Router();
 
 // Apply auth middleware to all routes
@@ -16,36 +18,47 @@ router.use(authenticateToken);
 
 // @desc    Get all users (Admin/Vendor - Vendors can only fetch customers)
 // @route   GET /api/users
-// @access  Private/Admin/Vendor
-router.get('/', authorizeRoles('admin', 'subadmin', 'superadmin', 'agent'), asyncHandler(async (req, res) => {
-  const { 
-    page = 1, 
-    limit = 10, 
-    search, 
-    role, 
-    status 
+// @access  Private (requires users.view permission)
+router.get('/', asyncHandler(async (req, res) => {
+  // Check permission
+  if (!hasPermission(req.user, PERMISSIONS.USERS_VIEW) && req.user.role !== 'agent') {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view users'
+    });
+  }
+
+  const {
+    page = 1,
+    limit = 10,
+    search,
+    role,
+    status,
+    month,
+    startDate,
+    endDate
   } = req.query;
 
-  console.log(`[Users API] User role: ${req.user.role}, Requested role filter: ${role}`);
+  console.log(`[Users API] User role: ${req.user.role}, Requested role filter: ${role}, Month filter: ${month}`);
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
-  
+
   // Build filter object
   const filter = {};
-  
-  // Always exclude superadmin users from the list
-  filter.role = { $ne: 'superadmin' };
-  
+
   // Vendors (agents) can only fetch customers with allowMessages enabled
   if (req.user.role === 'agent') {
     filter.role = 'customer';
     filter.status = 'active'; // Only active customers
     filter['profile.preferences.privacy.allowMessages'] = { $ne: false }; // Only customers who allow messages
-  } else if (role && role !== 'superadmin') {
-    // If role filter is provided, combine it with the superadmin exclusion
+  } else if (role) {
+    // If role filter is provided, use it directly
     filter.role = role;
+  } else {
+    // If no role filter, exclude superadmin users from the list by default
+    filter.role = { $ne: 'superadmin' };
   }
-  
+
   if (search) {
     filter.$or = [
       { email: { $regex: search, $options: 'i' } },
@@ -54,14 +67,42 @@ router.get('/', authorizeRoles('admin', 'subadmin', 'superadmin', 'agent'), asyn
       { 'profile.phone': { $regex: search, $options: 'i' } }
     ];
   }
-  
+
   if (status && req.user.role !== 'agent') {
     filter.status = status;
   }
 
+  // Month filter - filter by creation month
+  if (month && req.user.role !== 'agent') {
+    const monthNum = parseInt(month);
+    if (monthNum >= 1 && monthNum <= 12) {
+      const currentYear = new Date().getFullYear();
+      const startDate = new Date(currentYear, monthNum - 1, 1);
+      const endDate = new Date(currentYear, monthNum, 0, 23, 59, 59, 999);
+      filter.createdAt = {
+        $gte: startDate,
+        $lte: endDate
+      };
+    }
+  }
+
+  // Date Range filter
+  if ((startDate || endDate) && req.user.role !== 'agent') {
+    const dateFilter = {};
+    if (startDate) {
+      dateFilter.$gte = new Date(startDate);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.$lte = end;
+    }
+    filter.createdAt = dateFilter;
+  }
+
   // Get total count for pagination
   const totalUsers = await User.countDocuments(filter);
-  
+
   // Get users with pagination
   const users = await User.find(filter)
     .select('-password -verificationToken')
@@ -141,7 +182,7 @@ router.post('/check-availability', authorizeRoles('admin', 'subadmin', 'superadm
   if (businessName) {
     const Vendor = require('../models/Vendor');
     const trimmedName = businessName.trim();
-    const query = { 
+    const query = {
       'businessInfo.companyName': new RegExp(`^${trimmedName}$`, 'i')
     };
     const existingBusiness = await Vendor.findOne(query);
@@ -162,7 +203,7 @@ router.post('/check-availability', authorizeRoles('admin', 'subadmin', 'superadm
 // @access  Private
 router.get('/profile', asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id).select('-password -verificationToken');
-  
+
   if (!user) {
     return res.status(404).json({
       success: false,
@@ -197,7 +238,7 @@ router.get('/profile', asyncHandler(async (req, res) => {
 // @access  Private
 router.get('/:id', asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id).select('-password -verificationToken');
-  
+
   if (!user) {
     return res.status(404).json({
       success: false,
@@ -213,8 +254,16 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
 // @desc    Create new user (Admin only)
 // @route   POST /api/users
-// @access  Private/Admin
+// @access  Private (requires users.create permission)
 router.post('/', asyncHandler(async (req, res) => {
+  // Check permission
+  if (!hasPermission(req.user, PERMISSIONS.USERS_CREATE)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to create users'
+    });
+  }
+
   const {
     email,
     password,
@@ -300,6 +349,15 @@ router.post('/', asyncHandler(async (req, res) => {
       });
     }
 
+    if (businessInfo.businessDescription && businessInfo.businessDescription.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Business description must be at least 10 characters'
+      });
+    }
+
+
+
     // Validate GST number format if provided
     if (businessInfo.gstNumber) {
       const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
@@ -338,7 +396,7 @@ router.post('/', asyncHandler(async (req, res) => {
     try {
       console.log(`[User Creation] Creating vendor profile for ${email}`);
       console.log(`[User Creation] businessInfo provided:`, !!businessInfo);
-      
+
       // Check if vendor profile already exists
       const existingVendor = await Vendor.findOne({ user: user._id });
       if (existingVendor) {
@@ -348,10 +406,10 @@ router.post('/', asyncHandler(async (req, res) => {
       } else {
         // Ensure businessInfo has required fields
         const companyName = businessInfo?.businessName || `${profile.firstName} ${profile.lastName} Properties`;
-        
+
         console.log(`[User Creation] Creating vendor with company name: ${companyName}`);
         console.log(`[User Creation] businessInfo data:`, JSON.stringify(businessInfo, null, 2));
-        
+
         // Parse service areas properly
         let serviceAreas = [];
         if (businessInfo?.serviceAreas && Array.isArray(businessInfo.serviceAreas)) {
@@ -369,12 +427,13 @@ router.post('/', asyncHandler(async (req, res) => {
             return area;
           });
         }
-        
+
         const vendorData = {
           user: user._id,
           businessInfo: {
             companyName: companyName,
             businessType: businessInfo?.businessType || 'real_estate_agent',
+            description: businessInfo?.businessDescription || undefined,
             licenseNumber: businessInfo?.licenseNumber || undefined,
             gstNumber: businessInfo?.gstNumber || undefined,
             panNumber: businessInfo?.panNumber || undefined,
@@ -464,11 +523,11 @@ router.post('/', asyncHandler(async (req, res) => {
         };
 
         const vendor = await Vendor.create(vendorData);
-        
+
         // Link vendor profile to user
         user.vendorProfile = vendor._id;
         await user.save();
-        
+
         // Verify vendor can be found
         const verifyVendor = await Vendor.findByUserId(user._id);
         if (!verifyVendor) {
@@ -486,11 +545,11 @@ router.post('/', asyncHandler(async (req, res) => {
         keyValue: vendorError.keyValue,
         userId: user._id.toString()
       });
-      
+
       // Check if it's a duplicate key error
       if (vendorError.code === 11000) {
         console.error('[User Creation] Duplicate key error - attempting to clean up and retry');
-        
+
         // Try to find if vendor exists
         const existingVendorAfterError = await Vendor.findOne({ user: user._id });
         if (existingVendorAfterError) {
@@ -500,7 +559,7 @@ router.post('/', asyncHandler(async (req, res) => {
         } else {
           // Delete the user if we can't fix the vendor profile issue
           await User.findByIdAndDelete(user._id);
-          
+
           return res.status(500).json({
             success: false,
             message: `Failed to create vendor profile: ${vendorError.message}`,
@@ -512,12 +571,12 @@ router.post('/', asyncHandler(async (req, res) => {
         // Admin can fix the vendor profile later using the fix endpoint
         console.error('[User Creation] Non-duplicate error - user created but vendor profile failed');
         console.error('[User Creation] Admin can fix this using POST /api/users/:id/fix-vendor-profile');
-        
+
         // Return warning instead of error
         const userResponse = user.toObject();
         delete userResponse.password;
         delete userResponse.verificationToken;
-        
+
         return res.status(201).json({
           success: true,
           warning: 'User created but vendor profile creation failed. Please contact support.',
@@ -544,7 +603,7 @@ router.post('/', asyncHandler(async (req, res) => {
 // @access  Private
 router.put('/:id', asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id);
-  
+
   if (!user) {
     return res.status(404).json({
       success: false,
@@ -552,11 +611,11 @@ router.put('/:id', asyncHandler(async (req, res) => {
     });
   }
 
-  // Only allow users to update their own profile or admin to update any
-  if (req.user.id.toString() !== req.params.id && !['admin', 'superadmin'].includes(req.user.role)) {
+  // Only allow users to update their own profile or users with edit permission
+  if (req.user.id.toString() !== req.params.id && !hasPermission(req.user, PERMISSIONS.USERS_EDIT)) {
     return res.status(403).json({
       success: false,
-      message: 'Not authorized to update this user'
+      message: 'Unauthorized to update this user'
     });
   }
 
@@ -570,12 +629,12 @@ router.put('/:id', asyncHandler(async (req, res) => {
   // Helper function to deeply merge objects, filtering out undefined values
   const deepMerge = (target, source) => {
     const result = { ...target };
-    
+
     for (const key in source) {
       if (source[key] === undefined) {
         continue; // Skip undefined values
       }
-      
+
       if (source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key])) {
         // Check if source object has any defined values recursively
         const hasDefinedValues = (obj) => {
@@ -587,11 +646,11 @@ router.put('/:id', asyncHandler(async (req, res) => {
             return true;
           });
         };
-        
+
         if (!hasDefinedValues(source[key])) {
           continue; // Skip objects with only undefined values
         }
-        
+
         // If both target and source have object values, merge them recursively
         if (result[key] && typeof result[key] === 'object' && !Array.isArray(result[key])) {
           result[key] = deepMerge(result[key], source[key]);
@@ -602,18 +661,18 @@ router.put('/:id', asyncHandler(async (req, res) => {
         result[key] = source[key];
       }
     }
-    
+
     return result;
   };
 
   // Helper function to clean object from undefined values
   const cleanObject = (obj) => {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
-    
+
     const cleaned = {};
     for (const key in obj) {
       if (obj[key] === undefined) continue;
-      
+
       if (obj[key] !== null && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
         const cleanedNested = cleanObject(obj[key]);
         if (Object.keys(cleanedNested).length > 0) {
@@ -633,7 +692,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
       user.profile = deepMerge(user.profile || {}, cleanedProfile);
     }
   }
-  
+
   // Handle preferences if sent separately (for backward compatibility)
   if (preferences !== undefined && typeof preferences === 'object' && preferences !== null) {
     const cleanedPreferences = cleanObject(preferences);
@@ -669,7 +728,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
 // @access  Private
 router.put('/profile', asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id);
-  
+
   if (!user) {
     return res.status(404).json({
       success: false,
@@ -699,12 +758,12 @@ router.put('/profile', asyncHandler(async (req, res) => {
   // Helper function to deeply merge objects, filtering out undefined values
   const deepMerge = (target, source) => {
     const result = { ...target };
-    
+
     for (const key in source) {
       if (source[key] === undefined) {
         continue; // Skip undefined values
       }
-      
+
       if (source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key])) {
         // Check if source object has any defined values recursively
         const hasDefinedValues = (obj) => {
@@ -716,11 +775,11 @@ router.put('/profile', asyncHandler(async (req, res) => {
             return true;
           });
         };
-        
+
         if (!hasDefinedValues(source[key])) {
           continue; // Skip objects with only undefined values
         }
-        
+
         // If both target and source have object values, merge them recursively
         if (result[key] && typeof result[key] === 'object' && !Array.isArray(result[key])) {
           result[key] = deepMerge(result[key], source[key]);
@@ -731,18 +790,18 @@ router.put('/profile', asyncHandler(async (req, res) => {
         result[key] = source[key];
       }
     }
-    
+
     return result;
   };
 
   // Helper function to clean object from undefined values
   const cleanObject = (obj) => {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
-    
+
     const cleaned = {};
     for (const key in obj) {
       if (obj[key] === undefined) continue;
-      
+
       if (obj[key] !== null && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
         const cleanedNested = cleanObject(obj[key]);
         if (Object.keys(cleanedNested).length > 0) {
@@ -762,7 +821,7 @@ router.put('/profile', asyncHandler(async (req, res) => {
       user.profile = deepMerge(user.profile || {}, cleanedProfile);
     }
   }
-  
+
   // Handle preferences if sent separately (for backward compatibility)
   if (preferences !== undefined && typeof preferences === 'object' && preferences !== null) {
     const cleanedPreferences = cleanObject(preferences);
@@ -790,7 +849,7 @@ router.put('/profile', asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: { 
+    data: {
       user: {
         ...userResponse,
         statistics: {
@@ -805,23 +864,27 @@ router.put('/profile', asyncHandler(async (req, res) => {
 
 // @desc    Update user status
 // @route   PATCH /api/users/:id/status
-// @access  Private/Admin
+// @access  Private (requires users.status permission)
 router.patch('/:id/status', asyncHandler(async (req, res) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
+  if (!hasPermission(req.user, PERMISSIONS.USERS_STATUS)) {
     return res.status(403).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Insufficient permissions to change user status'
     });
   }
 
-  const { status } = req.body;
-  
+  const { status, reason } = req.body;
+
   if (!['active', 'inactive', 'pending', 'suspended'].includes(status)) {
     return res.status(400).json({
       success: false,
       message: 'Invalid status value'
     });
   }
+
+  // Get old status first
+  const existingUser = await User.findById(req.params.id);
+  const oldStatus = existingUser?.status;
 
   const user = await User.findByIdAndUpdate(
     req.params.id,
@@ -836,6 +899,25 @@ router.patch('/:id/status', asyncHandler(async (req, res) => {
     });
   }
 
+  // Send push notification for status change
+  if (oldStatus !== status) {
+    try {
+      const changerName = req.user.profile?.firstName
+        ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+        : req.user.email;
+
+      await notificationService.sendAccountStatusNotification(user._id.toString(), {
+        oldStatus: oldStatus,
+        newStatus: status,
+        reason: reason || null,
+        changedBy: changerName
+      });
+    } catch (notifError) {
+      console.error('Failed to send account status push notification:', notifError);
+      // Don't fail the request if notification fails
+    }
+  }
+
   res.json({
     success: true,
     data: { user }
@@ -844,23 +926,41 @@ router.patch('/:id/status', asyncHandler(async (req, res) => {
 
 // @desc    Promote user to different role
 // @route   PATCH /api/users/:id/promote
-// @access  Private/SuperAdmin
+// @access  Private/Admin (with users.promote permission)
 router.patch('/:id/promote', asyncHandler(async (req, res) => {
-  if (req.user.role !== 'superadmin') {
+  // Allow superadmin, admin, subadmin, and custom roles with users.promote permission
+  const defaultRoles = ['customer', 'agent', 'admin', 'subadmin', 'superadmin'];
+  const isCustomRole = !defaultRoles.includes(req.user.role);
+  const hasPromotePermission = req.user.rolePermissions && req.user.rolePermissions.includes('users.promote');
+
+  if (req.user.role !== 'superadmin' && req.user.role !== 'admin' && req.user.role !== 'subadmin' && !hasPromotePermission) {
     return res.status(403).json({
       success: false,
-      message: 'Superadmin access required to promote users'
+      message: 'Insufficient permissions to promote users'
     });
   }
 
-  const { role } = req.body;
-  
-  const validRoles = ['customer', 'agent', 'admin', 'subadmin', 'superadmin'];
-  if (!validRoles.includes(role)) {
+  const { role, businessInfo } = req.body;
+
+  // Check if role exists in Role collection
+  const Role = require('../models/Role');
+  const roleDoc = await Role.findOne({ name: role });
+
+  if (!roleDoc && !['customer', 'agent', 'admin', 'subadmin', 'superadmin'].includes(role)) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid role value. Must be one of: ' + validRoles.join(', ')
+      message: 'Invalid role value. Role does not exist.'
     });
+  }
+
+  // Validate business info if promoting to agent/vendor
+  if ((role === 'agent' || role === 'vendor') && businessInfo) {
+    if (businessInfo.businessDescription && businessInfo.businessDescription.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Business description must be at least 10 characters'
+      });
+    }
   }
 
   const user = await User.findById(req.params.id);
@@ -874,12 +974,130 @@ router.patch('/:id/promote', asyncHandler(async (req, res) => {
 
   const oldRole = user.role;
   user.role = role;
-  
+
+  // If promoting to agent/vendor, create vendor profile
+  if ((role === 'agent' || role === 'vendor') && businessInfo) {
+    try {
+      console.log(`[User Promotion] Creating vendor profile for ${user.email}`);
+
+      // Check if vendor profile already exists
+      const existingVendor = await Vendor.findOne({ user: user._id });
+      if (existingVendor) {
+        console.log(`[User Promotion] Vendor profile already exists for user ${user.email}`);
+        user.vendorProfile = existingVendor._id;
+      } else {
+        // Ensure businessInfo has required fields
+        const companyName = businessInfo?.businessName || `${user.profile.firstName} ${user.profile.lastName} Properties`;
+
+        const vendorData = {
+          user: user._id,
+          businessInfo: {
+            companyName: companyName,
+            businessType: businessInfo?.businessType || 'real_estate_agent',
+            description: businessInfo?.businessDescription || undefined,
+            licenseNumber: businessInfo?.licenseNumber || undefined,
+            gstNumber: businessInfo?.gstNumber || undefined,
+            panNumber: businessInfo?.panNumber || undefined,
+            website: businessInfo?.website || undefined,
+          },
+          professionalInfo: {
+            experience: businessInfo?.experience ? parseInt(businessInfo.experience) : 0,
+            specializations: [],
+            serviceAreas: [],
+            languages: ['english'],
+            certifications: []
+          },
+          contactInfo: {
+            officeAddress: {
+              street: businessInfo?.address || user.profile.address?.street || '',
+              area: '',
+              city: businessInfo?.city || user.profile.address?.city || '',
+              state: businessInfo?.state || user.profile.address?.state || '',
+              district: '',
+              country: 'India',
+              countryCode: 'IN',
+              stateCode: '',
+              districtCode: '',
+              cityCode: '',
+              pincode: businessInfo?.pincode || user.profile.address?.zipCode || '',
+              landmark: ''
+            },
+            officePhone: user.profile.phone || '',
+            whatsappNumber: user.profile.phone || '',
+            socialMedia: {
+              facebook: '',
+              instagram: '',
+              linkedin: '',
+              twitter: '',
+              youtube: ''
+            }
+          },
+          performance: {
+            rating: {
+              average: 0,
+              count: 0,
+              breakdown: { five: 0, four: 0, three: 0, two: 0, one: 0 }
+            },
+            statistics: {
+              totalProperties: 0,
+              activeListing: 0,
+              soldProperties: 0,
+              rentedProperties: 0,
+              totalViews: 0,
+              totalLeads: 0,
+              totalClients: 0,
+              responseTime: { average: 0, lastCalculated: new Date() }
+            }
+          },
+          status: 'active',
+          verification: {
+            isVerified: true,
+            verificationLevel: 'basic',
+            verificationDate: new Date()
+          },
+          approval: {
+            status: 'approved',
+            submittedAt: new Date(),
+            reviewedAt: new Date(),
+            reviewedBy: req.user?.id,
+            approvalNotes: 'Promoted by admin - auto-approved',
+            submittedDocuments: []
+          },
+          settings: {
+            notifications: {
+              emailNotifications: true,
+              smsNotifications: true,
+              leadAlerts: true,
+              marketingEmails: false,
+              weeklyReports: true
+            },
+            privacy: {
+              showContactInfo: true,
+              showPerformanceStats: true,
+              allowDirectContact: true
+            }
+          },
+          metadata: {
+            source: 'admin_promotion',
+            notes: 'Promoted by admin user'
+          }
+        };
+
+        const vendor = await Vendor.create(vendorData);
+        user.vendorProfile = vendor._id;
+        console.log(`[User Promotion] ✓ Vendor profile created: ${vendor._id}`);
+      }
+    } catch (vendorError) {
+      console.error('[User Promotion] Error creating vendor profile:', vendorError);
+      // Don't fail the promotion if vendor creation fails, but log it
+    }
+  }
+
   // Get role pages from Role collection
   try {
     const Role = require('../models/Role');
     const roleDoc = await Role.findOne({ name: role });
-    
+
     if (roleDoc && roleDoc.pages) {
       user.rolePages = roleDoc.pages;
     } else {
@@ -910,6 +1128,22 @@ router.patch('/:id/promote', asyncHandler(async (req, res) => {
     console.error('❌ Failed to send promotion notification email:', emailError);
   }
 
+  // Send push notification for role change
+  try {
+    const promoterName = req.user.profile?.firstName
+      ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+      : req.user.email;
+
+    await notificationService.sendRolePromotionNotification(user._id.toString(), {
+      oldRole: oldRole,
+      newRole: role,
+      promotedBy: promoterName
+    });
+  } catch (notifError) {
+    console.error('Failed to send role promotion push notification:', notifError);
+    // Don't fail the request if notification fails
+  }
+
   // Remove password from response
   const userResponse = user.toObject();
   delete userResponse.password;
@@ -924,17 +1158,17 @@ router.patch('/:id/promote', asyncHandler(async (req, res) => {
 
 // @desc    Delete user
 // @route   DELETE /api/users/:id
-// @access  Private/Admin
+// @access  Private (requires users.delete permission)
 router.delete('/:id', asyncHandler(async (req, res) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
+  if (!hasPermission(req.user, PERMISSIONS.USERS_DELETE)) {
     return res.status(403).json({
       success: false,
-      message: 'Superadmin access required to delete users. Current role: ' + req.user.role
+      message: 'Insufficient permissions to delete users'
     });
   }
 
   const user = await User.findById(req.params.id);
-  
+
   if (!user) {
     return res.status(404).json({
       success: false,
@@ -953,9 +1187,9 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   try {
     // Import email service
     const { sendTemplateEmail } = require('../utils/emailService');
-    
+
     // Check for active properties or subscriptions before deletion
-    
+
     const [properties, subscriptions] = await Promise.all([
       Property.countDocuments({ owner: req.params.id }),
       Subscription.countDocuments({ user: req.params.id, status: 'active' })
@@ -979,7 +1213,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     }
 
     // Clean up other related data (messages, notifications, etc.)
-    
+
     await Promise.all([
       // Remove user's messages
       Message.deleteMany({ sender: req.params.id }),
@@ -1118,9 +1352,9 @@ router.get('/activity', asyncHandler(async (req, res) => {
 // @access  Private/Admin
 router.post('/:id/fix-vendor-profile', authorizeRoles('admin', 'superadmin'), asyncHandler(async (req, res) => {
   const userId = req.params.id;
-  
+
   console.log(`[Fix Vendor Profile] Attempting to fix vendor profile for user: ${userId}`);
-  
+
   // Get the user
   const user = await User.findById(userId);
   if (!user) {
@@ -1129,7 +1363,7 @@ router.post('/:id/fix-vendor-profile', authorizeRoles('admin', 'superadmin'), as
       message: 'User not found'
     });
   }
-  
+
   // Check if user is an agent
   if (user.role !== 'agent') {
     return res.status(400).json({
@@ -1137,20 +1371,20 @@ router.post('/:id/fix-vendor-profile', authorizeRoles('admin', 'superadmin'), as
       message: 'User is not an agent/vendor'
     });
   }
-  
+
   // Check if vendor profile already exists
   let vendor = await Vendor.findOne({ user: userId });
-  
+
   if (vendor) {
     console.log(`[Fix Vendor Profile] Vendor profile already exists: ${vendor._id}`);
-    
+
     // Update user reference if missing
     if (!user.vendorProfile || user.vendorProfile.toString() !== vendor._id.toString()) {
       user.vendorProfile = vendor._id;
       await user.save();
       console.log(`[Fix Vendor Profile] Updated user vendorProfile reference`);
     }
-    
+
     return res.json({
       success: true,
       message: 'Vendor profile already exists and is linked',
@@ -1161,10 +1395,10 @@ router.post('/:id/fix-vendor-profile', authorizeRoles('admin', 'superadmin'), as
       }
     });
   }
-  
+
   // Create vendor profile if it doesn't exist
   console.log(`[Fix Vendor Profile] Creating new vendor profile for user: ${userId}`);
-  
+
   const vendorData = {
     user: user._id,
     businessInfo: {
@@ -1210,15 +1444,15 @@ router.post('/:id/fix-vendor-profile', authorizeRoles('admin', 'superadmin'), as
       notes: 'Created by admin repair tool'
     }
   };
-  
+
   vendor = await Vendor.create(vendorData);
-  
+
   // Link vendor profile to user
   user.vendorProfile = vendor._id;
   await user.save();
-  
+
   console.log(`[Fix Vendor Profile] Successfully created vendor profile: ${vendor._id}`);
-  
+
   res.json({
     success: true,
     message: 'Vendor profile created successfully',

@@ -30,20 +30,20 @@ export const useRealTimeNotifications = () => {
   // Handle incoming notifications from Socket.IO
   const handleNotification = useCallback((notification: RealTimeNotification) => {
     const notificationId = `${notification.type}-${notification.timestamp}-${notification.userId}`;
-    
+
     if (notificationIdsRef.current.has(notificationId)) {
       return;
     }
-    
+
     notificationIdsRef.current.add(notificationId);
-    
+
     if (notificationIdsRef.current.size > 100) {
       const firstId = Array.from(notificationIdsRef.current)[0];
       notificationIdsRef.current.delete(firstId);
     }
-    
+
     processNotification(notification);
-    
+
     setNotifications(prev => {
       const updated = [notification, ...prev];
       return updated.slice(0, 20);
@@ -77,7 +77,7 @@ export const useRealTimeNotifications = () => {
   const processNotification = (notification: RealTimeNotification) => {
     // Show toast notification based on type
     const notificationConfig = getNotificationConfig(notification);
-    
+
     if (notificationConfig.showToast) {
       toast({
         title: notification.title,
@@ -158,6 +158,13 @@ export const useRealTimeNotifications = () => {
         playSound: false,
         showBrowserNotification: true,
       },
+      admin_broadcast: {
+        showToast: true,
+        variant: 'default',
+        duration: 10000, // Longer duration for admin broadcasts
+        playSound: true,   // specific sound
+        showBrowserNotification: true,
+      },
       lead_alert: {
         showToast: true,
         variant: 'default',
@@ -186,6 +193,93 @@ export const useRealTimeNotifications = () => {
         playSound: false,
         showBrowserNotification: true,
       },
+      // New notification types for push notifications
+      property_submission: {
+        showToast: true,
+        variant: 'default',
+        duration: 6000,
+        playSound: true,
+        showBrowserNotification: true,
+      },
+      property_approval: {
+        showToast: true,
+        variant: 'default',
+        duration: 8000,
+        playSound: true,
+        showBrowserNotification: true,
+      },
+      support_ticket_message: {
+        showToast: true,
+        variant: 'default',
+        duration: 6000,
+        playSound: true,
+        showBrowserNotification: true,
+      },
+      new_support_ticket: {
+        showToast: true,
+        variant: 'default',
+        duration: 6000,
+        playSound: true,
+        showBrowserNotification: true,
+      },
+      vendor_approval: {
+        showToast: true,
+        variant: 'default',
+        duration: 10000, // Longer for important vendor approval
+        playSound: true,
+        showBrowserNotification: true,
+      },
+      new_vendor_application: {
+        showToast: true,
+        variant: 'default',
+        duration: 6000,
+        playSound: true,
+        showBrowserNotification: true,
+      },
+      ticket_status_change: {
+        showToast: true,
+        variant: 'default',
+        duration: 5000,
+        playSound: false,
+        showBrowserNotification: true,
+      },
+      // Review notification types
+      new_review: {
+        showToast: true,
+        variant: 'default',
+        duration: 6000,
+        playSound: true,
+        showBrowserNotification: true,
+      },
+      review_reply: {
+        showToast: true,
+        variant: 'default',
+        duration: 5000,
+        playSound: true,
+        showBrowserNotification: true,
+      },
+      review_reported: {
+        showToast: true,
+        variant: 'default',
+        duration: 6000,
+        playSound: true,
+        showBrowserNotification: true,
+      },
+      // User account notification types
+      role_change: {
+        showToast: true,
+        variant: 'default',
+        duration: 8000,
+        playSound: true,
+        showBrowserNotification: true,
+      },
+      account_status_change: {
+        showToast: true,
+        variant: 'default',
+        duration: 8000,
+        playSound: true,
+        showBrowserNotification: true,
+      },
       default: {
         showToast: true,
         variant: 'default',
@@ -201,27 +295,28 @@ export const useRealTimeNotifications = () => {
   // Play notification sound
   const playNotificationSound = () => {
     try {
-      const audio = new Audio('/mixkit-software-interface-start-2574.wav');
+      const audio = new Audio('/notification-sound.mp3');
       audio.volume = 0.6;
-      
+
       audio.play().catch((error) => {
-        console.warn('Failed to play notification sound:', error);
-        
+        console.warn('Could not play audio file, attempting fallback...', error.name);
+
+
         // Fallback to beep sound using Web Audio API
         try {
           const context = new (window.AudioContext || (window as any).webkitAudioContext)();
           const oscillator = context.createOscillator();
           const gainNode = context.createGain();
-          
+
           oscillator.connect(gainNode);
           gainNode.connect(context.destination);
-          
+
           oscillator.frequency.value = 800;
           oscillator.type = 'sine';
-          
+
           gainNode.gain.setValueAtTime(0.3, context.currentTime);
           gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.5);
-          
+
           oscillator.start(context.currentTime);
           oscillator.stop(context.currentTime + 0.5);
         } catch (fallbackError) {
@@ -235,11 +330,25 @@ export const useRealTimeNotifications = () => {
 
   // Request browser notification permission
   const requestNotificationPermission = async () => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      const permission = await Notification.requestPermission();
-      return permission === 'granted';
+    try {
+      if (!('Notification' in window)) {
+        console.warn('This browser does not support desktop notification');
+        return false;
+      }
+
+      if (Notification.permission === 'granted') {
+        return true;
+      }
+
+      if (Notification.permission !== 'denied') {
+        const permission = await Notification.requestPermission();
+        return permission === 'granted';
+      }
+    } catch (error) {
+      console.warn('Failed to request notification permission:', error);
+      return false;
     }
-    return Notification.permission === 'granted';
+    return false;
   };
 
   // Send test notification
@@ -248,7 +357,7 @@ export const useRealTimeNotifications = () => {
     if (!token) return;
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
       const response = await fetch(`${apiUrl}/notifications/test`, {
         method: 'POST',
         headers: {
@@ -265,7 +374,7 @@ export const useRealTimeNotifications = () => {
       if (!response.ok) {
         throw new Error('Failed to send test notification');
       }
-      
+
     } catch (error) {
       toast({
         title: 'Error',
@@ -281,7 +390,7 @@ export const useRealTimeNotifications = () => {
     if (!token) return;
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
       const response = await fetch(`${apiUrl}/notifications/stats`, {
         method: 'GET',
         headers: {
@@ -297,7 +406,7 @@ export const useRealTimeNotifications = () => {
       const data = await response.json();
       setStats(data.data);
       return data.data;
-      
+
     } catch (error) {
       return null;
     }
@@ -311,9 +420,9 @@ export const useRealTimeNotifications = () => {
 
   // Mark notification as read (if you want to implement read status)
   const markAsRead = (timestamp: string) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.timestamp === timestamp 
+    setNotifications(prev =>
+      prev.map(notification =>
+        notification.timestamp === timestamp
           ? { ...notification, read: true } as any
           : notification
       )

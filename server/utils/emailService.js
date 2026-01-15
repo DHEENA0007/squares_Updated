@@ -1787,6 +1787,102 @@ const emailTemplates = {
         </div>
       </div>
     `
+  }),
+
+  'review-flagged': (data) => ({
+    subject: 'Your Review Has Been Flagged - BuildHomeMart Squares',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #f59e0b; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">⚠️ Review Flagged</h1>
+        </div>
+        <div style="padding: 30px; background: #fff;">
+          <h2 style="color: #1f2937; margin-bottom: 20px;">Hello ${data.customerName},</h2>
+          <p style="color: #475569; line-height: 1.6; margin: 0 0 20px 0;">
+            We want to inform you that your review has been flagged as inappropriate by our moderation team and has been hidden from public view.
+          </p>
+          
+          <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 20px; margin: 20px 0;">
+            <h3 style="margin: 0 0 15px 0; color: #78350f;">Review Details</h3>
+            <p style="margin: 5px 0;"><strong>Property:</strong> ${data.propertyName || 'N/A'}</p>
+            <p style="margin: 5px 0;"><strong>Rating:</strong> ${data.rating}/5</p>
+            ${data.reviewTitle ? `<p style="margin: 5px 0;"><strong>Title:</strong> ${data.reviewTitle}</p>` : ''}
+            <div style="margin-top: 10px; padding: 10px; background: #ffffff; border-radius: 4px;">
+              <p style="margin: 0; color: #6b7280; font-size: 14px;">${data.reviewComment ? data.reviewComment.substring(0, 200) + (data.reviewComment.length > 200 ? '...' : '') : ''}</p>
+            </div>
+          </div>
+
+          <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0;">
+            <h3 style="margin: 0 0 10px 0; color: #7f1d1d;">Why Was This Flagged?</h3>
+            <p style="margin: 0; color: #991b1b; font-size: 14px;">
+              Reviews may be flagged for containing inappropriate content, including but not limited to:
+            </p>
+            <ul style="margin: 10px 0; color: #991b1b; font-size: 14px;">
+              <li>Offensive or abusive language</li>
+              <li>Personal attacks or harassment</li>
+              <li>False or misleading information</li>
+              <li>Spam or promotional content</li>
+              <li>Violation of community guidelines</li>
+            </ul>
+          </div>
+
+          <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin: 0 0 10px 0; color: #1f2937;">What Happens Next?</h3>
+            <p style="margin: 0; color: #4b5563; font-size: 14px; line-height: 1.6;">
+              Your review is currently hidden from public view. If you believe this was done in error, please contact our support team to discuss this matter. We're committed to maintaining a respectful and helpful community for all users.
+            </p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="mailto:${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}" style="background: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
+              Contact Support
+            </a>
+          </div>
+
+          <p style="color: #6b7280; font-size: 14px; margin: 20px 0 0 0;">
+            Thank you for your understanding and for being part of our community.
+          </p>
+        </div>
+        <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+          <p style="margin: 0; color: #6c757d; font-size: 14px;">
+            BuildHomeMart Squares - Your Premium Real Estate Partner<br>
+            <a href="mailto:${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}" style="color: #007bff;">${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}</a>
+          </p>
+        </div>
+      </div>
+    `
+  }),
+
+  'general-notification': (data) => ({
+    subject: data.subject || 'Notification from BuildHomeMart Squares',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin: 0;">BuildHomeMart Squares</h1>
+          <p style="color: #666; margin: 5px 0 0 0;">Notification</p>
+        </div>
+        
+        <div style="background: #f8fafc; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
+          <h2 style="color: #1e293b; margin: 0 0 20px 0;">${data.subject || 'Notification'}</h2>
+          <div style="color: #475569; line-height: 1.6; margin: 0 0 20px 0; white-space: pre-wrap;">
+            ${data.message}
+          </div>
+          
+          ${data.actionLink ? `
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${data.actionLink}" style="background: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
+              ${data.actionText || 'View Details'}
+            </a>
+          </div>
+          ` : ''}
+        </div>
+        
+        <div style="text-align: center; color: #94a3b8; font-size: 12px;">
+          <p>&copy; 2024 BuildHomeMart Squares. All rights reserved.</p>
+          <p>You received this email because you are subscribed to notifications.</p>
+        </div>
+      </div>
+    `
   })
 };
 
@@ -1815,6 +1911,7 @@ const sendEmail = async (options) => {
         'service-status-update': { name: 'BuildHomeMart Services', email: process.env.SMTP_FROM || process.env.SMTP_USER },
         'weekly-report': { name: 'BuildHomeMart Reports', email: process.env.SMTP_FROM || process.env.SMTP_USER },
         'free-listing-expired': { name: 'BuildHomeMart Subscriptions', email: process.env.SMTP_FROM || process.env.SMTP_USER },
+        'review-flagged': { name: 'BuildHomeMart Moderation', email: process.env.SMTP_FROM || process.env.SMTP_USER },
         default: { name: 'BuildHomeMart Squares', email: process.env.SMTP_FROM || process.env.SMTP_USER }
       };
       return senders[template] || senders.default;
@@ -1914,10 +2011,80 @@ const sendTemplateEmail = async (to, templateName, data = {}) => {
   }
 };
 
+// Send subscription cancellation email to customer
+const sendSubscriptionCancellationEmail = async ({ to, userName, planName, cancellationReason, endDate }) => {
+  try {
+    const formattedEndDate = new Date(endDate).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #dc2626; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Subscription Cancelled</h1>
+        </div>
+        <div style="padding: 30px; background: #fff;">
+          <h2 style="color: #1f2937; margin-bottom: 20px;">Hello ${userName},</h2>
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+            We're sorry to inform you that your <strong>${planName}</strong> subscription has been cancelled.
+          </p>
+          
+          <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0;">
+            <h3 style="color: #991b1b; margin: 0 0 10px 0;">Cancellation Reason:</h3>
+            <p style="margin: 0; color: #7f1d1d; font-size: 15px;">${cancellationReason}</p>
+          </div>
+
+          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0; color: #374151;"><strong>Subscription Details:</strong></p>
+            <p style="margin: 5px 0; color: #6b7280;">Plan: <strong>${planName}</strong></p>
+            <p style="margin: 5px 0; color: #6b7280;">Access until: <strong>${formattedEndDate}</strong></p>
+          </div>
+
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-top: 20px;">
+            You will continue to have access to your subscription benefits until <strong>${formattedEndDate}</strong>.
+          </p>
+
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+            If you have any questions or would like to reactivate your subscription, please don't hesitate to contact our support team.
+          </p>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/contact" 
+               style="background: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+              Contact Support
+            </a>
+          </div>
+        </div>
+        <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+          <p style="margin: 0; color: #6c757d; font-size: 14px;">
+            BuildHomeMart Squares<br>
+            <a href="mailto:${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}" 
+               style="color: #007bff;">${process.env.SUPPORT_EMAIL || 'support@buildhomemartsquares.com'}</a>
+          </p>
+        </div>
+      </div>
+    `;
+
+    const result = await sendEmail({
+      to,
+      subject: `Subscription Cancelled - ${planName}`,
+      html: emailHtml
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Failed to send subscription cancellation email:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   sendEmail,
   sendBulkEmail,
   sendTemplateEmail,
+  sendSubscriptionCancellationEmail,
   testEmailConnection,
   getEmailStats,
   emailTemplates

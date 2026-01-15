@@ -1,0 +1,114 @@
+[
+  {
+    "_id": "696126450f417fd1cc1f5c3b",
+    "name": "House",
+    "value": "Home",
+    "category": "for_rent",
+    "icon": "",
+    "isActive": true,
+    "displayOrder": 0,
+    "createdAt": "2026-01-09T16:01:09.762Z",
+    "updatedAt": "2026-01-09T16:01:09.762Z",
+    "__v": 0
+  },
+  {
+    "_id": "6961ebe50f417fd1cc1f752e",
+    "name": "Flat / Apartment",
+    "value": "apartment",
+    "category": "residential",
+    "icon": "",
+    "isActive": true,
+    "displayOrder": 1,
+    "createdAt": "2026-01-10T06:04:21.040Z",
+    "updatedAt": "2026-01-10T14:45:08.656Z",
+    "__v": 0
+  },
+  {
+    "_id": "696265f55d3a69bc3ae876ac",
+    "value": "villa",
+    "__v": 0,
+    "category": "residential",
+    "createdAt": "2026-01-10T14:45:09.430Z",
+    "displayOrder": 2,
+    "isActive": true,
+    "name": "Independent House / Villa",
+    "updatedAt": "2026-01-10T14:45:09.430Z"
+  },
+  {
+    "_id": "696265f55d3a69bc3ae876ae",
+    "value": "builder_floor",
+    "__v": 0,
+    "category": "residential",
+    "createdAt": "2026-01-10T14:45:09.748Z",
+    "displayOrder": 3,
+    "isActive": true,
+    "name": "Builder Floor",
+    "updatedAt": "2026-01-10T14:45:09.748Z"
+  },
+  {
+    "_id": "696265f55d3a69bc3ae876b0",
+    "value": "farm_house",
+    "__v": 0,
+    "category": "residential",
+    "createdAt": "2026-01-10T14:45:09.902Z",
+    "displayOrder": 4,
+    "isActive": true,
+    "name": "Farm House",
+    "updatedAt": "2026-01-10T14:45:09.902Z"
+  },
+  {
+    "_id": "696265f65d3a69bc3ae876b2",
+    "value": "office_space",
+    "__v": 0,
+    "category": "commercial",
+    "createdAt": "2026-01-10T14:45:10.073Z",
+    "displayOrder": 5,
+    "isActive": true,
+    "name": "Office Space",
+    "updatedAt": "2026-01-10T14:45:10.073Z"
+  },
+  {
+    "_id": "696265f65d3a69bc3ae876b4",
+    "value": "shop",
+    "__v": 0,
+    "category": "commercial",
+    "createdAt": "2026-01-10T14:45:10.229Z",
+    "displayOrder": 6,
+    "isActive": true,
+    "name": "Shop / Showroom",
+    "updatedAt": "2026-01-10T14:45:10.229Z"
+  },
+  {
+    "_id": "696265f65d3a69bc3ae876b6",
+    "value": "warehouse",
+    "__v": 0,
+    "category": "commercial",
+    "createdAt": "2026-01-10T14:45:10.356Z",
+    "displayOrder": 7,
+    "isActive": true,
+    "name": "Warehouse / Godown",
+    "updatedAt": "2026-01-10T14:45:10.356Z"
+  },
+  {
+    "_id": "696265f65d3a69bc3ae876b8",
+    "value": "residential_plot",
+    "__v": 0,
+    "category": "land",
+    "createdAt": "2026-01-10T14:45:10.513Z",
+    "displayOrder": 8,
+    "isActive": true,
+    "name": "Residential Plot",
+    "updatedAt": "2026-01-10T14:45:10.513Z"
+  },
+  {
+    "_id": "696265f65d3a69bc3ae876ba",
+    "value": "agricultural_land",
+    "__v": 0,
+    "category": "land",
+    "createdAt": "2026-01-10T14:45:10.672Z",
+    "displayOrder": 9,
+    "isActive": true,
+    "name": "Agricultural Land",
+    "updatedAt": "2026-01-10T14:45:10.672Z"
+  }
+]

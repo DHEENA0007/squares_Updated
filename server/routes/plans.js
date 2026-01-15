@@ -4,6 +4,7 @@ const Subscription = require('../models/Subscription');
 const planChangeService = require('../services/planChangeService');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { authenticateToken } = require('../middleware/authMiddleware');
+const { PERMISSIONS, hasPermission } = require('../utils/permissions');
 const router = express.Router();
 
 // Apply auth middleware
@@ -90,12 +91,15 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
 // @desc    Create new plan (Admin only)
 // @route   POST /api/plans
-// @access  Private/Admin
+// @access  Private (Admin role OR PLANS_CREATE permission)
 router.post('/', asyncHandler(async (req, res) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
+  const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+  const hasCreatePermission = hasPermission(req.user, PERMISSIONS.PLANS_CREATE);
+  
+  if (!hasAdminRole && !hasCreatePermission) {
     return res.status(403).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Admin access required or PLANS_CREATE permission needed'
     });
   }
 
@@ -133,12 +137,15 @@ router.post('/', asyncHandler(async (req, res) => {
 
 // @desc    Update plan (Admin only)
 // @route   PUT /api/plans/:id
-// @access  Private/Admin
+// @access  Private (Admin role OR PLANS_EDIT permission)
 router.put('/:id', asyncHandler(async (req, res) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
+  const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+  const hasEditPermission = hasPermission(req.user, PERMISSIONS.PLANS_EDIT);
+  
+  if (!hasAdminRole && !hasEditPermission) {
     return res.status(403).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Admin access required or PLANS_EDIT permission needed'
     });
   }
 
@@ -161,20 +168,23 @@ router.put('/:id', asyncHandler(async (req, res) => {
     });
   }
 
+  // Use filtered changes to avoid any invalid fields
+  const changesToApply = validation.filteredChanges || req.body;
+
   // Analyze impact of changes
-  const impact = await planChangeService.analyzePlanChangeImpact(req.params.id, req.body);
+  const impact = await planChangeService.analyzePlanChangeImpact(req.params.id, changesToApply);
 
   // Track price changes
-  if (req.body.price && req.body.price !== plan.price) {
-    await plan.updatePrice(req.body.price, req.user.id, req.body.priceChangeReason);
-    delete req.body.price;
-    delete req.body.priceChangeReason;
+  if (changesToApply.price && changesToApply.price !== plan.price) {
+    plan.updatePrice(changesToApply.price, req.user.id, changesToApply.priceChangeReason);
+    delete changesToApply.price;
+    delete changesToApply.priceChangeReason;
   }
 
   // Track feature changes
-  if (req.body.features) {
+  if (changesToApply.features) {
     const oldFeatures = plan.features || [];
-    const newFeatures = req.body.features || [];
+    const newFeatures = changesToApply.features || [];
     
     newFeatures.forEach(feature => {
       const featureName = typeof feature === 'string' ? feature : feature.name;
@@ -189,9 +199,9 @@ router.put('/:id', asyncHandler(async (req, res) => {
   }
 
   // Update other fields
-  Object.keys(req.body).forEach(key => {
+  Object.keys(changesToApply).forEach(key => {
     if (key !== 'price' && key !== 'priceHistory' && key !== 'featureHistory') {
-      plan[key] = req.body[key];
+      plan[key] = changesToApply[key];
     }
   });
 
@@ -268,12 +278,15 @@ router.patch('/:id/toggle-status', asyncHandler(async (req, res) => {
 
 // @desc    Delete plan (Admin only)
 // @route   DELETE /api/plans/:id
-// @access  Private/Admin
+// @access  Private (Admin role OR PLANS_EDIT permission)
 router.delete('/:id', asyncHandler(async (req, res) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
+  const hasAdminRole = ['admin', 'superadmin'].includes(req.user.role);
+  const hasEditPermission = hasPermission(req.user, PERMISSIONS.PLANS_EDIT);
+  
+  if (!hasAdminRole && !hasEditPermission) {
     return res.status(403).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Admin access required or PLANS_EDIT permission needed'
     });
   }
 

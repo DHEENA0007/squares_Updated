@@ -5,18 +5,19 @@ const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const LoginAttempt = require('../models/LoginAttempt');
 const TwoFactorAuth = require('../models/TwoFactorAuth');
+const adminRealtimeService = require('../services/adminRealtimeService');
 const { asyncHandler, validateRequest } = require('../middleware/errorMiddleware');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const { sendEmail } = require('../utils/emailService');
-const { 
-  registerSchema, 
-  loginSchema, 
-  forgotPasswordSchema, 
-  resetPasswordSchema 
+const {
+  registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema
 } = require('../utils/validationSchemas');
-const { 
-  createOTP, 
-  verifyOTP, 
+const {
+  createOTP,
+  verifyOTP,
   canRequestOTP,
   isOTPVerified,
   consumeVerifiedOTP
@@ -52,7 +53,7 @@ const mapDocumentType = (type) => {
 // @route   POST /api/auth/send-otp
 // @access  Public
 router.post('/send-otp', asyncHandler(async (req, res) => {
-  const { email, firstName, phone } = req.body;
+  const { email, firstName, phone, role } = req.body;
 
   if (!email) {
     return res.status(400).json({
@@ -135,8 +136,8 @@ router.post('/check-business-name', asyncHandler(async (req, res) => {
   }
 
   // Check if business name already exists (case-insensitive)
-  const existingBusiness = await Vendor.findOne({ 
-    'businessInfo.companyName': new RegExp(`^${businessName.trim()}$`, 'i') 
+  const existingBusiness = await Vendor.findOne({
+    'businessInfo.companyName': new RegExp(`^${businessName.trim()}$`, 'i')
   });
 
   if (existingBusiness) {
@@ -159,7 +160,7 @@ router.post('/check-business-name', asyncHandler(async (req, res) => {
 // @access  Public
 router.post('/check-phone', asyncHandler(async (req, res) => {
   console.log('📞 Check phone route hit with body:', req.body);
-  
+
   const { phone } = req.body;
 
   if (!phone || phone.trim().length === 0) {
@@ -193,6 +194,42 @@ router.post('/check-phone', asyncHandler(async (req, res) => {
       success: false,
       message: 'Error checking phone availability',
       available: false
+    });
+  }
+}));
+
+// @desc    Check email availability
+// @route   GET /api/auth/check-email
+// @access  Public
+router.get('/check-email', asyncHandler(async (req, res) => {
+  console.log('📧 Check email route hit with query:', req.query);
+
+  const { email } = req.query;
+
+  if (!email || email.trim().length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email is required',
+      exists: false
+    });
+  }
+
+  try {
+    // Check if email already exists
+    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
+    console.log('📧 Email check result:', existingUser ? 'Found existing' : 'Available');
+
+    res.json({
+      success: true,
+      exists: !!existingUser,
+      message: existingUser ? 'Email already registered' : 'Email is available'
+    });
+  } catch (error) {
+    console.error('📧 Error checking email availability:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking email availability',
+      exists: false
     });
   }
 }));
@@ -233,12 +270,12 @@ router.post('/verify-otp', asyncHandler(async (req, res) => {
 // @route   POST /api/auth/register
 // @access  Public
 router.post('/register', validateRequest(registerSchema), asyncHandler(async (req, res) => {
-  const { 
-    email, 
-    password, 
-    firstName, 
-    lastName, 
-    phone, 
+  const {
+    email,
+    password,
+    firstName,
+    lastName,
+    phone,
     role = 'customer',
     agreeToTerms,
     businessInfo,
@@ -265,7 +302,7 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
   // Check if OTP is already verified (for multi-step processes)
   const otpStatus = await isOTPVerified(email, 'email_verification');
   console.log('OTP Status for', email, ':', otpStatus);
-  
+
   if (!otpStatus.verified) {
     // If not verified, try to verify the provided OTP
     console.log('Attempting to verify OTP for registration:', email);
@@ -303,13 +340,23 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
 
   // For vendors, check if business name already exists
   if (role === 'agent' && businessInfo?.businessName) {
-    const existingBusiness = await Vendor.findOne({ 
-      'businessInfo.companyName': new RegExp(`^${businessInfo.businessName.trim()}$`, 'i') 
+    const existingBusiness = await Vendor.findOne({
+      'businessInfo.companyName': new RegExp(`^${businessInfo.businessName.trim()}$`, 'i')
     });
     if (existingBusiness) {
       return res.status(400).json({
         success: false,
         message: 'A business with this name is already registered. Please choose a different business name or contact support if this is your business.'
+      });
+    }
+  }
+
+  // For vendors, validate business description length
+  if (role === 'agent' && businessInfo?.businessDescription) {
+    if (businessInfo.businessDescription.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Business description must be at least 10 characters long.'
       });
     }
   }
@@ -349,7 +396,7 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
   if (role === 'agent') {
     // Prepare documents array properly - ensure each document has required 'type' field
     const vendorDocuments = [];
-    
+
     if (documents && Array.isArray(documents)) {
       // Frontend sends documents as array: [{ type, name, url, status, uploadDate }]
       documents.forEach(doc => {
@@ -373,7 +420,7 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
         'panCard': 'pan_card',
         'gstCertificate': 'gst_certificate'
       };
-      
+
       Object.entries(documents).forEach(([key, doc]) => {
         if (doc && doc.url) {
           vendorDocuments.push({
@@ -386,9 +433,9 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
         }
       });
     }
-    
+
     console.log('Vendor documents prepared:', vendorDocuments);
-    
+
     // Map documents to approval.submittedDocuments format
     const submittedDocuments = vendorDocuments.map(doc => ({
       documentType: mapDocumentType(doc.type),
@@ -397,9 +444,9 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
       uploadedAt: doc.uploadDate || new Date(),
       verified: false
     }));
-    
+
     console.log('Submitted documents for approval:', submittedDocuments);
-    
+
     const vendorData = {
       user: user._id,
       businessInfo: {
@@ -513,6 +560,19 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
       console.error('Failed to send admin notification:', emailError);
       // Don't fail the registration if admin email fails
     }
+
+    // Notify admins via socket
+    adminRealtimeService.broadcastNotification({
+      type: 'vendor_created',
+      title: 'New Vendor Application',
+      message: `New vendor application from ${firstName} ${lastName} (${businessInfo?.businessName || 'No Company Name'})`,
+      data: {
+        vendorId: vendor._id,
+        userId: user._id,
+        name: `${firstName} ${lastName}`,
+        company: businessInfo?.businessName
+      }
+    });
   }
 
   // Send confirmation email (for vendors, confirm profile submission)
@@ -555,7 +615,7 @@ router.post('/register', validateRequest(registerSchema), asyncHandler(async (re
 
   res.status(201).json({
     success: true,
-    message: role === 'agent' 
+    message: role === 'agent'
       ? 'Vendor registration successful! Your email is verified. Please wait for admin approval to start offering services.'
       : 'Registration successful! Your account is ready to use.',
     data: {
@@ -578,14 +638,15 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
   const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
   const userAgent = req.headers['user-agent'] || 'unknown';
 
-  // Get security settings for max login attempts
+  // Get security settings for max login attempts and lockout duration
   const Settings = require('../models/Settings');
   const settings = await Settings.getSettings();
   const maxAttempts = settings.security.maxLoginAttempts || 5;
+  const lockoutDuration = settings.security.lockoutDuration || 30; // minutes
 
   // Check login attempts
   let loginAttempt = await LoginAttempt.findOne({ email, ipAddress });
-  
+
   if (!loginAttempt) {
     loginAttempt = new LoginAttempt({ email, ipAddress, userAgent, attempts: 0 });
   }
@@ -598,26 +659,27 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
       message: `Too many failed login attempts. Account is locked for ${remainingMinutes} more minutes. You can reset your password to unlock immediately.`,
       isLocked: true,
       remainingMinutes,
-      canResetPassword: true
+      canResetPassword: true,
+      lockoutDuration: lockoutDuration
     });
   }
 
   // Get user
   const user = await User.findOne({ email });
-  
+
   if (!user) {
     // Increment failed attempts
     loginAttempt.attempts += 1;
     loginAttempt.lastAttempt = new Date();
-    
+
     // Lock account if max attempts reached
     if (loginAttempt.attempts >= maxAttempts) {
       loginAttempt.isLocked = true;
-      loginAttempt.lockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+      loginAttempt.lockedUntil = new Date(Date.now() + lockoutDuration * 60 * 1000); // Use dynamic lockout duration
     }
-    
+
     await loginAttempt.save();
-    
+
     return res.status(401).json({
       success: false,
       message: 'Invalid email or password',
@@ -657,11 +719,11 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
     // Increment failed attempts
     loginAttempt.attempts += 1;
     loginAttempt.lastAttempt = new Date();
-    
+
     if (loginAttempt.attempts >= maxAttempts) {
       loginAttempt.isLocked = true;
-      loginAttempt.lockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
-      
+      loginAttempt.lockedUntil = new Date(Date.now() + lockoutDuration * 60 * 1000); // Use dynamic lockout duration
+
       // Send account locked email
       try {
         await sendEmail({
@@ -669,8 +731,8 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
           template: 'account-locked',
           data: {
             firstName: user.profile.firstName || 'User',
-            lockDuration: '30 minutes',
-            resetPasswordLink: `${process.env.CLIENT_URL}/v2/forgot-password`,
+            lockDuration: `${lockoutDuration} minutes`,
+            resetPasswordLink: `${process.env.CLIENT_URL}/en-new/forgot-password`,
             ipAddress: ipAddress
           }
         });
@@ -678,9 +740,9 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
         console.error('Failed to send account locked email:', emailError);
       }
     }
-    
+
     await loginAttempt.save();
-    
+
     return res.status(401).json({
       success: false,
       message: 'Invalid email or password',
@@ -690,7 +752,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
 
   // Check if 2FA is enabled for user
   const twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id, isEnabled: true });
-  
+
   if (twoFactorAuth) {
     // 2FA is enabled, verify code
     if (!twoFactorCode) {
@@ -705,7 +767,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
     // Verify 2FA token or backup code
     const isValidToken = twoFactorAuth.verifyToken(twoFactorCode);
     const isValidBackupCode = !isValidToken && twoFactorAuth.verifyBackupCode(twoFactorCode);
-    
+
     if (!isValidToken && !isValidBackupCode) {
       return res.status(401).json({
         success: false,
@@ -718,7 +780,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
     if (isValidBackupCode) {
       twoFactorAuth.lastUsed = new Date();
       await twoFactorAuth.save();
-      
+
       const remainingCodes = twoFactorAuth.getRemainingBackupCodes();
       if (remainingCodes < 3) {
         // Warn user about low backup codes
@@ -754,14 +816,15 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
   user.profile.lastLogin = new Date();
   await user.save();
 
-  // Get role pages
+  // Get role pages and permissions
   let rolePages = user.rolePages || [];
-  
+  let rolePermissions = [];
+
   let userRoleDoc = null;
   try {
     const Role = require('../models/Role');
     userRoleDoc = await Role.findOne({ name: user.role });
-    
+
     if (!userRoleDoc) {
       return res.status(403).json({
         success: false,
@@ -769,7 +832,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
         reason: 'role_deleted'
       });
     }
-    
+
     if (!userRoleDoc.isActive) {
       return res.status(403).json({
         success: false,
@@ -777,16 +840,20 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
         reason: 'role_inactive'
       });
     }
-    
+
     if (!rolePages || rolePages.length === 0) {
       if (userRoleDoc.pages) {
         rolePages = userRoleDoc.pages;
       }
     }
+
+    if (userRoleDoc.permissions) {
+      rolePermissions = userRoleDoc.permissions;
+    }
   } catch (error) {
     console.error('Error checking role status:', error);
   }
-  
+
   if (!rolePages || rolePages.length === 0) {
     try {
       const Role = require('../models/Role');
@@ -794,37 +861,83 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
       if (userRole && userRole.pages) {
         rolePages = userRole.pages;
       }
+      if (userRole && userRole.permissions) {
+        rolePermissions = userRole.permissions;
+      }
     } catch (error) {
       console.error('Error fetching role pages:', error);
     }
   }
 
-  // Generate JWT token
+  // Get session timeout from system settings (in minutes)
+  const systemSessionTimeout = settings.security.sessionTimeout || 30;
+  // Allow user preference to override if it's more restrictive, otherwise use system setting
+  const userSessionTimeout = user.profile?.preferences?.security?.sessionTimeout;
+  const sessionTimeout = userSessionTimeout && parseInt(userSessionTimeout) < systemSessionTimeout
+    ? userSessionTimeout
+    : systemSessionTimeout.toString();
+  const timeoutMinutes = sessionTimeout === '0' ? 7 * 24 * 60 : parseInt(sessionTimeout); // 0 = never expire (7 days)
+
+  // Generate JWT token with session timeout (either system or user preference, whichever is more restrictive)
   const token = jwt.sign(
-    { 
-      userId: user._id, 
-      email: user.email, 
-      role: user.role 
+    {
+      userId: user._id,
+      email: user.email,
+      role: user.role
     },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    { expiresIn: sessionTimeout === '0' ? '7d' : `${timeoutMinutes}m` }
   );
 
-  // Set secure cookie
+  // Set secure cookie with matching expiration
+  const cookieExpiryMs = sessionTimeout === '0' ? 7 * 24 * 60 * 60 * 1000 : timeoutMinutes * 60 * 1000;
   const cookieOptions = {
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    expires: new Date(Date.now() + cookieExpiryMs),
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax'
   };
 
+  // Send login alert if enabled in user preferences
+  const loginAlertsEnabled = user.profile?.preferences?.security?.loginAlerts;
+  if (loginAlertsEnabled) {
+    try {
+      const { sendEmail } = require('../utils/emailService');
+      const requestIp = req.ip || req.connection.remoteAddress || 'Unknown';
+      const userAgent = req.get('user-agent') || 'Unknown Device';
+
+      // Send login alert email (non-blocking)
+      sendEmail({
+        to: user.email,
+        template: 'login-alert',
+        data: {
+          firstName: user.profile?.firstName || 'User',
+          loginDate: new Date().toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          device: userAgent,
+          location: 'India', // Can be enhanced with IP geolocation
+          ipAddress: requestIp,
+          secureAccountLink: `${process.env.CLIENT_URL}/customer/settings`
+        }
+      }).catch(err => console.error('Failed to send login alert:', err));
+    } catch (error) {
+      console.error('Error sending login alert:', error);
+    }
+  }
+
   res.cookie('token', token, cookieOptions);
 
   // Send login alert email
   try {
-    const deviceInfo = userAgent.includes('Mobile') ? 'Mobile Device' : 
-                      userAgent.includes('Chrome') ? 'Chrome Browser' : 
-                      'Unknown Device';
+    const deviceInfo = userAgent.includes('Mobile') ? 'Mobile Device' :
+      userAgent.includes('Chrome') ? 'Chrome Browser' :
+        'Unknown Device';
 
     await sendEmail({
       to: user.email,
@@ -859,6 +972,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
         email: user.email,
         role: user.role,
         rolePages: rolePages,
+        rolePermissions: rolePermissions,
         profile: user.profile,
         has2FA: !!twoFactorAuth
       }
@@ -871,7 +985,7 @@ router.post('/login', validateRequest(loginSchema), asyncHandler(async (req, res
 // @access  Private
 router.post('/logout', authenticateToken, asyncHandler(async (req, res) => {
   res.clearCookie('token');
-  
+
   res.json({
     success: true,
     message: 'Logged out successfully'
@@ -883,12 +997,26 @@ router.post('/logout', authenticateToken, asyncHandler(async (req, res) => {
 // @access  Private
 router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id);
-  
+
   if (!user) {
     return res.status(404).json({
       success: false,
       message: 'User not found'
     });
+  }
+
+  // Fetch fresh role permissions
+  let rolePermissions = [];
+  const defaultRoles = ['customer', 'agent', 'admin', 'subadmin', 'superadmin'];
+
+  if (!defaultRoles.includes(user.role)) {
+    // User has a custom role, fetch permissions from Role collection
+    const Role = require('../models/Role');
+    const roleDoc = await Role.findOne({ name: user.role, isActive: true });
+
+    if (roleDoc && roleDoc.permissions) {
+      rolePermissions = roleDoc.permissions;
+    }
   }
 
   res.json({
@@ -898,6 +1026,7 @@ router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
         id: user._id,
         email: user.email,
         role: user.role,
+        rolePermissions: rolePermissions,
         status: user.status,
         createdAt: user.createdAt,
         profile: user.profile
@@ -921,7 +1050,7 @@ router.post('/verify-email', asyncHandler(async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     if (decoded.type !== 'email_verification') {
       return res.status(400).json({
         success: false,
@@ -954,7 +1083,7 @@ router.post('/verify-email', asyncHandler(async (req, res) => {
         message: 'Verification token has expired'
       });
     }
-    
+
     return res.status(400).json({
       success: false,
       message: 'Invalid verification token'
@@ -1470,7 +1599,7 @@ router.post('/verify-profile-update-otp', authenticateToken, asyncHandler(async 
 // @access  Private
 router.post('/request-deactivation', authenticateToken, asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id);
-  
+
   if (!user) {
     return res.status(404).json({
       success: false,
@@ -1480,8 +1609,8 @@ router.post('/request-deactivation', authenticateToken, asyncHandler(async (req,
 
   // Generate deactivation token (valid for 24 hours)
   const deactivationToken = jwt.sign(
-    { 
-      userId: user._id, 
+    {
+      userId: user._id,
       email: user.email,
       type: 'account_deactivation'
     },
@@ -1496,7 +1625,7 @@ router.post('/request-deactivation', authenticateToken, asyncHandler(async (req,
       template: 'account-deactivation',
       data: {
         firstName: user.profile.firstName || 'User',
-        deactivationUrl: `${process.env.CLIENT_URL}/v2/confirm-deactivation?token=${deactivationToken}`,
+        deactivationUrl: `${process.env.CLIENT_URL}/en-new/confirm-deactivation?token=${deactivationToken}`,
         userName: `${user.profile.firstName} ${user.profile.lastName}`.trim()
       }
     });
@@ -1529,7 +1658,7 @@ router.post('/confirm-deactivation', asyncHandler(async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     if (decoded.type !== 'account_deactivation') {
       return res.status(400).json({
         success: false,
@@ -1565,7 +1694,7 @@ router.post('/confirm-deactivation', asyncHandler(async (req, res) => {
             hour: '2-digit',
             minute: '2-digit'
           }),
-          reactivationLink: `${process.env.CLIENT_URL}/v2/login`
+          reactivationLink: `${process.env.CLIENT_URL}/en-new/login`
         }
       });
     } catch (emailError) {
@@ -1584,7 +1713,7 @@ router.post('/confirm-deactivation', asyncHandler(async (req, res) => {
         message: 'Deactivation link has expired. Please request a new one.'
       });
     }
-    
+
     return res.status(400).json({
       success: false,
       message: 'Invalid deactivation token'
@@ -1597,7 +1726,7 @@ router.post('/confirm-deactivation', asyncHandler(async (req, res) => {
 // @access  Private
 router.post('/request-deletion', authenticateToken, asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id);
-  
+
   if (!user) {
     return res.status(404).json({
       success: false,
@@ -1607,8 +1736,8 @@ router.post('/request-deletion', authenticateToken, asyncHandler(async (req, res
 
   // Generate deletion token (valid for 24 hours)
   const deletionToken = jwt.sign(
-    { 
-      userId: user._id, 
+    {
+      userId: user._id,
       email: user.email,
       type: 'account_deletion'
     },
@@ -1623,7 +1752,7 @@ router.post('/request-deletion', authenticateToken, asyncHandler(async (req, res
       template: 'account-deletion',
       data: {
         firstName: user.profile.firstName || 'User',
-        deletionUrl: `${process.env.CLIENT_URL}/v2/confirm-deletion?token=${deletionToken}`,
+        deletionUrl: `${process.env.CLIENT_URL}/en-new/confirm-deletion?token=${deletionToken}`,
         userName: `${user.profile.firstName} ${user.profile.lastName}`.trim()
       }
     });
@@ -1656,7 +1785,7 @@ router.post('/confirm-deletion', asyncHandler(async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     if (decoded.type !== 'account_deletion') {
       return res.status(400).json({
         success: false,
@@ -1679,7 +1808,7 @@ router.post('/confirm-deletion', asyncHandler(async (req, res) => {
     // Delete related data
     // Note: Add cascade delete for related models as needed
     // Examples: Properties, Messages, Favorites, etc.
-    
+
     // If user is a vendor, delete vendor profile
     if (user.role === 'agent' && user.vendorProfile) {
       await Vendor.findByIdAndDelete(user.vendorProfile);
@@ -1724,7 +1853,7 @@ router.post('/confirm-deletion', asyncHandler(async (req, res) => {
         message: 'Deletion link has expired. Please request a new one.'
       });
     }
-    
+
     return res.status(400).json({
       success: false,
       message: 'Invalid deletion token'
@@ -1748,7 +1877,7 @@ router.post('/2fa/setup', authenticateToken, asyncHandler(async (req, res) => {
 
   // Check if 2FA already exists
   let twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id });
-  
+
   if (twoFactorAuth && twoFactorAuth.isEnabled) {
     return res.status(400).json({
       success: false,
@@ -1763,13 +1892,13 @@ router.post('/2fa/setup', authenticateToken, asyncHandler(async (req, res) => {
 
   // Generate secret
   const secret = twoFactorAuth.generateSecret();
-  
+
   // Generate QR code
   const qrCode = await twoFactorAuth.generateQRCode(user.email);
-  
+
   // Generate backup codes
   const backupCodes = twoFactorAuth.generateBackupCodes();
-  
+
   await twoFactorAuth.save();
 
   res.json({
@@ -1805,7 +1934,7 @@ router.post('/2fa/enable', authenticateToken, asyncHandler(async (req, res) => {
   }
 
   const twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id });
-  
+
   if (!twoFactorAuth) {
     return res.status(400).json({
       success: false,
@@ -1822,7 +1951,7 @@ router.post('/2fa/enable', authenticateToken, asyncHandler(async (req, res) => {
 
   // Verify token
   const isValid = twoFactorAuth.verifyToken(token);
-  
+
   if (!isValid) {
     return res.status(400).json({
       success: false,
@@ -1894,7 +2023,7 @@ router.post('/2fa/disable', authenticateToken, asyncHandler(async (req, res) => 
   }
 
   const twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id });
-  
+
   if (!twoFactorAuth || !twoFactorAuth.isEnabled) {
     return res.status(400).json({
       success: false,
@@ -1950,7 +2079,7 @@ router.post('/2fa/disable', authenticateToken, asyncHandler(async (req, res) => 
 // @access  Private
 router.get('/2fa/status', authenticateToken, asyncHandler(async (req, res) => {
   const twoFactorAuth = await TwoFactorAuth.findOne({ user: req.user.id });
-  
+
   res.json({
     success: true,
     data: {
@@ -1994,7 +2123,7 @@ router.post('/2fa/regenerate-backup-codes', authenticateToken, asyncHandler(asyn
   }
 
   const twoFactorAuth = await TwoFactorAuth.findOne({ user: user._id });
-  
+
   if (!twoFactorAuth || !twoFactorAuth.isEnabled) {
     return res.status(400).json({
       success: false,

@@ -1,0 +1,284 @@
+[
+  {
+    "_id": "68f8857275b9205ce27f8ea5",
+    "email": "superadmin@ninetyneacres.com",
+    "password": "$2b$12$J4rs8NEArWMsj8fiozVc1evkFH84oVLPOctetUcSVyWLi7fQn1rdC",
+    "role": "superadmin",
+    "status": "active",
+    "profile": {
+      "firstName": "Super",
+      "lastName": "Admin",
+      "phone": "+1234567890",
+      "bio": "System Administrator for Ninety Nine Acres Platform",
+      "address": {
+        "street": "123 Admin Street",
+        "city": "Admin City",
+        "state": "Admin State",
+        "zipCode": "12345",
+        "country": "India"
+      },
+      "emailVerified": true,
+      "preferences": {
+        "currency": "INR",
+        "language": "en",
+        "notifications": {
+          "email": true,
+          "push": true,
+          "desktop": true,
+          "sms": false,
+          "sound": true,
+          "typing": true,
+          "newMessages": true,
+          "newsUpdates": false,
+          "priceDrops": true,
+          "propertyAlerts": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": false,
+          "allowMessages": true,
+          "dataCollection": true,
+          "marketingConsent": false,
+          "showActivity": true,
+          "thirdPartySharing": false
+        },
+        "security": {
+          "loginAlerts": true,
+          "sessionTimeout": "30",
+          "twoFactorEnabled": false
+        }
+      },
+      "avatar": null,
+      "lastLogin": "2026-01-12T19:04:30.869Z",
+      "vendorInfo": {
+        "certifications": [],
+        "experience": 0,
+        "memberSince": "2025-10-27T06:00:50.161Z",
+        "rating": {
+          "average": 0,
+          "count": 0
+        },
+        "responseTime": "Not calculated",
+        "serviceAreas": [],
+        "specializations": [],
+        "vendorPreferences": {
+          "emailNotifications": true,
+          "leadAlerts": true,
+          "marketingEmails": false,
+          "smsNotifications": true,
+          "weeklyReports": true
+        }
+      },
+      "phoneVerified": false
+    },
+    "createdAt": "2025-10-22T07:19:14.070Z",
+    "updatedAt": "2026-01-12T19:24:54.761Z",
+    "__v": 2,
+    "isGuest": false,
+    "isOnline": true,
+    "rolePages": [
+      "dashboard",
+      "users",
+      "vendor_approvals",
+      "messages",
+      "roles",
+      "clients",
+      "properties",
+      "plans",
+      "addons",
+      "privacy_policy",
+      "refund_policy",
+      "filter"
+    ],
+    "lastSeen": "2026-01-12T19:24:54.760Z",
+    "vendorProfile": "692dc17efe2a56e830754bdd"
+  },
+  {
+    "_id": "6909834d404a2c48e422ea56",
+    "email": "subadmin@buildhomemart.com",
+    "password": "$2b$12$GJXT/AX78mu28C1Pxp8UVuoU0zgztQqZoV/mj/WkPZmNFCIlLPQTe",
+    "role": "subadmin",
+    "status": "active",
+    "profile": {
+      "firstName": "Subs",
+      "lastName": "Admin",
+      "phone": "+1234567890",
+      "avatar": null,
+      "bio": "",
+      "address": {
+        "zipCode": ""
+      },
+      "emailVerified": true,
+      "phoneVerified": false,
+      "lastLogin": "2026-01-12T16:35:54.622Z",
+      "preferences": {
+        "currency": "INR",
+        "language": "en",
+        "notifications": {
+          "email": true,
+          "sms": false,
+          "push": true,
+          "propertyAlerts": true,
+          "priceDrops": true,
+          "newMessages": true,
+          "newsUpdates": false,
+          "desktop": true,
+          "sound": true,
+          "typing": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": false,
+          "showActivity": true,
+          "dataCollection": true,
+          "marketingConsent": false,
+          "thirdPartySharing": false,
+          "allowMessages": true
+        },
+        "security": {
+          "twoFactorEnabled": false,
+          "loginAlerts": true,
+          "sessionTimeout": "30"
+        }
+      }
+    },
+    "vendorProfile": null,
+    "createdAt": "2025-11-04T04:38:37.819Z",
+    "updatedAt": "2026-01-12T16:40:24.584Z",
+    "__v": 2,
+    "isGuest": false,
+    "isOnline": false,
+    "rolePages": [
+      "subadmin_dashboard",
+      "property_reviews",
+      "property_rejections",
+      "content_moderation",
+      "support_tickets",
+      "vendor_performance",
+      "addon_services",
+      "notifications",
+      "reports",
+      "subadmin_privacy_policy",
+      "subadmin_refund_policy",
+      "vendor_approvals"
+    ],
+    "lastSeen": "2026-01-12T16:40:24.583Z"
+  },
+  {
+    "_id": "6964e3a9bb5101ad090523dc",
+    "email": "customer@gmail.com",
+    "password": "$2b$12$HqLa0OyCLWUI6oBPM/mDM.94H08TPp88HrokOKFn5huLdzsBsw..e",
+    "role": "customer",
+    "rolePages": [],
+    "status": "active",
+    "isOnline": false,
+    "lastSeen": "2026-01-12T12:10:22.507Z",
+    "isGuest": false,
+    "profile": {
+      "firstName": "customer",
+      "lastName": "cc",
+      "phone": "7845961230",
+      "avatar": null,
+      "bio": null,
+      "emailVerified": false,
+      "phoneVerified": false,
+      "lastLogin": "2026-01-12T12:06:22.226Z",
+      "preferences": {
+        "currency": "INR",
+        "language": "en",
+        "notifications": {
+          "email": true,
+          "sms": false,
+          "push": true,
+          "propertyAlerts": true,
+          "priceDrops": true,
+          "newMessages": true,
+          "newsUpdates": false,
+          "desktop": true,
+          "sound": true,
+          "typing": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": false,
+          "showActivity": true,
+          "dataCollection": true,
+          "marketingConsent": false,
+          "thirdPartySharing": false,
+          "allowMessages": true
+        },
+        "security": {
+          "twoFactorEnabled": false,
+          "loginAlerts": true,
+          "sessionTimeout": "30"
+        }
+      }
+    },
+    "vendorProfile": null,
+    "createdAt": "2026-01-12T12:06:01.418Z",
+    "updatedAt": "2026-01-12T12:10:22.507Z",
+    "__v": 0
+  },
+  {
+    "_id": "69652675bb5101ad090540a2",
+    "email": "vendor@gmail.com",
+    "password": "$2b$12$8.Ro4pTjbBRoZ.rW4d6.kunSL9nzaQeQO/v178YdJKJEz/1/5EyJG",
+    "role": "agent",
+    "rolePages": [],
+    "status": "active",
+    "isOnline": false,
+    "lastSeen": null,
+    "isGuest": false,
+    "profile": {
+      "firstName": "ven",
+      "lastName": "ven",
+      "phone": "7845962130",
+      "address": {
+        "street": "ssadsaddasda",
+        "city": "Ambolin",
+        "state": "ARUNACHAL PRADESH",
+        "zipCode": "792110",
+        "country": "India"
+      },
+      "avatar": null,
+      "bio": null,
+      "emailVerified": false,
+      "phoneVerified": false,
+      "lastLogin": null,
+      "preferences": {
+        "currency": "INR",
+        "language": "en",
+        "notifications": {
+          "email": true,
+          "sms": false,
+          "push": true,
+          "propertyAlerts": true,
+          "priceDrops": true,
+          "newMessages": true,
+          "newsUpdates": false,
+          "desktop": true,
+          "sound": true,
+          "typing": true
+        },
+        "privacy": {
+          "showEmail": false,
+          "showPhone": false,
+          "showActivity": true,
+          "dataCollection": true,
+          "marketingConsent": false,
+          "thirdPartySharing": false,
+          "allowMessages": true
+        },
+        "security": {
+          "twoFactorEnabled": false,
+          "loginAlerts": true,
+          "sessionTimeout": "30"
+        }
+      }
+    },
+    "vendorProfile": "69652676bb5101ad090540a5",
+    "createdAt": "2026-01-12T16:51:01.943Z",
+    "updatedAt": "2026-01-12T16:51:02.255Z",
+    "__v": 0
+  }
+]

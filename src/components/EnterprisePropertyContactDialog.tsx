@@ -14,14 +14,17 @@ interface EnterprisePropertyContactDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   property: Property;
+  whatsappNumber?: string | null;
 }
 
 const EnterprisePropertyContactDialog: React.FC<EnterprisePropertyContactDialogProps> = ({
   open,
   onOpenChange,
   property,
+  whatsappNumber: providedWhatsappNumber,
 }) => {
-  const whatsappNumber = "+91 90807 20215";
+  // Use provided WhatsApp number or fallback to default
+  const whatsappNumber = providedWhatsappNumber || "+91 90807 20215";
   const formattedPrice = propertyService.formatPrice(property.price, property.listingType);
   const whatsappMessage = `Hi, I'm interested in the property: ${property.title} located at ${property.address.city}, ${property.address.state}. Price: ${formattedPrice}. Can you please provide more details?`;
   

@@ -3,7 +3,7 @@
 
 Options -MultiViews
 RewriteEngine On
-RewriteBase /v2/
+RewriteBase /v3/
 
 # Force MIME types
 <IfModule mod_mime.c>

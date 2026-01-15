@@ -12,6 +12,9 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 const { isSubAdmin, hasPermission, SUB_ADMIN_PERMISSIONS } = require('../middleware/roleMiddleware');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const adminRealtimeService = require('../services/adminRealtimeService');
+const notificationService = require('../services/notificationService');
+const { PERMISSIONS } = require('../utils/permissions');
+const { sanitizeSearchQuery, sanitizePagination, sanitizeCSV, validateDate } = require('../utils/sanitize');
 
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
@@ -59,46 +62,46 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     // All pending properties (not user-specific, as they haven't been assigned yet)
     Property.countDocuments({ status: 'pending' }),
     // Rejected properties by this subadmin
-    Property.countDocuments({ approvedBy: subAdminId, status: 'rejected' }),
+    Property.countDocuments({ rejectedBy: subAdminId, status: 'rejected' }),
     // Support tickets handled by this subadmin
     SupportTicket.countDocuments({ assignedTo: subAdminId }),
     SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'open' }),
     SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'resolved' }),
     SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'closed' }),
     // Last 7 days analytics
-    Property.countDocuments({ 
-      approvedBy: subAdminId, 
+    Property.countDocuments({
+      approvedBy: subAdminId,
       approvedAt: { $gte: last7Days }
     }),
-    Property.countDocuments({ 
-      approvedBy: subAdminId, 
+    Property.countDocuments({
+      approvedBy: subAdminId,
       approvedAt: { $gte: last30Days }
     }),
-    SupportTicket.countDocuments({ 
-      assignedTo: subAdminId, 
+    SupportTicket.countDocuments({
+      assignedTo: subAdminId,
       status: 'resolved',
       updatedAt: { $gte: last7Days }
     }),
-    SupportTicket.countDocuments({ 
-      assignedTo: subAdminId, 
+    SupportTicket.countDocuments({
+      assignedTo: subAdminId,
       status: 'resolved',
       updatedAt: { $gte: last30Days }
     }),
     // This month vs last month
-    Property.countDocuments({ 
-      approvedBy: subAdminId, 
+    Property.countDocuments({
+      approvedBy: subAdminId,
       approvedAt: { $gte: thisMonthStart }
     }),
-    Property.countDocuments({ 
-      approvedBy: subAdminId, 
+    Property.countDocuments({
+      approvedBy: subAdminId,
       approvedAt: { $gte: lastMonthStart, $lte: lastMonthEnd }
     }),
-    SupportTicket.countDocuments({ 
-      assignedTo: subAdminId, 
+    SupportTicket.countDocuments({
+      assignedTo: subAdminId,
       createdAt: { $gte: thisMonthStart }
     }),
-    SupportTicket.countDocuments({ 
-      assignedTo: subAdminId, 
+    SupportTicket.countDocuments({
+      assignedTo: subAdminId,
       createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd }
     }),
     // Recent activities
@@ -119,7 +122,7 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
   ]);
 
   // Calculate trends
-  const propertyApprovalTrend = propertiesApprovedLastMonth > 0 
+  const propertyApprovalTrend = propertiesApprovedLastMonth > 0
     ? ((propertiesApprovedThisMonth - propertiesApprovedLastMonth) / propertiesApprovedLastMonth * 100).toFixed(1)
     : propertiesApprovedThisMonth > 0 ? 100 : 0;
 
@@ -129,8 +132,8 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
 
   // Calculate average response time
   const avgResponseTime = await SupportTicket.aggregate([
-    { 
-      $match: { 
+    {
+      $match: {
         assignedTo: subAdminId,
         status: { $in: ['resolved', 'closed'] }
       }
@@ -150,7 +153,7 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     }
   ]);
 
-  const avgResponseTimeHours = avgResponseTime.length > 0 
+  const avgResponseTimeHours = avgResponseTime.length > 0
     ? (avgResponseTime[0].avgTime / (1000 * 60 * 60)).toFixed(1)
     : 0;
 
@@ -191,27 +194,96 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
 }));
 
 // Property Review and Approval Routes
-router.get('/properties/pending', 
+router.get('/properties/pending',
   hasPermission(SUB_ADMIN_PERMISSIONS.REVIEW_PROPERTIES),
   asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, search = '' } = req.query;
-    const skip = (page - 1) * limit;
+    const { page = 1, limit = 10, search = '', type, listingType, startDate, endDate } = req.query;
+    const pagination = sanitizePagination(page, limit);
 
     let query = { status: 'pending' };
-    
+
+    // Search filter
     if (search) {
+      const sanitizedSearch = sanitizeSearchQuery(search);
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { 'address.city': { $regex: search, $options: 'i' } }
+        { title: { $regex: sanitizedSearch, $options: 'i' } },
+        { 'address.city': { $regex: sanitizedSearch, $options: 'i' } }
       ];
+    }
+
+    // Property type filter
+    if (type && type !== 'all') {
+      query.type = type;
+    }
+
+    // Listing type filter
+    if (listingType && listingType !== 'all') {
+      query.listingType = listingType;
+    }
+
+    // Date range filters
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        query.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = end;
+      }
+    }
+
+    // Status filter (Approval Status)
+    if (req.query.status) {
+      if (req.query.status === 'all') {
+        delete query.status;
+      } else {
+        query.status = req.query.status;
+      }
+    }
+
+    // My Reviews filter - Filter by current subadmin's actions
+    if (req.query.myReviews === 'true') {
+      const userId = req.user.id;
+
+      if (query.status === 'available') {
+        query.approvedBy = userId;
+      } else if (query.status === 'rejected') {
+        query.rejectedBy = userId;
+      } else if (!query.status) {
+        // Status is 'all' - show properties approved OR rejected by me
+        const myReviewsCondition = [
+          { approvedBy: userId },
+          { rejectedBy: userId }
+        ];
+
+        if (query.$or) {
+          // If search exists (which uses $or), we must combine with $and
+          query.$and = [
+            { $or: query.$or },
+            { $or: myReviewsCondition }
+          ];
+          delete query.$or;
+        } else {
+          query.$or = myReviewsCondition;
+        }
+      }
+    }
+
+    // Availability/Status filter
+    if (req.query.propertyStatus && req.query.propertyStatus !== 'all') {
+      query.availability = req.query.propertyStatus;
     }
 
     const [properties, total] = await Promise.all([
       Property.find(query)
         .populate('owner', 'email profile')
         .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit)),
+        .skip(pagination.skip)
+        .limit(pagination.limit),
       Property.countDocuments(query)
     ]);
 
@@ -220,10 +292,10 @@ router.get('/properties/pending',
       data: {
         properties,
         total,
-        totalPages: Math.ceil(total / limit),
-        currentPage: parseInt(page),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1
+        totalPages: Math.ceil(total / pagination.limit),
+        currentPage: pagination.page,
+        hasNext: pagination.page < Math.ceil(total / pagination.limit),
+        hasPrev: pagination.page > 1
       }
     });
   })
@@ -235,7 +307,7 @@ router.post('/properties/:id/approve',
   asyncHandler(async (req, res) => {
     const property = await Property.findByIdAndUpdate(
       req.params.id,
-      { 
+      {
         status: 'available',
         verified: true,
         approvedBy: req.user.id,
@@ -283,6 +355,27 @@ router.post('/properties/:id/approve',
       timestamp: new Date()
     });
 
+    // Send push notification to property owner
+    if (owner) {
+      try {
+        const approverName = req.user.profile?.firstName
+          ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+          : req.user.email;
+
+        await notificationService.sendPropertyApprovalNotification(
+          owner._id.toString(),
+          {
+            propertyId: property._id.toString(),
+            title: property.title,
+            approvedBy: approverName
+          },
+          'approved'
+        );
+      } catch (notifError) {
+        console.error('Failed to send property approval push notification:', notifError);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Property approved successfully',
@@ -306,7 +399,7 @@ router.post('/properties/:id/reject',
 
     const property = await Property.findByIdAndUpdate(
       req.params.id,
-      { 
+      {
         status: 'rejected',
         rejectionReason: reason,
         rejectedBy: req.user.id,
@@ -320,6 +413,27 @@ router.post('/properties/:id/reject',
         success: false,
         message: 'Property not found'
       });
+    }
+
+    // Send rejection email to property owner (non-blocking)
+    const owner = property.owner;
+    if (owner && owner.email) {
+      emailService.sendEmail({
+        to: owner.email,
+        subject: 'Property Listing Rejected',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #dc2626;">Property Listing Rejected</h2>
+            <p>Dear ${owner.profile?.firstName || 'User'},</p>
+            <p>We regret to inform you that your property listing "<strong>${property.title}</strong>" has been rejected.</p>
+            <p><strong>Rejection Reason:</strong></p>
+            <p style="padding: 10px; background-color: #fee2e2; border-left: 4px solid #dc2626;">${reason}</p>
+            <p>You can review the rejection details and make necessary corrections before resubmitting your property listing.</p>
+            <p>If you have any questions or need assistance, please contact our support team.</p>
+            <p>Best regards,<br>BuildHomeMartSquares Team</p>
+          </div>
+        `
+      }).catch(err => console.error('Email send error:', err));
     }
 
     // Emit real-time event for property rejection
@@ -337,6 +451,28 @@ router.post('/properties/:id/reject',
       timestamp: new Date()
     });
 
+    // Send push notification to property owner
+    if (owner) {
+      try {
+        const rejectorName = req.user.profile?.firstName
+          ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`.trim()
+          : req.user.email;
+
+        await notificationService.sendPropertyApprovalNotification(
+          owner._id.toString(),
+          {
+            propertyId: property._id.toString(),
+            title: property.title,
+            approvedBy: rejectorName
+          },
+          'rejected',
+          reason
+        );
+      } catch (notifError) {
+        console.error('Failed to send property rejection push notification:', notifError);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Property rejected successfully',
@@ -350,18 +486,57 @@ router.get('/properties/rejected',
   hasPermission(SUB_ADMIN_PERMISSIONS.REVIEW_PROPERTIES),
   asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, search = '' } = req.query;
-    const skip = (page - 1) * limit;
+    const pagination = sanitizePagination(page, limit);
 
     let query = { status: 'rejected' };
 
     if (search) {
+      const sanitizedSearch = sanitizeSearchQuery(search);
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { 'address.city': { $regex: search, $options: 'i' } },
-        { 'address.state': { $regex: search, $options: 'i' } },
-        { 'owner.email': { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { title: { $regex: sanitizedSearch, $options: 'i' } },
+        { 'address.city': { $regex: sanitizedSearch, $options: 'i' } },
+        { 'address.state': { $regex: sanitizedSearch, $options: 'i' } },
+        { description: { $regex: sanitizedSearch, $options: 'i' } }
       ];
+    }
+
+    // Property type filter
+    if (req.query.type && req.query.type !== 'all') {
+      query.type = req.query.type;
+    }
+
+    // Listing type filter
+    if (req.query.listingType && req.query.listingType !== 'all') {
+      query.listingType = req.query.listingType;
+    }
+
+    // Status filter (Approval Status)
+    if (req.query.status) {
+      if (req.query.status === 'all') {
+        delete query.status;
+      } else {
+        query.status = req.query.status;
+      }
+    }
+
+    // Availability filter
+    if (req.query.propertyStatus && req.query.propertyStatus !== 'all') {
+      query.availability = req.query.propertyStatus;
+    }
+
+    // Date range filters
+    if (req.query.startDate || req.query.endDate) {
+      query.rejectedAt = {};
+      if (req.query.startDate) {
+        const start = new Date(req.query.startDate);
+        start.setHours(0, 0, 0, 0);
+        query.rejectedAt.$gte = start;
+      }
+      if (req.query.endDate) {
+        const end = new Date(req.query.endDate);
+        end.setHours(23, 59, 59, 999);
+        query.rejectedAt.$lte = end;
+      }
     }
 
     const [properties, total] = await Promise.all([
@@ -369,8 +544,8 @@ router.get('/properties/rejected',
         .populate('owner', 'email profile')
         .populate('rejectedBy', 'email profile')
         .sort({ rejectedAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit)),
+        .skip(pagination.skip)
+        .limit(pagination.limit),
       Property.countDocuments(query)
     ]);
 
@@ -379,10 +554,10 @@ router.get('/properties/rejected',
       data: {
         properties,
         total,
-        totalPages: Math.ceil(total / limit),
-        currentPage: parseInt(page),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1
+        totalPages: Math.ceil(total / pagination.limit),
+        currentPage: pagination.page,
+        hasNext: pagination.page < Math.ceil(total / pagination.limit),
+        hasPrev: pagination.page > 1
       }
     });
   })
@@ -394,9 +569,9 @@ router.post('/properties/:id/reactivate',
   asyncHandler(async (req, res) => {
     const property = await Property.findByIdAndUpdate(
       req.params.id,
-      { 
+      {
         status: 'pending',
-        $unset: { 
+        $unset: {
           rejectionReason: 1,
           rejectedBy: 1,
           rejectedAt: 1
@@ -439,7 +614,7 @@ router.get('/content/reports',
   hasPermission(SUB_ADMIN_PERMISSIONS.MODERATE_CONTENT),
   asyncHandler(async (req, res) => {
     const { status = 'pending', search = '' } = req.query;
-    
+
     // Placeholder implementation - would need ContentReport model
     res.json({
       success: true,
@@ -479,20 +654,23 @@ router.post('/content/reports/:id/dismiss',
 
 // Support Ticket Routes
 router.get('/support/tickets',
-  hasPermission(SUB_ADMIN_PERMISSIONS.HANDLE_SUPPORT),
+  hasPermission(PERMISSIONS.SUPPORT_TICKETS_READ),
   asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, status = 'open' } = req.query;
     const skip = (page - 1) * limit;
 
     let query = {};
     if (status && status !== 'all') {
-      query.status = status;
+      // Support both hyphenated and underscored values for robustness
+      if (status === 'in-progress') query.status = 'in_progress';
+      else query.status = status;
     }
 
     const [tickets, total] = await Promise.all([
       SupportTicket.find(query)
         .populate('user', 'email profile')
         .populate('assignedTo', 'email profile')
+        .populate('lockedBy', 'email profile')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit)),
@@ -509,6 +687,10 @@ router.get('/support/tickets',
       priority: ticket.priority,
       category: ticket.category,
       ticketNumber: ticket.ticketNumber,
+      attachments: ticket.attachments,
+      assignedTo: ticket.assignedTo,
+      lockedBy: ticket.lockedBy,
+      lockedAt: ticket.lockedAt,
       createdAt: ticket.createdAt,
       updatedAt: ticket.updatedAt,
       responses: ticket.responses
@@ -528,30 +710,66 @@ router.get('/support/tickets',
 
 // Update support ticket status
 router.patch('/support/tickets/:id',
-  hasPermission(SUB_ADMIN_PERMISSIONS.HANDLE_SUPPORT),
+  hasPermission(PERMISSIONS.SUPPORT_TICKETS_STATUS),
   asyncHandler(async (req, res) => {
     const { status, response } = req.body;
 
+    const ticket = await SupportTicket.findById(req.params.id);
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Support ticket not found'
+      });
+    }
+
+    // Check if ticket is locked by another user
+    if (ticket.lockedBy && ticket.lockedBy.toString() !== req.user.id.toString()) {
+      const lockedUser = await User.findById(ticket.lockedBy).select('profile email');
+      const lockedByName = lockedUser?.profile?.firstName
+        ? `${lockedUser.profile.firstName} ${lockedUser.profile.lastName || ''}`
+        : lockedUser?.email || 'Another user';
+
+      return res.status(423).json({ // 423 Locked
+        success: false,
+        message: `This ticket is currently being handled by ${lockedByName}`,
+        lockedBy: {
+          id: ticket.lockedBy,
+          name: lockedByName,
+          lockedAt: ticket.lockedAt
+        }
+      });
+    }
+
+    // Lock the ticket for this user on first interaction
+    if (!ticket.lockedBy) {
+      ticket.lockedBy = req.user.id;
+      ticket.lockedAt = new Date();
+    }
+
     const updateData = {
       status,
-      assignedTo: req.user.id
+      assignedTo: req.user.id,
+      assignedAt: new Date(),
+      lockedBy: req.user.id,
+      lockedAt: ticket.lockedAt || new Date()
     };
 
     // Add response if provided
     if (response) {
-      const ticket = await SupportTicket.findById(req.params.id);
-      if (!ticket) {
-        return res.status(404).json({
+      // Prevent replies to closed or resolved tickets
+      if (ticket.status === 'closed' || ticket.status === 'resolved') {
+        return res.status(400).json({
           success: false,
-          message: 'Support ticket not found'
+          message: `Cannot reply to ${ticket.status} tickets. Only open or in-progress tickets can receive replies.`
         });
       }
 
       ticket.responses.push({
         message: response,
-        author: req.user.profile?.firstName 
+        author: req.user.profile?.firstName
           ? `${req.user.profile.firstName} ${req.user.profile.lastName || ''}`
           : req.user.email,
+        authorId: req.user.id,
         isAdmin: true
       });
 
@@ -561,14 +779,21 @@ router.patch('/support/tickets/:id',
         ticket.resolvedAt = new Date();
         // Auto-close ticket when marked as resolved
         ticket.status = 'closed';
+        // Unlock ticket when closed
+        ticket.lockedBy = null;
+        ticket.lockedAt = null;
       } else {
         ticket.status = status;
       }
+
+      ticket.assignedTo = req.user.id;
+      ticket.assignedAt = new Date();
 
       await ticket.save();
 
       await ticket.populate('user', 'email profile');
       await ticket.populate('assignedTo', 'email profile');
+      await ticket.populate('lockedBy', 'email profile');
 
       // Emit real-time event
       adminRealtimeService.broadcastNotification({
@@ -579,7 +804,8 @@ router.patch('/support/tickets/:id',
           ticketId: ticket._id,
           ticketNumber: ticket.ticketNumber,
           status,
-          updatedBy: req.user.email
+          updatedBy: req.user.email,
+          lockedBy: req.user.id
         },
         timestamp: new Date()
       });
@@ -597,24 +823,33 @@ router.patch('/support/tickets/:id',
           ticketNumber: ticket.ticketNumber,
           createdAt: ticket.createdAt,
           updatedAt: ticket.updatedAt,
-          responses: ticket.responses
+          responses: ticket.responses,
+          assignedTo: ticket.assignedTo,
+          lockedBy: ticket.lockedBy
         }
       });
     }
 
-    const ticket = await SupportTicket.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    ).populate('user', 'email profile')
-     .populate('assignedTo', 'email profile');
-
-    if (!ticket) {
-      return res.status(404).json({
-        success: false,
-        message: 'Support ticket not found'
-      });
+    // Auto-close resolved tickets and unlock
+    if (status === 'resolved') {
+      ticket.status = 'closed';
+      ticket.resolvedBy = req.user.id;
+      ticket.resolvedAt = new Date();
+      ticket.assignedTo = req.user.id;
+      ticket.assignedAt = new Date();
+      ticket.lockedBy = null;
+      ticket.lockedAt = null;
+      await ticket.save();
+    } else {
+      ticket.status = status;
+      ticket.assignedTo = req.user.id;
+      ticket.assignedAt = new Date();
+      await ticket.save();
     }
+
+    await ticket.populate('user', 'email profile');
+    await ticket.populate('assignedTo', 'email profile');
+    await ticket.populate('lockedBy', 'email profile');
 
     // Emit real-time event
     adminRealtimeService.broadcastNotification({
@@ -624,8 +859,9 @@ router.patch('/support/tickets/:id',
       data: {
         ticketId: ticket._id,
         ticketNumber: ticket.ticketNumber,
-        status,
-        updatedBy: req.user.email
+        status: ticket.status,
+        updatedBy: req.user.email,
+        lockedBy: req.user.id
       },
       timestamp: new Date()
     });
@@ -643,7 +879,9 @@ router.patch('/support/tickets/:id',
         ticketNumber: ticket.ticketNumber,
         createdAt: ticket.createdAt,
         updatedAt: ticket.updatedAt,
-        responses: ticket.responses
+        responses: ticket.responses,
+        assignedTo: ticket.assignedTo,
+        lockedBy: ticket.lockedBy
       }
     });
   })
@@ -658,10 +896,11 @@ router.get('/vendors/performance',
     try {
       let matchQuery = { role: 'agent' };
       if (search) {
+        const sanitizedSearch = sanitizeSearchQuery(search);
         matchQuery.$or = [
-          { email: { $regex: search, $options: 'i' } },
-          { 'profile.firstName': { $regex: search, $options: 'i' } },
-          { 'profile.lastName': { $regex: search, $options: 'i' } }
+          { email: { $regex: sanitizedSearch, $options: 'i' } },
+          { 'profile.firstName': { $regex: sanitizedSearch, $options: 'i' } },
+          { 'profile.lastName': { $regex: sanitizedSearch, $options: 'i' } }
         ];
       }
 
@@ -711,7 +950,7 @@ router.get('/vendors/performance',
         },
         {
           $addFields: {
-            name: { 
+            name: {
               $concat: [
                 { $ifNull: ['$profile.firstName', ''] },
                 ' ',
@@ -744,7 +983,7 @@ router.get('/vendors/performance',
             averageRating: {
               $cond: {
                 if: { $gt: [{ $size: '$reviews' }, 0] },
-                then: { 
+                then: {
                   $round: [
                     { $avg: '$reviews.rating' },
                     1
@@ -943,14 +1182,14 @@ router.get('/notifications',
     const skip = (page - 1) * limit;
 
     const Notification = require('../models/Notification');
-    
+
     let query = {};
-    
+
     // Filter by status
     if (status && status !== 'all') {
       query.status = status;
     }
-    
+
     // Search filter
     if (search) {
       query.$or = [
@@ -975,16 +1214,16 @@ router.get('/notifications',
       _id: notif._id,
       title: notif.title,
       message: notif.message,
-      type: notif.type === 'informational' ? 'info' : 
-            notif.type === 'alert' ? 'warning' : 
-            notif.type === 'system' ? 'success' : notif.type,
-      recipients: notif.targetAudience === 'all_users' ? 'all' : 
-                  notif.targetAudience === 'vendors' ? 'vendors' : 
-                  notif.targetAudience === 'customers' ? 'customers' : 'specific',
+      type: notif.type === 'informational' ? 'info' :
+        notif.type === 'alert' ? 'warning' :
+          notif.type === 'system' ? 'success' : notif.type,
+      recipients: notif.targetAudience === 'all_users' ? 'all' :
+        notif.targetAudience === 'vendors' ? 'vendors' :
+          notif.targetAudience === 'customers' ? 'customers' : 'specific',
       recipientCount: notif.statistics?.totalRecipients || 0,
       sentBy: {
         _id: notif.sentBy?._id || notif.sentBy,
-        name: notif.sentBy?.profile?.firstName 
+        name: notif.sentBy?.profile?.firstName
           ? `${notif.sentBy.profile.firstName} ${notif.sentBy.profile.lastName || ''}`.trim()
           : notif.sentBy?.email || 'System'
       },
@@ -1010,13 +1249,13 @@ router.get('/notifications',
 router.post('/notifications/send',
   hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
   asyncHandler(async (req, res) => {
-    const { 
-      title, 
-      message, 
-      recipients = 'all', 
+    const {
+      title,
+      message,
+      recipients = 'all',
       type = 'info',
       sendEmail = true,
-      sendInApp = true 
+      sendInApp = true
     } = req.body;
 
     if (!title || !message) {
@@ -1048,7 +1287,7 @@ router.post('/notifications/send',
     // Send in-app notifications
     if (sendInApp) {
       const userIds = targetUsers.map(u => u._id.toString());
-      
+
       notificationService.broadcast({
         type: type,
         title,
@@ -1070,7 +1309,7 @@ router.post('/notifications/send',
       for (const user of targetUsers) {
         // Check if user has email notifications enabled
         const emailEnabled = user.profile?.preferences?.notifications?.email !== false;
-        
+
         if (emailEnabled && user.email) {
           try {
             await emailService.sendTemplateEmail(
@@ -1099,11 +1338,11 @@ router.post('/notifications/send',
       title,
       subject: title,
       message,
-      type: type === 'info' ? 'informational' : 
-            type === 'warning' ? 'alert' : 
-            type === 'success' ? 'system' : 'alert',
-      targetAudience: recipients === 'all' ? 'all_users' : 
-                      recipients === 'vendors' ? 'vendors' : 'customers',
+      type: type === 'info' ? 'informational' :
+        type === 'warning' ? 'alert' :
+          type === 'success' ? 'system' : 'alert',
+      targetAudience: recipients === 'all' ? 'all_users' :
+        recipients === 'vendors' ? 'vendors' : 'customers',
       channels: [
         sendInApp ? 'in_app' : null,
         sendEmail ? 'email' : null
@@ -1138,13 +1377,13 @@ router.post('/notifications/send',
 router.post('/notifications/draft',
   hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
   asyncHandler(async (req, res) => {
-    const { 
-      title, 
-      message, 
-      recipients = 'all', 
+    const {
+      title,
+      message,
+      recipients = 'all',
       type = 'info',
       sendEmail = true,
-      sendInApp = true 
+      sendInApp = true
     } = req.body;
 
     if (!title || !message) {
@@ -1172,11 +1411,11 @@ router.post('/notifications/draft',
       title,
       subject: title,
       message,
-      type: type === 'info' ? 'informational' : 
-            type === 'warning' ? 'alert' : 
-            type === 'success' ? 'system' : 'alert',
-      targetAudience: recipients === 'all' ? 'all_users' : 
-                      recipients === 'vendors' ? 'vendors' : 'customers',
+      type: type === 'info' ? 'informational' :
+        type === 'warning' ? 'alert' :
+          type === 'success' ? 'system' : 'alert',
+      targetAudience: recipients === 'all' ? 'all_users' :
+        recipients === 'vendors' ? 'vendors' : 'customers',
       channels: [
         sendInApp ? 'in_app' : null,
         sendEmail ? 'email' : null
@@ -1205,7 +1444,7 @@ router.post('/notifications/draft/:id/send',
   hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
   asyncHandler(async (req, res) => {
     const Notification = require('../models/Notification');
-    
+
     // Get the draft notification
     const draftNotification = await Notification.findOne({
       _id: req.params.id,
@@ -1221,12 +1460,12 @@ router.post('/notifications/draft/:id/send',
 
     // Determine recipients based on targetAudience
     const recipients = draftNotification.targetAudience === 'all_users' ? 'all' :
-                       draftNotification.targetAudience === 'vendors' ? 'vendors' : 'customers';
-    
+      draftNotification.targetAudience === 'vendors' ? 'vendors' : 'customers';
+
     // Determine notification type
     const type = draftNotification.type === 'informational' ? 'info' :
-                 draftNotification.type === 'alert' ? 'warning' :
-                 draftNotification.type === 'system' ? 'success' : 'info';
+      draftNotification.type === 'alert' ? 'warning' :
+        draftNotification.type === 'system' ? 'success' : 'info';
 
     const sendEmail = draftNotification.channels.includes('email');
     const sendInApp = draftNotification.channels.includes('in_app');
@@ -1253,7 +1492,7 @@ router.post('/notifications/draft/:id/send',
     // Send in-app notifications
     if (sendInApp) {
       const userIds = targetUsers.map(u => u._id.toString());
-      
+
       notificationService.broadcast({
         type: type,
         title: draftNotification.title,
@@ -1274,7 +1513,7 @@ router.post('/notifications/draft/:id/send',
     if (sendEmail) {
       for (const user of targetUsers) {
         const emailEnabled = user.profile?.preferences?.notifications?.email !== false;
-        
+
         if (emailEnabled && user.email) {
           try {
             await emailService.sendTemplateEmail(
@@ -1322,7 +1561,7 @@ router.delete('/notifications/draft/:id',
   hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
   asyncHandler(async (req, res) => {
     const Notification = require('../models/Notification');
-    
+
     const draft = await Notification.findOneAndDelete({
       _id: req.params.id,
       status: 'draft'
@@ -1338,6 +1577,78 @@ router.delete('/notifications/draft/:id',
     res.json({
       success: true,
       message: 'Draft notification deleted successfully'
+    });
+  })
+);
+
+// Export Report Data
+router.get('/reports/export-data',
+  hasPermission(SUB_ADMIN_PERMISSIONS.GENERATE_REPORTS),
+  asyncHandler(async (req, res) => {
+    const { range = '30days' } = req.query;
+    const subAdminId = req.user.id;
+
+    // Calculate date range
+    const now = new Date();
+    let startDate = new Date();
+    switch (range) {
+      case '7days':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case '30days':
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case '90days':
+        startDate.setDate(now.getDate() - 90);
+        break;
+      case '1year':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      case 'all':
+        startDate = new Date(0); // Beginning of time
+        break;
+      default:
+        startDate.setDate(now.getDate() - 30);
+    }
+
+    const [properties, tickets] = await Promise.all([
+      Property.find({
+        approvedBy: subAdminId,
+        updatedAt: { $gte: startDate }
+      }).populate('owner', 'email profile').lean(),
+
+      SupportTicket.find({
+        assignedTo: subAdminId,
+        updatedAt: { $gte: startDate }
+      }).populate('user', 'email profile').lean()
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        properties: properties.map(p => ({
+          title: p.title,
+          type: p.type,
+          status: p.status,
+          price: p.price,
+          ownerName: `${p.owner?.profile?.firstName || ''} ${p.owner?.profile?.lastName || ''}`.trim(),
+          ownerEmail: p.owner?.email,
+          approvedAt: p.approvedAt,
+          address: `${p.address?.city || ''}, ${p.address?.state || ''}`
+        })),
+        tickets: tickets.map(t => ({
+          ticketNumber: t.ticketNumber,
+          subject: t.subject,
+          status: t.status,
+          priority: t.priority,
+          userName: `${t.user?.profile?.firstName || ''} ${t.user?.profile?.lastName || ''}`.trim(),
+          userEmail: t.user?.email,
+          createdAt: t.createdAt,
+          updatedAt: t.updatedAt
+        })),
+        range,
+        generatedAt: new Date()
+      }
     });
   })
 );
@@ -1399,12 +1710,12 @@ router.get('/reports',
         }
       ]),
       // My properties in selected range
-      Property.countDocuments({ 
+      Property.countDocuments({
         approvedBy: subAdminId,
         updatedAt: { $gte: startDate }
       }),
       // Total vendors I approved
-      User.countDocuments({ 
+      User.countDocuments({
         role: 'agent',
         'vendorProfile': { $exists: true }
       }).then(async () => {
@@ -1421,11 +1732,11 @@ router.get('/reports',
         const VendorProfile = require('../models/VendorProfile');
         return await VendorProfile.countDocuments({
           $or: [
-            { 
+            {
               'approvals.subadmin.reviewedBy': subAdminId,
               'approvals.subadmin.reviewedAt': { $gte: startDate }
             },
-            { 
+            {
               'approvals.subadmin.approvedBy': subAdminId,
               'approvals.subadmin.approvedAt': { $gte: startDate }
             }
@@ -1437,15 +1748,15 @@ router.get('/reports',
       SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'open' }),
       SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'resolved' }),
       SupportTicket.countDocuments({ assignedTo: subAdminId, status: 'closed' }),
-      SupportTicket.countDocuments({ 
+      SupportTicket.countDocuments({
         assignedTo: subAdminId,
         updatedAt: { $gte: startDate }
       }),
       // Content moderation count (assuming rejection is content moderation)
-      Property.countDocuments({ 
+      Property.countDocuments({
         rejectedBy: subAdminId
       }),
-      Property.countDocuments({ 
+      Property.countDocuments({
         rejectedBy: subAdminId,
         rejectedAt: { $gte: startDate }
       })
@@ -1457,7 +1768,7 @@ router.get('/reports',
     }, {});
 
     // Calculate average resolution time for my tickets
-    const myResolvedTicketsWithTime = await SupportTicket.find({ 
+    const myResolvedTicketsWithTime = await SupportTicket.find({
       assignedTo: subAdminId,
       status: 'resolved',
       resolvedAt: { $exists: true }
@@ -1495,8 +1806,8 @@ router.get('/reports',
           openTickets: myOpenTickets,
           closedTickets: myClosedTickets,
           responseRate: mySupportTickets > 0 ? Math.round((myResolvedTickets / mySupportTickets) * 100) : 0,
-          approvalRate: Object.values(myPropertyStatsMap).reduce((sum, count) => sum + count, 0) > 0 
-            ? Math.round(((myPropertyStatsMap.available || 0) / Object.values(myPropertyStatsMap).reduce((sum, count) => sum + count, 0)) * 100) 
+          approvalRate: Object.values(myPropertyStatsMap).reduce((sum, count) => sum + count, 0) > 0
+            ? Math.round(((myPropertyStatsMap.available || 0) / Object.values(myPropertyStatsMap).reduce((sum, count) => sum + count, 0)) * 100)
             : 0
         }
       }
@@ -1544,15 +1855,18 @@ router.get('/reports/export',
 
           csvContent = 'Property ID,Title,Type,Listing Type,Price,City,State,Status,Views,Created Date,Owner Email,Owner Role\n';
           properties.forEach(prop => {
-            const ownerEmail = prop.owner?.email || 'N/A';
-            const ownerRole = prop.owner?.role || 'N/A';
-            csvContent += `"${prop._id}","${prop.title}","${prop.type}","${prop.listingType}","${prop.price}","${prop.address?.city || 'N/A'}","${prop.address?.state || 'N/A'}","${prop.status}","${prop.views || 0}","${new Date(prop.createdAt).toLocaleDateString()}","${ownerEmail}","${ownerRole}"\n`;
+            const ownerEmail = sanitizeCSV(prop.owner?.email || 'N/A');
+            const ownerRole = sanitizeCSV(prop.owner?.role || 'N/A');
+            const title = sanitizeCSV(prop.title);
+            const city = sanitizeCSV(prop.address?.city || 'N/A');
+            const state = sanitizeCSV(prop.address?.state || 'N/A');
+            csvContent += `"${prop._id}","${title}","${prop.type}","${prop.listingType}","${prop.price}","${city}","${state}","${prop.status}","${prop.views || 0}","${new Date(prop.createdAt).toLocaleDateString()}","${ownerEmail}","${ownerRole}"\n`;
           });
           break;
 
         case 'users':
-          const users = await User.find({ 
-            role: { $nin: ['superadmin', 'subadmin'] } 
+          const users = await User.find({
+            role: { $nin: ['superadmin', 'subadmin'] }
           })
             .select('email role profile createdAt status')
             .sort({ createdAt: -1 })
@@ -1597,7 +1911,7 @@ router.get('/reports/export',
           csvContent += `\n"Summary"\n`;
           csvContent += `"Total Reviews","${reviews}"\n`;
           csvContent += `"Total Messages","${messages}"\n\n`;
-          
+
           csvContent += 'Recent Reviews\n';
           csvContent += 'Review ID,Vendor,Client,Property,Rating,Review Type,Comment,Date\n';
           allReviews.forEach(review => {
@@ -1623,10 +1937,10 @@ router.get('/reports/export',
             const assignedToEmail = ticket.assignedTo?.email || 'Unassigned';
             const createdDate = new Date(ticket.createdAt).toLocaleDateString();
             const resolvedDate = ticket.resolvedAt ? new Date(ticket.resolvedAt).toLocaleDateString() : 'N/A';
-            const resolutionTime = ticket.resolvedAt 
+            const resolutionTime = ticket.resolvedAt
               ? Math.round((new Date(ticket.resolvedAt) - new Date(ticket.createdAt)) / (1000 * 60 * 60))
               : 'N/A';
-            
+
             csvContent += `"${ticket._id}","${ticket.subject}","${ticket.status}","${ticket.priority}","${userEmail}","${assignedToEmail}","${createdDate}","${resolvedDate}","${resolutionTime}"\n`;
           });
           break;
@@ -1725,15 +2039,19 @@ router.get('/reports/city/:city',
 
 // Addon Services Routes
 router.get('/addon-services',
-  hasPermission(SUB_ADMIN_PERMISSIONS.APPROVE_PROMOTIONS), // Reusing promotions permission for addon services
+  hasPermission(PERMISSIONS.ADDON_SERVICES_READ),
   asyncHandler(async (req, res) => {
-    const { status = 'active', search = '' } = req.query;
+    const { status = 'active', search = '', page = 1, limit = 10 } = req.query;
     const AddonServiceSchedule = require('../models/AddonServiceSchedule');
 
     try {
+      const pageNum = parseInt(page);
+      const limitNum = parseInt(limit);
+      const skip = (pageNum - 1) * limitNum;
+
       // Build match query for subscriptions
       let matchQuery = {};
-      
+
       if (status === 'active') {
         matchQuery.status = 'active';
         matchQuery.endDate = { $gt: new Date() };
@@ -1801,7 +2119,7 @@ router.get('/addon-services',
             _id: 1,
             user: {
               _id: '$user._id',
-              name: { 
+              name: {
                 $concat: [
                   { $ifNull: ['$user.profile.firstName', ''] },
                   ' ',
@@ -1849,8 +2167,14 @@ router.get('/addon-services',
         { $sort: { totalAddons: -1 } }
       ]);
 
-      // Fetch schedules for all vendors
-      const vendorIds = vendorAddons.map(v => v._id);
+      const totalVendors = vendorAddons.length;
+      const totalPages = Math.ceil(totalVendors / limitNum);
+
+      // Apply pagination
+      const paginatedVendors = vendorAddons.slice(skip, skip + limitNum);
+
+      // Fetch schedules for paginated vendors
+      const vendorIds = paginatedVendors.map(v => v._id);
       const schedules = await AddonServiceSchedule.find({
         vendor: { $in: vendorIds }
       })
@@ -1870,7 +2194,7 @@ router.get('/addon-services',
       });
 
       // Add schedules to vendor data
-      const vendorAddonsWithSchedules = vendorAddons.map(vendor => ({
+      const vendorAddonsWithSchedules = paginatedVendors.map(vendor => ({
         ...vendor,
         schedules: vendorScheduleMap[vendor._id.toString()] || []
       }));
@@ -1879,7 +2203,9 @@ router.get('/addon-services',
         success: true,
         data: {
           vendorAddons: vendorAddonsWithSchedules,
-          total: vendorAddonsWithSchedules.length
+          total: totalVendors,
+          totalPages,
+          currentPage: pageNum
         }
       });
     } catch (error) {
@@ -1893,568 +2219,225 @@ router.get('/addon-services',
   })
 );
 
-// Schedule addon service - Send email to vendor
-router.post('/addon-services/schedule',
-  hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
+// Addon Services Stats
+router.get('/addon-services/stats',
+  hasPermission(PERMISSIONS.ADDON_SERVICES_READ),
   asyncHandler(async (req, res) => {
-    const { vendorId, addonId, subscriptionId, subject, message, vendorEmail, priority = 'medium', scheduledDate } = req.body;
+    const { status = 'active' } = req.query;
     const AddonServiceSchedule = require('../models/AddonServiceSchedule');
 
-    if (!vendorId || !addonId || !subject || !message || !vendorEmail || !scheduledDate) {
-      return res.status(400).json({
-        success: false,
-        message: 'All fields are required: vendorId, addonId, subject, message, vendorEmail, scheduledDate'
-      });
-    }
-
     try {
-      // Get vendor and addon details
-      const [vendor, addon] = await Promise.all([
-        User.findById(vendorId).select('email profile'),
-        AddonService.findById(addonId)
-      ]);
+      // Build match query for subscriptions
+      let matchQuery = {};
 
-      if (!vendor) {
-        return res.status(404).json({
-          success: false,
-          message: 'Vendor not found'
-        });
+      if (status === 'active') {
+        matchQuery.status = 'active';
+        matchQuery.endDate = { $gt: new Date() };
+        matchQuery.addons = { $exists: true, $ne: [] };
+      } else if (status === 'expired') {
+        matchQuery.$or = [
+          { status: 'expired' },
+          { endDate: { $lte: new Date() } }
+        ];
+        matchQuery.addons = { $exists: true, $ne: [] };
+      } else {
+        matchQuery.addons = { $exists: true, $ne: [] };
       }
 
-      if (!addon) {
-        return res.status(404).json({
-          success: false,
-          message: 'Addon service not found'
-        });
-      }
-
-      // Check if already scheduled
-      const existingSchedule = await AddonServiceSchedule.findOne({
-        vendor: vendorId,
-        addon: addonId,
-        status: { $in: ['pending', 'scheduled', 'in_progress'] }
-      });
-
-      if (existingSchedule) {
-        return res.status(400).json({
-          success: false,
-          message: 'This addon service is already scheduled for this vendor',
-          data: {
-            schedule: existingSchedule
+      // Aggregate vendor addon data for stats
+      const vendorAddons = await Subscription.aggregate([
+        { $match: matchQuery },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user',
+            foreignField: '_id',
+            as: 'user'
           }
-        });
-      }
-
-      // Create schedule record with scheduled status and date
-      const schedule = await AddonServiceSchedule.create({
-        vendor: vendorId,
-        addon: addonId,
-        subscription: subscriptionId,
-        scheduledBy: req.user.id,
-        emailSubject: subject,
-        emailMessage: message,
-        status: 'scheduled', // Auto-set to scheduled when date is provided
-        priority,
-        scheduledDate: new Date(scheduledDate)
-      });
-
-      // Format the scheduled date for email (Indian Standard Time)
-      const formattedDate = new Date(scheduledDate).toLocaleString('en-IN', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'Asia/Kolkata'
-      });
-
-      // Send email to vendor
-      await emailService.sendEmail({
-        to: vendorEmail,
-        subject: subject,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #2563eb; margin: 0;">Service Scheduled</h1>
-              <p style="color: #6b7280; margin: 5px 0;">From: ${req.user.email}</p>
-            </div>
-            
-            <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-              <h3 style="margin: 0 0 10px 0; color: #1f2937;">Vendor Information</h3>
-              <p style="margin: 5px 0;"><strong>Name:</strong> ${vendor.profile?.firstName || ''} ${vendor.profile?.lastName || ''}</p>
-              <p style="margin: 5px 0;"><strong>Email:</strong> ${vendor.email}</p>
-            </div>
-
-            <div style="background-color: #dcfce7; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #16a34a;">
-              <h3 style="margin: 0 0 10px 0; color: #1f2937;">📅 Scheduled Date & Time</h3>
-              <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #16a34a;">${formattedDate}</p>
-              <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 14px;">
-                Please mark your calendar and ensure availability for this service.
-              </p>
-            </div>
-
-            <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-              <h3 style="margin: 0 0 10px 0; color: #1f2937;">Service Details</h3>
-              <p style="margin: 5px 0;"><strong>Service:</strong> ${addon.name}</p>
-              <p style="margin: 5px 0;"><strong>Category:</strong> ${addon.category.charAt(0).toUpperCase() + addon.category.slice(1)}</p>
-              <p style="margin: 5px 0;"><strong>Description:</strong> ${addon.description}</p>
-              <p style="margin: 5px 0;"><strong>Priority:</strong> <span style="color: ${priority === 'urgent' ? '#dc2626' : priority === 'high' ? '#ea580c' : priority === 'medium' ? '#ca8a04' : '#16a34a'}; font-weight: bold;">${priority.toUpperCase()}</span></p>
-            </div>
-
-            <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 20px;">
-              <h3 style="margin: 0 0 15px 0; color: #1f2937;">Additional Message</h3>
-              <div style="white-space: pre-wrap; line-height: 1.6; color: #374151;">${message}</div>
-            </div>
-
-            <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
-              <p style="margin: 0; color: #92400e; font-size: 14px;">
-                ⚠️ <strong>Important:</strong> If you need to reschedule or have any questions, please reply to this email immediately.
-              </p>
-            </div>
-
-            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-              <p style="color: #6b7280; font-size: 14px; margin: 0;">
-                This service has been scheduled. Please reply to this email if you need to make any changes.
-              </p>
-              <p style="color: #6b7280; font-size: 12px; margin: 10px 0 0 0;">
-                Email sent on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
-              </p>
-              <p style="color: #6b7280; font-size: 12px; margin: 5px 0 0 0;">
-                Schedule ID: ${schedule._id}
-              </p>
-            </div>
-          </div>
-        `
-      });
-
-      // Populate schedule for response
-      await schedule.populate([
-        { path: 'addon', select: 'name category description' },
-        { path: 'scheduledBy', select: 'email profile.firstName profile.lastName' }
+        },
+        { $unwind: '$user' },
+        {
+          $lookup: {
+            from: 'addonservices',
+            localField: 'addons',
+            foreignField: '_id',
+            as: 'addonDetails'
+          }
+        },
+        {
+          $group: {
+            _id: '$user._id',
+            totalAddons: { $sum: { $size: '$addons' } },
+            activeAddons: { $addToSet: '$addonDetails' }
+          }
+        },
+        {
+          $project: {
+            _id: 1,
+            totalAddons: 1,
+            activeAddons: {
+              $reduce: {
+                input: '$activeAddons',
+                initialValue: [],
+                in: { $concatArrays: ['$$value', '$$this'] }
+              }
+            }
+          }
+        }
       ]);
 
-      // Broadcast real-time notification
-      adminRealtimeService.broadcastNotification({
-        type: 'addon_service_scheduled',
-        title: 'Addon Service Scheduled',
-        message: `Service scheduled for ${vendor.profile?.firstName || vendor.email} - ${addon.name} on ${formattedDate}`,
-        data: {
-          vendorId,
-          vendorEmail,
-          addonId,
-          addonName: addon.name,
-          scheduleId: schedule._id,
-          scheduledBy: req.user.email,
-          scheduledAt: new Date(),
-          serviceDate: scheduledDate
-        },
-        timestamp: new Date()
-      });
+      const vendorIds = vendorAddons.map(v => v._id);
+
+      // Get all schedules for stats
+      const allSchedules = await AddonServiceSchedule.find({
+        vendor: { $in: vendorIds }
+      }).lean();
+
+      // Calculate stats
+      const stats = {
+        activeVendors: vendorAddons.filter(v => v.totalAddons > 0).length,
+        totalAddons: vendorAddons.reduce((sum, v) => sum + v.totalAddons, 0),
+        totalSchedules: allSchedules.length,
+        completedSchedules: allSchedules.filter(s => s.status === 'completed').length,
+        inProgressSchedules: allSchedules.filter(s => s.status === 'in_progress').length,
+        scheduledSchedules: allSchedules.filter(s => s.status === 'scheduled').length,
+        cancelledSchedules: allSchedules.filter(s => s.status === 'cancelled').length,
+        categories: new Set(vendorAddons.flatMap(v => v.activeAddons.map(a => a.category))).size
+      };
 
       res.json({
         success: true,
-        message: 'Service scheduled successfully and confirmation email sent to vendor',
-        data: {
-          schedule,
-          vendor: {
-            id: vendor._id,
-            name: `${vendor.profile?.firstName || ''} ${vendor.profile?.lastName || ''}`.trim(),
-            email: vendor.email
-          },
-          addon: {
-            id: addon._id,
-            name: addon.name,
-            category: addon.category
-          },
-          scheduledDate: scheduledDate,
-          emailSent: true,
-          sentAt: new Date()
-        }
+        data: stats
       });
     } catch (error) {
-      console.error('Email sending error:', error);
+      console.error('Addon services stats error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to schedule service',
+        message: 'Failed to fetch addon services stats',
         error: error.message
       });
     }
   })
 );
 
-// Update addon service schedule status
-router.patch('/addon-services/schedule/:scheduleId/status',
-  hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
+// Schedule Addon Service
+router.post('/addon-services/schedule',
+  hasPermission(PERMISSIONS.ADDON_SERVICES_SCHEDULE),
   asyncHandler(async (req, res) => {
-    const { scheduleId } = req.params;
+    const { vendorId, addonId, subscriptionId, subject, message, vendorEmail, priority, scheduledDate } = req.body;
+    const AddonServiceSchedule = require('../models/AddonServiceSchedule');
+
+    const schedule = await AddonServiceSchedule.create({
+      vendor: vendorId,
+      addon: addonId,
+      subscription: subscriptionId,
+      scheduledBy: req.user.id,
+      emailSubject: subject,
+      emailMessage: message,
+      priority,
+      scheduledDate,
+      status: 'scheduled',
+      notes: [{
+        message: 'Service scheduled',
+        author: req.user.id,
+        createdAt: new Date()
+      }]
+    });
+
+    // Send email to vendor
+    try {
+      await emailService.sendTemplateEmail({
+        to: vendorEmail,
+        subject: subject,
+        template: 'service-scheduled',
+        context: {
+          message: message,
+          scheduledDate: new Date(scheduledDate).toLocaleString(),
+          priority
+        }
+      });
+    } catch (error) {
+      console.error('Failed to send schedule email:', error);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Service scheduled successfully',
+      data: { schedule }
+    });
+  })
+);
+
+// Update Schedule Status
+router.patch('/addon-services/schedule/:id/status',
+  hasPermission(PERMISSIONS.ADDON_SERVICES_STATUS),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
     const { status, scheduledDate, vendorResponse, cancellationReason } = req.body;
     const AddonServiceSchedule = require('../models/AddonServiceSchedule');
 
-    if (!status) {
-      return res.status(400).json({
+    const schedule = await AddonServiceSchedule.findById(id);
+    if (!schedule) {
+      return res.status(404).json({
         success: false,
-        message: 'Status is required'
+        message: 'Schedule not found'
       });
     }
 
-    try {
-      const currentSchedule = await AddonServiceSchedule.findById(scheduleId)
-        .populate('vendor', 'email profile.firstName profile.lastName')
-        .populate('addon', 'name category description')
-        .populate('scheduledBy', 'email profile.firstName profile.lastName');
-      
-      if (!currentSchedule) {
-        return res.status(404).json({
-          success: false,
-          message: 'Schedule not found'
-        });
-      }
+    schedule.status = status;
+    if (scheduledDate) schedule.scheduledDate = scheduledDate;
+    if (vendorResponse) schedule.vendorResponse = vendorResponse;
+    if (cancellationReason) schedule.cancellationReason = cancellationReason;
 
-      // Real-world status flow validation
-      const currentStatus = currentSchedule.status;
-      const validTransitions = {
-        scheduled: ['in_progress', 'completed', 'cancelled'],
-        in_progress: ['completed', 'cancelled'],
-        completed: [], // Cannot change from completed
-        cancelled: [] // Cannot change from cancelled
-      };
+    if (status === 'completed') schedule.completedAt = new Date();
+    if (status === 'in_progress') schedule.inProgressAt = new Date();
+    if (status === 'cancelled') schedule.cancelledAt = new Date();
 
-      // Only allow valid status transitions
-      if (currentStatus === 'completed' || currentStatus === 'cancelled') {
-        return res.status(400).json({
-          success: false,
-          message: `Cannot change status from ${currentStatus}. This service is already finalized.`
-        });
-      }
+    schedule.notes.push({
+      message: `Status updated to ${status}`,
+      author: req.user.id,
+      createdAt: new Date()
+    });
 
-      if (validTransitions[currentStatus] && !validTransitions[currentStatus].includes(status)) {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid status transition from ${currentStatus} to ${status}`
-        });
-      }
+    await schedule.save();
 
-      // Check if scheduled date has passed for in_progress and completed
-      const now = new Date();
-      const serviceDate = currentSchedule.scheduledDate || now;
-      
-      if (status === 'in_progress' && serviceDate > now) {
-        return res.status(400).json({
-          success: false,
-          message: `Cannot mark as "In Progress" before the scheduled date (${new Date(serviceDate).toLocaleString()})`
-        });
-      }
-
-      if (status === 'completed' && serviceDate > now) {
-        return res.status(400).json({
-          success: false,
-          message: `Cannot mark as "Completed" before the scheduled date (${new Date(serviceDate).toLocaleString()})`
-        });
-      }
-
-      const updateData = { status };
-      const vendor = currentSchedule.vendor;
-      const addon = currentSchedule.addon;
-      let sendEmailNotification = false;
-      let emailTemplate = null;
-      let emailData = {};
-      
-      // Local time formatting options (Indian Standard Time)
-      const localTimeOptions = {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'Asia/Kolkata'
-      };
-      
-      // Handle cancelled status - require cancellation reason
-      if (status === 'cancelled') {
-        if (!cancellationReason || !cancellationReason.trim()) {
-          return res.status(400).json({
-            success: false,
-            message: 'Cancellation reason is required when cancelling a service'
-          });
-        }
-        updateData.cancellationReason = cancellationReason;
-        updateData.cancelledAt = new Date();
-
-        sendEmailNotification = true;
-        emailTemplate = 'addon-service-cancelled';
-        emailData = {
-          addonName: addon.name,
-          category: addon.category.charAt(0).toUpperCase() + addon.category.slice(1),
-          cancellationReason: cancellationReason,
-          cancelledAt: new Date().toLocaleString('en-IN', localTimeOptions)
-        };
-      }
-      
-      // Handle in_progress status - record start time
-      if (status === 'in_progress') {
-        updateData.inProgressAt = new Date();
-
-        sendEmailNotification = true;
-        emailTemplate = 'addon-service-in-progress';
-        emailData = {
-          addonName: addon.name,
-          category: addon.category.charAt(0).toUpperCase() + addon.category.slice(1),
-          inProgressAt: new Date().toLocaleString('en-IN', localTimeOptions),
-          scheduledDate: serviceDate ? new Date(serviceDate).toLocaleString('en-IN', localTimeOptions) : null,
-          notes: vendorResponse || null
-        };
-      }
-
-      // Handle completed status - auto-set completion date
-      if (status === 'completed') {
-        updateData.completedDate = new Date();
-        updateData.completedAt = new Date();
-
-        sendEmailNotification = true;
-        emailTemplate = 'addon-service-completed';
-        emailData = {
-          addonName: addon.name,
-          category: addon.category.charAt(0).toUpperCase() + addon.category.slice(1),
-          completedAt: new Date().toLocaleString('en-IN', localTimeOptions),
-          scheduledDate: serviceDate ? new Date(serviceDate).toLocaleString('en-IN', localTimeOptions) : null,
-          inProgressAt: currentSchedule.inProgressAt ? new Date(currentSchedule.inProgressAt).toLocaleString('en-IN', localTimeOptions) : null,
-          notes: vendorResponse || null
-        };
-      }
-
-      // Handle re-scheduling (updating scheduled date) - Manual email with local time
-      if (scheduledDate && scheduledDate !== currentSchedule.scheduledDate?.toISOString()) {
-        const newScheduledDate = new Date(scheduledDate);
-        updateData.scheduledDate = newScheduledDate;
-
-        const formattedNewDate = newScheduledDate.toLocaleString('en-IN', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: 'Asia/Kolkata'
-        });
-
-        const formattedOldDate = currentSchedule.scheduledDate 
-          ? new Date(currentSchedule.scheduledDate).toLocaleString('en-IN', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              timeZone: 'Asia/Kolkata'
-            })
-          : '';
-
-        // Send reschedule email (manual template)
-        try {
-          await emailService.sendEmail({
-            to: vendor.email,
-            subject: `Service Rescheduled - ${addon.name}`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ea580c; border-radius: 10px;">
-                <div style="text-align: center; margin-bottom: 30px; background-color: #ffedd5; padding: 20px; border-radius: 8px;">
-                  <h1 style="color: #ea580c; margin: 0;">📅 Service Rescheduled</h1>
-                  <p style="color: #c2410c; margin: 5px 0;">New Date & Time Confirmed</p>
-                </div>
-                
-                <div style="background-color: #fff7ed; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ea580c;">
-                  <h3 style="margin: 0 0 10px 0; color: #1f2937;">Service Information</h3>
-                  <p style="margin: 5px 0;"><strong>Service:</strong> ${addon.name}</p>
-                  <p style="margin: 5px 0;"><strong>Category:</strong> ${addon.category.charAt(0).toUpperCase() + addon.category.slice(1)}</p>
-                  <p style="margin: 5px 0;"><strong>Description:</strong> ${addon.description}</p>
-                </div>
-
-                <div style="background-color: #dcfce7; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #16a34a;">
-                  <h3 style="margin: 0 0 10px 0; color: #1f2937;">📅 NEW Scheduled Date & Time</h3>
-                  <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #16a34a;">${formattedNewDate}</p>
-                </div>
-
-                ${formattedOldDate ? `
-                <div style="background-color: #fee2e2; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                  <p style="margin: 0; color: #991b1b;"><strong>Previous Date:</strong> ${formattedOldDate}</p>
-                </div>` : ''}
-
-                ${vendorResponse ? `
-                <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 20px;">
-                  <h3 style="margin: 0 0 10px 0; color: #1f2937;">Additional Notes</h3>
-                  <p style="margin: 0; white-space: pre-wrap;">${vendorResponse}</p>
-                </div>` : ''}
-
-                <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
-                  <p style="margin: 0; color: #92400e; font-size: 14px;">
-                    ⚠️ <strong>Important:</strong> Please mark your calendar with the new date and time.
-                  </p>
-                </div>
-
-                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-                  <p style="color: #6b7280; font-size: 14px; margin: 0;">
-                    If you need to make any changes, please reply to this email.
-                  </p>
-                </div>
-              </div>
-            `
-          });
-        } catch (emailError) {
-          console.error('Failed to send reschedule email:', emailError);
-        }
-      }
-      
-      if (vendorResponse) {
-        updateData.vendorResponse = vendorResponse;
-      }
-
-      const schedule = await AddonServiceSchedule.findByIdAndUpdate(
-        scheduleId,
-        updateData,
-        { new: true }
-      )
-        .populate('vendor', 'email profile.firstName profile.lastName')
-        .populate('addon', 'name category description')
-        .populate('scheduledBy', 'email profile.firstName profile.lastName');
-
-      // Send email notification to vendor using templates for status updates
-      if (sendEmailNotification && emailTemplate && vendor.email) {
-        try {
-          await emailService.sendEmail({
-            to: vendor.email,
-            template: emailTemplate,
-            data: emailData
-          });
-        } catch (emailError) {
-          console.error('Failed to send status update email:', emailError);
-        }
-      }
-
-      // Broadcast real-time notification
-      adminRealtimeService.broadcastNotification({
-        type: 'addon_schedule_updated',
-        title: 'Addon Schedule Updated',
-        message: `Schedule status updated to ${status}${status === 'cancelled' ? ': ' + cancellationReason : ''}`,
-        data: {
-          scheduleId: schedule._id,
-          status,
-          addonName: schedule.addon?.name,
-          vendorEmail: schedule.vendor?.email,
-          updatedBy: req.user.email,
-          ...(status === 'cancelled' && { cancellationReason }),
-          ...(status === 'completed' && { completedAt: schedule.completedAt }),
-          ...(status === 'in_progress' && { inProgressAt: schedule.inProgressAt }),
-          ...(scheduledDate && { rescheduledDate: scheduledDate })
-        },
-        timestamp: new Date()
-      });
-
-      res.json({
-        success: true,
-        message: `Schedule ${status === 'cancelled' ? 'cancelled' : status === 'completed' ? 'completed' : scheduledDate && scheduledDate !== currentSchedule.scheduledDate?.toISOString() ? 'rescheduled' : 'updated'} successfully. Email notification sent to vendor.`,
-        data: { schedule }
-      });
-    } catch (error) {
-      console.error('Update schedule status error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to update schedule status',
-        error: error.message
-      });
-    }
+    res.json({
+      success: true,
+      message: 'Schedule status updated successfully',
+      data: { schedule }
+    });
   })
 );
 
-// Add note to addon service schedule
-router.post('/addon-services/schedule/:scheduleId/notes',
-  hasPermission(SUB_ADMIN_PERMISSIONS.SEND_NOTIFICATIONS),
+// Add Note to Schedule
+router.post('/addon-services/schedule/:id/notes',
+  hasPermission(PERMISSIONS.ADDON_SERVICES_NOTES),
   asyncHandler(async (req, res) => {
-    const { scheduleId } = req.params;
+    const { id } = req.params;
     const { message } = req.body;
     const AddonServiceSchedule = require('../models/AddonServiceSchedule');
 
-    if (!message) {
-      return res.status(400).json({
+    const schedule = await AddonServiceSchedule.findById(id);
+    if (!schedule) {
+      return res.status(404).json({
         success: false,
-        message: 'Note message is required'
+        message: 'Schedule not found'
       });
     }
 
-    try {
-      const schedule = await AddonServiceSchedule.findById(scheduleId);
+    schedule.notes.push({
+      message,
+      author: req.user.id,
+      createdAt: new Date()
+    });
 
-      if (!schedule) {
-        return res.status(404).json({
-          success: false,
-          message: 'Schedule not found'
-        });
-      }
+    await schedule.save();
 
-      schedule.notes.push({
-        message,
-        author: req.user.id,
-        createdAt: new Date()
-      });
-
-      await schedule.save();
-      
-      await schedule.populate([
-        { path: 'vendor', select: 'email profile.firstName profile.lastName' },
-        { path: 'addon', select: 'name category description' },
-        { path: 'scheduledBy', select: 'email profile.firstName profile.lastName' },
-        { path: 'notes.author', select: 'email profile.firstName profile.lastName' }
-      ]);
-
-      res.json({
-        success: true,
-        message: 'Note added successfully',
-        data: { schedule }
-      });
-    } catch (error) {
-      console.error('Add note error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to add note',
-        error: error.message
-      });
-    }
-  })
-);
-
-// Get schedule details
-router.get('/addon-services/schedule/:scheduleId',
-  hasPermission(SUB_ADMIN_PERMISSIONS.APPROVE_PROMOTIONS),
-  asyncHandler(async (req, res) => {
-    const { scheduleId } = req.params;
-    const AddonServiceSchedule = require('../models/AddonServiceSchedule');
-
-    try {
-      const schedule = await AddonServiceSchedule.findById(scheduleId)
-        .populate('vendor', 'email profile.firstName profile.lastName')
-        .populate('addon', 'name category description price currency')
-        .populate('scheduledBy', 'email profile.firstName profile.lastName')
-        .populate('notes.author', 'email profile.firstName profile.lastName');
-
-      if (!schedule) {
-        return res.status(404).json({
-          success: false,
-          message: 'Schedule not found'
-        });
-      }
-
-      res.json({
-        success: true,
-        data: { schedule }
-      });
-    } catch (error) {
-      console.error('Get schedule error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch schedule details',
-        error: error.message
-      });
-    }
+    res.json({
+      success: true,
+      message: 'Note added successfully',
+      data: { schedule }
+    });
   })
 );
 

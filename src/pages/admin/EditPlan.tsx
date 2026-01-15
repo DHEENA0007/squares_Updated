@@ -19,15 +19,17 @@ const EditPlan = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Local state type with normalized features
-  type LocalPlan = Omit<Plan, 'features'> & {
+  // Local state type with normalized features and benefits
+  type LocalPlan = Omit<Plan, 'features' | 'benefits'> & {
     features: Array<{ name: string; description?: string; enabled: boolean }>;
+    benefits: Array<{ key: string; name: string; description?: string; enabled: boolean; icon?: string }>;
   };
   
   const [plan, setPlan] = useState<LocalPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [newFeature, setNewFeature] = useState({ name: "", description: "" });
+  const [newBenefit, setNewBenefit] = useState({ name: "", description: "", icon: "" });
   const [impactInfo, setImpactInfo] = useState<{ activeSubscriptions: number; note: string } | null>(null);
 
   useEffect(() => {
@@ -46,28 +48,53 @@ const EditPlan = () => {
           }
           return feature;
         });
+
+        // Normalize benefits to always be objects
+        let normalizedBenefits: Array<{ key: string; name: string; description?: string; enabled: boolean; icon?: string }> = [];
+        
+        if (Array.isArray(fetchedPlan.benefits)) {
+          // Already in new format
+          normalizedBenefits = fetchedPlan.benefits;
+        } else if (fetchedPlan.benefits && typeof fetchedPlan.benefits === 'object') {
+          // Convert old format to new format
+          const benefitMap = {
+            topRated: { name: 'Top Rated Badge', description: 'Vendor gets a top-rated badge', icon: 'star' },
+            verifiedBadge: { name: 'Verified Owner Badge', description: 'Shows verified status', icon: 'shield-check' },
+            marketingManager: { name: 'Marketing Manager', description: 'Access to marketing tools', icon: 'trending-up' },
+            commissionBased: { name: 'Commission Based Revenue', description: 'Earn from commission-based model', icon: 'dollar-sign' }
+          };
+          
+          normalizedBenefits = Object.entries(fetchedPlan.benefits)
+            .filter(([key, value]) => typeof value === 'boolean' && benefitMap[key as keyof typeof benefitMap])
+            .map(([key, value]) => ({
+              key,
+              name: benefitMap[key as keyof typeof benefitMap].name,
+              description: benefitMap[key as keyof typeof benefitMap].description,
+              enabled: value as boolean,
+              icon: benefitMap[key as keyof typeof benefitMap].icon
+            }));
+        }
         
         // Ensure all required fields have default values
         setPlan({
           ...fetchedPlan,
           features: normalizedFeatures,
+          benefits: normalizedBenefits,
           limits: {
             properties: fetchedPlan.limits?.properties || 0,
             featuredListings: fetchedPlan.limits?.featuredListings || 0,
             photos: fetchedPlan.limits?.photos || 10,
-            propertyImages: fetchedPlan.limits?.propertyImages || 10,
             videoTours: fetchedPlan.limits?.videoTours || 0,
             leads: fetchedPlan.limits?.leads || 0,
             videos: fetchedPlan.limits?.videos || 0,
+            posters: fetchedPlan.limits?.posters || 0,
             messages: fetchedPlan.limits?.messages || 0,
             leadManagement: fetchedPlan.limits?.leadManagement || 'basic'
           },
-          benefits: {
-            topRated: fetchedPlan.benefits?.topRated || false,
-            verifiedBadge: fetchedPlan.benefits?.verifiedBadge || false,
-            marketingManager: fetchedPlan.benefits?.marketingManager || false,
-            commissionBased: fetchedPlan.benefits?.commissionBased || false,
-          },
+          whatsappSupport: {
+            enabled: fetchedPlan.whatsappSupport?.enabled || false,
+            number: fetchedPlan.whatsappSupport?.number || ''
+          }
         });
 
         // Set impact info
@@ -115,6 +142,37 @@ const EditPlan = () => {
   const removeFeature = (index: number) => {
     if (!plan) return;
     setPlan({ ...plan, features: plan.features.filter((_, i) => i !== index) });
+  };
+
+  const addBenefit = () => {
+    if (!plan || !newBenefit.name.trim()) return;
+    const benefitKey = newBenefit.name.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+    setPlan({ 
+      ...plan, 
+      benefits: [
+        ...plan.benefits, 
+        { 
+          key: benefitKey,
+          name: newBenefit.name,
+          description: newBenefit.description,
+          enabled: true,
+          icon: newBenefit.icon || 'star'
+        }
+      ] 
+    });
+    setNewBenefit({ name: "", description: "", icon: "" });
+  };
+
+  const removeBenefit = (index: number) => {
+    if (!plan) return;
+    setPlan({ ...plan, benefits: plan.benefits.filter((_, i) => i !== index) });
+  };
+
+  const toggleBenefit = (index: number) => {
+    if (!plan) return;
+    const updatedBenefits = [...plan.benefits];
+    updatedBenefits[index] = { ...updatedBenefits[index], enabled: !updatedBenefits[index].enabled };
+    setPlan({ ...plan, benefits: updatedBenefits });
   };
 
   if (loading) {
@@ -341,17 +399,35 @@ const EditPlan = () => {
             <div className="grid gap-6 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="properties">Property Listings</Label>
-                <Input
-                  id="properties"
-                  type="number"
-                  min="0"
-                  value={plan.limits.properties}
-                  onChange={(e) => setPlan({ 
-                    ...plan, 
-                    limits: { ...plan.limits, properties: parseInt(e.target.value) || 0 } 
-                  })}
-                />
-                <p className="text-xs text-muted-foreground">0 = unlimited properties</p>
+                <div className="flex gap-2">
+                  <Input
+                    id="properties"
+                    type="number"
+                    min="1"
+                    value={(plan.limits.properties === null || plan.limits.properties === -1) ? '' : plan.limits.properties}
+                    onChange={(e) => setPlan({ 
+                      ...plan, 
+                      limits: { ...plan.limits, properties: parseInt(e.target.value) || 1 } 
+                    })}
+                    placeholder={(plan.limits.properties === null || plan.limits.properties === -1) ? '∞ Unlimited' : 'Enter number'}
+                    disabled={plan.limits.properties === null || plan.limits.properties === -1}
+                  />
+                  <Button
+                    type="button"
+                    variant={(plan.limits.properties === null || plan.limits.properties === -1) ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => setPlan({ 
+                      ...plan, 
+                      limits: { ...plan.limits, properties: (plan.limits.properties === null || plan.limits.properties === -1) ? 5 : null } 
+                    })}
+                    title={(plan.limits.properties === null || plan.limits.properties === -1) ? "Set limited" : "Set unlimited (infinity)"}
+                  >
+                    ∞
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {(plan.limits.properties === null || plan.limits.properties === -1) ? 'Unlimited properties (∞)' : `Limited to ${plan.limits.properties} properties`}
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -385,19 +461,19 @@ const EditPlan = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="propertyImages">Property Images</Label>
+                <Label htmlFor="photos">Photos per Property</Label>
                 <Input
-                  id="propertyImages"
+                  id="photos"
                   type="number"
                   min="1"
                   max="100"
-                  value={plan.limits.propertyImages}
+                  value={plan.limits.photos}
                   onChange={(e) => setPlan({
                     ...plan,
-                    limits: { ...plan.limits, propertyImages: parseInt(e.target.value) || 10 }
+                    limits: { ...plan.limits, photos: parseInt(e.target.value) || 10 }
                   })}
                 />
-                <p className="text-xs text-muted-foreground">Max images per property</p>
+                <p className="text-xs text-muted-foreground">Max photos per property</p>
               </div>
 
               {/* <div className="space-y-2">
@@ -420,59 +496,137 @@ const EditPlan = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Premium Benefits</CardTitle>
-            <CardDescription>Special benefits and features for this plan</CardDescription>
+            <CardTitle>Plan Badges</CardTitle>
+            <CardDescription>Badges displayed on vendor profiles and home page for users who purchase this plan</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="topRated"
-                  checked={plan.benefits?.topRated || false}
-                  onCheckedChange={(checked) => setPlan({ 
-                    ...plan, 
-                    benefits: { ...plan.benefits, topRated: checked as boolean } 
-                  })}
-                />
-                <Label htmlFor="topRated" className="cursor-pointer text-sm">Top Rated Badge</Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="verifiedBadge"
-                  checked={plan.benefits?.verifiedBadge || false}
-                  onCheckedChange={(checked) => setPlan({ 
-                    ...plan, 
-                    benefits: { ...plan.benefits, verifiedBadge: checked as boolean } 
-                  })}
-                />
-                <Label htmlFor="verifiedBadge" className="cursor-pointer text-sm">Verified Owner Badge</Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="marketing"
-                  checked={plan.benefits?.marketingManager || false}
-                  onCheckedChange={(checked) => setPlan({ 
-                    ...plan, 
-                    benefits: { ...plan.benefits, marketingManager: checked as boolean } 
-                  })}
-                />
-                <Label htmlFor="marketing" className="cursor-pointer text-sm">Marketing Manager</Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="commission"
-                  checked={plan.benefits?.commissionBased || false}
-                  onCheckedChange={(checked) => setPlan({ 
-                    ...plan, 
-                    benefits: { ...plan.benefits, commissionBased: checked as boolean } 
-                  })}
-                />
-                <Label htmlFor="commission" className="cursor-pointer text-sm">Commission Based Revenue</Label>
-              </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Badge name (e.g., Top Rated, Verified)..."
+                value={newBenefit.name}
+                onChange={(e) => setNewBenefit({ ...newBenefit, name: e.target.value })}
+                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
+                className="flex-1"
+              />
+              <Input
+                placeholder="Description (e.g., Highly rated professional)..."
+                value={newBenefit.description}
+                onChange={(e) => setNewBenefit({ ...newBenefit, description: e.target.value })}
+                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
+                className="flex-1"
+              />
+              <Input
+                placeholder="Icon (star, shield, etc)..."
+                value={newBenefit.icon}
+                onChange={(e) => setNewBenefit({ ...newBenefit, icon: e.target.value })}
+                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
+                className="w-32"
+              />
+              <Button type="button" onClick={addBenefit} size="icon">
+                <Plus className="w-4 h-4" />
+              </Button>
             </div>
+            <div className="space-y-2">
+              {plan.benefits.map((benefit, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                >
+                  <div className="flex items-center space-x-3 flex-1">
+                    <Checkbox
+                      id={`benefit-${index}`}
+                      checked={benefit.enabled}
+                      onCheckedChange={() => toggleBenefit(index)}
+                    />
+                    <div className="flex-1">
+                      <Label htmlFor={`benefit-${index}`} className="cursor-pointer text-sm font-medium">
+                        {benefit.name}
+                      </Label>
+                      {benefit.description && (
+                        <p className="text-xs text-muted-foreground mt-1">{benefit.description}</p>
+                      )}
+                      {benefit.icon && (
+                        <p className="text-xs text-muted-foreground">Icon: {benefit.icon}</p>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeBenefit(index)}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+              {plan.benefits.length === 0 && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No badges added yet. Add badges to highlight this plan on vendor profiles and the home page. Example badges: "Top Rated", "Verified", "Marketing Pro"
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* WhatsApp Support Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>WhatsApp Support</CardTitle>
+            <CardDescription>Configure WhatsApp contact for properties under this plan</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="whatsappEnabled"
+                checked={plan.whatsappSupport?.enabled || false}
+                onCheckedChange={(checked) => setPlan({
+                  ...plan,
+                  whatsappSupport: {
+                    ...plan.whatsappSupport,
+                    enabled: checked as boolean
+                  }
+                })}
+              />
+              <Label htmlFor="whatsappEnabled" className="cursor-pointer">
+                Enable WhatsApp Contact Button for Properties
+              </Label>
+            </div>
+
+            {plan.whatsappSupport?.enabled && (
+              <div className="space-y-2 pl-6">
+                <Label htmlFor="whatsappNumber">WhatsApp Number *</Label>
+                <Input
+                  id="whatsappNumber"
+                  type="text"
+                  placeholder="+91 90807 20215"
+                  value={plan.whatsappSupport?.number || ''}
+                  onChange={(e) => setPlan({
+                    ...plan,
+                    whatsappSupport: {
+                      ...plan.whatsappSupport,
+                      enabled: true,
+                      number: e.target.value
+                    }
+                  })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Include country code (e.g., +91 for India). This number will be shown to customers for properties under this plan.
+                </p>
+              </div>
+            )}
+
+            {!plan.whatsappSupport?.enabled && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  When enabled, customers will see a WhatsApp contact button instead of regular phone/message buttons for properties under this plan.
+                </AlertDescription>
+              </Alert>
+            )}
           </CardContent>
         </Card>
 

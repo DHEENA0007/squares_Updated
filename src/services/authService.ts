@@ -1,6 +1,7 @@
 import { toast } from "@/hooks/use-toast";
+import { handleAuthError } from "@/utils/apiUtils";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://app.buildhomemartsquares.com/api";
 
 export interface LoginCredentials {
   email: string;
@@ -36,6 +37,7 @@ export interface AuthResponse {
       id: string;
       email: string;
       role: string;
+      rolePermissions?: string[];
       profile?: any;
     };
   };
@@ -53,7 +55,7 @@ class AuthService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
@@ -73,7 +75,12 @@ class AuthService {
 
     try {
       const response = await fetch(url, config);
-      
+
+      // Check for auth error (skip for login as 401 means invalid credentials there)
+      if (endpoint !== '/auth/login') {
+        handleAuthError(response);
+      }
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
@@ -101,7 +108,7 @@ class AuthService {
         // Store auth data
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("user", JSON.stringify(response.data.user));
-        
+
         toast({
           title: "Success",
           description: "Logged in successfully!",
@@ -118,7 +125,7 @@ class AuthService {
           message: error.message,
         } as AuthResponse;
       }
-      
+
       return {
         success: false,
         message: "An error occurred during login",
@@ -168,7 +175,7 @@ class AuthService {
       // Clear local storage regardless of API call success
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      
+
       toast({
         title: "Logged Out",
         description: "You have been logged out successfully.",
@@ -276,7 +283,7 @@ class AuthService {
     try {
       // First verify OTP
       await this.verifyOTP(userData.email, otp);
-      
+
       // Then proceed with registration
       const response = await this.register(userData);
       return response;

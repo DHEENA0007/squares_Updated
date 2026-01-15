@@ -1,6 +1,6 @@
 # Enable RewriteEngine
 RewriteEngine On
-RewriteBase /v2/
+RewriteBase /en-new/
 
 # Set proper MIME types for static assets
 <IfModule mod_mime.c>

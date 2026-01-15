@@ -10,7 +10,7 @@ require('dotenv').config();
 
 // Import routes
 const authRoutes = require('./routes/auth');
-// const twoFactorRoutes = require('./routes/twoFactor');
+const twoFactorRoutes = require('./routes/twoFactor');
 const userRoutes = require('./routes/users');
 const propertyRoutes = require('./routes/properties');
 const dashboardRoutes = require('./routes/dashboard');
@@ -36,6 +36,12 @@ const policyRoutes = require('./routes/policies');
 const webhookRoutes = require('./routes/webhooks');
 const refund_policyRoutes = require('./routes/refund_policy');
 const configurationRoutes = require('./routes/configuration');
+const contentRoutes = require('./routes/content');
+const reviewRoutes = require('./routes/reviews');
+const userActivityRoutes = require('./routes/userActivity');
+const analyticsRoutes = require('./routes/analytics');
+const trafficRoutes = require('./routes/traffic');
+const heroContentRoutes = require('./routes/heroContent');
 
 // Import middleware
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
@@ -45,6 +51,8 @@ const { authenticateToken } = require('./middleware/authMiddleware');
 const paymentStatusService = require('./services/paymentStatusService');
 const paymentCleanupJob = require('./jobs/paymentCleanup');
 const freeListingExpiryJob = require('./jobs/freeListingExpiry');
+const notificationSchedulerJob = require('./jobs/notificationScheduler');
+const analyticsCalculatorJob = require('./jobs/analyticsCalculator');
 
 // Import database
 const { connectDB } = require('./config/database');
@@ -56,23 +64,23 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   process.env.FRONTEND_URL,
   "https://buildhomemartsquares.com",
-  "https://buildhomemartsquares.com/v2",
+  "https://buildhomemartsquares.com/en-new/",
   "https://www.buildhomemartsquares.com",
-  "https://www.buildhomemartsquares.com/v2",
-  "https://squares-v2.vercel.app", 
+  "https://www.buildhomemartsquares.com/en-new/",
+  "https://squares-v3.vercel.app",
   "https://squares.vercel.app",
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:8001",
-  "http://localhost:3002/v2/",
-  "http://localhost:3002/v2",
+  "http://localhost:3002/en-new/",
+  "http://localhost:3002/en-new",
 ].filter(Boolean);
 
 // Add additional origins from environment variable
 const additionalOriginsEnv = process.env.ADDITIONAL_ALLOWED_ORIGINS;
 let additionalOrigins = [
-  "https://squares-v2.onrender.com",
-  "http://localhost:3001",
+  "https://squares-v3.onrender.com",
+  "https://app.buildhomemartsquares.com",
 ];
 
 if (additionalOriginsEnv) {
@@ -98,20 +106,20 @@ const io = new Server(server, {
     origin: function (origin, callback) {
       // Allow requests with no origin
       if (!origin) return callback(null, true);
-      
+
       // Use the same logic as Express CORS
-      if (allAllowedOrigins.includes(origin) || 
-          origin.includes('localhost') || 
-          origin.includes('127.0.0.1') ||
-          origin.match(/^https:\/\/squares.*\.vercel\.app$/)) {
+      if (allAllowedOrigins.includes(origin) ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1') ||
+        origin.match(/^https:\/\/squares.*\.vercel\.app$/)) {
         return callback(null, true);
       }
-      
+
       // Temporarily allow all origins for debugging
       if (process.env.NODE_ENV === 'production') {
         return callback(null, true);
       }
-      
+
       return callback(null, true);
     },
     methods: ["GET", "POST"],
@@ -130,6 +138,19 @@ const limiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
+// Handle preflight OPTIONS requests FIRST before any other middleware
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, x-device-id, X-Device-Id');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  return res.status(204).end();
+});
+
 // Middleware
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for now to avoid issues with frontend
@@ -139,45 +160,45 @@ app.use(compression());
 app.use(cors({
   origin: function (origin, callback) {
     console.log(`🔍 CORS check for origin: ${origin || 'NO_ORIGIN'}`);
-    
+
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
       console.log('✅ Allowing request with no origin');
       return callback(null, true);
     }
-    
+
     // Check if the origin is in the allowed list
     if (allAllowedOrigins.includes(origin)) {
       console.log('✅ Origin found in allowed list');
       return callback(null, true);
     }
-    
+
     // Allow localhost and 127.0.0.1 for development
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
       console.log('✅ Allowing localhost/127.0.0.1 origin');
       return callback(null, true);
     }
-    
+
     // Allow any Vercel deployment URLs for squares project
     if (origin.match(/^https:\/\/squares.*\.vercel\.app$/)) {
       console.log('✅ Allowing squares vercel deployment');
       return callback(null, true);
     }
-    
+
     // For production, be more permissive temporarily for debugging
     if (process.env.NODE_ENV === 'production') {
       console.log('⚠️  Production mode - allowing origin for debugging:', origin);
       // Temporarily allow all origins to debug CORS issues
       return callback(null, true);
     }
-    
+
     console.log('❌ Origin not allowed:', origin);
     console.log('   Configured origins:', allAllowedOrigins);
     return callback(new Error('Not allowed by CORS'), false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'x-device-id']
 }));
 
 // Use combined format in production, dev format in development
@@ -187,20 +208,32 @@ app.use(morgan(logFormat));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Serve static files from uploads directory
+const path = require('path');
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(path.join(__dirname, '../uploads')));
+
 // Ensure CORS headers on all responses
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && (allAllowedOrigins.includes(origin) || 
-      origin.includes('localhost') || 
-      origin.includes('127.0.0.1') ||
-      origin.match(/^https:\/\/squares.*\.vercel\.app$/))) {
+  if (origin && (allAllowedOrigins.includes(origin) ||
+    origin.includes('localhost') ||
+    origin.includes('127.0.0.1') ||
+    origin.match(/^https:\/\/squares.*\.vercel\.app$/))) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else if (process.env.NODE_ENV === 'production') {
     res.setHeader('Access-Control-Allow-Origin', origin || '*');
   }
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, x-device-id, X-Device-Id');
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
   next();
 });
 
@@ -257,7 +290,7 @@ app.get('/', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
-// app.use('/api/2fa', twoFactorRoutes);
+app.use('/api/2fa', twoFactorRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -283,6 +316,12 @@ app.use('/api/policies', policyRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/refund_policy', refund_policyRoutes);
 app.use('/api/configuration', configurationRoutes);
+app.use('/api/content', contentRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/user-activity', userActivityRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/traffic', trafficRoutes);
+app.use('/api/hero-content', heroContentRoutes);
 
 
 // Import services
@@ -302,19 +341,19 @@ io.on('connection', (socket) => {
   if (socket.userRole === 'admin' || socket.userRole === 'superadmin') {
     const clientId = `admin_${socket.userId}_${Date.now()}`;
     adminRealtimeService.addClient(clientId, socket, socket.userId);
-    
+
     // Store clientId in socket for cleanup
     socket.adminClientId = clientId;
-    
+
     // Handle admin-specific events
     socket.on('admin:request-metrics', async () => {
       await adminRealtimeService.sendLiveMetrics(clientId);
     });
-    
+
     socket.on('admin:broadcast-notification', (notification) => {
       adminRealtimeService.broadcastNotification(notification);
     });
-    
+
     console.log(`✅ Admin ${socket.userId} connected to real-time dashboard`);
   }
 
@@ -340,12 +379,12 @@ const connectWithRetry = async (retries = 5) => {
       return; // Success, exit retry loop
     } catch (error) {
       console.error(`❌ Connection attempt ${i + 1} failed:`, error.message);
-      
+
       if (i === retries - 1) {
         console.error('🚫 All database connection attempts failed');
         throw error;
       }
-      
+
       const delay = Math.pow(2, i) * 2000; // Exponential backoff: 2s, 4s, 8s, 16s
       console.log(`⏳ Retrying in ${delay / 1000} seconds...`);
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -358,13 +397,19 @@ const startServer = async () => {
   try {
     // Connect to MongoDB with retry logic
     await connectWithRetry();
-    
+
     server.listen(PORT, () => {
       console.log(` Server running on port ${PORT}`);
       console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(` Client URL: ${process.env.CLIENT_URL || 'http://localhost:8001'}`);
       console.log(` Database connection established`);
-      
+
+      // Set server timeout for large file uploads (2 minutes)
+      server.timeout = 120000; // 120 seconds
+      server.keepAliveTimeout = 65000; // 65 seconds
+      server.headersTimeout = 66000; // 66 seconds
+      console.log(` Server timeout configured: 120s`);
+
       // Start payment cleanup job (runs every 5 minutes)
       paymentCleanupJob.start(5);
       console.log(` Payment cleanup job started (runs every 5 minutes)`);
@@ -374,11 +419,20 @@ const startServer = async () => {
       freeListingExpiryJob.start(24);
       console.log(` Free listing expiry job started (runs every 24 hours)`);
       console.log(`  Free listings expire after 30 days`);
+
+      // Start notification scheduler job (runs every minute)
+      notificationSchedulerJob.start(1);
+      console.log(` Notification scheduler job started (runs every 1 minute)`);
+
+      // Start analytics calculator job (runs every hour)
+      analyticsCalculatorJob.start(1);
+      console.log(` Analytics calculator job started (runs every 1 hour)`);
+      console.log(`  Calculates conversion rate, views, and registrations`);
     });
   } catch (error) {
     console.error(' Failed to start server:', error.message);
     console.error(' Server starting without database connection - some features may not work');
-    
+
     // Start server anyway but warn about database issues
     server.listen(PORT, () => {
       console.log(`  Server running on port ${PORT} (DATABASE DISCONNECTED)`);
@@ -394,10 +448,10 @@ startServer();
 // Graceful shutdown
 const gracefulShutdown = (signal) => {
   console.log(`${signal} received, shutting down gracefully`);
-  
+
   server.close(async () => {
     console.log('HTTP server closed');
-    
+
     try {
       // Stop payment cleanup job
       paymentCleanupJob.stop();
@@ -407,14 +461,22 @@ const gracefulShutdown = (signal) => {
       freeListingExpiryJob.stop();
       console.log('Free listing expiry job stopped');
 
+      // Stop notification scheduler job
+      notificationSchedulerJob.stop();
+      console.log('Notification scheduler job stopped');
+
+      // Stop analytics calculator job
+      analyticsCalculatorJob.stop();
+      console.log('Analytics calculator job stopped');
+
       // Close database connection
       await mongoose.connection.close();
       console.log('Database connection closed');
-      
+
       // Close Socket.IO connections
       io.close();
       console.log('Socket.IO connections closed');
-      
+
       console.log('Process terminated gracefully');
       process.exit(0);
     } catch (error) {
@@ -422,7 +484,7 @@ const gracefulShutdown = (signal) => {
       process.exit(1);
     }
   });
-  
+
   // Force close server after 30 seconds
   setTimeout(() => {
     console.error('Could not close connections in time, forcefully shutting down');

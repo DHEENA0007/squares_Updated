@@ -1,7 +1,7 @@
 import { toast } from "@/hooks/use-toast";
 import { uploadService } from "@/services/uploadService";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://app.buildhomemartsquares.com/api";
 
 export interface Message {
   _id: string;

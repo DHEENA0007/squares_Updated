@@ -1,4 +1,6 @@
-import { Heart, MapPin, Bed, Bath, Square, MessageSquare, Phone } from "lucide-react";
+import { configurationService } from "@/services/configurationService";
+import { FilterConfiguration } from "@/types/configuration";
+import { Heart, MapPin, Bed, Bath, Square, MessageSquare, Phone, ThumbsUp } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,49 +22,66 @@ interface PropertyCardProps {
 
 const PropertyCard = ({ property }: PropertyCardProps) => {
   const navigate = useNavigate();
-  const { isAuthenticated, user, isVendor } = useAuth();
+  const { isAuthenticated, user, isVendor, isCustomer } = useAuth();
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showContactDialog, setShowContactDialog] = useState(false);
-  const [showEnterpriseDialog, setShowEnterpriseDialog] = useState(false);
-  const [isEnterpriseProperty, setIsEnterpriseProperty] = useState(false);
-  const [checkingEnterprise, setCheckingEnterprise] = useState(true);
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
+  const [hasWhatsAppSupport, setHasWhatsAppSupport] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
+  const [checkingWhatsApp, setCheckingWhatsApp] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false);
   const [loadingFavorite, setLoadingFavorite] = useState(false);
-  
+  const [filterConfigs, setFilterConfigs] = useState<FilterConfiguration[]>([]);
+
   const primaryImage = propertyService.getPrimaryImage(property);
   const formattedPrice = propertyService.formatPrice(property.price, property.listingType);
   const formattedArea = propertyService.formatArea(property.area);
-  const location = property.address.district 
-    ? `${property.address.city}, ${property.address.district}, ${property.address.state}` 
+  const location = property.address.district
+    ? `${property.address.city}, ${property.address.district}, ${property.address.state}`
     : `${property.address.city}, ${property.address.state}`;
 
-  // Check if property is from enterprise vendor
   useEffect(() => {
-    const checkEnterpriseStatus = async () => {
+    const fetchConfigs = async () => {
+      try {
+        const configs = await configurationService.getAllFilterConfigurations();
+        setFilterConfigs(configs);
+      } catch (error) {
+        console.error("Failed to fetch filter configurations:", error);
+      }
+    };
+    fetchConfigs();
+  }, []);
+
+  // Check if vendor's plan has WhatsApp support enabled
+  useEffect(() => {
+    const checkWhatsAppStatus = async () => {
       if (property.vendor?._id || property.owner?._id) {
         try {
-          setCheckingEnterprise(true);
+          setCheckingWhatsApp(true);
           const vendorId = property.vendor?._id || property.owner?._id;
-          const isEnterprise = await vendorService.isVendorEnterpriseProperty(vendorId);
-          setIsEnterpriseProperty(isEnterprise);
+          const whatsappData = await vendorService.checkVendorWhatsAppSupport(vendorId);
+          setHasWhatsAppSupport(whatsappData.whatsappEnabled);
+          setWhatsappNumber(whatsappData.whatsappNumber);
         } catch (error) {
-          console.error("Failed to check enterprise status:", error);
-          setIsEnterpriseProperty(false);
+          console.error("Failed to check WhatsApp support:", error);
+          setHasWhatsAppSupport(false);
+          setWhatsappNumber(null);
         } finally {
-          setCheckingEnterprise(false);
+          setCheckingWhatsApp(false);
         }
       } else {
-        setCheckingEnterprise(false);
+        setCheckingWhatsApp(false);
       }
     };
 
-    checkEnterpriseStatus();
+    checkWhatsAppStatus();
   }, [property.vendor?._id, property.owner?._id]);
 
   // Check if property is favorited
   useEffect(() => {
     const checkFavoriteStatus = async () => {
-      if (isAuthenticated && !isVendor) {
+      // Only check favorite status for authenticated customer users
+      if (isAuthenticated && isCustomer) {
         try {
           const favorited = await favoriteService.isFavorite(property._id);
           setIsFavorited(favorited);
@@ -73,7 +92,12 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
     };
 
     checkFavoriteStatus();
-  }, [isAuthenticated, isVendor, property._id]);
+  }, [isAuthenticated, isCustomer, property._id]);
+
+  const getListingTypeLabel = (value: string) => {
+    const config = filterConfigs.find(c => c.value === value && (c.filterType === 'listing_type' || c.filterType === 'listingType'));
+    return config ? (config.displayLabel || config.name) : value.charAt(0).toUpperCase() + value.slice(1);
+  };
 
   const handleViewDetails = () => {
     // Check if the current user is the vendor owner of this property
@@ -92,8 +116,8 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
       navigate('/login', { state: { from: `/property/${property._id}`, action: 'message' } });
       return;
     }
-    if (isEnterpriseProperty) {
-      setShowEnterpriseDialog(true);
+    if (hasWhatsAppSupport) {
+      setShowWhatsAppDialog(true);
     } else {
       setShowMessageDialog(true);
     }
@@ -104,8 +128,8 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
       navigate('/login', { state: { from: `/property/${property._id}`, action: 'contact' } });
       return;
     }
-    if (isEnterpriseProperty) {
-      setShowEnterpriseDialog(true);
+    if (hasWhatsAppSupport) {
+      setShowWhatsAppDialog(true);
     } else {
       setShowContactDialog(true);
     }
@@ -137,70 +161,87 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
     }
   };
 
+  const handleInterestClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: `/property/${property._id}`, action: 'interest' } });
+      return;
+    }
+
+    try {
+      await propertyService.registerInterest(property._id);
+    } catch (error) {
+      console.error("Failed to register interest:", error);
+    }
+  };
+
   return (
-    <Card className="group overflow-hidden hover:shadow-[var(--shadow-large)] transition-all duration-300">
-      <div className="relative h-48 overflow-hidden">
-        <img 
-          src={primaryImage} 
+    <Card className="group overflow-hidden hover:shadow-[var(--shadow-large)] transition-all duration-300 flex flex-col h-full">
+      <div className="relative h-44 md:h-48 overflow-hidden">
+        <img
+          src={primaryImage}
           alt={property.title}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           onError={(e) => {
             (e.target as HTMLImageElement).src = DEFAULT_PROPERTY_IMAGE;
           }}
         />
-        {property.featured && (
-          <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground">
-            Featured
-          </Badge>
+        {/* Only show favorite button for authenticated customer users */}
+        {isAuthenticated && isCustomer && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className={`absolute top-3 right-3 bg-background/80 backdrop-blur hover:bg-background ${isFavorited ? 'text-red-500' : ''}`}
+            onClick={handleFavoriteClick}
+            disabled={loadingFavorite}
+          >
+            <Heart className={`h-5 w-5 ${isFavorited ? 'fill-current' : ''}`} />
+          </Button>
         )}
-        {property.verified && (
-          <Badge className="absolute top-3 left-3 mt-8 bg-green-500 text-white">
-            Verified
-          </Badge>
-        )}
-        <Badge 
-          className={`absolute top-3 right-12 ${
-            property.status === 'available' ? 'bg-green-500' : 
-            property.status === 'sold' ? 'bg-red-500' : 
-            property.status === 'rented' ? 'bg-blue-500' : 
-            'bg-yellow-500'
-          } text-white`}
-        >
-          {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
-        </Badge>
-        <Button
-          size="icon"
-          variant="ghost"
-          className={`absolute top-3 right-3 bg-background/80 backdrop-blur hover:bg-background ${isFavorited ? 'text-red-500' : ''}`}
-          onClick={handleFavoriteClick}
-          disabled={loadingFavorite}
-        >
-          <Heart className={`h-5 w-5 ${isFavorited ? 'fill-current' : ''}`} />
-        </Button>
       </div>
-      
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <h3 className="font-semibold text-lg line-clamp-1">{property.title}</h3>
-          <Badge variant="secondary">
-            {property.listingType === 'sale' ? 'For Sale' : 
-             property.listingType === 'rent' ? 'For Rent' : 'For Lease'}
-          </Badge>
+
+      <CardContent className="p-3 flex-1">
+        <div className="flex flex-col gap-2 mb-2">
+          <div className="flex flex-wrap gap-2">
+            <Badge className={`${property.status === 'available' ? 'bg-green-500' :
+              property.status === 'sold' ? 'bg-red-500' :
+                property.status === 'rented' ? 'bg-blue-500' :
+                  'bg-yellow-500'
+              } text-white border-0`}>
+              {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
+            </Badge>
+            <Badge className="bg-blue-50 text-blue-700 border-blue-100 capitalize">
+              {getListingTypeLabel(property.listingType).toLowerCase().startsWith('for ')
+                ? getListingTypeLabel(property.listingType)
+                : `For ${getListingTypeLabel(property.listingType)}`}
+            </Badge>
+            {property.featured && (
+              <Badge className="bg-accent text-accent-foreground border-0">
+                Featured
+              </Badge>
+            )}
+            {property.verified && (
+              <Badge className="bg-green-600 text-white border-0">
+                Verified
+              </Badge>
+            )}
+          </div>
+          <h3 className="font-semibold text-base md:text-lg line-clamp-2">{property.title}</h3>
         </div>
-        
+
         <div className="flex items-center text-muted-foreground mb-2">
           <MapPin className="h-4 w-4 mr-1" />
           <span className="text-sm line-clamp-1">{location}</span>
         </div>
 
-        <div className="text-xs text-muted-foreground mb-3 capitalize">
+        <div className="text-sm text-muted-foreground mb-2 capitalize">
           {property.type ? property.type.replace('_', ' ') : 'property'}
         </div>
 
-        <div className="text-xs text-muted-foreground mb-3">
+        <div className="text-sm text-muted-foreground mb-2">
           {getPropertyListingLabel(property)}
         </div>
-        
+
         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
           {property.bedrooms > 0 && (
             <div className="flex items-center gap-1">
@@ -219,9 +260,9 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
             <span>{formattedArea}</span>
           </div>
         </div>
-        
-        <div className="text-2xl font-bold text-primary">{formattedPrice}</div>
-        
+
+        <div className="text-xl md:text-2xl font-bold text-primary">{formattedPrice}</div>
+
         {property.amenities.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
             {property.amenities.slice(0, 3).map((amenity, index) => (
@@ -237,42 +278,55 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
           </div>
         )}
       </CardContent>
-      
-      <CardFooter className="p-4 pt-0 flex gap-2">
-        {!checkingEnterprise && !isEnterpriseProperty && (
+
+      <CardFooter className="p-2 pt-0 flex gap-1 text-xs">
+        {!checkingWhatsApp && !hasWhatsAppSupport && (
           <>
-            <Button 
-              variant="outline" 
-              className="flex-1"
+            <Button
+              variant="outline"
+              className="flex-1 h-8 px-1"
               onClick={handleMessageClick}
+              title="Message"
             >
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Message
+              <MessageSquare className="w-3 h-3 mr-1" />
+              <span className="truncate">Message</span>
             </Button>
-            <Button 
-              variant="outline" 
-              className="flex-1"
+            <Button
+              variant="outline"
+              className="flex-1 h-8 px-1"
               onClick={handleContactClick}
+              title="Contact"
             >
-              <Phone className="w-4 h-4 mr-2" />
-              Contact
+              <Phone className="w-3 h-3 mr-1" />
+              <span className="truncate">Contact</span>
             </Button>
+            {isAuthenticated && isCustomer && (
+              <Button
+                variant="outline"
+                className="flex-1 h-8 px-1"
+                onClick={handleInterestClick}
+                title="Interest"
+              >
+                <ThumbsUp className="w-3 h-3 mr-1" />
+                <span className="truncate">Interest</span>
+              </Button>
+            )}
           </>
         )}
-        
-        {!checkingEnterprise && isEnterpriseProperty && (
-          <Button 
-            variant="outline" 
-            className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
-            onClick={() => setShowEnterpriseDialog(true)}
+
+        {!checkingWhatsApp && hasWhatsAppSupport && (
+          <Button
+            variant="outline"
+            className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 py-2"
+            onClick={() => setShowWhatsAppDialog(true)}
           >
             <MessageSquare className="w-4 h-4 mr-2" />
             WhatsApp Contact
           </Button>
         )}
-        
-        <Button 
-          className="flex-1"
+
+        <Button
+          className="flex-1 py-2"
           onClick={handleViewDetails}
         >
           View Details
@@ -296,11 +350,12 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
         property={property}
       />
 
-      {/* Enterprise Contact Dialog */}
+      {/* WhatsApp Contact Dialog */}
       <EnterprisePropertyContactDialog
-        open={showEnterpriseDialog}
-        onOpenChange={setShowEnterpriseDialog}
+        open={showWhatsAppDialog}
+        onOpenChange={setShowWhatsAppDialog}
         property={property}
+        whatsappNumber={whatsappNumber}
       />
     </Card>
   );

@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { PERMISSIONS } from '@/config/permissionConfig';
 import { Plus, Search, Filter, MoreHorizontal, Eye, Edit, Trash2, Power, PowerOff, Camera, Megaphone, Laptop, Headphones, Users, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,12 +27,28 @@ const categoryIcons = {
 };
 
 const AddonManagement: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const permissions = user?.rolePermissions || [];
+
+  // Check if user has admin role
+  const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
+
+  // Permission checks - support both old role-based AND new permission-based
+  const hasPermission = (permission: string) => permissions.includes(permission);
+  const canViewAddons = hasAdminRole || hasPermission(PERMISSIONS.ADDONS_READ);
+  const canCreateAddons = hasAdminRole || hasPermission(PERMISSIONS.ADDONS_CREATE);
+  const canEditAddons = hasAdminRole || hasPermission(PERMISSIONS.ADDONS_EDIT);
+  const canToggleAddons = hasAdminRole || hasPermission(PERMISSIONS.ADDONS_DEACTIVATE);
+  const canDeleteAddons = hasAdminRole || hasPermission(PERMISSIONS.ADDONS_DELETE);
+
   const [addons, setAddons] = useState<AdminAddonService[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
-  
+
   // Filters
   const [filters, setFilters] = useState<AddonFilters>({
     page: 1,
@@ -40,13 +59,13 @@ const AddonManagement: React.FC = () => {
   const [maxPrice, setMaxPrice] = useState<string>('');
   const [billingCycleFilter, setBillingCycleFilter] = useState<string>('');
   const [maxPossiblePrice, setMaxPossiblePrice] = useState<number>(100000);
-  
+
   // Dialog states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedAddon, setSelectedAddon] = useState<AdminAddonService | null>(null);
-  
+
   // Form states
   const [formData, setFormData] = useState<CreateAddonRequest>({
     name: '',
@@ -61,9 +80,21 @@ const AddonManagement: React.FC = () => {
     isActive: true,
     sortOrder: 0,
   });
-  
+
+  const [customCategory, setCustomCategory] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const { toast } = useToast();
+
+  // Redirect if no view permission
+  useEffect(() => {
+    if (!canViewAddons) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to view addons.",
+        variant: "destructive",
+      });
+      navigate('/rolebased');
+    }
+  }, [canViewAddons, navigate, toast]);
 
   useEffect(() => {
     loadAddons();
@@ -71,13 +102,13 @@ const AddonManagement: React.FC = () => {
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
-      setFilters(prev => ({ 
-        ...prev, 
-        search: searchTerm, 
+      setFilters(prev => ({
+        ...prev,
+        search: searchTerm,
         minPrice: minPrice ? parseFloat(minPrice) : undefined,
         maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
         billingCycleMonths: billingCycleFilter ? parseInt(billingCycleFilter) : undefined,
-        page: 1 
+        page: 1
       }));
     }, 300);
 
@@ -92,7 +123,7 @@ const AddonManagement: React.FC = () => {
       setTotalPages(response.totalPages);
       setCurrentPage(response.currentPage);
       setTotal(response.total);
-      
+
       // Use maxAvailablePrice from API response, or calculate from current addons as fallback
       const maxPriceFromAPI = response.maxAvailablePrice;
       const maxPriceFromAddons = Math.max(...response.addons.map(addon => addon.price), 0);
@@ -105,6 +136,15 @@ const AddonManagement: React.FC = () => {
   };
 
   const handleCreateAddon = async () => {
+    if (!canCreateAddons) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to create addons.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
       const newAddon = await adminAddonService.createAddon(formData);
@@ -113,8 +153,17 @@ const AddonManagement: React.FC = () => {
       // Realtime update: Add the new addon to the state
       setAddons(prev => [newAddon, ...prev]);
       setTotal(prev => prev + 1);
+      toast({
+        title: "Success",
+        description: "Addon created successfully.",
+      });
     } catch (error) {
       console.error('Failed to create addon:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create addon. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -122,7 +171,16 @@ const AddonManagement: React.FC = () => {
 
   const handleEditAddon = async () => {
     if (!selectedAddon) return;
-    
+
+    if (!canEditAddons) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to edit addons.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
       const updatedAddon = await adminAddonService.updateAddon(selectedAddon._id, formData);
@@ -130,11 +188,20 @@ const AddonManagement: React.FC = () => {
       setSelectedAddon(null);
       resetForm();
       // Realtime update: Update the addon in state
-      setAddons(prev => prev.map(addon => 
+      setAddons(prev => prev.map(addon =>
         addon._id === updatedAddon._id ? updatedAddon : addon
       ));
+      toast({
+        title: "Success",
+        description: "Addon updated successfully.",
+      });
     } catch (error) {
       console.error('Failed to update addon:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update addon. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -142,7 +209,16 @@ const AddonManagement: React.FC = () => {
 
   const handleDeleteAddon = async () => {
     if (!selectedAddon) return;
-    
+
+    if (!canDeleteAddons) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to delete addons.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
       await adminAddonService.deleteAddon(selectedAddon._id);
@@ -152,22 +228,49 @@ const AddonManagement: React.FC = () => {
       // Realtime update: Remove the addon from state
       setAddons(prev => prev.filter(addon => addon._id !== deletedId));
       setTotal(prev => prev - 1);
+      toast({
+        title: "Success",
+        description: "Addon deleted successfully.",
+      });
     } catch (error) {
       console.error('Failed to delete addon:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete addon. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleToggleStatus = async (addon: AdminAddonService) => {
+    if (!canToggleAddons) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to toggle addon status.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const updatedAddon = await adminAddonService.toggleAddonStatus(addon._id);
       // Realtime update: Update the addon status in state
-      setAddons(prev => prev.map(a => 
+      setAddons(prev => prev.map(a =>
         a._id === updatedAddon._id ? updatedAddon : a
       ));
+      toast({
+        title: "Success",
+        description: `Addon ${updatedAddon.isActive ? 'activated' : 'deactivated'} successfully.`,
+      });
     } catch (error) {
       console.error('Failed to toggle addon status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to toggle addon status. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -185,10 +288,12 @@ const AddonManagement: React.FC = () => {
       isActive: true,
       sortOrder: 0,
     });
+    setCustomCategory('');
   };
 
   const openEditDialog = (addon: AdminAddonService) => {
     setSelectedAddon(addon);
+    const isCustomCategory = !adminAddonService.getCategoryOptions().some(opt => opt.value === addon.category);
     setFormData({
       name: addon.name,
       description: addon.description,
@@ -197,11 +302,12 @@ const AddonManagement: React.FC = () => {
       billingType: addon.billingType,
       billingPeriod: addon.billingPeriod || 'monthly',
       billingCycleMonths: addon.billingCycleMonths || 1,
-      category: addon.category,
+      category: isCustomCategory ? 'other' : addon.category,
       icon: addon.icon || '',
       isActive: addon.isActive,
       sortOrder: addon.sortOrder,
     });
+    setCustomCategory(isCustomCategory ? addon.category : '');
     setIsEditDialogOpen(true);
   };
 
@@ -228,11 +334,13 @@ const AddonManagement: React.FC = () => {
           <h1 className="dashboard-title-responsive">Addon Management</h1>
           <p className="text-muted-foreground mt-1 md:mt-2 text-sm md:text-base">Manage vendor addon services and pricing</p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="w-full sm:w-auto">
-          <Plus className="w-4 h-4 mr-2" />
-          <span className="hidden sm:inline">Add Addon Service</span>
-          <span className="sm:hidden">Add Service</span>
-        </Button>
+        {canCreateAddons && (
+          <Button onClick={() => setIsCreateDialogOpen(true)} className="w-full sm:w-auto">
+            <Plus className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">Add Addon Service</span>
+            <span className="sm:hidden">Add Service</span>
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -374,18 +482,24 @@ const AddonManagement: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow className="h-10">
+                      <TableHead className="w-[50px] py-2">S.no</TableHead>
                       <TableHead className="min-w-[250px] py-2">Name</TableHead>
                       <TableHead className="min-w-[120px] py-2">Category</TableHead>
                       <TableHead className="min-w-[100px] py-2">Price</TableHead>
                       <TableHead className="min-w-[100px] py-2">Billing</TableHead>
                       <TableHead className="min-w-[80px] py-2">Status</TableHead>
                       <TableHead className="min-w-[80px] py-2">Sort Order</TableHead>
-                      <TableHead className="text-right min-w-[80px] py-2">Actions</TableHead>
+                      {(canEditAddons || canToggleAddons || canDeleteAddons) && (
+                        <TableHead className="text-right min-w-[80px] py-2">Actions</TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {addons.map((addon) => (
+                    {addons.map((addon, index) => (
                       <TableRow key={addon._id} className="h-12">
+                        <TableCell className="py-2 text-center">
+                          {((currentPage - 1) * 10) + index + 1}
+                        </TableCell>
                         <TableCell className="py-2">
                           <div className="flex items-center space-x-2">
                             <div className="p-1.5 rounded-lg bg-gray-100 flex-shrink-0">
@@ -418,44 +532,54 @@ const AddonManagement: React.FC = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-center py-2 text-sm">{addon.sortOrder}</TableCell>
-                        <TableCell className="text-right py-2">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => openEditDialog(addon)}>
-                                <Edit className="w-4 h-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleToggleStatus(addon)}>
-                                {addon.isActive ? (
+                        {(canEditAddons || canToggleAddons || canDeleteAddons) && (
+                          <TableCell className="text-right py-2">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {canEditAddons && (
+                                  <DropdownMenuItem onClick={() => openEditDialog(addon)}>
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                )}
+                                {canToggleAddons && (
+                                  <DropdownMenuItem onClick={() => handleToggleStatus(addon)}>
+                                    {addon.isActive ? (
+                                      <>
+                                        <PowerOff className="w-4 h-4 mr-2" />
+                                        Deactivate
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Power className="w-4 h-4 mr-2" />
+                                        Activate
+                                      </>
+                                    )}
+                                  </DropdownMenuItem>
+                                )}
+                                {canDeleteAddons && (
                                   <>
-                                    <PowerOff className="w-4 h-4 mr-2" />
-                                    Deactivate
-                                  </>
-                                ) : (
-                                  <>
-                                    <Power className="w-4 h-4 mr-2" />
-                                    Activate
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => openDeleteDialog(addon)}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
                                   </>
                                 )}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => openDeleteDialog(addon)}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -516,8 +640,16 @@ const AddonManagement: React.FC = () => {
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, category: value as any }))}
+                  value={formData.category === 'other' || !adminAddonService.getCategoryOptions().some(opt => opt.value === formData.category) ? 'other' : formData.category}
+                  onValueChange={(value) => {
+                    if (value === 'other') {
+                      setFormData(prev => ({ ...prev, category: 'other' }));
+                      setCustomCategory('');
+                    } else {
+                      setFormData(prev => ({ ...prev, category: value }));
+                      setCustomCategory('');
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -530,6 +662,18 @@ const AddonManagement: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {(formData.category === 'other' || !adminAddonService.getCategoryOptions().some(opt => opt.value === formData.category)) && (
+                  <Input
+                    id="customCategory"
+                    placeholder="Enter custom category"
+                    value={customCategory || (formData.category !== 'other' ? formData.category : '')}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setCustomCategory(value);
+                      setFormData(prev => ({ ...prev, category: value || 'other' }));
+                    }}
+                  />
+                )}
               </div>
             </div>
             <div className="space-y-2">
@@ -573,30 +717,51 @@ const AddonManagement: React.FC = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="billingCycleMonths">Billing Period (Months) *</Label>
-                <Input
-                  id="billingCycleMonths"
-                  type="number"
-                  min="0"
-                  max="120"
-                  value={formData.billingCycleMonths}
-                  onChange={(e) => {
-                    const months = parseInt(e.target.value) || 0;
-                    let billingPeriod = "custom";
-                    if (months === 0) billingPeriod = "one-time";
-                    else if (months === 1) billingPeriod = "monthly";
-                    else if (months === 12) billingPeriod = "yearly";
-                    else billingPeriod = `${months} months`;
-                    setFormData(prev => ({ 
-                      ...prev, 
-                      billingPeriod, 
-                      billingCycleMonths: months 
-                    }));
-                  }}
-                  placeholder="Enter months (0 for one-time)"
-                />
-                <p className="text-xs text-muted-foreground">
-                  0 = One-time, 1 = Monthly, 12 = Yearly
-                </p>
+                <div className="flex gap-2">
+                  <Input
+                    id="billingCycleMonths"
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={formData.billingCycleMonths === 0 ? '' : formData.billingCycleMonths}
+                    onChange={(e) => {
+                      const months = parseInt(e.target.value) || 1;
+                      let billingPeriod = "custom";
+                      if (months === 1) billingPeriod = "monthly";
+                      else if (months === 12) billingPeriod = "yearly";
+                      else billingPeriod = `${months} months`;
+
+                      setFormData(prev => ({
+                        ...prev,
+                        billingPeriod,
+                        billingCycleMonths: months
+                      }));
+                    }}
+                    placeholder={formData.billingCycleMonths === 0 ? '∞ Infinity' : 'Enter months'}
+                    disabled={formData.billingCycleMonths === 0}
+                  />
+                  <Button
+                    type="button"
+                    variant={formData.billingCycleMonths === 0 ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => {
+                      const newMonths = formData.billingCycleMonths === 0 ? 1 : 0;
+                      let billingPeriod = "custom";
+                      if (newMonths === 0) billingPeriod = "lifetime";
+                      else if (newMonths === 1) billingPeriod = "monthly";
+
+                      setFormData(prev => ({
+                        ...prev,
+                        billingPeriod,
+                        billingCycleMonths: newMonths
+                      }));
+                    }}
+                    title={formData.billingCycleMonths === 0 ? "Set limited" : "Set infinity"}
+                  >
+                    ∞
+                  </Button>
+                </div>
+
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -663,8 +828,16 @@ const AddonManagement: React.FC = () => {
               <div className="space-y-2">
                 <Label htmlFor="edit-category">Category</Label>
                 <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, category: value as any }))}
+                  value={formData.category === 'other' || !adminAddonService.getCategoryOptions().some(opt => opt.value === formData.category) ? 'other' : formData.category}
+                  onValueChange={(value) => {
+                    if (value === 'other') {
+                      setFormData(prev => ({ ...prev, category: 'other' }));
+                      setCustomCategory('');
+                    } else {
+                      setFormData(prev => ({ ...prev, category: value }));
+                      setCustomCategory('');
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -677,6 +850,18 @@ const AddonManagement: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {(formData.category === 'other' || !adminAddonService.getCategoryOptions().some(opt => opt.value === formData.category)) && (
+                  <Input
+                    id="editCustomCategory"
+                    placeholder="Enter custom category"
+                    value={customCategory || (formData.category !== 'other' ? formData.category : '')}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setCustomCategory(value);
+                      setFormData(prev => ({ ...prev, category: value || 'other' }));
+                    }}
+                  />
+                )}
               </div>
             </div>
             <div className="space-y-2">
@@ -720,30 +905,51 @@ const AddonManagement: React.FC = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-billingCycleMonths">Billing Period (Months) *</Label>
-                <Input
-                  id="edit-billingCycleMonths"
-                  type="number"
-                  min="0"
-                  max="120"
-                  value={formData.billingCycleMonths}
-                  onChange={(e) => {
-                    const months = parseInt(e.target.value) || 0;
-                    let billingPeriod = "custom";
-                    if (months === 0) billingPeriod = "one-time";
-                    else if (months === 1) billingPeriod = "monthly";
-                    else if (months === 12) billingPeriod = "yearly";
-                    else billingPeriod = `${months} months`;
-                    setFormData(prev => ({ 
-                      ...prev, 
-                      billingPeriod, 
-                      billingCycleMonths: months 
-                    }));
-                  }}
-                  placeholder="Enter months (0 for one-time)"
-                />
-                <p className="text-xs text-muted-foreground">
-                  0 = One-time, 1 = Monthly, 12 = Yearly
-                </p>
+                <div className="flex gap-2">
+                  <Input
+                    id="edit-billingCycleMonths"
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={formData.billingCycleMonths === 0 ? '' : formData.billingCycleMonths}
+                    onChange={(e) => {
+                      const months = parseInt(e.target.value) || 1;
+                      let billingPeriod = "custom";
+                      if (months === 1) billingPeriod = "monthly";
+                      else if (months === 12) billingPeriod = "yearly";
+                      else billingPeriod = `${months} months`;
+
+                      setFormData(prev => ({
+                        ...prev,
+                        billingPeriod,
+                        billingCycleMonths: months
+                      }));
+                    }}
+                    placeholder={formData.billingCycleMonths === 0 ? '∞ Infinity' : 'Enter months'}
+                    disabled={formData.billingCycleMonths === 0}
+                  />
+                  <Button
+                    type="button"
+                    variant={formData.billingCycleMonths === 0 ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => {
+                      const newMonths = formData.billingCycleMonths === 0 ? 1 : 0;
+                      let billingPeriod = "custom";
+                      if (newMonths === 0) billingPeriod = "lifetime";
+                      else if (newMonths === 1) billingPeriod = "monthly";
+
+                      setFormData(prev => ({
+                        ...prev,
+                        billingPeriod,
+                        billingCycleMonths: newMonths
+                      }));
+                    }}
+                    title={formData.billingCycleMonths === 0 ? "Set limited" : "Set infinity"}
+                  >
+                    ∞
+                  </Button>
+                </div>
+
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

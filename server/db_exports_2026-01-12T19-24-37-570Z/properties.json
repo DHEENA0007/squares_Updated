@@ -1,0 +1,122 @@
+[
+  {
+    "_id": "6964e2adbb5101ad0905209c",
+    "title": "12",
+    "description": "aakjdkajsdaskj",
+    "type": "apartment",
+    "status": "inactive",
+    "listingType": "rent",
+    "price": 152002020,
+    "area": {
+      "unit": "sqft"
+    },
+    "bedrooms": 2,
+    "bathrooms": 2,
+    "priceNegotiable": false,
+    "address": {
+      "street": "CHHATTISGARH",
+      "district": "BIJAPUR",
+      "city": "Badetungali",
+      "state": "CHHATTISGARH",
+      "pincode": "494450"
+    },
+    "amenities": [
+      "Air Conditioning",
+      "24/7 Security"
+    ],
+    "images": [
+      {
+        "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1768219308/ninety-nine-acres/property_images/tv2mph7m5i4bpfmjb7lz.jpg",
+        "caption": "Lease.jpg",
+        "isPrimary": true,
+        "_id": "6964e2adbb5101ad0905209d"
+      }
+    ],
+    "videos": [],
+    "owner": "6964e1a0bb5101ad09051ea9",
+    "vendor": "6964e1a0bb5101ad09051eac",
+    "agent": "6964e1a0bb5101ad09051ea9",
+    "views": 0,
+    "featured": false,
+    "verified": false,
+    "ownerType": "admin",
+    "isFreeListing": true,
+    "archived": false,
+    "customFields": {
+      "bedrooms": "2",
+      "bathrooms": "2",
+      "balconies": "1",
+      "furnishing": "Semi-Furnished",
+      "possession_status": "Under Construction",
+      "floor_number": "1",
+      "total_floors": "1",
+      "super_area": "12000",
+      "carpet_area": "1250"
+    },
+    "createdAt": "2026-01-12T12:01:49.836Z",
+    "updatedAt": "2026-01-12T15:50:44.713Z",
+    "__v": 0
+  },
+  {
+    "_id": "69652ce240e31a4c63679dcb",
+    "title": "ddas",
+    "description": "sdsadsa",
+    "type": "villa",
+    "status": "available",
+    "listingType": "sale",
+    "price": 152000,
+    "area": {
+      "unit": "sqft"
+    },
+    "bedrooms": 3,
+    "bathrooms": 3,
+    "priceNegotiable": false,
+    "address": {
+      "street": "ARUNACHAL PRADESH",
+      "district": "DIBANG VALLEY",
+      "city": "Anuppapatti BO",
+      "state": "TAMIL NADU",
+      "pincode": "641664",
+      "locationName": "Anuppapatti BO"
+    },
+    "amenities": [
+      "Balcony"
+    ],
+    "images": [
+      {
+        "url": "https://res.cloudinary.com/dm87kok62/image/upload/v1768238304/ninety-nine-acres/admin_property_images/ienwpoka3uygr2pppere.png",
+        "caption": "commercial.png",
+        "isPrimary": true,
+        "_id": "69652ce240e31a4c63679dcc"
+      }
+    ],
+    "videos": [],
+    "owner": "68f8857275b9205ce27f8ea5",
+    "views": 0,
+    "featured": false,
+    "verified": true,
+    "ownerType": "admin",
+    "isFreeListing": false,
+    "archived": false,
+    "customFields": {
+      "bedrooms": "3",
+      "furnishing": "Semi-Furnished",
+      "bathrooms": "3",
+      "balconies": "1",
+      "possession_status": "Under Construction",
+      "plot_area": "2",
+      "built_up_area": "11",
+      "total_floors": "2"
+    },
+    "createdAt": "2026-01-12T17:18:26.152Z",
+    "updatedAt": "2026-01-12T17:53:09.669Z",
+    "__v": 0,
+    "age": "",
+    "availability": "",
+    "floor": "",
+    "furnishing": "Semi-Furnished",
+    "parkingSpaces": "",
+    "possession": "",
+    "totalFloors": ""
+  }
+]

@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, XCircle, Eye, Home } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Eye, Home, Clock, FileText } from "lucide-react";
 import { authService } from "@/services/authService";
 import { ViewPropertyDialog } from "@/components/adminpanel/ViewPropertyDialog";
 import { Property } from "@/services/propertyService";
@@ -45,13 +45,21 @@ const PropertyApprovals = () => {
   const [statusFilter, setStatusFilter] = useState("pending");
   const { toast } = useToast();
 
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  // Stats for overview cards
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0
+  });
+
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
 
   const fetchProperties = async () => {
     try {
       setLoading(true);
       const token = authService.getToken();
-      
+
       const response = await fetch(`${baseUrl}/admin/properties?status=${statusFilter}&limit=100`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -60,7 +68,7 @@ const PropertyApprovals = () => {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setProperties(data.data.properties || []);
       }
@@ -80,10 +88,51 @@ const PropertyApprovals = () => {
     fetchProperties();
   }, [statusFilter]);
 
+  // Fetch stats
+  const fetchStats = async () => {
+    try {
+      const token = authService.getToken();
+      const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
+        fetch(`${baseUrl}/admin/properties?status=pending&limit=1`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        }),
+        fetch(`${baseUrl}/admin/properties?status=available&limit=1`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        }),
+        fetch(`${baseUrl}/admin/properties?status=rejected&limit=1`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        })
+      ]);
+
+      const [pendingData, approvedData, rejectedData] = await Promise.all([
+        pendingRes.json(),
+        approvedRes.json(),
+        rejectedRes.json()
+      ]);
+
+      const pending = pendingData.data?.pagination?.total || pendingData.data?.total || 0;
+      const approved = approvedData.data?.pagination?.total || approvedData.data?.total || 0;
+      const rejected = rejectedData.data?.pagination?.total || rejectedData.data?.total || 0;
+
+      setStats({
+        total: pending + approved + rejected,
+        pending,
+        approved,
+        rejected
+      });
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
   const handleApprove = async (propertyId: string) => {
     try {
       const token = authService.getToken();
-      
+
       const response = await fetch(`${baseUrl}/admin/properties/${propertyId}/approve`, {
         method: 'POST',
         headers: {
@@ -93,7 +142,7 @@ const PropertyApprovals = () => {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         toast({
           title: "Success",
@@ -124,20 +173,20 @@ const PropertyApprovals = () => {
 
     try {
       const token = authService.getToken();
-      
+
       const response = await fetch(`${baseUrl}/admin/properties/${selectedProperty._id}/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           reason: rejectionReason
         })
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         toast({
           title: "Success",
@@ -164,6 +213,7 @@ const PropertyApprovals = () => {
       case 'pending':
         return <Badge variant="secondary">Pending Approval</Badge>;
       case 'active':
+      case 'available':
         return <Badge variant="default">Approved</Badge>;
       case 'rejected':
         return <Badge variant="destructive">Rejected</Badge>;
@@ -190,6 +240,65 @@ const PropertyApprovals = () => {
             Review and manage property listings from vendors
           </p>
         </div>
+      </div>
+
+      {/* Overview Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary/50 ${statusFilter === 'all' ? 'border-primary ring-2 ring-primary/20' : ''}`}
+          onClick={() => setStatusFilter('all')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground mt-1">All properties</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-yellow-500/50 ${statusFilter === 'pending' ? 'border-yellow-500 ring-2 ring-yellow-500/20' : ''}`}
+          onClick={() => setStatusFilter('pending')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+            <p className="text-xs text-muted-foreground mt-1">Awaiting approval</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-green-500/50 ${statusFilter === 'available' ? 'border-green-500 ring-2 ring-green-500/20' : ''}`}
+          onClick={() => setStatusFilter('available')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Approved</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+            <p className="text-xs text-muted-foreground mt-1">Live listings</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-red-500/50 ${statusFilter === 'rejected' ? 'border-red-500 ring-2 ring-red-500/20' : ''}`}
+          onClick={() => setStatusFilter('rejected')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+            <XCircle className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+            <p className="text-xs text-muted-foreground mt-1">Not approved</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -219,25 +328,29 @@ const PropertyApprovals = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
+                  <TableHead className="font-semibold">S.no</TableHead>
                   <TableHead className="font-semibold">Property</TableHead>
+                  <TableHead className="font-semibold">Submitted Date</TableHead>
                   <TableHead className="font-semibold">Owner</TableHead>
                   <TableHead className="font-semibold">Type</TableHead>
                   <TableHead className="font-semibold">Price</TableHead>
                   <TableHead className="font-semibold">Location</TableHead>
                   <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead className="font-semibold">Action By</TableHead>
                   <TableHead className="font-semibold text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {properties.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       No properties found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  properties.map((property) => (
+                  properties.map((property, index) => (
                     <TableRow key={property._id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell>{index + 1}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-primary/10 rounded-lg">
@@ -245,10 +358,13 @@ const PropertyApprovals = () => {
                           </div>
                           <div>
                             <div className="font-medium">{property.title}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {new Date(property.createdAt).toLocaleDateString()}
-                            </div>
                           </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div className="font-medium">{new Date(property.createdAt).toLocaleDateString()}</div>
+                          <div className="text-muted-foreground">{new Date(property.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -276,6 +392,23 @@ const PropertyApprovals = () => {
                       <TableCell>
                         {getStatusBadge(property.status)}
                       </TableCell>
+                      <TableCell>
+                        {property.status === 'available' && property.approvedBy && (
+                          <div className="text-sm">
+                            <div className="font-medium text-green-600">Approved by</div>
+                            <div>{property.approvedBy.profile?.firstName} {property.approvedBy.profile?.lastName}</div>
+                            <div className="text-xs text-muted-foreground">{property.approvedAt ? new Date(property.approvedAt).toLocaleDateString() : '-'}</div>
+                          </div>
+                        )}
+                        {property.status === 'rejected' && property.rejectedBy && (
+                          <div className="text-sm">
+                            <div className="font-medium text-red-600">Rejected by</div>
+                            <div>{property.rejectedBy.profile?.firstName} {property.rejectedBy.profile?.lastName}</div>
+                            <div className="text-xs text-muted-foreground">{property.rejectedAt ? new Date(property.rejectedAt).toLocaleDateString() : '-'}</div>
+                          </div>
+                        )}
+                        {property.status === 'pending' && <span className="text-muted-foreground">-</span>}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
                           <Button
@@ -288,7 +421,7 @@ const PropertyApprovals = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
-                          
+
                           {property.status === 'pending' && (
                             <>
                               <Button
@@ -326,169 +459,11 @@ const PropertyApprovals = () => {
       </Card>
 
       {/* View Property Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Property Details</DialogTitle>
-            <DialogDescription>
-              Detailed information about the property listing
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedProperty && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Title</Label>
-                  <p className="text-base">{selectedProperty.title}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Status</Label>
-                  <div className="mt-1">{getStatusBadge(selectedProperty.status)}</div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Type</Label>
-                  <p className="text-base capitalize">{selectedProperty.type}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Listing Type</Label>
-                  <p className="text-base capitalize">{selectedProperty.listingType}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Price</Label>
-                  <p className="text-base font-semibold">₹{selectedProperty.price.toLocaleString()}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Location</Label>
-                  <p className="text-base">{selectedProperty.address.district ? `${selectedProperty.address.city}, ${selectedProperty.address.district}, ${selectedProperty.address.state}` : `${selectedProperty.address.city}, ${selectedProperty.address.state}`}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Owner</Label>
-                  <p className="text-base">
-                    {selectedProperty.owner.profile?.firstName || ''} {selectedProperty.owner.profile?.lastName || ''}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{selectedProperty.owner.email}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Submitted</Label>
-                  <p className="text-base">{new Date(selectedProperty.createdAt).toLocaleString()}</p>
-                </div>
-              </div>
-
-              {selectedProperty.rejectionReason && (
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Rejection Reason</Label>
-                  <p className="text-base text-red-600 mt-1">{selectedProperty.rejectionReason}</p>
-                </div>
-              )}
-
-              {/* Description */}
-              {selectedProperty.description && (
-                <div className="col-span-2">
-                  <Label className="text-sm font-medium text-muted-foreground">Description</Label>
-                  <p className="text-base mt-1">{selectedProperty.description}</p>
-                </div>
-              )}
-
-              {/* Images */}
-              {selectedProperty.images && selectedProperty.images.length > 0 && (
-                <div className="col-span-2">
-                  <Label className="text-sm font-medium text-muted-foreground">Images</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                    {selectedProperty.images.map((image, index) => {
-                      const imageUrl = typeof image === 'object' && image.url ? image.url : image;
-                      return (
-                        <img
-                          key={index}
-                          src={typeof imageUrl === 'string' ? imageUrl : ''}
-                          alt={`Property ${index + 1}`}
-                          className="w-full h-32 object-cover rounded"
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Videos */}
-              {selectedProperty.videos && selectedProperty.videos.length > 0 && (
-                <div className="col-span-2">
-                  <Label className="text-sm font-medium text-muted-foreground">Videos</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                    {selectedProperty.videos.map((video, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="relative aspect-video rounded-lg overflow-hidden border bg-black">
-                          {video.url && (video.url.includes('youtube.com') || video.url.includes('youtu.be')) ? (
-                            <iframe
-                              src={video.url.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
-                              className="w-full h-full"
-                              allowFullScreen
-                              title={video.caption || `Video ${index + 1}`}
-                            />
-                          ) : video.url ? (
-                            <video
-                              src={video.url}
-                              controls
-                              className="w-full h-full object-contain"
-                              poster={video.thumbnail}
-                            />
-                          ) : null}
-                        </div>
-                        {video.caption && (
-                          <p className="text-xs text-muted-foreground">{video.caption}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Virtual Tour */}
-              {selectedProperty.virtualTour && (
-                <div className="col-span-2">
-                  <Label className="text-sm font-medium text-muted-foreground">Virtual Tour</Label>
-                  <div className="mt-2">
-                    <VirtualTourViewer url={selectedProperty.virtualTour} />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter>
-            {selectedProperty?.status === 'pending' && (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsViewDialogOpen(false);
-                    setIsRejectDialogOpen(true);
-                  }}
-                  className="text-red-600"
-                >
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Reject
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (selectedProperty) {
-                      handleApprove(selectedProperty._id);
-                      setIsViewDialogOpen(false);
-                    }
-                  }}
-                  className="text-green-600"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Approve
-                </Button>
-              </>
-            )}
-            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ViewPropertyDialog
+        property={selectedProperty}
+        open={isViewDialogOpen}
+        onOpenChange={setIsViewDialogOpen}
+      />
 
       {/* Reject Property Dialog */}
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
@@ -499,7 +474,7 @@ const PropertyApprovals = () => {
               Please provide a reason for rejecting this property listing
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div>
               <Label htmlFor="reason">Rejection Reason *</Label>

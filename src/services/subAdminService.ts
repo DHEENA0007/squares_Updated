@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+import { handleAuthError } from "@/utils/apiUtils";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
 
 interface Property {
   _id: string;
@@ -33,8 +35,39 @@ interface SupportTicket {
   };
   subject?: string;
   message: string;
-  status: 'open' | 'in-progress' | 'resolved' | 'closed';
+  status: 'open' | 'in_progress' | 'closed';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
+  category?: string;
+  ticketNumber?: string;
+  assignedTo?: {
+    _id: string;
+    email: string;
+    profile: {
+      firstName: string;
+      lastName: string;
+    };
+  };
+  lockedBy?: {
+    _id: string;
+    email: string;
+    profile: {
+      firstName: string;
+      lastName: string;
+    };
+  };
+  lockedAt?: string;
+  attachments?: Array<{
+    filename: string;
+    url: string;
+    uploadedAt: string;
+  }>;
+  responses?: Array<{
+    message: string;
+    author: string;
+    authorId?: string;
+    isAdmin: boolean;
+    createdAt: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -57,7 +90,6 @@ interface DashboardStats {
   rejectedPropertiesApproved: number;
   totalSupport: number;
   openSupport: number;
-  resolvedSupport: number;
   closedSupport: number;
   analytics?: {
     propertiesApprovedLast7Days: number;
@@ -118,7 +150,7 @@ class SubAdminService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
@@ -138,11 +170,14 @@ class SubAdminService {
 
     try {
       const response = await fetch(url, config);
-      
+
+      // Check for auth error
+      handleAuthError(response);
+
       if (!response.ok) {
         const contentType = response.headers.get('content-type');
         let errorData;
-        
+
         if (contentType && contentType.includes('application/json')) {
           errorData = await response.json().catch(() => ({
             success: false,
@@ -154,8 +189,10 @@ class SubAdminService {
             message: `HTTP ${response.status}: ${response.statusText}`,
           };
         }
-        
-        throw new Error(errorData.message || "An error occurred");
+
+        const error = new Error(errorData.message || "An error occurred");
+        (error as any).status = response.status;
+        throw error;
       }
 
       const contentType = response.headers.get('content-type');
@@ -256,7 +293,10 @@ class SubAdminService {
       );
       return res.data;
     } catch (error: any) {
-      throw new Error(error.message || 'Failed to update support ticket');
+      // Preserve the status code for locked tickets
+      const err = new Error(error.message || 'Failed to update support ticket');
+      (err as any).status = error.status;
+      throw err;
     }
   }
 
@@ -303,7 +343,7 @@ class SubAdminService {
       const params = new URLSearchParams();
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
-      
+
       const response = await this.makeRequest<{ success: boolean; data: any }>(
         `/subadmin/reports/city/${city}?${params}`
       );
@@ -322,6 +362,18 @@ class SubAdminService {
       return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to fetch content reports');
+    }
+  }
+
+  // Export Data
+  async getExportData(range: string): Promise<any> {
+    try {
+      const response = await this.makeRequest<{ success: boolean; data: any }>(
+        `/subadmin/reports/export-data?range=${range}`
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to fetch export data');
     }
   }
 

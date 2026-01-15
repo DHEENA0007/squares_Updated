@@ -54,9 +54,9 @@ export interface EmailTemplate {
 }
 
 class EmailService {
-  private baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  private baseUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
   private supportEmail = 'support@buildhomemartsquares.com';
-  
+
   private emailTemplates: EmailTemplate = {
     propertyAlert: {
       subject: 'New Properties Match Your Criteria',
@@ -305,7 +305,7 @@ class EmailService {
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -316,7 +316,7 @@ class EmailService {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
@@ -375,7 +375,7 @@ class EmailService {
         data: {
           userName,
           propertyList,
-          dashboardUrl: `${window.location.origin}/v2/customer/dashboard`
+          dashboardUrl: `${window.location.origin}/en-new/customer/dashboard`
         }
       });
     } catch (error) {
@@ -397,7 +397,7 @@ class EmailService {
           oldPrice,
           newPrice,
           savings,
-          propertyUrl: `${window.location.origin}/v2/property/${property._id}`
+          propertyUrl: `${window.location.origin}/en-new/property/${property._id}`
         }
       });
     } catch (error) {
@@ -415,7 +415,7 @@ class EmailService {
           userName,
           senderName,
           messagePreview: messagePreview.substring(0, 100) + (messagePreview.length > 100 ? '...' : ''),
-          messagesUrl: `${window.location.origin}/v2/customer/messages`
+          messagesUrl: `${window.location.origin}/en-new/customer/messages`
         }
       });
     } catch (error) {
@@ -448,7 +448,7 @@ class EmailService {
         template: this.emailTemplates.welcome.template,
         data: {
           userName,
-          dashboardUrl: `${window.location.origin}/v2/customer/dashboard`
+          dashboardUrl: `${window.location.origin}/en-new/customer/dashboard`
         }
       });
     } catch (error) {
@@ -464,7 +464,7 @@ class EmailService {
         template: this.emailTemplates.passwordReset.template,
         data: {
           userName,
-          resetUrl: `${window.location.origin}/v2/reset-password?token=${resetToken}`
+          resetUrl: `${window.location.origin}/en-new/reset-password?token=${resetToken}`
         }
       });
     } catch (error) {
@@ -480,7 +480,7 @@ class EmailService {
         template: this.emailTemplates.accountVerification.template,
         data: {
           userName,
-          verificationUrl: `${window.location.origin}/v2/verify-email?token=${verificationToken}`
+          verificationUrl: `${window.location.origin}/en-new/verify-email?token=${verificationToken}`
         }
       });
     } catch (error) {
@@ -491,17 +491,17 @@ class EmailService {
   async sendAccountDeactivationEmail(userEmail: string, userName?: string): Promise<void> {
     try {
       const deactivationToken = Math.random().toString(36).substring(2, 15);
-      
+
       await this.sendEmail({
         to: userEmail,
         subject: (this.emailTemplates as any).accountDeactivation.subject,
         template: (this.emailTemplates as any).accountDeactivation.template,
         data: {
           userName: userName || 'User',
-          deactivationUrl: `${window.location.origin}/v2/confirm-deactivation?token=${deactivationToken}`
+          deactivationUrl: `${window.location.origin}/en-new/confirm-deactivation?token=${deactivationToken}`
         }
       });
-      
+
       toast({
         title: "📧 Confirmation Email Sent",
         description: "Check your email to confirm account deactivation",
@@ -515,17 +515,17 @@ class EmailService {
   async sendAccountDeletionEmail(userEmail: string, userName?: string): Promise<void> {
     try {
       const deletionToken = Math.random().toString(36).substring(2, 15);
-      
+
       await this.sendEmail({
         to: userEmail,
         subject: (this.emailTemplates as any).accountDeletion.subject,
         template: (this.emailTemplates as any).accountDeletion.template,
         data: {
           userName: userName || 'User',
-          deletionUrl: `${window.location.origin}/v2/confirm-deletion?token=${deletionToken}`
+          deletionUrl: `${window.location.origin}/en-new/confirm-deletion?token=${deletionToken}`
         }
       });
-      
+
       toast({
         title: "📧 Confirmation Email Sent",
         description: "Check your email to confirm permanent account deletion",

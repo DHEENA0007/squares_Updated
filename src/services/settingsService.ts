@@ -1,5 +1,6 @@
 import { authService } from './authService';
 import { toast } from "@/hooks/use-toast";
+import { handleAuthError } from "@/utils/apiUtils";
 
 export interface GeneralSettings {
   siteName: string;
@@ -29,6 +30,7 @@ export interface SecuritySettings {
   sessionTimeout: number;
   passwordMinLength: number;
   maxLoginAttempts: number;
+  lockoutDuration: number;
   requireEmailVerification: boolean;
   requirePhoneVerification: boolean;
   allowPasswordReset: boolean;
@@ -110,11 +112,11 @@ export interface UpdateSettingsRequest {
 }
 
 class SettingsService {
-  private baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  private baseUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -134,7 +136,10 @@ class SettingsService {
 
     try {
       const response = await fetch(url, config);
-      
+
+      // Check for auth error
+      handleAuthError(response);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
@@ -395,6 +400,7 @@ class SettingsService {
         sessionTimeout: 30,
         passwordMinLength: 8,
         maxLoginAttempts: 5,
+        lockoutDuration: 30,
         requireEmailVerification: true,
         requirePhoneVerification: false,
         allowPasswordReset: true,

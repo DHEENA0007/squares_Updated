@@ -25,9 +25,10 @@ const notificationSettingsSchema = new mongoose.Schema({
 
 const securitySettingsSchema = new mongoose.Schema({
   twoFactorAuth: { type: Boolean, default: false },
-  sessionTimeout: { type: Number, default: 30 }, // minutes
+  sessionTimeout: { type: Number, default: 30 }, // minutes - also used for JWT token expiration
   passwordMinLength: { type: Number, default: 8 },
   maxLoginAttempts: { type: Number, default: 5 },
+  lockoutDuration: { type: Number, default: 30 }, // minutes - how long account is locked after max attempts
   requireEmailVerification: { type: Boolean, default: true },
   requirePhoneVerification: { type: Boolean, default: false },
   allowPasswordReset: { type: Boolean, default: true },

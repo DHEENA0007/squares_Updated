@@ -79,7 +79,7 @@ let gsap, _coreInitted, _clamp, _win, _doc, _docEl, _body, _isTouch, _pointerTyp
 	},
 	_getVelocityProp = (value, minTimeRefresh, useDelta) => {
 		let v1 = value,
-			v2 = value,
+			v3 = value,
 			t1 = _getTime(),
 			t2 = t1,
 			min = minTimeRefresh || 50,
@@ -87,20 +87,20 @@ let gsap, _coreInitted, _clamp, _win, _doc, _docEl, _body, _isTouch, _pointerTyp
 			update = (value, force) => {
 				let t = _getTime();
 				if (force || t - t1 > min) {
-					v2 = v1;
+					v3 = v1;
 					v1 = value;
 					t2 = t1;
 					t1 = t;
 				} else if (useDelta) {
 					v1 += value;
 				} else { // not totally necessary, but makes it a bit more accurate by adjusting the v1 value according to the new slope. This way we're not just ignoring the incoming data. Removing for now because it doesn't seem to make much practical difference and it's probably not worth the kb.
-					v1 = v2 + (value - v2) / (t - t2) * (t1 - t2);
+					v1 = v3 + (value - v3) / (t - t2) * (t1 - t2);
 				}
 			},
-			reset = () => { v2 = v1 = useDelta ? 0 : v1; t2 = t1 = 0; },
+			reset = () => { v3 = v1 = useDelta ? 0 : v1; t2 = t1 = 0; },
 			getVelocity = latestValue => {
 				let tOld = t2,
-					vOld = v2,
+					vOld = v3,
 					t = _getTime();
 				(latestValue || latestValue === 0) && latestValue !== v1 && update(latestValue);
 				return (t1 === t2 || t - t2 > dropToZeroTime) ? 0 : (v1 + (useDelta ? vOld : -vOld)) / ((useDelta ? t : t1) - tOld) * 1000;

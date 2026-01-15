@@ -1,0 +1,17 @@
+Connected to MongoDB
+
+=== All Support Tickets ===
+TKT-000001 | Status: "resolved" | Subject: jhg
+TKT-000002 | Status: "in_progress" | Subject: Inquiry about Z1
+TKT-000003 | Status: "resolved" | Subject: how to post property
+TKT-000004 | Status: "resolved" | Subject: Inquiry about Commercial shop
+TKT-000005 | Status: "in_progress" | Subject: Issue 1
+
+=== Status Counts ===
+Status: "resolved" - Count: 3
+Status: "in_progress" - Count: 2
+
+Tickets with "in-progress" (hyphen): 0
+Tickets with "in_progress" (underscore): 2
+
+Connection closed

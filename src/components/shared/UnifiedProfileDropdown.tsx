@@ -1,4 +1,4 @@
-import { User, Settings, LogOut, Building, CreditCard, HelpCircle } from "lucide-react";
+import { User, Settings, LogOut, Building, CreditCard, HelpCircle, LayoutDashboard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
@@ -17,13 +17,23 @@ const UnifiedProfileDropdown = () => {
   const navigate = useNavigate();
   const { user, logout, isAdmin, isSuperAdmin, isSubAdmin, isVendor } = useAuth();
 
+  // Check if user has a custom role (not one of the default system roles)
+  const isCustomRole = user?.role &&
+    !['superadmin', 'admin', 'subadmin', 'agent', 'customer'].includes(user.role.toLowerCase());
+
   const getRoleBasedPath = (path: string) => {
-    // Priority order: SuperAdmin -> SubAdmin -> Admin -> Vendor -> Customer
+    // Check roles in priority order
+    // Vendor check MUST come before admin checks since agents might have admin-like permissions
+    if (isVendor) return `/vendor/${path}`;
+    if (isCustomRole) return `/rolebased/${path}`;
     if (isSuperAdmin) return `/admin/${path}`;
     if (isSubAdmin) return `/subadmin/${path}`;
     if (isAdmin) return `/admin/${path}`;
-    if (isVendor) return `/vendor/${path}`;
     return `/customer/${path}`;
+  };
+
+  const handleDashboard = () => {
+    navigate(getRoleBasedPath('dashboard'));
   };
 
   const handleProfile = () => {
@@ -53,13 +63,14 @@ const UnifiedProfileDropdown = () => {
 
   const handleSupport = () => {
     // Route support clicks to the appropriate pages per role
-    if (isSuperAdmin || isAdmin) {
+    if (isVendor) {
+      navigate('/vendor/support-tickets');
+    } else if (isSuperAdmin || isAdmin) {
       navigate('/admin/support-tickets');
     } else if (isSubAdmin) {
       navigate('/subadmin/support-tickets');
-    } else if (isVendor) {
-      // Vendors can create/track tickets via the public TrackSupport page
-      navigate('/track-support');
+    } else if (isCustomRole) {
+      navigate('/rolebased/support-tickets');
     } else {
       // Customers -> contact page or track support
       navigate('/contact');
@@ -71,25 +82,33 @@ const UnifiedProfileDropdown = () => {
     navigate("/login");
   };
 
-  const displayName = user?.profile ? 
-    `${user.profile.firstName} ${user.profile.lastName}` : 
-    isSuperAdmin ? "Super Admin" : 
-    isSubAdmin ? "Sub Admin" : 
-    isAdmin ? "Admin User" : 
-    isVendor ? "Vendor User" : "Customer";
+  const displayName = user?.profile ?
+    `${user.profile.firstName} ${user.profile.lastName}` :
+    isSuperAdmin ? "Super Admin" :
+      isSubAdmin ? "Sub Admin" :
+        isAdmin ? "Admin User" :
+          isCustomRole ? user?.role?.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') || "Role User" :
+            isVendor ? "Vendor User" : "Customer";
   const userEmail = user?.email || "user@example.com";
-  const initials = user?.profile ? 
-    `${user.profile.firstName?.[0] || ''}${user.profile.lastName?.[0] || ''}`.toUpperCase() : 
+  const initials = user?.profile ?
+    `${user.profile.firstName?.[0] || ''}${user.profile.lastName?.[0] || ''}`.toUpperCase() :
     isSuperAdmin ? "SA" :
-    isSubAdmin ? "SU" :
-    isAdmin ? "AU" : 
-    isVendor ? "VU" : "CU";
+      isSubAdmin ? "SU" :
+        isAdmin ? "AU" :
+          isCustomRole ? user?.role?.substring(0, 2).toUpperCase() || "RU" :
+            isVendor ? "VU" : "CU";
 
   const getRoleBadge = () => {
     if (user?.role === 'superadmin') return 'Super Admin';
     if (user?.role === 'admin') return 'Admin';
     if (user?.role === 'subadmin') return 'Sub Admin';
     if (user?.role === 'agent') return 'Vendor';
+    if (isCustomRole) {
+      // Format custom role name (e.g., "content_manager" -> "Content Manager")
+      return user?.role?.split('_').map(word =>
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ') || 'Custom Role';
+    }
     return 'Customer';
   };
 
@@ -97,14 +116,14 @@ const UnifiedProfileDropdown = () => {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Avatar className="w-9 h-9 cursor-pointer ring-2 ring-transparent hover:ring-primary/20 transition-all">
-          <AvatarImage 
-            src={user?.profile?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'user'}`} 
-            alt="Profile" 
+          <AvatarImage
+            src={user?.profile?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'user'}`}
+            alt="Profile"
           />
           <AvatarFallback className="bg-primary text-primary-foreground">{initials}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
-      
+
       <DropdownMenuContent align="end" className="w-56 md:w-64">
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
@@ -115,24 +134,27 @@ const UnifiedProfileDropdown = () => {
             </Badge>
           </div>
         </DropdownMenuLabel>
-        
+
         <DropdownMenuSeparator />
-        
-        <DropdownMenuItem 
+
+        <DropdownMenuItem
+          onClick={handleDashboard}
+          className="cursor-pointer"
+        >
+          <LayoutDashboard className="mr-2 h-4 w-4" />
+          <span>Dashboard</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
           onClick={handleProfile}
           className="cursor-pointer"
         >
           <User className="mr-2 h-4 w-4" />
-          <span>
-            {isVendor ? 'Profile Settings' : 
-             isSuperAdmin || isAdmin ? 'Admin Profile' : 
-             isSubAdmin ? 'SubAdmin Profile' : 
-             'My Profile'}
-          </span>
+          <span>Profile</span>
         </DropdownMenuItem>
 
         {isVendor && (
-          <DropdownMenuItem 
+          <DropdownMenuItem
             onClick={handleCompanyDetails}
             className="cursor-pointer"
           >
@@ -140,19 +162,21 @@ const UnifiedProfileDropdown = () => {
             <span>Company Details</span>
           </DropdownMenuItem>
         )}
-        
-        {/* Settings - Show for Customer, Vendor, SubAdmin, and Admin (all roles) */}
-        <DropdownMenuItem 
-          onClick={handleSettings}
-          className="cursor-pointer"
-        >
-          <Settings className="mr-2 h-4 w-4" />
-          <span>Settings</span>
-        </DropdownMenuItem>
+
+        {/* Settings - Show for all roles except custom roles (they use rolebased settings page) */}
+        {!isCustomRole && (
+          <DropdownMenuItem
+            onClick={handleSettings}
+            className="cursor-pointer"
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Settings</span>
+          </DropdownMenuItem>
+        )}
 
         {/* Billing - Only for Vendors */}
         {isVendor && (
-          <DropdownMenuItem 
+          <DropdownMenuItem
             onClick={handleBilling}
             className="cursor-pointer"
           >
@@ -161,9 +185,9 @@ const UnifiedProfileDropdown = () => {
           </DropdownMenuItem>
         )}
 
-        {/* Support - Show for vendors and subadmin only (removed for superadmin) */}
-        {(isVendor || isSubAdmin) && (
-          <DropdownMenuItem 
+        {/* Support - Show for vendors, subadmin, and custom roles */}
+        {(isVendor || isSubAdmin || isCustomRole) && (
+          <DropdownMenuItem
             onClick={handleSupport}
             className="cursor-pointer"
           >
@@ -171,10 +195,10 @@ const UnifiedProfileDropdown = () => {
             <span>Support</span>
           </DropdownMenuItem>
         )}
-        
+
         <DropdownMenuSeparator />
-        
-        <DropdownMenuItem 
+
+        <DropdownMenuItem
           onClick={handleLogout}
           className="cursor-pointer text-destructive focus:text-destructive"
         >

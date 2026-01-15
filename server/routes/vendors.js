@@ -7,6 +7,8 @@ const Message = require('../models/Message');
 const PropertyView = require('../models/PropertyView');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
+const { PERMISSIONS, hasPermission } = require('../utils/permissions');
+const notificationService = require('../services/notificationService');
 const router = express.Router();
 
 // @desc    Get search suggestions for vendors (public endpoint)
@@ -14,7 +16,7 @@ const router = express.Router();
 // @access  Public
 router.get('/search/suggestions', asyncHandler(async (req, res) => {
   const { q } = req.query;
-  
+
   if (!q || q.trim().length < 2) {
     return res.json({
       success: true,
@@ -23,22 +25,22 @@ router.get('/search/suggestions', asyncHandler(async (req, res) => {
   }
 
   const searchRegex = new RegExp(q, 'i');
-  
+
   // Get vendor-specific data: properties, analytics terms, subscription info
   const [propertySuggestions, locationSuggestions] = await Promise.all([
     // Property suggestions (titles and types)
     Property.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           $or: [
             { title: searchRegex },
             { type: searchRegex },
             { listingType: searchRegex }
           ]
-        } 
+        }
       },
       {
-        $group: { 
+        $group: {
           _id: '$title',
           propertyId: { $first: '$_id' },
           type: { $first: '$type' },
@@ -131,7 +133,175 @@ router.get('/search/suggestions', asyncHandler(async (req, res) => {
   });
 }));
 
-// Apply auth middleware to all routes
+// @desc    Get vendor badges by vendor ID (public endpoint)
+// @route   GET /api/vendors/:vendorId/badges
+// @access  Public
+router.get('/:vendorId/badges', asyncHandler(async (req, res) => {
+  const { vendorId } = req.params;
+
+  try {
+    const Subscription = require('../models/Subscription');
+    const User = require('../models/User');
+    const Vendor = require('../models/Vendor');
+
+    // Get vendor and user information
+    const vendor = await Vendor.findById(vendorId).populate('user', 'profile email role status');
+
+    if (!vendor || !vendor.user || vendor.user.status !== 'active' || vendor.user.role !== 'agent') {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found or not active'
+      });
+    }
+
+    // Get active subscription
+    const activeSubscription = await Subscription.findOne({
+      user: vendor.user._id,
+      status: 'active',
+      endDate: { $gt: new Date() }
+    }).populate('plan').sort({ createdAt: -1 });
+
+    const response = {
+      vendorId: vendor._id,
+      hasSubscription: !!activeSubscription,
+      badges: [],
+      planName: null,
+      planLevel: 'free',
+      profile: {
+        name: vendor.user.profile ?
+          `${vendor.user.profile.firstName || ''} ${vendor.user.profile.lastName || ''}`.trim() :
+          'Vendor',
+        email: vendor.user.email,
+        avatar: vendor.user.profile?.avatar || null,
+        companyName: vendor.businessInfo?.companyName || null
+      }
+    };
+
+    if (!activeSubscription || !activeSubscription.plan) {
+      return res.json({
+        success: true,
+        data: response
+      });
+    }
+
+    // Use planSnapshot for limits/features (grandfathering existing subscribers)
+    // Fall back to live plan if snapshot doesn't exist (for backwards compatibility)
+    const plan = activeSubscription.planSnapshot || activeSubscription.plan;
+    response.planName = plan.name;
+    response.planLevel = plan.identifier || 'basic';
+
+    // Handle both new array format and legacy object format for benefits
+    if (Array.isArray(plan.benefits)) {
+      // New dynamic format
+      response.badges = plan.benefits
+        .filter(benefit => benefit.enabled)
+        .map(benefit => ({
+          key: benefit.key,
+          name: benefit.name,
+          description: benefit.description || '',
+          icon: benefit.icon || 'star',
+          type: 'custom'
+        }));
+    } else if (plan.benefits && typeof plan.benefits === 'object') {
+      // Legacy format - convert to new format
+      const benefitMapping = {
+        topRated: {
+          name: 'Top Rated',
+          description: 'Highly rated professional',
+          icon: 'star',
+          type: 'legacy'
+        },
+        verifiedBadge: {
+          name: 'Verified',
+          description: 'Identity and credentials verified',
+          icon: 'shield-check',
+          type: 'legacy'
+        },
+        marketingManager: {
+          name: 'Marketing Pro',
+          description: 'Advanced marketing tools access',
+          icon: 'trending-up',
+          type: 'legacy'
+        },
+        commissionBased: {
+          name: 'Commission Based',
+          description: 'Performance-based pricing model',
+          icon: 'dollar-sign',
+          type: 'legacy'
+        }
+      };
+
+      response.badges = Object.entries(plan.benefits)
+        .filter(([key, enabled]) => enabled && benefitMapping[key])
+        .map(([key, _]) => ({
+          key,
+          name: benefitMapping[key].name,
+          description: benefitMapping[key].description,
+          icon: benefitMapping[key].icon,
+          type: benefitMapping[key].type
+        }));
+    }
+
+    res.json({
+      success: true,
+      data: response
+    });
+  } catch (error) {
+    console.error('Get vendor badges by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch vendor badges'
+    });
+  }
+}));
+
+// @desc    Check if vendor has WhatsApp support enabled in their plan
+// @route   GET /api/vendors/:vendorId/whatsapp-check
+// @access  Public (for customer property viewing)
+// NOTE: This route must be BEFORE router.use(authenticateToken) to be publicly accessible
+router.get('/:vendorId/whatsapp-check', asyncHandler(async (req, res) => {
+  const { vendorId } = req.params;
+
+  try {
+    const Subscription = require('../models/Subscription');
+
+    // Check if vendor has active subscription with WhatsApp support
+    const activeSubscription = await Subscription.findOne({
+      user: vendorId,
+      status: 'active',
+      endDate: { $gt: new Date() }
+    }).populate('plan').sort({ createdAt: -1 });
+
+    let whatsappEnabled = false;
+    let whatsappNumber = null;
+
+    if (activeSubscription && activeSubscription.plan) {
+      // Use planSnapshot for features (grandfathering existing subscribers)
+      const plan = activeSubscription.planSnapshot || activeSubscription.plan;
+      whatsappEnabled = plan.whatsappSupport?.enabled === true;
+      whatsappNumber = plan.whatsappSupport?.number || null;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        whatsappEnabled,
+        whatsappNumber
+      }
+    });
+  } catch (error) {
+    console.error('WhatsApp support check error:', error);
+    res.json({
+      success: true,
+      data: {
+        whatsappEnabled: false,
+        whatsappNumber: null
+      } // Default to false on error
+    });
+  }
+}));
+
+// Apply auth middleware to all routes below this line
 router.use(authenticateToken);
 
 // @desc    Debug endpoint to check vendor profile status
@@ -139,15 +309,15 @@ router.use(authenticateToken);
 // @access  Private
 router.get('/debug/profile-status', asyncHandler(async (req, res) => {
   const userId = req.user.id;
-  
+
   // Get user info
   const user = await User.findById(userId).select('-password -verificationToken');
-  
+
   // Try to find vendor profile using all methods
   const vendorByStatic = await Vendor.findByUserId(userId);
   const vendorByQuery = await Vendor.findOne({ user: userId });
   const vendorByReference = user?.vendorProfile ? await Vendor.findById(user.vendorProfile) : null;
-  
+
   res.json({
     success: true,
     debug: {
@@ -160,11 +330,11 @@ router.get('/debug/profile-status', asyncHandler(async (req, res) => {
       vendorFoundByReference: vendorByReference?._id?.toString() || null,
       vendorStatus: vendorByQuery?.status || null,
       vendorApprovalStatus: vendorByQuery?.approval?.status || null,
-      recommendation: !vendorByQuery 
+      recommendation: !vendorByQuery
         ? 'Vendor profile missing - needs to be created'
-        : !user?.vendorProfile 
-        ? 'User missing vendorProfile reference - will be auto-fixed on next request'
-        : 'All good'
+        : !user?.vendorProfile
+          ? 'User missing vendorProfile reference - will be auto-fixed on next request'
+          : 'All good'
     }
   });
 }));
@@ -180,8 +350,8 @@ const requireVendorRole = asyncHandler(async (req, res, next) => {
 
   console.log(`[requireVendorRole] User: ${req.user.email}, Role: ${req.user.role}, ID: ${req.user.id}`);
 
-  // Allow both 'agent' and 'admin' roles to access vendor routes
-  if (!['agent', 'admin', 'superadmin'].includes(req.user.role)) {
+  // Allow users with VENDORS_MANAGE permission or agent role
+  if (req.user.role !== 'agent' && !hasPermission(req.user, PERMISSIONS.VENDORS_MANAGE)) {
     return res.status(403).json({
       success: false,
       message: 'Insufficient permissions. Vendor access required.'
@@ -191,15 +361,15 @@ const requireVendorRole = asyncHandler(async (req, res, next) => {
   // For agents, get their vendor profile with fallback strategies
   if (req.user.role === 'agent') {
     console.log(`[requireVendorRole] Looking for vendor profile for agent: ${req.user.id}`);
-    
+
     let vendor = await Vendor.findByUserId(req.user.id);
-    
+
     // Fallback 1: Try direct query if static method fails
     if (!vendor) {
       console.log(`[requireVendorRole] Static method failed, trying direct query`);
       vendor = await Vendor.findOne({ user: req.user.id });
     }
-    
+
     // Fallback 2: Check user's vendorProfile reference
     if (!vendor) {
       console.log(`[requireVendorRole] Trying user vendorProfile reference`);
@@ -208,7 +378,7 @@ const requireVendorRole = asyncHandler(async (req, res, next) => {
         vendor = await Vendor.findById(user.vendorProfile);
       }
     }
-    
+
     if (!vendor) {
       console.error(`[requireVendorRole] No vendor profile found for agent: ${req.user.id}`);
       return res.status(404).json({
@@ -216,7 +386,7 @@ const requireVendorRole = asyncHandler(async (req, res, next) => {
         message: 'Vendor profile not found. Please contact support.'
       });
     }
-    
+
     // Ensure user has vendorProfile reference
     const user = await User.findById(req.user.id);
     if (user && !user.vendorProfile) {
@@ -224,25 +394,25 @@ const requireVendorRole = asyncHandler(async (req, res, next) => {
       await user.save();
       console.log(`[requireVendorRole] Updated user vendorProfile reference`);
     }
-    
+
     console.log(`[requireVendorRole] Vendor profile found: ${vendor._id}`);
     req.vendor = vendor;
-    
+
   } else if (['admin', 'superadmin'].includes(req.user.role)) {
     console.log(`[requireVendorRole] Looking for vendor profile for admin: ${req.user.id}`);
-    
+
     let vendor = await Vendor.findByUserId(req.user.id);
-    
+
     // Try direct query if static method fails
     if (!vendor) {
       vendor = await Vendor.findOne({ user: req.user.id });
     }
-    
+
     // Create vendor profile for admin if it doesn't exist
     if (!vendor) {
       console.log(`[requireVendorRole] Creating vendor profile for admin: ${req.user.id}`);
       const user = await User.findById(req.user.id);
-      
+
       const vendorData = {
         user: req.user.id,
         businessInfo: {
@@ -273,19 +443,19 @@ const requireVendorRole = asyncHandler(async (req, res, next) => {
           notes: 'Auto-created for admin user'
         }
       };
-      
+
       vendor = new Vendor(vendorData);
       await vendor.save();
-      
+
       // Link user to vendor profile
       user.vendorProfile = vendor._id;
       await user.save();
-      
+
       console.log(`[requireVendorRole] Created vendor profile for admin: ${vendor._id}`);
     } else {
       console.log(`[requireVendorRole] Vendor profile found for admin: ${vendor._id}`);
     }
-    
+
     req.vendor = vendor;
   }
 
@@ -307,7 +477,7 @@ router.get('/profile', requireVendorRole, asyncHandler(async (req, res) => {
 
   // Get the associated user data
   const user = await User.findById(vendor.user).select('-password -verificationToken');
-  
+
   if (!user) {
     return res.status(404).json({
       success: false,
@@ -389,7 +559,7 @@ router.get('/profile', requireVendorRole, asyncHandler(async (req, res) => {
         experience: vendor.professionalInfo?.experience || 0,
         website: vendor.businessInfo?.website,
         specializations: vendor.professionalInfo?.specializations || [],
-        serviceAreas: vendor.professionalInfo?.serviceAreas?.map(area => 
+        serviceAreas: vendor.professionalInfo?.serviceAreas?.map(area =>
           `${area.city}, ${area.state}`.replace(/^,\s*|,\s*$/g, '')
         ) || [],
         certifications: vendor.professionalInfo?.certifications || [],
@@ -406,7 +576,7 @@ router.get('/profile', requireVendorRole, asyncHandler(async (req, res) => {
           average: vendor.performance?.rating?.average || 0,
           count: vendor.performance?.rating?.count || 0,
         },
-        responseTime: vendor.performance?.statistics?.responseTime?.average ? 
+        responseTime: vendor.performance?.statistics?.responseTime?.average ?
           `${Math.round(vendor.performance.statistics.responseTime.average / 60)} hours` : 'Not calculated',
         memberSince: vendor.memberSince?.toISOString() || vendor.createdAt?.toISOString(),
       }
@@ -419,6 +589,89 @@ router.get('/profile', requireVendorRole, asyncHandler(async (req, res) => {
       totalValue: formatValue(totalValue),
     }
   };
+
+  // Add subscription badges
+  try {
+    const Subscription = require('../models/Subscription');
+    const activeSubscription = await Subscription.findOne({
+      user: vendor.user,
+      status: 'active',
+      endDate: { $gt: new Date() }
+    }).populate('plan').sort({ createdAt: -1 });
+
+    combinedProfile.subscription = {
+      hasSubscription: !!activeSubscription,
+      planName: activeSubscription?.plan?.name || null,
+      planLevel: activeSubscription?.plan?.identifier || 'free',
+      badges: []
+    };
+
+    if (activeSubscription && (activeSubscription.planSnapshot || activeSubscription.plan)) {
+      // Use planSnapshot for limits/features (grandfathering existing subscribers)
+      const plan = activeSubscription.planSnapshot || activeSubscription.plan;
+
+      // Handle both new array format and legacy object format for benefits
+      if (Array.isArray(plan.benefits)) {
+        // New dynamic format
+        combinedProfile.subscription.badges = plan.benefits
+          .filter(benefit => benefit.enabled)
+          .map(benefit => ({
+            key: benefit.key,
+            name: benefit.name,
+            description: benefit.description || '',
+            icon: benefit.icon || 'star',
+            type: 'custom'
+          }));
+      } else if (plan.benefits && typeof plan.benefits === 'object') {
+        // Legacy format
+        const benefitMapping = {
+          topRated: {
+            name: 'Top Rated',
+            description: 'Highly rated professional',
+            icon: 'star',
+            type: 'legacy'
+          },
+          verifiedBadge: {
+            name: 'Verified',
+            description: 'Identity and credentials verified',
+            icon: 'shield-check',
+            type: 'legacy'
+          },
+          marketingManager: {
+            name: 'Marketing Pro',
+            description: 'Advanced marketing tools access',
+            icon: 'trending-up',
+            type: 'legacy'
+          },
+          commissionBased: {
+            name: 'Commission Based',
+            description: 'Performance-based pricing model',
+            icon: 'dollar-sign',
+            type: 'legacy'
+          }
+        };
+
+        combinedProfile.subscription.badges = Object.entries(plan.benefits)
+          .filter(([key, enabled]) => enabled && benefitMapping[key])
+          .map(([key, _]) => ({
+            key,
+            name: benefitMapping[key].name,
+            description: benefitMapping[key].description,
+            icon: benefitMapping[key].icon,
+            type: benefitMapping[key].type
+          }));
+      }
+    }
+  } catch (badgeError) {
+    console.warn('Failed to fetch subscription badges:', badgeError);
+    // Don't fail the entire request if badges can't be fetched
+    combinedProfile.subscription = {
+      hasSubscription: false,
+      planName: null,
+      planLevel: 'free',
+      badges: []
+    };
+  }
 
   res.json({
     success: true,
@@ -433,6 +686,27 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
   const vendor = req.vendor; // From requireVendorRole middleware
   const updateData = req.body;
 
+  // Helper to deeply clean undefined values from objects
+  const cleanUndefined = (obj) => {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+
+    const cleaned = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value === undefined) continue;
+
+      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+        const cleanedNested = cleanUndefined(value);
+        // Only add if nested object has properties
+        if (cleanedNested && Object.keys(cleanedNested).length > 0) {
+          cleaned[key] = cleanedNested;
+        }
+      } else {
+        cleaned[key] = value;
+      }
+    }
+    return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+  };
+
   // Get the associated user
   const user = await User.findById(vendor.user);
   if (!user) {
@@ -442,46 +716,89 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
     });
   }
 
+  // Clean the update data to remove undefined values
+  const cleanedUpdateData = cleanUndefined(updateData);
+  if (!cleanedUpdateData) {
+    return res.status(400).json({
+      success: false,
+      message: 'No valid data to update'
+    });
+  }
+
   // Handle profile updates - map frontend structure to backend models
-  if (updateData.profile) {
-    const { profile } = updateData;
-    
+  if (cleanedUpdateData.profile) {
+    const { profile } = cleanedUpdateData;
+
     // Update user profile fields
     if (profile.firstName) user.profile.firstName = profile.firstName;
     if (profile.lastName) user.profile.lastName = profile.lastName;
     if (profile.phone) user.profile.phone = profile.phone;
     if (profile.bio !== undefined) user.profile.bio = profile.bio;
     if (profile.avatar !== undefined) user.profile.avatar = profile.avatar;
-    
+
     // Handle preferences update with proper defaults
     if (profile.preferences) {
-      // Ensure privacy object exists with defaults
-      const defaultPrivacy = {
-        showEmail: false,
-        showPhone: false,
-        allowMessages: true
-      };
-      
-      // Merge preferences while ensuring privacy is never undefined
-      user.profile.preferences = {
-        ...user.profile.preferences,
-        ...profile.preferences,
-        privacy: {
+      // Initialize preferences if it doesn't exist
+      if (!user.profile.preferences) {
+        user.profile.preferences = {};
+      }
+
+      // Only update the nested objects that are actually provided
+      // Don't create or touch privacy/security if they're not in the update
+      if (profile.preferences.notifications) {
+        user.profile.preferences.notifications = {
+          ...(user.profile.preferences.notifications || {}),
+          ...profile.preferences.notifications
+        };
+      }
+
+      if (profile.preferences.privacy) {
+        const defaultPrivacy = {
+          showEmail: false,
+          showPhone: false,
+          allowMessages: true,
+          showActivity: true,
+          dataCollection: true,
+          marketingConsent: false,
+          thirdPartySharing: false
+        };
+        user.profile.preferences.privacy = {
           ...defaultPrivacy,
-          ...(user.profile.preferences?.privacy || {}),
-          ...(profile.preferences.privacy || {})
-        }
-      };
+          ...(user.profile.preferences.privacy || {}),
+          ...profile.preferences.privacy
+        };
+      }
+
+      if (profile.preferences.security) {
+        const defaultSecurity = {
+          twoFactorEnabled: false,
+          loginAlerts: true,
+          sessionTimeout: '30'
+        };
+        user.profile.preferences.security = {
+          ...defaultSecurity,
+          ...(user.profile.preferences.security || {}),
+          ...profile.preferences.security
+        };
+      }
+
+      // Update any other preferences fields that might exist
+      const { notifications, privacy, security, ...otherPrefs } = profile.preferences;
+      Object.assign(user.profile.preferences, otherPrefs);
     }
-    
+
     // Update user address
-    if (profile.address) {
+    if (profile.address && typeof profile.address === 'object') {
+      // Initialize address if it doesn't exist
+      if (!user.profile.address) {
+        user.profile.address = {};
+      }
       user.profile.address = { ...user.profile.address, ...profile.address };
-      
+
       // Also update vendor office address
       if (!vendor.contactInfo) vendor.contactInfo = {};
       if (!vendor.contactInfo.officeAddress) vendor.contactInfo.officeAddress = {};
-      
+
       vendor.contactInfo.officeAddress = {
         ...vendor.contactInfo.officeAddress,
         street: profile.address.street,
@@ -498,11 +815,11 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
         landmark: profile.address.landmark,
       };
     }
-    
+
     // Update vendor-specific fields
     if (profile.vendorInfo) {
       const { vendorInfo } = profile;
-      
+
       // Update business info
       if (!vendor.businessInfo) vendor.businessInfo = {};
       if (vendorInfo.companyName !== undefined) vendor.businessInfo.companyName = vendorInfo.companyName;
@@ -511,12 +828,12 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
       if (vendorInfo.gstNumber !== undefined) vendor.businessInfo.gstNumber = vendorInfo.gstNumber;
       if (vendorInfo.panNumber !== undefined) vendor.businessInfo.panNumber = vendorInfo.panNumber;
       if (vendorInfo.website !== undefined) vendor.businessInfo.website = vendorInfo.website;
-      
+
       // Update professional info
       if (!vendor.professionalInfo) vendor.professionalInfo = {};
       if (vendorInfo.experience !== undefined) vendor.professionalInfo.experience = vendorInfo.experience;
       if (vendorInfo.specializations) vendor.professionalInfo.specializations = vendorInfo.specializations;
-      
+
       // Update service areas (convert from string array to object array)
       if (vendorInfo.serviceAreas) {
         vendor.professionalInfo.serviceAreas = vendorInfo.serviceAreas.map(area => {
@@ -530,15 +847,15 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
           };
         });
       }
-      
+
       if (vendorInfo.certifications) vendor.professionalInfo.certifications = vendorInfo.certifications;
-      
+
       // Update vendor preferences/settings
       if (vendorInfo.vendorPreferences) {
         if (!vendor.settings) vendor.settings = {};
         if (!vendor.settings.notifications) vendor.settings.notifications = {};
         if (!vendor.settings.autoResponder) vendor.settings.autoResponder = {};
-        
+
         const prefs = vendorInfo.vendorPreferences;
         vendor.settings.notifications.emailNotifications = prefs.emailNotifications ?? vendor.settings.notifications.emailNotifications;
         vendor.settings.notifications.smsNotifications = prefs.smsNotifications ?? vendor.settings.notifications.smsNotifications;
@@ -613,7 +930,7 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
         experience: vendor.professionalInfo?.experience || 0,
         website: vendor.businessInfo?.website,
         specializations: vendor.professionalInfo?.specializations || [],
-        serviceAreas: vendor.professionalInfo?.serviceAreas?.map(area => 
+        serviceAreas: vendor.professionalInfo?.serviceAreas?.map(area =>
           `${area.city}, ${area.state}`.replace(/^,\s*|,\s*$/g, '')
         ) || [],
         certifications: vendor.professionalInfo?.certifications || [],
@@ -630,7 +947,7 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
           average: vendor.performance?.rating?.average || 0,
           count: vendor.performance?.rating?.count || 0,
         },
-        responseTime: vendor.performance?.statistics?.responseTime?.average ? 
+        responseTime: vendor.performance?.statistics?.responseTime?.average ?
           `${Math.round(vendor.performance.statistics.responseTime.average / 60)} hours` : 'Not calculated',
         memberSince: vendor.memberSince?.toISOString() || vendor.createdAt?.toISOString(),
       }
@@ -674,53 +991,74 @@ router.get('/dashboard', requireVendorRole, asyncHandler(async (req, res) => {
     const totalViewsResult = await PropertyView.countDocuments({
       property: { $in: propertyIds }
     });
-    
+
     // Fallback: If no PropertyView records exist, sum up views from Property model
     let propertyViews = totalViewsResult;
     if (totalViewsResult === 0 && vendorProperties.length > 0) {
-      const propertiesWithViews = await Property.find({ 
-        owner: vendorId 
+      const propertiesWithViews = await Property.find({
+        owner: vendorId
       }).select('views');
       propertyViews = propertiesWithViews.reduce((sum, prop) => sum + (prop.views || 0), 0);
     }
-    
+
     // Get views for the selected date range
     const dateRangeViews = await PropertyView.countDocuments({
       property: { $in: propertyIds },
       viewedAt: { $gte: startDate }
     });
-    
+
     // Calculate unique viewers
     const uniqueViewers = await PropertyView.distinct('viewer', {
       property: { $in: propertyIds },
       viewedAt: { $gte: startDate },
       viewer: { $ne: null }
     });
-    
+
     const dateRangeUniqueViews = uniqueViewers.length;
 
     // Get message stats
     const totalMessages = await Message.countDocuments({ recipient: vendorId });
-    const unreadMessages = await Message.countDocuments({ 
-      recipient: vendorId, 
+    const unreadMessages = await Message.countDocuments({
+      recipient: vendorId,
       read: false
     });
 
     // Calculate total revenue from sold properties
-    const soldProps = await Property.find({ 
-      owner: vendorId, 
-      status: 'sold' 
+    const soldProps = await Property.find({
+      owner: vendorId,
+      status: 'sold'
     }).select('price');
-    
+
     const totalRevenue = soldProps.reduce((sum, prop) => {
       const price = parseFloat(prop.price.toString().replace(/[^0-9.]/g, ''));
       return sum + (isNaN(price) ? 0 : price);
     }, 0);
 
-    // Get phone call count from PropertyView interactions
+    // Get phone call count from PropertyView interactions (current date range)
     const phoneCalls = await PropertyView.countDocuments({
       property: { $in: propertyIds },
+      'interactions.clickedPhone': true,
+      viewedAt: { $gte: startDate }
+    });
+
+    // Get total phone clicks (all time) for reference
+    const totalPhoneCalls = await PropertyView.countDocuments({
+      property: { $in: propertyIds },
       'interactions.clickedPhone': true
+    });
+
+    // Get message click count from PropertyView interactions (current date range)
+    const messageClicks = await PropertyView.countDocuments({
+      property: { $in: propertyIds },
+      'interactions.clickedMessage': true,
+      viewedAt: { $gte: startDate }
+    });
+
+    // Count property inquiry messages received in the date range
+    const dateRangeMessages = await Message.countDocuments({
+      recipient: vendorId,
+      type: { $in: ['inquiry', 'lead', 'property_inquiry'] },
+      createdAt: { $gte: startDate }
     });
 
     // Calculate conversion rate
@@ -743,8 +1081,8 @@ router.get('/dashboard', requireVendorRole, asyncHandler(async (req, res) => {
     const formattedProperties = await Promise.all(recentProperties.map(async (property) => {
       const favoritesCount = await Favorite.countDocuments({ property: property._id });
       const reviews = await Review.find({ property: property._id }).select('rating');
-      const avgRating = reviews.length > 0 
-        ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length 
+      const avgRating = reviews.length > 0
+        ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
         : 0;
 
       return {
@@ -791,7 +1129,7 @@ router.get('/dashboard', requireVendorRole, asyncHandler(async (req, res) => {
 
     // Generate performance data based on real property view tracking
     const performanceData = [];
-    
+
     // Aggregate views by date using PropertyView collection
     const viewsAggregation = await PropertyView.aggregate([
       {
@@ -833,7 +1171,7 @@ router.get('/dashboard', requireVendorRole, asyncHandler(async (req, res) => {
         interactions: item.interactions
       });
     });
-    
+
     // Aggregate leads by date
     const leadsAggregation = await Message.aggregate([
       {
@@ -860,20 +1198,20 @@ router.get('/dashboard', requireVendorRole, asyncHandler(async (req, res) => {
     leadsAggregation.forEach(item => {
       leadsMap.set(item._id, item.count);
     });
-    
+
     // Build performance data for each day
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
       const dateKey = date.toISOString().split('T')[0];
-      
+
       // Format date for display
-      const dateStr = days === 7 
+      const dateStr = days === 7
         ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]
         : `${date.toLocaleString('en-US', { month: 'short' })} ${date.getDate()}`;
-      
+
       const viewsData = viewsMap.get(dateKey) || { count: 0, uniqueViewers: 0, interactions: 0 };
       const dailyLeads = leadsMap.get(dateKey) || 0;
-      
+
       performanceData.push({
         date: dateStr,
         views: viewsData.count,
@@ -888,12 +1226,12 @@ router.get('/dashboard', requireVendorRole, asyncHandler(async (req, res) => {
     // Calculate previous period data for trends
     const previousPeriodStart = new Date(startDate.getTime() - days * 24 * 60 * 60 * 1000);
     const previousPeriodEnd = startDate;
-    
+
     const previousViews = await PropertyView.countDocuments({
       property: { $in: propertyIds },
       viewedAt: { $gte: previousPeriodStart, $lt: previousPeriodEnd }
     });
-    
+
     const previousRevenue = await Property.aggregate([
       {
         $match: {
@@ -908,7 +1246,7 @@ router.get('/dashboard', requireVendorRole, asyncHandler(async (req, res) => {
       const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
       return sum + (isNaN(price) ? 0 : price);
     }, 0);
-    
+
     const previousProperties = await Property.countDocuments({
       owner: vendorId,
       createdAt: { $lt: previousPeriodEnd }
@@ -919,16 +1257,16 @@ router.get('/dashboard', requireVendorRole, asyncHandler(async (req, res) => {
       'interactions.clickedPhone': true,
       viewedAt: { $gte: previousPeriodStart, $lt: previousPeriodEnd }
     });
-    
+
     // Calculate percentage changes
-    const viewsChange = previousViews > 0 
-      ? Math.round(((dateRangeViews - previousViews) / previousViews) * 100) 
+    const viewsChange = previousViews > 0
+      ? Math.round(((dateRangeViews - previousViews) / previousViews) * 100)
       : (dateRangeViews > 0 ? 100 : 0);
-    
+
     const revenueChange = prevRevenue > 0
       ? Math.round(((totalRevenue - prevRevenue) / prevRevenue) * 100)
       : (totalRevenue > 0 ? 100 : 0);
-    
+
     const propertiesChange = previousProperties > 0
       ? Math.round(((totalProperties - previousProperties) / previousProperties) * 100)
       : (totalProperties > 0 ? 100 : 0);
@@ -938,6 +1276,79 @@ router.get('/dashboard', requireVendorRole, asyncHandler(async (req, res) => {
       : (phoneCalls > 0 ? 100 : 0);
 
     const conversionChange = 0;
+
+    // Get recent activities
+    const activities = [];
+
+    // Recent property listings
+    const activityProperties = await Property.find({ owner: vendorId })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('title status createdAt');
+
+    activities.push(...activityProperties.map(property => ({
+      _id: property._id,
+      type: 'property_listed',
+      message: `Listed ${property.title}`,
+      property: property.title,
+      time: property.createdAt,
+      icon: 'Home',
+      propertyId: property._id,
+      metadata: {
+        status: property.status
+      }
+    })));
+
+    // Recent inquiries
+    const activityInquiries = await Message.find({
+      recipient: vendorId,
+      type: { $in: ['inquiry', 'lead', 'property_inquiry'] }
+    })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate('property', 'title')
+      .populate('sender', 'profile.firstName profile.lastName');
+
+    activities.push(...activityInquiries.map(inquiry => ({
+      _id: inquiry._id,
+      type: 'inquiry',
+      message: `New inquiry from ${inquiry.sender?.profile?.firstName || 'Customer'}`,
+      property: inquiry.property?.title,
+      time: inquiry.createdAt,
+      icon: 'MessageSquare',
+      propertyId: inquiry.property?._id,
+      metadata: {
+        customerName: `${inquiry.sender?.profile?.firstName || ''} ${inquiry.sender?.profile?.lastName || ''}`.trim()
+      }
+    })));
+
+    // Recent property views
+    const activityViews = await PropertyView.find({
+      property: { $in: propertyIds },
+      viewedAt: { $gte: startDate }
+    })
+      .sort({ viewedAt: -1 })
+      .limit(5)
+      .populate('property', 'title')
+      .populate('viewer', 'profile.firstName profile.lastName');
+
+    activities.push(...activityViews.map(view => ({
+      _id: view._id,
+      type: 'property_viewed',
+      message: `${view.viewer?.profile?.firstName || 'Someone'} viewed ${view.property?.title || 'your property'}`,
+      property: view.property?.title,
+      time: view.viewedAt,
+      icon: 'Eye',
+      propertyId: view.property?._id,
+      metadata: {
+        viewerName: view.viewer ? `${view.viewer.profile?.firstName || ''} ${view.viewer.profile?.lastName || ''}`.trim() : 'Anonymous'
+      }
+    })));
+
+    // Sort activities by time
+    const recentActivities = activities
+      .sort((a, b) => new Date(b.time) - new Date(a.time))
+      .slice(0, 15);
 
     // Build dashboard data with real values and trends
     const dashboardData = {
@@ -950,16 +1361,20 @@ router.get('/dashboard', requireVendorRole, asyncHandler(async (req, res) => {
         uniqueViewers: dateRangeUniqueViews,
         unreadMessages,
         totalMessages,
+        dateRangeMessages, // Property inquiries in the current date range
+        messageClicks, // Message button clicks in the current date range
         messagesChange: `${unreadMessages} unread`,
         totalRevenue,
         revenueChange: `${revenueChange >= 0 ? '+' : ''}${revenueChange}%`,
         conversionRate: Math.round(conversionRate * 10) / 10,
         conversionChange: `${conversionChange >= 0 ? '+' : ''}${conversionChange}%`,
-        phoneCalls,
+        phoneCalls, // Phone clicks in the current date range
+        totalPhoneCalls, // Total phone clicks all time
         phoneCallsChange: `${phoneCallsChange >= 0 ? '+' : ''}${phoneCallsChange}%`
       },
       recentProperties: formattedProperties,
       recentLeads: formattedLeads,
+      recentActivities,
       performanceData,
       analytics: {
         monthlyPerformance: [],
@@ -1006,8 +1421,8 @@ router.get('/stats', requireVendorRole, asyncHandler(async (req, res) => {
     const propertyViews = viewsAggregation[0]?.totalViews || 0;
 
     const totalMessages = await Message.countDocuments({ recipient: vendorId });
-    const unreadMessages = await Message.countDocuments({ 
-      recipient: vendorId, 
+    const unreadMessages = await Message.countDocuments({
+      recipient: vendorId,
       status: 'unread',
       read: false
     });
@@ -1083,6 +1498,136 @@ router.get('/properties/recent', requireVendorRole, asyncHandler(async (req, res
   }
 }));
 
+// @desc    Get vendor recent activities
+// @route   GET /api/vendors/activities/recent
+// @access  Private/Agent
+router.get('/activities/recent', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+  const { limit = 20 } = req.query;
+
+  try {
+    const activities = [];
+
+    // Recent property listings
+    const recentProperties = await Property.find({ owner: vendorId })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('title status createdAt');
+
+    activities.push(...recentProperties.map(property => ({
+      _id: property._id,
+      type: 'property_listed',
+      message: `Listed ${property.title}`,
+      property: property.title,
+      time: property.createdAt,
+      icon: 'Home',
+      propertyId: property._id,
+      metadata: {
+        status: property.status
+      }
+    })));
+
+    // Recent inquiries/leads - removed status field
+    const recentInquiries = await Message.find({
+      recipient: vendorId,
+      type: { $in: ['inquiry', 'lead', 'property_inquiry'] }
+    })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate('property', 'title')
+      .populate('sender', 'profile.firstName profile.lastName');
+
+    activities.push(...recentInquiries.map(inquiry => ({
+      _id: inquiry._id,
+      type: 'inquiry_received',
+      message: `New inquiry from ${inquiry.sender?.profile?.firstName || 'Customer'}`,
+      property: inquiry.property?.title,
+      time: inquiry.createdAt,
+      icon: 'MessageSquare',
+      propertyId: inquiry.property?._id,
+      metadata: {
+        customerName: `${inquiry.sender?.profile?.firstName || ''} ${inquiry.sender?.profile?.lastName || ''}`.trim(),
+        senderEmail: inquiry.sender?.email
+      }
+    })));
+
+    // Recent property views
+    const recentViews = await PropertyView.find({
+      property: { $in: await Property.find({ owner: vendorId }).distinct('_id') }
+    })
+      .sort({ viewedAt: -1 })
+      .limit(5)
+      .populate('property', 'title')
+      .populate('viewer', 'profile.firstName profile.lastName');
+
+    activities.push(...recentViews.map(view => ({
+      _id: view._id,
+      type: 'property_viewed',
+      message: `${view.viewer?.profile?.firstName || 'Someone'} viewed ${view.property?.title || 'your property'}`,
+      property: view.property?.title,
+      time: view.viewedAt,
+      icon: 'Eye',
+      propertyId: view.property?._id,
+      metadata: {
+        viewerName: view.viewer ? `${view.viewer.profile?.firstName || ''} ${view.viewer.profile?.lastName || ''}`.trim() : 'Anonymous'
+      }
+    })));
+
+    // Recent property updates
+    const recentUpdates = await Property.find({
+      owner: vendorId,
+      updatedAt: { $ne: '$createdAt' }
+    })
+      .sort({ updatedAt: -1 })
+      .limit(5)
+      .select('title status updatedAt createdAt');
+
+    activities.push(...recentUpdates
+      .filter(prop => prop.updatedAt.getTime() !== prop.createdAt.getTime())
+      .map(property => ({
+        _id: `${property._id}_update`,
+        type: 'property_updated',
+        message: `Updated ${property.title}`,
+        property: property.title,
+        time: property.updatedAt,
+        icon: 'Edit',
+        propertyId: property._id,
+        metadata: {
+          status: property.status
+        }
+      }))
+    );
+
+    // Sort all activities by time and limit
+    const sortedActivities = activities
+      .sort((a, b) => new Date(b.time) - new Date(a.time))
+      .slice(0, parseInt(limit));
+
+    // Emit real-time update via socket.io
+    const socketService = require('../services/socketService');
+    if (socketService.isUserOnline(vendorId)) {
+      socketService.sendToUser(vendorId, 'vendor:activities_updated', {
+        activities: sortedActivities,
+        timestamp: new Date()
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        activities: sortedActivities,
+        total: sortedActivities.length
+      }
+    });
+  } catch (error) {
+    console.error('Recent activities error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch recent activities'
+    });
+  }
+}));
+
 // @desc    Get vendor recent leads
 // @route   GET /api/vendors/leads/recent
 // @access  Private/Agent
@@ -1108,12 +1653,19 @@ router.get('/leads/recent', requireVendorRole, asyncHandler(async (req, res) => 
       propertyId: lead.property?._id || '',
       propertyTitle: lead.property?.title || 'Property Inquiry',
       message: lead.content,
-      interestLevel: 'medium',
-      status: lead.status || 'new',
-      source: 'website',
+      read: lead.read || false,
       createdAt: lead.createdAt,
       updatedAt: lead.updatedAt
     }));
+
+    // Emit real-time update via socket.io
+    const socketService = require('../services/socketService');
+    if (socketService.isUserOnline(vendorId)) {
+      socketService.sendToUser(vendorId, 'vendor:leads_updated', {
+        leads: formattedLeads,
+        timestamp: new Date()
+      });
+    }
 
     res.json({
       success: true,
@@ -1140,7 +1692,7 @@ router.get('/performance', requireVendorRole, asyncHandler(async (req, res) => {
     const now = new Date();
     let startDate;
     let days = 7;
-    
+
     switch (dateRange) {
       case '30d':
         days = 30;
@@ -1183,43 +1735,43 @@ router.get('/performance', requireVendorRole, asyncHandler(async (req, res) => {
     // Generate daily performance data using real view tracking
     const performanceData = [];
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    
+
     // Get all vendor properties
     const vendorProperties = await Property.find({ owner: vendorId }).select('_id');
     const propertyIds = vendorProperties.map(p => p._id);
-    
+
     if (days === 7) {
       // For 7-day view, show each day with real data
       for (let i = 6; i >= 0; i--) {
         const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
         const nextDate = new Date(date.getTime() + 24 * 60 * 60 * 1000);
         const dayName = dayNames[date.getDay()];
-        
+
         // Try PropertyView collection first, fallback to distributed views
         let dailyViews = await PropertyView.countDocuments({
           property: { $in: propertyIds },
           viewedAt: { $gte: date, $lt: nextDate }
         });
-        
+
         // If PropertyView is empty, distribute total views evenly
         if (dailyViews === 0 && totalViews > 0) {
           dailyViews = Math.floor(totalViews / 7);
         }
-        
+
         // Get real leads count for this day
         const dailyLeads = await Message.countDocuments({
           recipient: vendorId,
           type: { $in: ['inquiry', 'lead', 'property_inquiry'] },
           createdAt: { $gte: date, $lt: nextDate }
         });
-        
+
         // Get conversions (call requests, meeting requests)
         const dailyConversions = await Message.countDocuments({
           recipient: vendorId,
           type: { $in: ['call_request', 'meeting_request'] },
           createdAt: { $gte: date, $lt: nextDate }
         });
-        
+
         performanceData.push({
           date: dayName,
           leads: dailyLeads,
@@ -1234,32 +1786,32 @@ router.get('/performance', requireVendorRole, asyncHandler(async (req, res) => {
       for (let i = weeksToShow - 1; i >= 0; i--) {
         const weekStart = new Date(now.getTime() - (i + 1) * 7 * 24 * 60 * 60 * 1000);
         const weekEnd = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
-        
+
         // Try PropertyView collection first, fallback to distributed views
         let weekViews = await PropertyView.countDocuments({
           property: { $in: propertyIds },
           viewedAt: { $gte: weekStart, $lt: weekEnd }
         });
-        
+
         // If PropertyView is empty, distribute total views evenly
         if (weekViews === 0 && totalViews > 0) {
           weekViews = Math.floor(totalViews / weeksToShow);
         }
-        
+
         // Get real weekly leads
         const weekLeads = await Message.countDocuments({
           recipient: vendorId,
           type: { $in: ['inquiry', 'lead', 'property_inquiry'] },
           createdAt: { $gte: weekStart, $lt: weekEnd }
         });
-        
+
         // Get weekly conversions
         const weekConversions = await Message.countDocuments({
           recipient: vendorId,
           type: { $in: ['call_request', 'meeting_request'] },
           createdAt: { $gte: weekStart, $lt: weekEnd }
         });
-        
+
         performanceData.push({
           date: `Week ${weeksToShow - i}`,
           leads: weekLeads,
@@ -1348,7 +1900,7 @@ router.get('/analytics/export', requireVendorRole, asyncHandler(async (req, res)
       ];
 
       const csv = csvData.map(row => row.join(',')).join('\n');
-      
+
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename=buildhomemartsquares-analytics-${timeframe}-${Date.now()}.csv`);
       res.send(csv);
@@ -1585,7 +2137,7 @@ router.put('/settings', requireVendorRole, asyncHandler(async (req, res) => {
   try {
     // Initialize settings if not exists
     if (!vendor.settings) vendor.settings = {};
-    
+
     // Update notifications settings
     if (notifications) {
       if (!vendor.settings.notifications) vendor.settings.notifications = {};
@@ -1629,10 +2181,10 @@ router.put('/settings', requireVendorRole, asyncHandler(async (req, res) => {
     const updatedSettings = {
       notifications: vendor.settings.notifications,
       autoResponder: vendor.settings.autoResponder,
-      preferences: vendor.settings.preferences || { 
-        language: 'en', 
-        timezone: 'Asia/Kolkata', 
-        currency: 'INR' 
+      preferences: vendor.settings.preferences || {
+        language: 'en',
+        timezone: 'Asia/Kolkata',
+        currency: 'INR'
       },
       privacy: vendor.settings.privacy,
       meta: {
@@ -1688,11 +2240,11 @@ router.get('/statistics', requireVendorRole, asyncHandler(async (req, res) => {
   const totalViews = viewsAggregation[0]?.totalViews || 0;
 
   // Calculate total revenue from sold properties
-  const soldProps = await Property.find({ 
-    owner: vendorId, 
-    status: 'sold' 
+  const soldProps = await Property.find({
+    owner: vendorId,
+    status: 'sold'
   }).select('price');
-  
+
   const totalRevenue = soldProps.reduce((sum, prop) => {
     const price = parseFloat(prop.price.toString().replace(/[^0-9.]/g, ''));
     return sum + (isNaN(price) ? 0 : price);
@@ -1716,8 +2268,8 @@ router.get('/statistics', requireVendorRole, asyncHandler(async (req, res) => {
   });
 
   // Get average response time from vendor model
-  const avgResponseTime = vendor?.performance?.statistics?.responseTime?.average 
-    ? `${Math.round(vendor.performance.statistics.responseTime.average / 60)} hours` 
+  const avgResponseTime = vendor?.performance?.statistics?.responseTime?.average
+    ? `${Math.round(vendor.performance.statistics.responseTime.average / 60)} hours`
     : "Not calculated";
 
   // Get vendor rating from vendor model
@@ -1730,18 +2282,18 @@ router.get('/statistics', requireVendorRole, asyncHandler(async (req, res) => {
   const Favorite = require('../models/Favorite');
   const vendorProperties = await Property.find({ owner: vendorId }).select('_id');
   const propertyIds = vendorProperties.map(p => p._id);
-  
+
   const reviewsAggregation = await Review.aggregate([
     { $match: { property: { $in: propertyIds } } },
     { $group: { _id: null, avgRating: { $avg: '$rating' }, count: { $sum: 1 } } }
   ]);
-  
+
   const averageRating = reviewsAggregation[0]?.avgRating || 0;
   const totalReviews = reviewsAggregation[0]?.count || 0;
 
   // Calculate total favorites across all vendor properties
-  const totalFavorites = await Favorite.countDocuments({ 
-    property: { $in: propertyIds } 
+  const totalFavorites = await Favorite.countDocuments({
+    property: { $in: propertyIds }
   });
 
   res.json({
@@ -1802,26 +2354,29 @@ router.post('/rating', asyncHandler(async (req, res) => {
 // @route   GET /api/vendors/properties
 // @access  Private/Agent
 router.get('/properties', requireVendorRole, asyncHandler(async (req, res) => {
-  const { 
-    page = 1, 
+  const {
+    page = 1,
     limit = 10,
     status,
     type,
+    propertyType,
     search,
     sort = '-createdAt'
   } = req.query;
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
-  
+
   // Build filter object
   const filter = { owner: req.user.id };
-  
+
   if (status) {
     filter.status = status;
   }
-  
-  if (type) {
-    filter.type = type;
+
+  // Accept both 'type' and 'propertyType' (frontend sends 'propertyType')
+  const typeFilter = propertyType || type;
+  if (typeFilter) {
+    filter.type = typeFilter;
   }
 
   // Add search functionality
@@ -1837,13 +2392,13 @@ router.get('/properties', requireVendorRole, asyncHandler(async (req, res) => {
 
   // Get total count for pagination
   const totalProperties = await Property.countDocuments(filter);
-  
+
   // Get properties with pagination
   const properties = await Property.find(filter)
     .sort(sort)
     .skip(skip)
     .limit(parseInt(limit))
-    .populate('owner', 'profile.firstName profile.lastName email');
+    .populate('owner', 'profile.firstName profile.lastName email profile.phone');
 
   // Get favorites and ratings for each property
   const Favorite = require('../models/Favorite');
@@ -1851,16 +2406,16 @@ router.get('/properties', requireVendorRole, asyncHandler(async (req, res) => {
 
   const enhancedProperties = await Promise.all(properties.map(async (property) => {
     const propertyObj = property.toObject();
-    
+
     // Get favorites count
     const favoritesCount = await Favorite.countDocuments({ property: property._id });
-    
+
     // Get average rating
     const reviews = await Review.find({ property: property._id }).select('rating');
-    const avgRating = reviews.length > 0 
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length 
+    const avgRating = reviews.length > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
       : 0;
-    
+
     return {
       ...propertyObj,
       favorites: favoritesCount,
@@ -1924,10 +2479,10 @@ router.put('/properties/:id', authenticateToken, asyncHandler(async (req, res) =
     // Check if vendor owns this property (as owner or agent)
     const isOwner = property.owner.toString() === req.user.id.toString();
     const isAgent = property.agent && property.agent.toString() === req.user.id.toString();
-    
+
     console.log('Vendor property update - Is Owner:', isOwner);
     console.log('Vendor property update - Is Agent:', isAgent);
-    
+
     if (!isOwner && !isAgent) {
       return res.status(403).json({
         success: false,
@@ -1949,7 +2504,7 @@ router.put('/properties/:id', authenticateToken, asyncHandler(async (req, res) =
     });
   } catch (error) {
     console.error('Update vendor property error:', error);
-    
+
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(e => e.message);
       return res.status(400).json({
@@ -1958,7 +2513,7 @@ router.put('/properties/:id', authenticateToken, asyncHandler(async (req, res) =
         errors
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to update property'
@@ -1970,14 +2525,14 @@ router.put('/properties/:id', authenticateToken, asyncHandler(async (req, res) =
 // @route   GET /api/vendors/leads
 // @access  Private/Agent
 router.get('/leads', requireVendorRole, asyncHandler(async (req, res) => {
-  const { 
-    page = 1, 
+  const {
+    page = 1,
     limit = 10,
     status = 'unread'
   } = req.query;
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
-  
+
   // Get leads (messages sent to this vendor)
   const filter = {
     recipient: req.user.id,
@@ -1990,7 +2545,7 @@ router.get('/leads', requireVendorRole, asyncHandler(async (req, res) => {
 
   // Get total count for pagination
   const totalLeads = await Message.countDocuments(filter);
-  
+
   // Get leads with pagination
   const leads = await Message.find(filter)
     .sort({ createdAt: -1 })
@@ -2022,23 +2577,23 @@ router.get('/leads', requireVendorRole, asyncHandler(async (req, res) => {
 router.get('/subscription/check/:subscriptionName', authenticateToken, authorizeRoles('agent', 'admin', 'superadmin'), asyncHandler(async (req, res) => {
   const { subscriptionName } = req.params;
   const vendorId = req.user.id;
-  
+
   try {
     const Subscription = require('../models/Subscription');
     const Plan = require('../models/Plan');
-    
+
     // Check if vendor has active subscription
     const activeSubscription = await Subscription.findOne({
       user: vendorId,
       status: 'active',
       endDate: { $gt: new Date() }
     }).populate('plan').sort({ createdAt: -1 });
-    
+
     let hasSubscription = false;
-    
+
     if (activeSubscription && activeSubscription.plan) {
       const plan = activeSubscription.plan;
-      
+
       // Helper function to check if plan has a specific feature
       const hasFeature = (featureName) => {
         if (!plan.features) return false;
@@ -2051,7 +2606,7 @@ router.get('/subscription/check/:subscriptionName', authenticateToken, authorize
           return false;
         });
       };
-      
+
       // Map subscription names to plan features and limits (updated for new structure)
       const featureMapping = {
         'addPropertySubscription': {
@@ -2059,16 +2614,16 @@ router.get('/subscription/check/:subscriptionName', authenticateToken, authorize
           limit: plan.limits?.properties || 0 // 0 means unlimited
         },
         'featuredListingSubscription': {
-          hasAccess: (plan.limits?.featuredListings || 0) > 0 || 
-                    hasFeature('featured') || 
-                    plan.identifier === 'enterprise',
+          hasAccess: (plan.limits?.featuredListings || 0) > 0 ||
+            hasFeature('featured') ||
+            plan.identifier === 'enterprise',
           limit: plan.limits?.featuredListings || 0
         },
         'premiumAnalyticsSubscription': {
-          hasAccess: hasFeature('analytics') || 
-                    hasFeature('insights') || 
-                    hasFeature('reports') ||
-                    ['premium', 'enterprise'].includes(plan.identifier),
+          hasAccess: hasFeature('analytics') ||
+            hasFeature('insights') ||
+            hasFeature('reports') ||
+            ['premium', 'enterprise'].includes(plan.identifier),
           limit: 0
         },
         'leadManagementSubscription': {
@@ -2085,21 +2640,22 @@ router.get('/subscription/check/:subscriptionName', authenticateToken, authorize
           limit: 0
         }
       };
-      
+
       const feature = featureMapping[subscriptionName];
       hasSubscription = feature ? feature.hasAccess : false;
     }
-    
+
     res.json({
       success: true,
       data: {
         hasSubscription,
         subscriptionName,
         planDetails: activeSubscription ? {
-          // ALWAYS use live plan data (not snapshot) so superadmin changes are reflected
+          // Use planSnapshot for limits (grandfathering existing subscribers)
+          // Plan name/identifier from live plan for display purposes
           name: activeSubscription.plan?.name,
           identifier: activeSubscription.plan?.identifier,
-          limits: activeSubscription.plan?.limits
+          limits: (activeSubscription.planSnapshot?.limits || activeSubscription.plan?.limits)
         } : null
       }
     });
@@ -2117,17 +2673,17 @@ router.get('/subscription/check/:subscriptionName', authenticateToken, authorize
 // @access  Private/Agent
 router.get('/subscriptions', requireVendorRole, asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
-  
+
   try {
     const Subscription = require('../models/Subscription');
-    
+
     // Get vendor's active subscriptions
     const activeSubscriptions = await Subscription.find({
       userId: vendorId,
       status: 'active',
       endDate: { $gt: new Date() }
     }).populate('planId');
-    
+
     // Map subscriptions to expected format
     const subscriptionsMap = {
       'addPropertySubscription': { isActive: true, expiresAt: null }, // Allow by default for demo
@@ -2135,32 +2691,32 @@ router.get('/subscriptions', requireVendorRole, asyncHandler(async (req, res) =>
       'premiumAnalyticsSubscription': { isActive: false, expiresAt: null },
       'leadManagementSubscription': { isActive: false, expiresAt: null }
     };
-    
+
     // Update based on active subscriptions
     activeSubscriptions.forEach(subscription => {
       const plan = subscription.planId;
       const expiresAt = subscription.endDate.toISOString();
-      
+
       if (plan.limits?.featuredListings > 0 || plan.name === 'Enterprise Plan') {
         subscriptionsMap['featuredListingSubscription'] = { isActive: true, expiresAt };
       }
-      if (plan.features?.includes('Detailed analytics & insights') || 
-          plan.features?.includes('Advanced analytics & reports') ||
-          plan.name === 'Premium Plan' || plan.name === 'Enterprise Plan') {
+      if (plan.features?.includes('Detailed analytics & insights') ||
+        plan.features?.includes('Advanced analytics & reports') ||
+        plan.name === 'Premium Plan' || plan.name === 'Enterprise Plan') {
         subscriptionsMap['premiumAnalyticsSubscription'] = { isActive: true, expiresAt };
       }
       if (plan.limits?.leadManagement) {
         subscriptionsMap['leadManagementSubscription'] = { isActive: true, expiresAt };
       }
     });
-    
+
     // Convert to array format
     const subscriptions = Object.entries(subscriptionsMap).map(([name, data]) => ({
       name,
       isActive: data.isActive,
       expiresAt: data.expiresAt
     }));
-    
+
     res.json({
       success: true,
       data: {
@@ -2182,7 +2738,7 @@ router.get('/subscriptions', requireVendorRole, asyncHandler(async (req, res) =>
 router.post('/subscription/activate', requireVendorRole, asyncHandler(async (req, res) => {
   const { planId, paymentId } = req.body;
   const vendorId = req.user.id;
-  
+
   try {
     if (!planId || !paymentId) {
       return res.status(400).json({
@@ -2196,11 +2752,11 @@ router.post('/subscription/activate', requireVendorRole, asyncHandler(async (req
     // 2. Get the plan details from Plan model
     // 3. Create or update the Subscription record
     // 4. Update user's subscription status
-    
+
     // For now, we'll simulate successful activation
     const Plan = require('../models/Plan');
     const Subscription = require('../models/Subscription');
-    
+
     // Get plan details
     const plan = await Plan.findById(planId);
     if (!plan) {
@@ -2325,8 +2881,8 @@ router.get('/lead-stats', requireVendorRole, asyncHandler(async (req, res) => {
     ]);
 
     // Calculate growth percentage
-    const growth = lastMonthLeads > 0 ? 
-      Math.round(((thisMonthLeads - lastMonthLeads) / lastMonthLeads) * 100 * 10) / 10 : 
+    const growth = lastMonthLeads > 0 ?
+      Math.round(((thisMonthLeads - lastMonthLeads) / lastMonthLeads) * 100 * 10) / 10 :
       0;
 
     // Format lead sources
@@ -2336,8 +2892,8 @@ router.get('/lead-stats', requireVendorRole, asyncHandler(async (req, res) => {
     });
 
     // Calculate conversion rate
-    const conversionRate = totalLeads > 0 ? 
-      Math.round((convertedLeads / totalLeads) * 100 * 10) / 10 : 
+    const conversionRate = totalLeads > 0 ?
+      Math.round((convertedLeads / totalLeads) * 100 * 10) / 10 :
       0;
 
     const leadStats = {
@@ -2393,7 +2949,7 @@ router.get('/analytics/overview', requireVendorRole, asyncHandler(async (req, re
     // Calculate date ranges based on timeframe
     const now = new Date();
     let currentStartDate, previousStartDate, currentEndDate, previousEndDate;
-    
+
     switch (timeframe) {
       case '7days':
         currentStartDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -2431,7 +2987,7 @@ router.get('/analytics/overview', requireVendorRole, asyncHandler(async (req, re
         type: { $in: ['inquiry', 'lead', 'property_inquiry'] },
         createdAt: { $gte: previousStartDate, $lte: previousEndDate }
       }),
-      Property.countDocuments({ 
+      Property.countDocuments({
         owner: vendorObjectId,
         createdAt: { $gte: previousStartDate, $lte: previousEndDate }
       })
@@ -2467,43 +3023,40 @@ router.get('/analytics/overview', requireVendorRole, asyncHandler(async (req, re
         createdAt: { $gte: currentStartDate, $lte: currentEndDate }
       })
     ]);
-    
-    // Calculate separate revenue from different property types
+
+    // Calculate separate revenue from different property types (lifetime revenue)
     const [soldProperties, leasedProperties, rentedProperties] = await Promise.all([
       Property.find({
         owner: vendorObjectId,
-        status: 'sold',
-        updatedAt: { $gte: currentStartDate, $lte: currentEndDate }
+        status: 'sold'
       }).select('price'),
       Property.find({
         owner: vendorObjectId,
-        status: { $in: ['leased'] },
-        updatedAt: { $gte: currentStartDate, $lte: currentEndDate }
+        status: { $in: ['leased'] }
       }).select('price'),
       Property.find({
         owner: vendorObjectId,
-        status: 'rented',
-        updatedAt: { $gte: currentStartDate, $lte: currentEndDate }
+        status: 'rented'
       }).select('price')
     ]);
-    
+
     const soldPropertyRevenue = soldProperties.reduce((sum, prop) => {
       const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
       return sum + (isNaN(price) ? 0 : price);
     }, 0);
-    
+
     const leasedPropertyRevenue = leasedProperties.reduce((sum, prop) => {
       const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
       return sum + (isNaN(price) ? 0 : price);
     }, 0);
-    
+
     const rentedPropertyRevenue = rentedProperties.reduce((sum, prop) => {
       const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
       return sum + (isNaN(price) ? 0 : price);
     }, 0);
-    
+
     const totalRevenue = soldPropertyRevenue + leasedPropertyRevenue + rentedPropertyRevenue;
-    
+
     // Calculate previous period revenue for trends
     const [prevSoldProps, prevLeasedProps, prevRentedProps] = await Promise.all([
       Property.find({
@@ -2522,31 +3075,45 @@ router.get('/analytics/overview', requireVendorRole, asyncHandler(async (req, re
         updatedAt: { $gte: previousStartDate, $lte: previousEndDate }
       }).select('price')
     ]);
-    
-    const prevTotalRevenue = prevSoldProps.reduce((sum, prop) => {
-      const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
-      return sum + (isNaN(price) ? 0 : price);
-    }, 0) + prevLeasedProps.reduce((sum, prop) => {
-      const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
-      return sum + (isNaN(price) ? 0 : price);
-    }, 0) + prevRentedProps.reduce((sum, prop) => {
+
+    const prevSoldRevenue = prevSoldProps.reduce((sum, prop) => {
       const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
       return sum + (isNaN(price) ? 0 : price);
     }, 0);
-    
+
+    const prevLeasedRevenue = prevLeasedProps.reduce((sum, prop) => {
+      const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
+      return sum + (isNaN(price) ? 0 : price);
+    }, 0);
+
+    const prevRentedRevenue = prevRentedProps.reduce((sum, prop) => {
+      const price = parseFloat(prop.price?.toString().replace(/[^0-9.]/g, '') || '0');
+      return sum + (isNaN(price) ? 0 : price);
+    }, 0);
+
+    const prevTotalRevenue = prevSoldRevenue + prevLeasedRevenue + prevRentedRevenue;
+
     const prevViews = previousViews;
     const prevLeads = previousLeads;
     const prevProperties = previousProperties;
 
     // Calculate trends with proper fallbacks
-    const viewsGrowth = prevViews > 0 ? ((currentViews - prevViews) / prevViews * 100) : 
+    const viewsGrowth = prevViews > 0 ? ((currentViews - prevViews) / prevViews * 100) :
       (currentViews > 0 ? 100 : 0);
-    const leadsGrowth = prevLeads > 0 ? ((currentLeads - prevLeads) / prevLeads * 100) : 
+    const leadsGrowth = prevLeads > 0 ? ((currentLeads - prevLeads) / prevLeads * 100) :
       (currentLeads > 0 ? 100 : 0);
-    const propertiesGrowth = prevProperties > 0 ? ((totalProperties - prevProperties) / prevProperties * 100) : 
+    const propertiesGrowth = prevProperties > 0 ? ((totalProperties - prevProperties) / prevProperties * 100) :
       (totalProperties > 0 ? 100 : 0);
-    const revenueGrowth = prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue * 100) : 
+    const revenueGrowth = prevTotalRevenue > 0 ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue * 100) :
       (totalRevenue > 0 ? 100 : 0);
+
+    // Calculate individual revenue growth
+    const soldRevenueGrowth = prevSoldRevenue > 0 ? ((soldPropertyRevenue - prevSoldRevenue) / prevSoldRevenue * 100) :
+      (soldPropertyRevenue > 0 ? 100 : 0);
+    const leasedRevenueGrowth = prevLeasedRevenue > 0 ? ((leasedPropertyRevenue - prevLeasedRevenue) / prevLeasedRevenue * 100) :
+      (leasedPropertyRevenue > 0 ? 100 : 0);
+    const rentedRevenueGrowth = prevRentedRevenue > 0 ? ((rentedPropertyRevenue - prevRentedRevenue) / prevRentedRevenue * 100) :
+      (rentedPropertyRevenue > 0 ? 100 : 0);
 
     // Calculate conversion rate
     const conversionRate = currentViews > 0 ? ((currentLeads / currentViews) * 100) : 0;
@@ -2608,6 +3175,21 @@ router.get('/analytics/overview', requireVendorRole, asyncHandler(async (req, re
           current: totalRevenue,
           previous: prevTotalRevenue,
           growth: Math.round(revenueGrowth * 10) / 10
+        },
+        soldRevenue: {
+          current: soldPropertyRevenue,
+          previous: prevSoldRevenue,
+          growth: Math.round(soldRevenueGrowth * 10) / 10
+        },
+        leasedRevenue: {
+          current: leasedPropertyRevenue,
+          previous: prevLeasedRevenue,
+          growth: Math.round(leasedRevenueGrowth * 10) / 10
+        },
+        rentedRevenue: {
+          current: rentedPropertyRevenue,
+          previous: prevRentedRevenue,
+          growth: Math.round(rentedRevenueGrowth * 10) / 10
         }
       },
       chartData: {
@@ -2653,7 +3235,7 @@ router.get('/analytics/performance', requireVendorRole, asyncHandler(async (req,
     const now = new Date();
     let startDate;
     let daysInPeriod;
-    
+
     switch (timeframe) {
       case '7days':
         startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -2684,37 +3266,62 @@ router.get('/analytics/performance', requireVendorRole, asyncHandler(async (req,
 
     // Get all properties for the vendor
     const properties = await Property.find(propertyMatch).lean();
-    
+
     // Get messages for lead counting
     const messages = await Message.find({
       recipient: vendorObjectId,
       createdAt: { $gte: startDate }
     }).lean();
 
-    // Build property performance data
-    const propertyPerformance = properties.map(property => {
-      const propertyMessages = messages.filter(msg => 
+    // Get Favorite model
+    const Favorite = require('../models/Favorite');
+
+    // Build property performance data with favorites and revenue
+    const propertyPerformance = await Promise.all(properties.map(async property => {
+      const propertyMessages = messages.filter(msg =>
         msg.property && msg.property.toString() === property._id.toString()
       );
-      
-      const leads = propertyMessages.filter(msg => 
+
+      const leads = propertyMessages.filter(msg =>
         ['inquiry', 'lead', 'property_inquiry'].includes(msg.type)
       );
-      
+
+      // Get favorites count for this property
+      const favoritesCount = await Favorite.countDocuments({ property: property._id });
+
       const views = property.views || 0;
       const leadsCount = leads.length;
       const conversionRate = views > 0 ? (leadsCount / views) * 100 : 0;
-      
+
+      // Calculate revenue based on property status
+      let revenue = 0;
+      if (['sold', 'rented', 'leased'].includes(property.status)) {
+        // Parse price - handle both number and string formats
+        const priceValue = typeof property.price === 'number'
+          ? property.price
+          : parseFloat(property.price?.toString().replace(/[^0-9.]/g, '') || '0');
+        revenue = isNaN(priceValue) ? 0 : priceValue;
+      }
+
       return {
         propertyId: property._id,
         title: property.title,
+        status: property.status,
+        listingType: property.listingType || 'sale',
         views,
         leads: leadsCount,
         inquiries: propertyMessages.length,
         conversionRate: Math.round(conversionRate * 100) / 100,
-        revenue: 0
+        revenue,
+        favorites: favoritesCount
       };
-    }).sort((a, b) => b.views - a.views);
+    }));
+
+    // Sort by revenue first, then by views
+    propertyPerformance.sort((a, b) => {
+      if (b.revenue !== a.revenue) return b.revenue - a.revenue;
+      return b.views - a.views;
+    });
 
     // Get lead sources data
     const leadSourcesMap = {};
@@ -2724,15 +3331,15 @@ router.get('/analytics/performance', requireVendorRole, asyncHandler(async (req,
         leadSourcesMap[source] = (leadSourcesMap[source] || 0) + 1;
       }
     });
-    
+
     const leadSources = Object.keys(leadSourcesMap).length > 0
       ? Object.entries(leadSourcesMap).map(([name, value]) => ({ name, value }))
       : [
-          { name: 'Website', value: 0 },
-          { name: 'Social Media', value: 0 },
-          { name: 'Referrals', value: 0 },
-          { name: 'Direct', value: 0 }
-        ];
+        { name: 'Website', value: 0 },
+        { name: 'Social Media', value: 0 },
+        { name: 'Referrals', value: 0 },
+        { name: 'Direct', value: 0 }
+      ];
 
     // Generate time series data from real tracking
     const viewsData = [];
@@ -2748,35 +3355,54 @@ router.get('/analytics/performance', requireVendorRole, asyncHandler(async (req,
       const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
       const nextDate = new Date(date.getTime() + 24 * 60 * 60 * 1000);
       const dateStr = date.toISOString().split('T')[0];
-      
+
       // Get real daily views from PropertyView collection
       const dailyViews = await PropertyView.countDocuments({
         property: { $in: propertyIds },
         viewedAt: { $gte: date, $lt: nextDate }
       });
-      
+
       // Get real daily leads
       const dailyLeads = await Message.countDocuments({
         recipient: vendorObjectId,
         type: { $in: ['inquiry', 'lead', 'property_inquiry'] },
         createdAt: { $gte: date, $lt: nextDate }
       });
-      
+
+      // Get real daily shares
+      const dailyShares = await PropertyView.countDocuments({
+        property: { $in: propertyIds },
+        'interactions.sharedProperty': true,
+        viewedAt: { $gte: date, $lt: nextDate }
+      });
+
+      // Get real daily inquiries (clicks on phone/message)
+      const dailyInquiries = await PropertyView.countDocuments({
+        property: { $in: propertyIds },
+        $or: [
+          { 'interactions.clickedPhone': true },
+          { 'interactions.clickedMessage': true }
+        ],
+        viewedAt: { $gte: date, $lt: nextDate }
+      });
+
       viewsData.push({
         name: dateStr,
-        value: dailyViews
+        value: dailyViews,
+        shares: dailyShares,
+        inquiries: dailyInquiries
       });
-      
+
       leadsData.push({
         name: dateStr,
         value: dailyLeads
       });
-      
+
       conversionData.push({
         name: dateStr,
         value: dailyViews > 0 ? Math.round((dailyLeads / dailyViews) * 100 * 100) / 100 : 0
       });
-      
+
       revenueData.push({
         name: dateStr,
         value: 0
@@ -2825,7 +3451,7 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
 
   try {
     const Subscription = require('../models/Subscription');
-    
+
     const activeSubscription = await Subscription.findOne({
       user: vendorId, // Changed from userId to user
       status: 'active',
@@ -2848,18 +3474,21 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
         });
       }
 
+      // Use planSnapshot for limits/features (grandfathering existing subscribers)
+      const effectivePlan = activeSubscription.planSnapshot || activeSubscription.plan;
+
       res.json({
         success: true,
         data: {
           hasActiveSubscription: true,
           subscription: {
             id: activeSubscription._id,
-            planName: activeSubscription.plan?.name,
+            planName: activeSubscription.plan?.name, // Live plan name for display
             planId: activeSubscription.plan?._id,
             status: activeSubscription.status,
             startDate: activeSubscription.startDate,
             endDate: activeSubscription.endDate,
-            features: (activeSubscription.plan?.features || []).map(f => {
+            features: (effectivePlan?.features || []).map(f => {
               if (typeof f === 'string') {
                 return f;
               } else if (f && typeof f === 'object' && f.name) {
@@ -2867,9 +3496,9 @@ router.get('/subscription-status', requireVendorRole, asyncHandler(async (req, r
               }
               return null;
             }).filter(Boolean),
-            limits: activeSubscription.plan?.limits || {},
+            limits: effectivePlan?.limits || {},
             billingCycle: (() => {
-              const months = activeSubscription.plan?.billingCycleMonths || 1;
+              const months = effectivePlan?.billingCycleMonths || activeSubscription.plan?.billingCycleMonths || 1;
               if (months === 1) return 'Monthly';
               if (months === 12) return 'Annually';
               return `Every ${months} months`;
@@ -2907,7 +3536,7 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
   try {
     const Subscription = require('../models/Subscription');
     const Property = require('../models/Property');
-    
+
     // Get active subscription
     const activeSubscription = await Subscription.findOne({
       user: vendorId,
@@ -2924,14 +3553,15 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
     let planData = null;
 
     if (activeSubscription && activeSubscription.plan) {
-      // ALWAYS use live plan data (not snapshot) so superadmin changes are reflected immediately
-      planData = activeSubscription.plan;
+      // Use planSnapshot for limits (grandfathering existing subscribers)
+      // Existing subscribers keep their original limits until subscription expires
+      planData = activeSubscription.planSnapshot || activeSubscription.plan;
     } else {
       // If no subscription, fetch the FREE plan from database to get current admin settings
       const Plan = require('../models/Plan');
       planData = await Plan.findOne({ identifier: 'free', isActive: true });
     }
-    
+
     if (!planData || planData.limits?.properties === undefined) {
       return res.status(500).json({
         success: false,
@@ -2940,23 +3570,25 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
     }
 
     planName = planData.name;
-    
-    // Get property limit from plan (0 = unlimited)
+
+    // Get property limit from plan (null = unlimited infinity, as configured in admin portal)
     const propertyLimit = planData.limits.properties;
-    maxProperties = propertyLimit === 0 ? 999999 : propertyLimit;
-    
+    // Check for unlimited: null (standard), -1 (legacy), 0 (legacy)
+    const isUnlimited = propertyLimit === null || propertyLimit === -1 || propertyLimit === 0;
+
     // Extract features from plan
     features = (planData.features || []).map(f => {
       if (typeof f === 'string') return f;
       if (f && typeof f === 'object' && f.name && f.enabled !== false) return f.name;
       return null;
     }).filter(Boolean);
-    
+
     if (features.length === 0) {
-      features = [`${maxProperties === 999999 ? 'Unlimited' : maxProperties} Property Listings`];
+      features = [`${isUnlimited ? 'Unlimited' : propertyLimit} Property Listings`];
     }
 
-    const canAddMore = currentProperties < maxProperties;
+    // For unlimited plans, canAddMore is always true
+    const canAddMore = isUnlimited ? true : currentProperties < propertyLimit;
 
     // Get property images limit from plan (default to 10 if not set)
     const maxPropertyImages = planData.limits.propertyImages || 10;
@@ -2964,24 +3596,25 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
     res.json({
       success: true,
       data: {
-        maxProperties,
+        maxProperties: isUnlimited ? null : propertyLimit,
         currentProperties,
         canAddMore,
         planName,
         features,
-        maxPropertyImages
+        maxPropertyImages,
+        isUnlimited
       }
     });
   } catch (error) {
     console.error('Subscription limits error:', error);
-    
+
     // Even in error, fetch the FREE plan from database
     try {
       const Plan = require('../models/Plan');
       const freePlan = await Plan.findOne({ identifier: 'free', isActive: true });
       const propertyLimit = freePlan?.limits?.properties !== undefined ? freePlan.limits.properties : 5;
       const maxProps = propertyLimit === 0 ? 999999 : propertyLimit;
-      
+
       return res.status(500).json({
         success: false,
         message: 'Failed to fetch subscription limits. Plan configuration error.'
@@ -3004,7 +3637,7 @@ router.get('/subscription/current', requireVendorRole, asyncHandler(async (req, 
 
   try {
     const Subscription = require('../models/Subscription');
-    
+
     const activeSubscription = await Subscription.findOne({
       user: vendorId,
       status: 'active',
@@ -3048,21 +3681,132 @@ router.get('/subscription/current', requireVendorRole, asyncHandler(async (req, 
   }
 }));
 
+// @desc    Get vendor badges based on subscription
+// @route   GET /api/vendors/subscription/badges
+// @access  Private/Agent
+router.get('/subscription/badges', requireVendorRole, asyncHandler(async (req, res) => {
+  const vendorId = req.user.id;
+
+  try {
+    const Subscription = require('../models/Subscription');
+    const User = require('../models/User');
+
+    // Get active subscription with plan
+    const activeSubscription = await Subscription.findOne({
+      user: vendorId,
+      status: 'active',
+      endDate: { $gt: new Date() }
+    }).populate('plan').sort({ createdAt: -1 });
+
+    // Get user profile for basic info
+    const user = await User.findById(vendorId).select('profile email');
+
+    const response = {
+      hasSubscription: !!activeSubscription,
+      badges: [],
+      planName: null,
+      planLevel: 'free'
+    };
+
+    if (!activeSubscription || !activeSubscription.plan) {
+      return res.json({
+        success: true,
+        data: response
+      });
+    }
+
+    // Use planSnapshot for features/benefits (grandfathering existing subscribers)
+    const plan = activeSubscription.planSnapshot || activeSubscription.plan;
+    response.planName = plan.name;
+    response.planLevel = plan.identifier || 'basic';
+
+    // Handle both new array format and legacy object format for benefits
+    if (Array.isArray(plan.benefits)) {
+      // New dynamic format
+      response.badges = plan.benefits
+        .filter(benefit => benefit.enabled)
+        .map(benefit => ({
+          key: benefit.key,
+          name: benefit.name,
+          description: benefit.description || '',
+          icon: benefit.icon || 'star',
+          type: 'custom'
+        }));
+    } else if (plan.benefits && typeof plan.benefits === 'object') {
+      // Legacy format - convert to new format
+      const benefitMapping = {
+        topRated: {
+          name: 'Top Rated',
+          description: 'Highly rated professional',
+          icon: 'star',
+          type: 'legacy'
+        },
+        verifiedBadge: {
+          name: 'Verified',
+          description: 'Identity and credentials verified',
+          icon: 'shield-check',
+          type: 'legacy'
+        },
+        marketingManager: {
+          name: 'Marketing Pro',
+          description: 'Advanced marketing tools access',
+          icon: 'trending-up',
+          type: 'legacy'
+        },
+        commissionBased: {
+          name: 'Commission Based',
+          description: 'Performance-based pricing model',
+          icon: 'dollar-sign',
+          type: 'legacy'
+        }
+      };
+
+      response.badges = Object.entries(plan.benefits)
+        .filter(([key, enabled]) => enabled && benefitMapping[key])
+        .map(([key, _]) => ({
+          key,
+          name: benefitMapping[key].name,
+          description: benefitMapping[key].description,
+          icon: benefitMapping[key].icon,
+          type: benefitMapping[key].type
+        }));
+    }
+
+    // Add user profile information
+    response.profile = {
+      name: user?.profile ? `${user.profile.firstName || ''} ${user.profile.lastName || ''}`.trim() : '',
+      email: user?.email || '',
+      avatar: user?.profile?.avatar || null
+    };
+
+    res.json({
+      success: true,
+      data: response
+    });
+  } catch (error) {
+    console.error('Get vendor badges error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch vendor badges'
+    });
+  }
+}));
+
 // @desc    Get vendor payments
 // @route   GET /api/vendors/payments
 // @access  Private/Agent
 router.get('/payments', requireVendorRole, asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
   const { page = 1, limit = 20, dateFrom, dateTo, status } = req.query;
-  
+
   try {
     // For now, create mock payment data based on subscriptions
     // In a real implementation, you'd query a Payment/Transaction model
     const Subscription = require('../models/Subscription');
-    
+
     const filter = { user: vendorId };
     if (status) filter.status = status;
-    
+
     const subscriptions = await Subscription.find(filter)
       .populate('plan', 'name price')
       .sort({ createdAt: -1 })
@@ -3070,7 +3814,7 @@ router.get('/payments', requireVendorRole, asyncHandler(async (req, res) => {
       .skip((parseInt(page) - 1) * parseInt(limit));
 
     const totalCount = await Subscription.countDocuments(filter);
-    
+
     // Convert subscriptions to payment format
     const payments = subscriptions.map(sub => ({
       _id: sub._id,
@@ -3109,16 +3853,16 @@ router.get('/payments', requireVendorRole, asyncHandler(async (req, res) => {
 router.get('/invoices', requireVendorRole, asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
   const { page = 1, limit = 10, status } = req.query;
-  
+
   try {
     // For now, create mock invoice data based on subscriptions
     // In a real implementation, you'd query an Invoice model
     const Subscription = require('../models/Subscription');
     const User = require('../models/User');
-    
+
     const filter = { user: vendorId };
     if (status) filter.status = status;
-    
+
     const subscriptions = await Subscription.find(filter)
       .populate('plan', 'name price')
       .populate('user', 'profile.firstName profile.lastName email profile.phone')
@@ -3127,13 +3871,13 @@ router.get('/invoices', requireVendorRole, asyncHandler(async (req, res) => {
       .skip((parseInt(page) - 1) * parseInt(limit));
 
     const totalCount = await Subscription.countDocuments(filter);
-    
+
     // Convert subscriptions to invoice format
     const invoices = subscriptions.map((sub, index) => {
       const user = sub.user;
       const plan = sub.plan;
       const amount = sub.amount || (plan ? plan.price : 0);
-      
+
       return {
         _id: sub._id,
         invoiceNumber: `INV-${new Date().getFullYear()}-${String(Date.now() + index).slice(-6)}`,
@@ -3185,61 +3929,63 @@ router.get('/invoices', requireVendorRole, asyncHandler(async (req, res) => {
 // @access  Private/Agent
 router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
-  
+
   try {
     const Subscription = require('../models/Subscription');
     const Property = require('../models/Property');
     const Message = require('../models/Message');
-    
+
     // Get subscription stats
     const activeSubscription = await Subscription.findOne({
       user: vendorId,
       status: 'active',
       endDate: { $gt: new Date() }
     }).populate('plan').sort({ createdAt: -1 });
-    
+
     const totalSubscriptions = await Subscription.countDocuments({ user: vendorId });
-    
+
     // Calculate property revenue from sold properties
-    const soldProperties = await Property.find({ 
-      owner: vendorId, 
-      status: 'sold' 
+    const soldProperties = await Property.find({
+      owner: vendorId,
+      status: 'sold'
     }).select('price');
-    
+
     const totalRevenue = soldProperties.reduce((sum, prop) => {
       const price = parseFloat(prop.price.toString().replace(/[^0-9.]/g, ''));
       return sum + (isNaN(price) ? 0 : price);
     }, 0);
-    
+
     // Calculate monthly revenue from properties sold this month
     const firstDayOfMonth = new Date();
     firstDayOfMonth.setDate(1);
     firstDayOfMonth.setHours(0, 0, 0, 0);
-    
-    const monthlySoldProperties = await Property.find({ 
-      owner: vendorId, 
+
+    const monthlySoldProperties = await Property.find({
+      owner: vendorId,
       status: 'sold',
       updatedAt: { $gte: firstDayOfMonth }
     }).select('price');
-    
+
     const monthlyRevenue = monthlySoldProperties.reduce((sum, prop) => {
       const price = parseFloat(prop.price.toString().replace(/[^0-9.]/g, ''));
       return sum + (isNaN(price) ? 0 : price);
     }, 0);
-    
+
     // Get usage stats
     const propertyCount = await Property.countDocuments({ owner: vendorId });
-    const leadCount = await Message.countDocuments({ 
-      recipient: vendorId, 
+    const leadCount = await Message.countDocuments({
+      recipient: vendorId,
       type: { $in: ['inquiry', 'lead', 'property_inquiry'] }
     });
     const messageCount = await Message.countDocuments({ recipient: vendorId });
-    
+
     // Get limits from active subscription OR fetch free plan from database
     let limits;
-    
-    if (activeSubscription?.plan?.limits) {
-      limits = activeSubscription.plan.limits;
+
+    // Use planSnapshot for limits (grandfathering existing subscribers)
+    const effectivePlan = activeSubscription?.planSnapshot || activeSubscription?.plan;
+    if (effectivePlan?.limits) {
+      limits = effectivePlan.limits;
     } else {
       // No subscription - fetch FREE plan limits from database
       const Plan = require('../models/Plan');
@@ -3252,15 +3998,23 @@ router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) =>
       }
       limits = freePlan.limits;
     }
-    
+
+    // Helper function to handle unlimited limits (0, -1, or null = unlimited)
+    const getLimit = (limitValue) => {
+      if (limitValue === 0 || limitValue === -1 || limitValue === null || limitValue === undefined) {
+        return -1; // Return -1 to indicate unlimited
+      }
+      return limitValue;
+    };
+
     const stats = {
       totalRevenue: totalRevenue,
       monthlyRevenue: monthlyRevenue,
       activeSubscriptions: activeSubscription ? 1 : 0,
       totalInvoices: totalSubscriptions,
       paidInvoices: await Subscription.countDocuments({ user: vendorId, status: 'active' }),
-      overdueInvoices: await Subscription.countDocuments({ 
-        user: vendorId, 
+      overdueInvoices: await Subscription.countDocuments({
+        user: vendorId,
         status: 'expired',
         endDate: { $lt: new Date() }
       }),
@@ -3270,15 +4024,15 @@ router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) =>
       usageStats: {
         properties: {
           used: propertyCount,
-          limit: limits.properties || 999999
+          limit: getLimit(limits.properties)
         },
         leads: {
           used: leadCount,
-          limit: limits.leads || 999999
+          limit: getLimit(limits.leads)
         },
         messages: {
           used: messageCount,
-          limit: limits.messages || 999999
+          limit: getLimit(limits.messages)
         }
       }
     };
@@ -3302,10 +4056,10 @@ router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) =>
 router.get('/payments/:id', requireVendorRole, asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
   const paymentId = req.params.id;
-  
+
   try {
     const Subscription = require('../models/Subscription');
-    
+
     const subscription = await Subscription.findOne({
       _id: paymentId,
       user: vendorId
@@ -3355,11 +4109,11 @@ router.get('/payments/:id', requireVendorRole, asyncHandler(async (req, res) => 
 router.get('/payments/:id/receipt', requireVendorRole, asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
   const paymentId = req.params.id;
-  
+
   try {
     const Subscription = require('../models/Subscription');
     const User = require('../models/User');
-    
+
     const subscription = await Subscription.findOne({
       _id: paymentId,
       user: vendorId
@@ -3373,7 +4127,7 @@ router.get('/payments/:id/receipt', requireVendorRole, asyncHandler(async (req, 
     }
 
     const user = await User.findById(vendorId);
-    
+
     // Generate simple text receipt (In production, use PDF library like pdfkit)
     const receiptText = `
 =====================================
@@ -3418,11 +4172,11 @@ BuildHomeMartSquares
 router.get('/invoices/:id', requireVendorRole, asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
   const invoiceId = req.params.id;
-  
+
   try {
     const Subscription = require('../models/Subscription');
     const User = require('../models/User');
-    
+
     const subscription = await Subscription.findOne({
       _id: invoiceId,
       user: vendorId
@@ -3438,7 +4192,7 @@ router.get('/invoices/:id', requireVendorRole, asyncHandler(async (req, res) => 
     const user = subscription.user;
     const plan = subscription.plan;
     const amount = subscription.amount || (plan ? plan.price : 0);
-    
+
     const invoice = {
       _id: subscription._id,
       invoiceNumber: `INV-${new Date().getFullYear()}-${subscription._id.toString().slice(-6).toUpperCase()}`,
@@ -3486,11 +4240,11 @@ router.get('/invoices/:id', requireVendorRole, asyncHandler(async (req, res) => 
 router.get('/invoices/:id/download', requireVendorRole, asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
   const invoiceId = req.params.id;
-  
+
   try {
     const Subscription = require('../models/Subscription');
     const User = require('../models/User');
-    
+
     const subscription = await Subscription.findOne({
       _id: invoiceId,
       user: vendorId
@@ -3506,9 +4260,9 @@ router.get('/invoices/:id/download', requireVendorRole, asyncHandler(async (req,
     const user = subscription.user;
     const plan = subscription.plan;
     const amount = subscription.amount || (plan ? plan.price : 0);
-    
+
     const invoiceNumber = `INV-${new Date().getFullYear()}-${subscription._id.toString().slice(-6).toUpperCase()}`;
-    
+
     // Generate simple text invoice (In production, use PDF library)
     const invoiceText = `
 =====================================
@@ -3565,23 +4319,23 @@ www.buildhomemartsquares.com
 router.get('/billing/export', requireVendorRole, asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
   const { format = 'csv', dateFrom, dateTo } = req.query;
-  
+
   try {
     const Subscription = require('../models/Subscription');
-    
+
     const filter = { user: vendorId };
     if (dateFrom || dateTo) {
       filter.createdAt = {};
       if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
       if (dateTo) filter.createdAt.$lte = new Date(dateTo);
     }
-    
+
     const subscriptions = await Subscription.find(filter)
       .populate('plan', 'name price')
       .sort({ createdAt: -1 });
 
     let exportData = '';
-    
+
     if (format === 'csv') {
       exportData = 'Date,Plan,Amount,Currency,Status,Start Date,End Date\n';
       subscriptions.forEach(sub => {
@@ -3593,7 +4347,7 @@ router.get('/billing/export', requireVendorRole, asyncHandler(async (req, res) =
         exportData += `${new Date(sub.startDate).toLocaleDateString()},`;
         exportData += `${new Date(sub.endDate).toLocaleDateString()}\n`;
       });
-      
+
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename=billing-export-${Date.now()}.csv`);
     } else if (format === 'excel') {
@@ -3608,7 +4362,7 @@ router.get('/billing/export', requireVendorRole, asyncHandler(async (req, res) =
         'Start Date': new Date(sub.startDate).toLocaleDateString(),
         'End Date': new Date(sub.endDate).toLocaleDateString()
       }));
-      
+
       res.json({
         success: true,
         data: excelData,
@@ -3651,7 +4405,7 @@ BuildHomeMartSquares
 www.buildhomemartsquares.com
 =====================================
       `;
-      
+
       res.setHeader('Content-Type', 'text/plain');
       res.setHeader('Content-Disposition', `attachment; filename=billing-report-${Date.now()}.txt`);
     }
@@ -3672,10 +4426,10 @@ www.buildhomemartsquares.com
 router.post('/subscription/cancel', requireVendorRole, asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
   const { reason } = req.body;
-  
+
   try {
     const Subscription = require('../models/Subscription');
-    
+
     const activeSubscription = await Subscription.findOne({
       user: vendorId,
       status: 'active',
@@ -3693,7 +4447,7 @@ router.post('/subscription/cancel', requireVendorRole, asyncHandler(async (req, 
     activeSubscription.status = 'cancelled';
     activeSubscription.cancelledAt = new Date();
     activeSubscription.cancelReason = reason || 'No reason provided';
-    
+
     await activeSubscription.save();
 
     res.json({
@@ -3714,8 +4468,8 @@ router.post('/subscription/cancel', requireVendorRole, asyncHandler(async (req, 
 // @access  Private/Agent
 router.get('/services', requireVendorRole, asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
-  const { 
-    page = 1, 
+  const {
+    page = 1,
     limit = 10,
     category,
     status = 'all',
@@ -3728,7 +4482,7 @@ router.get('/services', requireVendorRole, asyncHandler(async (req, res) => {
     // For now, return mock data until VendorService model is created
     // This prevents the 404 error and allows the frontend to work
     const mockServices = [];
-    
+
     res.json({
       success: true,
       data: {
@@ -3766,7 +4520,7 @@ router.get('/services/stats', requireVendorRole, asyncHandler(async (req, res) =
       averageRating: 0,
       popularCategories: []
     };
-    
+
     res.json({
       success: true,
       data: mockStats
@@ -3941,18 +4695,18 @@ router.patch('/bookings/:id/status', requireVendorRole, asyncHandler(async (req,
 // @access  Private/Agent
 router.post('/subscription/refresh', requireVendorRole, asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
-  
+
   try {
     const Subscription = require('../models/Subscription');
     const Property = require('../models/Property');
-    
+
     // Get latest subscription data
     const activeSubscription = await Subscription.findOne({
       user: vendorId,
       status: 'active',
       endDate: { $gt: new Date() }
     }).populate('plan').sort({ createdAt: -1 });
-    
+
     // Count current properties
     const currentProperties = await Property.countDocuments({
       $or: [
@@ -3961,23 +4715,24 @@ router.post('/subscription/refresh', requireVendorRole, asyncHandler(async (req,
         { vendor: new mongoose.Types.ObjectId(vendorId) }
       ]
     });
-    
+
     // Determine which plan to use
     let plan = null;
     let refreshedData = null;
-    
+
     if (activeSubscription && activeSubscription.plan) {
-      // ALWAYS use live plan data (not snapshot) so superadmin changes are reflected immediately
-      plan = activeSubscription.plan;
+      // Use planSnapshot for limits (grandfathering existing subscribers)
+      // Existing subscribers keep their original limits until subscription expires
+      plan = activeSubscription.planSnapshot || activeSubscription.plan;
     } else {
       // No subscription - fetch FREE plan from database
       const Plan = require('../models/Plan');
       plan = await Plan.findOne({ identifier: 'free', isActive: true });
     }
-    
+
     if (plan) {
       const maxProperties = plan.limits?.properties !== undefined ? plan.limits.properties : 0;
-      
+
       // Handle features format
       let planFeatures = [];
       if (plan.features && Array.isArray(plan.features)) {
@@ -3990,7 +4745,7 @@ router.post('/subscription/refresh', requireVendorRole, asyncHandler(async (req,
           return null;
         }).filter(Boolean);
       }
-    
+
       if (activeSubscription) {
         refreshedData = {
           hasActiveSubscription: true,
@@ -4033,7 +4788,7 @@ router.post('/subscription/refresh', requireVendorRole, asyncHandler(async (req,
         };
       }
     }
-    
+
     res.json({
       success: true,
       message: 'Subscription data refreshed successfully',
@@ -4053,17 +4808,17 @@ router.post('/subscription/refresh', requireVendorRole, asyncHandler(async (req,
 // @access  Private/Agent
 router.post('/subscription/cleanup', requireVendorRole, asyncHandler(async (req, res) => {
   const vendorId = req.user.id;
-  
+
   try {
     const Subscription = require('../models/Subscription');
-    
+
     // Get all active subscriptions for this user, sorted by creation date (newest first)
     const activeSubscriptions = await Subscription.find({
       user: vendorId,
       status: 'active',
       endDate: { $gt: new Date() }
     }).sort({ createdAt: -1 }).populate('plan');
-    
+
     if (activeSubscriptions.length <= 1) {
       return res.json({
         success: true,
@@ -4071,29 +4826,29 @@ router.post('/subscription/cleanup', requireVendorRole, asyncHandler(async (req,
         activeSubscription: activeSubscriptions[0] || null
       });
     }
-    
+
     // Keep the first (latest) subscription, deactivate the rest
     const latestSubscription = activeSubscriptions[0];
     const oldSubscriptionIds = activeSubscriptions.slice(1).map(sub => sub._id);
-    
+
     // Deactivate old subscriptions
     const result = await Subscription.updateMany(
       { _id: { $in: oldSubscriptionIds } },
-      { 
+      {
         status: 'cancelled',
         updatedAt: new Date()
       }
     );
-    
+
     console.log(`Deactivated ${result.modifiedCount} old subscriptions for user ${vendorId}`);
-    
+
     res.json({
       success: true,
       message: `Successfully cleaned up subscriptions. Deactivated ${result.modifiedCount} old subscriptions.`,
       activeSubscription: latestSubscription,
       deactivatedCount: result.modifiedCount
     });
-    
+
   } catch (error) {
     console.error('Subscription cleanup error:', error);
     res.status(500).json({
@@ -4104,85 +4859,48 @@ router.post('/subscription/cleanup', requireVendorRole, asyncHandler(async (req,
   }
 }));
 
-// @desc    Check if vendor has enterprise plan
-// @route   GET /api/vendors/:vendorId/enterprise-check
-// @access  Public (for customer property viewing)
-router.get('/:vendorId/enterprise-check', asyncHandler(async (req, res) => {
-  const { vendorId } = req.params;
-  
-  try {
-    const Subscription = require('../models/Subscription');
-    
-    // Check if vendor has active enterprise subscription
-    const activeSubscription = await Subscription.findOne({
-      user: vendorId,
-      status: 'active',
-      endDate: { $gt: new Date() }
-    }).populate('plan').sort({ createdAt: -1 });
-    
-    let isEnterprise = false;
-    
-    if (activeSubscription && activeSubscription.plan) {
-      // Check if plan identifier is 'enterprise' or plan name contains 'enterprise'
-      isEnterprise = activeSubscription.plan.identifier === 'enterprise' || 
-                   activeSubscription.plan.name.toLowerCase().includes('enterprise');
-    }
-    
-    res.json({
-      success: true,
-      data: { isEnterprise }
-    });
-  } catch (error) {
-    console.error('Enterprise check error:', error);
-    res.json({
-      success: true,
-      data: { isEnterprise: false } // Default to false on error
-    });
-  }
-}));
-
 // @desc    Get vendor reviews (reviews for properties the vendor posted)
 // @route   GET /api/vendors/reviews
 // @access  Private (Vendor)
 router.get('/reviews', requireVendorRole, asyncHandler(async (req, res) => {
   const Review = require('../models/Review');
   const userId = req.user.id;
-  
-  const { 
-    page = 1, 
-    limit = 10, 
+
+  const {
+    page = 1,
+    limit = 10,
     rating,
     reviewType,
     search,
-    sortBy = 'createdAt', 
-    sortOrder = 'desc' 
+    sortBy = 'createdAt',
+    sortOrder = 'desc'
   } = req.query;
-  
+
   const skip = (page - 1) * limit;
   const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
-  
+
   // Query for reviews where vendor field matches the logged-in user's ID
-  const query = { 
+  const query = {
     vendor: userId,
     status: { $ne: 'deleted' }
   };
-  
+
   // Apply filters
   if (rating) {
     query.rating = parseInt(rating);
   }
-  
+
   if (reviewType && ['property', 'service', 'general'].includes(reviewType)) {
     query.reviewType = reviewType;
   }
-  
+
   if (search) {
     query.$or = [
       { title: { $regex: search, $options: 'i' } },
       { comment: { $regex: search, $options: 'i' } }
     ];
   }
-  
+
   const [reviews, totalReviews] = await Promise.all([
     Review.find(query)
       .populate('client', 'fullName email profile')
@@ -4193,7 +4911,7 @@ router.get('/reviews', requireVendorRole, asyncHandler(async (req, res) => {
       .skip(skip),
     Review.countDocuments(query)
   ]);
-  
+
   // Format reviews for response
   const formattedReviews = reviews.map(review => ({
     _id: review._id,
@@ -4212,10 +4930,10 @@ router.get('/reviews', requireVendorRole, asyncHandler(async (req, res) => {
     updatedAt: review.updatedAt,
     client: review.client ? {
       _id: review.client._id,
-      name: review.client.fullName || 
-            (review.client.profile?.firstName 
-              ? `${review.client.profile.firstName} ${review.client.profile.lastName || ''}`
-              : review.client.email),
+      name: review.client.fullName ||
+        (review.client.profile?.firstName
+          ? `${review.client.profile.firstName} ${review.client.profile.lastName || ''}`
+          : review.client.email),
       email: review.client.email,
       avatar: review.client.profile?.avatar
     } : null,
@@ -4235,7 +4953,7 @@ router.get('/reviews', requireVendorRole, asyncHandler(async (req, res) => {
       category: review.service.category
     } : null
   }));
-  
+
   res.json({
     success: true,
     data: {
@@ -4253,14 +4971,14 @@ router.get('/reviews', requireVendorRole, asyncHandler(async (req, res) => {
 router.get('/reviews/stats', requireVendorRole, asyncHandler(async (req, res) => {
   const Review = require('../models/Review');
   const userId = req.user.id;
-  
-  const query = { 
+
+  const query = {
     vendor: userId,
     status: 'active'
   };
-  
+
   const totalReviews = await Review.countDocuments(query);
-  
+
   if (totalReviews === 0) {
     return res.json({
       success: true,
@@ -4272,11 +4990,11 @@ router.get('/reviews/stats', requireVendorRole, asyncHandler(async (req, res) =>
       }
     });
   }
-  
+
   const reviews = await Review.find(query);
-  
+
   const averageRating = reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews;
-  
+
   const ratingDistribution = {
     1: reviews.filter(r => r.rating === 1).length,
     2: reviews.filter(r => r.rating === 2).length,
@@ -4284,9 +5002,9 @@ router.get('/reviews/stats', requireVendorRole, asyncHandler(async (req, res) =>
     4: reviews.filter(r => r.rating === 4).length,
     5: reviews.filter(r => r.rating === 5).length
   };
-  
+
   const totalHelpful = reviews.reduce((sum, r) => sum + (r.helpfulVotes || 0), 0);
-  
+
   res.json({
     success: true,
     data: {
@@ -4306,47 +5024,47 @@ router.post('/reviews/:id/respond', requireVendorRole, asyncHandler(async (req, 
   const { message } = req.body;
   const userId = req.user.id;
   const reviewId = req.params.id;
-  
+
   if (!message || message.trim().length === 0) {
     return res.status(400).json({
       success: false,
       message: 'Response message is required'
     });
   }
-  
+
   if (message.length > 500) {
     return res.status(400).json({
       success: false,
       message: 'Response message must be 500 characters or less'
     });
   }
-  
+
   // Find review and verify ownership
-  const review = await Review.findOne({ 
-    _id: reviewId, 
-    vendor: userId 
+  const review = await Review.findOne({
+    _id: reviewId,
+    vendor: userId
   });
-  
+
   if (!review) {
     return res.status(404).json({
       success: false,
       message: 'Review not found or you do not have permission to respond'
     });
   }
-  
+
   // Update vendor response
   review.vendorResponse = {
     message: message.trim(),
     respondedAt: new Date()
   };
-  
+
   await review.save();
-  
+
   // Populate and return updated review
   const updatedReview = await Review.findById(reviewId)
     .populate('client', 'fullName email profile')
     .populate('property', 'title address images status type listingType price');
-  
+
   res.json({
     success: true,
     message: 'Response submitted successfully',
@@ -4362,10 +5080,10 @@ router.post('/reviews/:id/respond', requireVendorRole, asyncHandler(async (req, 
         updatedAt: updatedReview.updatedAt,
         client: updatedReview.client ? {
           _id: updatedReview.client._id,
-          name: updatedReview.client.fullName || 
-                (updatedReview.client.profile?.firstName 
-                  ? `${updatedReview.client.profile.firstName} ${updatedReview.client.profile.lastName || ''}`
-                  : updatedReview.client.email),
+          name: updatedReview.client.fullName ||
+            (updatedReview.client.profile?.firstName
+              ? `${updatedReview.client.profile.firstName} ${updatedReview.client.profile.lastName || ''}`
+              : updatedReview.client.email),
           avatar: updatedReview.client.profile?.avatar
         } : null,
         property: updatedReview.property ? {

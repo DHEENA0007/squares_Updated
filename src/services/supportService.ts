@@ -11,7 +11,7 @@ export interface SupportTicket {
   category: 'technical' | 'billing' | 'property' | 'account' | 'general';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   description: string;
-  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  status: 'open' | 'in_progress' | 'closed';
   attachments?: string[];
   userId?: string;
   assignedTo?: {
@@ -87,7 +87,7 @@ class SupportService {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://app.buildhomemartsquares.com';
     const response = await fetch(`${baseUrl}/api${endpoint}`, {
       ...options,
       headers,
@@ -103,25 +103,37 @@ class SupportService {
 
   async createTicket(data: CreateTicketData): Promise<SingleTicketResponse> {
     try {
-      // Send as JSON instead of FormData
-      const requestBody = {
-        name: data.name,
-        email: data.email,
-        phone: data.phone || '',
-        subject: data.subject,
-        category: data.category,
-        priority: data.priority || 'medium',
-        description: data.description,
-      };
+      const formData = new FormData();
+
+      // Append text fields
+      formData.append('name', data.name);
+      formData.append('email', data.email);
+      formData.append('phone', data.phone || '');
+      formData.append('subject', data.subject);
+      formData.append('category', data.category);
+      formData.append('priority', data.priority || 'medium');
+      formData.append('description', data.description);
+
+      // Append attachments if any
+      if (data.attachments && data.attachments.length > 0) {
+        data.attachments.forEach((file) => {
+          formData.append('attachments', file);
+        });
+      }
 
       const response = await this.makeRequest<SingleTicketResponse>('/support/tickets', {
         method: 'POST',
-        body: JSON.stringify(requestBody),
+        body: formData,
       });
+
+      const attachmentCount = data.attachments?.length || 0;
+      const attachmentText = attachmentCount > 0
+        ? ` with ${attachmentCount} attachment${attachmentCount > 1 ? 's' : ''}`
+        : '';
 
       toast({
         title: "Success",
-        description: "Support ticket created successfully! We'll get back to you soon.",
+        description: `Support ticket #${response.data.ticket.ticketNumber} created successfully${attachmentText}!`,
       });
 
       return response;
@@ -139,7 +151,7 @@ class SupportService {
   async getMyTickets(filters: TicketFilters = {}): Promise<SupportTicketResponse> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           queryParams.append(key, String(value));
@@ -152,6 +164,21 @@ class SupportService {
       return response;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to fetch tickets";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  async getTicketByNumberAuth(ticketNumber: string): Promise<SingleTicketResponse> {
+    try {
+      const response = await this.makeRequest<SingleTicketResponse>(`/support/tickets/${ticketNumber}`);
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch ticket";
       toast({
         title: "Error",
         description: errorMessage,

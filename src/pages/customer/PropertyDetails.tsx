@@ -7,13 +7,13 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
 import { useRealtime, useRealtimeEvent } from '@/contexts/RealtimeContext';
 import { isAdminUser, getOwnerDisplayName, getPropertyListingLabel } from '@/utils/propertyUtils';
-import { 
-  ArrowLeft, 
-  MapPin, 
-  Heart, 
-  Share2, 
-  Phone, 
-  MessageSquare, 
+import {
+  ArrowLeft,
+  MapPin,
+  Heart,
+  Share2,
+  Phone,
+  MessageSquare,
   Building2,
   Bed,
   Bath,
@@ -28,68 +28,104 @@ import {
   User,
   Mail,
   GitCompare,
-  ExternalLink
+  ExternalLink,
+  ThumbsUp
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { propertyService, type Property } from '@/services/propertyService';
 import { favoriteService } from '@/services/favoriteService';
 import { messageService } from '@/services/messageService';
 import { vendorService } from '@/services/vendorService';
 import PropertyMessageDialog from '@/components/PropertyMessageDialog';
 import PropertyContactDialog from '@/components/PropertyContactDialog';
+
 import EnterprisePropertyContactDialog from '@/components/EnterprisePropertyContactDialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from "@/components/ui/carousel";
+import { X } from "lucide-react";
 
 const PropertyDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isConnected } = useRealtime();
-  
+  const { user, isAuthenticated } = useAuth();
+  const isCustomer = user?.role === 'customer';
+
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  
+
   // Dialog states
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showContactDialog, setShowContactDialog] = useState(false);
-  const [showEnterpriseDialog, setShowEnterpriseDialog] = useState(false);
-  const [isEnterpriseProperty, setIsEnterpriseProperty] = useState(false);
-  const [checkingEnterprise, setCheckingEnterprise] = useState(false);
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
+  const [hasWhatsAppSupport, setHasWhatsAppSupport] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
+
+  const [checkingWhatsApp, setCheckingWhatsApp] = useState(false);
+
+  // Gallery state
+  const [showGallery, setShowGallery] = useState(false);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+
+  // Update carousel when api is available or selected index changes
+  useEffect(() => {
+    if (!carouselApi) {
+      return;
+    }
+
+    carouselApi.scrollTo(selectedImageIndex);
+  }, [carouselApi, selectedImageIndex, showGallery]);
+
+  const openGallery = (index: number) => {
+    setSelectedImageIndex(index);
+    setShowGallery(true);
+  };
 
   const loadProperty = useCallback(async () => {
     if (!id) return;
-    
+
     try {
       setLoading(true);
       const response = await propertyService.getProperty(id);
-      
+
       if (response.success) {
-        console.log('Property data received:', response.data.property);
-        console.log('Owner data:', response.data.property.owner);
-        console.log('Owner profile:', response.data.property.owner?.profile);
-        console.log('Owner phone:', response.data.property.owner?.profile?.phone);
         setProperty(response.data.property);
-        
+
         // Check if property is favorited
         const favoriteStatus = await favoriteService.isFavorite(id);
         setIsFavorited(favoriteStatus);
-        
-        // Check if property is from enterprise vendor
+
+        // Check if vendor's plan has WhatsApp support enabled
         if (response.data.property.vendor?._id || response.data.property.owner?._id) {
           try {
-            setCheckingEnterprise(true);
+            setCheckingWhatsApp(true);
             const vendorId = response.data.property.vendor?._id || response.data.property.owner?._id;
-            const isEnterprise = await vendorService.isVendorEnterpriseProperty(vendorId);
-            setIsEnterpriseProperty(isEnterprise);
+            const whatsappData = await vendorService.checkVendorWhatsAppSupport(vendorId);
+            setHasWhatsAppSupport(whatsappData.whatsappEnabled);
+            setWhatsappNumber(whatsappData.whatsappNumber);
           } catch (error) {
-            console.error("Failed to check enterprise status:", error);
-            setIsEnterpriseProperty(false);
+            console.error("Failed to check WhatsApp support:", error);
+            setHasWhatsAppSupport(false);
+            setWhatsappNumber(null);
           } finally {
-            setCheckingEnterprise(false);
+            setCheckingWhatsApp(false);
           }
         }
-        
-        // Property view tracking would go here if needed
       } else {
         toast({
           title: "Error",
@@ -115,6 +151,25 @@ const PropertyDetails: React.FC = () => {
     loadProperty();
   }, [loadProperty]);
 
+  // Track view duration
+  useEffect(() => {
+    if (!property?._id) return;
+
+    const startTime = Date.now();
+
+    const sendDuration = () => {
+      const duration = Math.round((Date.now() - startTime) / 1000);
+      if (duration > 0) {
+        propertyService.updateViewDuration(property._id, duration);
+      }
+    };
+
+    // Send duration when component unmounts or property changes
+    return () => {
+      sendDuration();
+    };
+  }, [property?._id]);
+
   // Listen for updates
   useRealtimeEvent('property_updated', useCallback((data) => {
     if (data.propertyId === id) {
@@ -130,10 +185,10 @@ const PropertyDetails: React.FC = () => {
 
   const handleFavoriteToggle = async () => {
     if (!property) return;
-    
+
     try {
       setFavoriteLoading(true);
-      
+
       if (isFavorited) {
         await favoriteService.removeFromFavorites(property._id);
         setIsFavorited(false);
@@ -162,8 +217,13 @@ const PropertyDetails: React.FC = () => {
   };
 
   const handleShare = async () => {
-    const publicUrl = `${window.location.origin}/v2/property/${id}`;
-    
+    const publicUrl = `${window.location.origin}/en-new/property/${id}`;
+
+    // Track share interaction
+    if (id) {
+      propertyService.trackInteraction(id, 'sharedProperty');
+    }
+
     if (navigator.share && property) {
       try {
         await navigator.share({
@@ -189,6 +249,21 @@ const PropertyDetails: React.FC = () => {
     }
   };
 
+  const handleInterestClick = async () => {
+    if (!property) return;
+
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: `/property/${property._id}`, action: 'interest' } });
+      return;
+    }
+
+    try {
+      await propertyService.registerInterest(property._id);
+    } catch (error) {
+      console.error("Failed to register interest:", error);
+    }
+  };
+
   const formatPrice = (price: number, listingType: Property['listingType']) => {
     if (listingType === 'rent') {
       return `₹${price.toLocaleString('en-IN')}/month`;
@@ -207,7 +282,7 @@ const PropertyDetails: React.FC = () => {
 
   const formatArea = (area: Property['area']) => {
     if (!area) return 'N/A';
-    
+
     if (typeof area === 'object') {
       if (area.builtUp) {
         return `${area.builtUp} ${area.unit || 'sq ft'}`;
@@ -217,24 +292,24 @@ const PropertyDetails: React.FC = () => {
         return `${area.carpet} ${area.unit || 'sq ft'}`;
       }
     }
-    
+
     if (typeof area === 'number') {
       return `${area} sq ft`;
     }
-    
+
     return 'N/A';
   };
 
   const calculatePricePerSqft = (property: Property) => {
     const area = property.area;
     let areaValue = 0;
-    
+
     if (typeof area === 'object' && area !== null) {
       areaValue = area.builtUp || area.carpet || area.plot || 0;
     } else if (typeof area === 'number') {
       areaValue = area;
     }
-    
+
     if (areaValue === 0) return 0;
     return Math.round(property.price / areaValue);
   };
@@ -243,29 +318,29 @@ const PropertyDetails: React.FC = () => {
     if (!property.images || property.images.length === 0) {
       return '/placeholder-property.jpg';
     }
-    
-    const primaryImage = property.images.find(img => 
+
+    const primaryImage = property.images.find(img =>
       typeof img === 'object' && img.isPrimary
     );
-    
+
     if (primaryImage && typeof primaryImage === 'object') {
       return primaryImage.url;
     }
-    
+
     const firstImage = property.images[0];
     if (typeof firstImage === 'string') {
       return firstImage;
     } else if (typeof firstImage === 'object') {
       return firstImage.url;
     }
-    
+
     return '/placeholder-property.jpg';
   };
 
   const getLocationString = (property: Property) => {
     const address = property.address;
     if (typeof address === 'string') return address;
-    
+
     const parts = [];
     if (address.street) parts.push(address.street);
     if (address.locationName) parts.push(address.locationName);
@@ -274,16 +349,6 @@ const PropertyDetails: React.FC = () => {
     if (address.state) parts.push(address.state);
     if (address.pincode) parts.push(address.pincode);
     return parts.join(', ');
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'available': return 'bg-green-600';
-      case 'sold': return 'bg-red-600';
-      case 'rented': return 'bg-blue-600';
-      case 'pending': return 'bg-yellow-600';
-      default: return 'bg-gray-600';
-    }
   };
 
   if (loading) {
@@ -315,398 +380,224 @@ const PropertyDetails: React.FC = () => {
     );
   }
 
+  // Helper to generate dynamic specs
+  const getKeySpecs = () => {
+    const specs = [
+      { label: 'Super Built-up Area', value: formatArea(property.area) },
+      { label: 'Floor', value: property.floor ? `${property.floor}${property.totalFloors ? ' (Out of ' + property.totalFloors + ')' : ''}` : null },
+      { label: 'Transaction Type', value: property.listingType === 'sale' ? 'Resale' : 'Rent', capitalize: true },
+      { label: 'Status', value: property.status, capitalize: true },
+      { label: 'Facing', value: property.facing, capitalize: true },
+      { label: 'Furnished Status', value: property.furnishing ? property.furnishing.replace('-', ' ') : null, capitalize: true },
+      { label: 'Car Parking', value: property.parkingSpaces ? `${property.parkingSpaces}` : null },
+      { label: 'Bathroom', value: property.bathrooms ? `${property.bathrooms}` : null },
+    ];
+    return specs.filter(spec => spec.value);
+  };
+
+  const getMoreDetails = () => {
+    const details = [
+      { label: 'Price Breakup', value: formatPrice(property.price, property.listingType) },
+      { label: 'Address', value: getLocationString(property) },
+      { label: 'Furnishing', value: property.furnishing ? property.furnishing.replace('-', ' ') : null, capitalize: true },
+      { label: 'Property Age', value: property.age ? `${property.age} Years` : null },
+    ];
+    return details.filter(detail => detail.value);
+  };
+
   return (
-    <div className="min-h-screen bg-background pt-20 pb-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold">{property.title}</h1>
-              <div className="flex items-center text-muted-foreground mt-1">
-                <MapPin className="w-4 h-4 mr-1" />
-                <span className="text-sm">{getLocationString(property)}</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex gap-2">
-            <Button 
-              variant="outline"
-              onClick={handleFavoriteToggle}
-              disabled={favoriteLoading}
-            >
-              <Heart className={`w-4 h-4 mr-2 ${isFavorited ? 'fill-red-500 text-red-500' : ''}`} />
-              {isFavorited ? 'Favorited' : 'Add to Favorites'}
-            </Button>
-            <Button variant="outline" onClick={handleShare}>
-              <Share2 className="w-4 h-4 mr-2" />
-              Share
-            </Button>
-            <Button onClick={() => {
-              const selected = [property._id];
-              navigate(`/customer/compare?properties=${selected.join(',')}`);
-            }}>
-              <GitCompare className="w-4 h-4 mr-2" />
-              Compare
-            </Button>
+    <div className="min-h-screen bg-muted/10 pb-24 lg:pb-12 font-sans text-foreground">
+      {/* Navigation Bar */}
+      <div className="bg-card border-b sticky top-0 z-30 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(-1)}
+            className="text-muted-foreground hover:text-primary pl-0 -ml-2"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back
+          </Button>
+          <Separator orientation="vertical" className="h-4 hidden sm:block" />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground overflow-hidden">
+            <span className="cursor-pointer hover:text-primary whitespace-nowrap" onClick={() => navigate('/')}>Home</span>
+            <span>›</span>
+            <span className="cursor-pointer hover:text-primary whitespace-nowrap" onClick={() => navigate('/customer/search')}>Properties in {property.address?.city || 'City'}</span>
+            <span className="hidden sm:inline">›</span>
+            <span className="truncate max-w-[200px] font-medium text-foreground hidden sm:inline">{property.title}</span>
           </div>
         </div>
+      </div>
 
-        {/* Status and Price */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-3">
-            <Badge className={`${getStatusColor(property.status)} text-white`}>
-              {property.status}
-            </Badge>
-            {property.featured && (
-              <Badge variant="secondary">
-                <Star className="w-3 h-3 mr-1" />
-                Featured
-              </Badge>
-            )}
-            {property.verified && (
-              <Badge className="bg-green-600 text-white">Verified</Badge>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="text-2xl sm:text-3xl font-bold text-primary">
-              {formatPrice(property.price, property.listingType)}
-            </p>
-            {calculatePricePerSqft(property) > 0 && (
-              <p className="text-sm text-muted-foreground">
-                ₹{calculatePricePerSqft(property)}/sq ft
-              </p>
-            )}
-          </div>
-        </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Image Gallery */}
-        {property.images && property.images.length > 0 && (
-          <Card>
-            <CardContent className="p-0">
-              <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-                <img
-                  src={typeof property.images[selectedImageIndex] === 'string' 
-                    ? property.images[selectedImageIndex] 
-                    : (property.images[selectedImageIndex] as any).url
-                  }
-                  alt={property.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = '/placeholder-property.jpg';
-                  }}
-                />
+          {/* Main Content Column */}
+          <div className="lg:col-span-2 space-y-6">
+
+            {/* Header Card */}
+            <div className="bg-card p-6 rounded-lg shadow-sm border border-border/60">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="flex items-baseline gap-4 mb-1">
+                    <h1 className="text-2xl font-bold text-foreground">
+                      {formatPrice(property.price, property.listingType)}
+                    </h1>
+                    {calculatePricePerSqft(property) > 0 && (
+                      <span className="text-sm text-muted-foreground">
+                        @ {calculatePricePerSqft(property)} per sqft
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-lg text-muted-foreground font-medium">
+                    {property.bedrooms} BHK {property.type} for {property.listingType === 'sale' ? 'Sale' : property.listingType} in {getLocationString(property)}
+                  </h2>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleShare} className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
+                    <Share2 className="w-5 h-5" />
+                  </button>
+                  <button onClick={handleFavoriteToggle} className={`p-2 hover:bg-muted rounded-full transition-colors ${isFavorited ? 'text-red-500' : 'text-muted-foreground'}`}>
+                    <Heart className={`w-5 h-5 ${isFavorited ? 'fill-current' : ''}`} />
+                  </button>
+                </div>
               </div>
-              {property.images.length > 1 && (
-                <div className="flex gap-2 p-4 overflow-x-auto">
-                  {property.images.map((image, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setSelectedImageIndex(index)}
-                      className={`flex-shrink-0 w-20 h-16 rounded-lg overflow-hidden border-2 ${
-                        index === selectedImageIndex ? 'border-primary' : 'border-transparent'
-                      }`}
-                    >
-                      <img
-                        src={typeof image === 'string' ? image : image.url}
-                        alt={`Property image ${index + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = '/placeholder-property.jpg';
-                        }}
-                      />
-                    </button>
+
+              {/* Image Section */}
+              <div className="mt-6 relative group cursor-pointer" onClick={() => openGallery(0)}>
+                <div className="aspect-video w-full rounded-lg overflow-hidden bg-muted border border-border/60">
+                  <img
+                    src={getPrimaryImage(property)}
+                    alt={property.title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    onError={(e) => { e.currentTarget.src = '/placeholder-property.jpg'; }}
+                  />
+                  <div className="absolute bottom-4 right-4 bg-black/70 text-white text-xs px-3 py-1.5 rounded flex items-center gap-2 backdrop-blur-sm">
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>{property.images.length} Photos</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabs Bar */}
+              <div className="flex border-b border-border mt-4">
+                <button className="px-4 py-2 text-sm font-medium text-primary border-b-2 border-primary">Photos</button>
+                {/* Only show other tabs if relevant data exists - placeholders for now */}
+              </div>
+
+              {/* Key Specs Grid */}
+              <div className="bg-muted/30 p-5 mt-4 rounded-lg border border-border/60">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
+                  {getKeySpecs().map((spec, index) => (
+                    <div key={index}>
+                      <p className="text-xs text-muted-foreground mb-1">{spec.label}</p>
+                      <p className={`text-sm font-bold text-foreground ${spec.capitalize ? 'capitalize' : ''}`}>
+                        {spec.value}
+                      </p>
+                    </div>
                   ))}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+              </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Property Overview */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Building2 className="w-5 h-5 mr-2" />
-                  Property Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {property.bedrooms && property.bedrooms > 0 && (
-                    <div className="text-center p-4 bg-muted rounded-lg">
-                      <Bed className="w-6 h-6 mx-auto mb-2 text-primary" />
-                      <p className="text-2xl font-bold">{property.bedrooms}</p>
-                      <p className="text-sm text-muted-foreground">Bedrooms</p>
+              {/* Removed duplicate Primary Actions buttons from here */}
+            </div>
+
+            {/* More Details Section */}
+            <div className="bg-card p-6 rounded-lg shadow-sm border border-border/60">
+              <h3 className="text-lg font-bold text-foreground mb-6">More Details</h3>
+
+              <div className="space-y-4">
+                {getMoreDetails().map((detail, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 py-2 border-b border-border/40">
+                    <span className="text-sm text-muted-foreground">{detail.label}</span>
+                    <span className={`text-sm font-medium text-foreground md:col-span-2 ${detail.capitalize ? 'capitalize' : ''}`}>
+                      {detail.value}
+                    </span>
+                  </div>
+                ))}
+
+                {property.amenities && property.amenities.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-2 border-b border-border/40">
+                    <span className="text-sm text-muted-foreground">Amenities</span>
+                    <div className="md:col-span-2 flex flex-wrap gap-2">
+                      {property.amenities.map((amenity, i) => (
+                        <span key={i} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded border border-border">{amenity}</span>
+                      ))}
                     </div>
-                  )}
-                  <div className="text-center p-4 bg-muted rounded-lg">
-                    <Bath className="w-6 h-6 mx-auto mb-2 text-primary" />
-                    <p className="text-2xl font-bold">{property.bathrooms || 0}</p>
-                    <p className="text-sm text-muted-foreground">Bathrooms</p>
-                  </div>
-                  <div className="text-center p-4 bg-muted rounded-lg">
-                    <Maximize className="w-6 h-6 mx-auto mb-2 text-primary" />
-                    <p className="text-2xl font-bold">{formatArea(property.area).split(' ')[0]}</p>
-                    <p className="text-sm text-muted-foreground">Sq Ft</p>
-                  </div>
-                  <div className="flex flex-col items-center justify-center text-center p-4 bg-muted rounded-lg">
-                    <Building2 className="w-6 h-6 mb-2 text-primary" />
-                    <p className="text-2xl font-bold capitalize">{property.type}</p>
-                    <p className="text-sm text-muted-foreground">Type</p>
-                  </div>
-                </div>
-
-                {property.description && (
-                  <div>
-                    <h3 className="font-semibold mb-2">Description</h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {property.description}
-                    </p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Property Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Property Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Property Type:</span>
-                      <span className="font-medium capitalize">{property.type}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Listing Type:</span>
-                      <span className="font-medium capitalize">{property.listingType}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Bedrooms:</span>
-                      <span className="font-medium">{property.bedrooms || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Bathrooms:</span>
-                      <span className="font-medium">{property.bathrooms || 0}</span>
-                    </div>
-                    {property.floor && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Floor:</span>
-                        <span className="font-medium">{property.floor}</span>
-                      </div>
-                    )}
-                    {property.totalFloors && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Floors:</span>
-                        <span className="font-medium">{property.totalFloors}</span>
-                      </div>
-                    )}
-                    {property.furnishing && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Furnishing:</span>
-                        <span className="font-medium capitalize">{property.furnishing.replace('-', ' ')}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Area:</span>
-                      <span className="font-medium">{formatArea(property.area)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Status:</span>
-                      <span className="font-medium capitalize">{property.status}</span>
-                    </div>
-                    {property.facing && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Facing:</span>
-                        <span className="font-medium capitalize">{property.facing}</span>
-                      </div>
-                    )}
-                    {property.parkingSpaces && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Parking:</span>
-                        <span className="font-medium">{property.parkingSpaces}</span>
-                      </div>
-                    )}
-                    {property.age && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Age:</span>
-                        <span className="font-medium">{property.age} years</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Listed On:</span>
-                      <span className="font-medium">{new Date(property.createdAt).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Property ID:</span>
-                      <span className="font-medium text-xs break-all text-right">{property._id}</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Amenities */}
-            {property.amenities && property.amenities.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Amenities</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {property.amenities.map((amenity, index) => (
-                      <div key={index} className="flex items-center p-3 bg-muted rounded-lg">
-                        <div className="w-2 h-2 bg-primary rounded-full mr-3"></div>
-                        <span className="text-sm">{amenity}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Contact Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <User className="w-5 h-5 mr-2" />
-                  Contact Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <p className="font-medium">
-                    {getOwnerDisplayName(property.owner)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {getPropertyListingLabel(property)}
+              <div className="mt-6">
+                <h4 className="text-sm font-bold text-primary mb-2 cursor-pointer hover:underline inline-flex items-center">
+                  View all details <span className="ml-1">▾</span>
+                </h4>
+                <div className="mt-4 bg-muted/30 p-4 rounded-lg border border-border/60">
+                  <h4 className="text-sm font-bold text-foreground mb-2">Description</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {property.description}
                   </p>
                 </div>
-                
-                <Separator />
-                
-                <div className="space-y-3">
-                  {!checkingEnterprise && !isEnterpriseProperty && (
-                    <>
-                      <Button 
-                        className="w-full" 
-                        onClick={() => setShowContactDialog(true)}
-                      >
-                        <Phone className="w-4 h-4 mr-2" />
-                        Call Owner
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="w-full"
-                        onClick={() => setShowMessageDialog(true)}
-                      >
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        Send Message
-                      </Button>
-                    </>
-                  )}
-                  
-                  {!checkingEnterprise && isEnterpriseProperty && (
-                    <Button 
-                      className="w-full bg-green-600 hover:bg-green-700 text-white"
-                      onClick={() => setShowEnterpriseDialog(true)}
-                    >
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      WhatsApp Contact
-                    </Button>
-                  )}
-                  
-                  {checkingEnterprise && (
-                    <Button disabled className="w-full">
-                      <Phone className="w-4 h-4 mr-2" />
-                      Loading...
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Property Stats */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Eye className="w-5 h-5 mr-2" />
-                  Property Stats
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Views</span>
-                  <span className="font-semibold">{property.views || 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Listed</span>
-                  <span className="font-semibold">
-                    {Math.floor((Date.now() - new Date(property.createdAt).getTime()) / (1000 * 60 * 60 * 24))} days ago
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+              {/* Removed duplicate Contact button from here */}
+            </div>
 
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {property.virtualTour && (
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => window.open(property.virtualTour, '_blank')}
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Virtual Tour
-                  </Button>
-                )}
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={handleFavoriteToggle}
-                  disabled={favoriteLoading}
-                >
-                  <Heart className={`w-4 h-4 mr-2 ${isFavorited ? 'fill-red-500 text-red-500' : ''}`} />
-                  {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={() => {
-                    const selected = [property._id];
-                    navigate(`/customer/compare?properties=${selected.join(',')}`);
-                  }}
-                >
-                  <GitCompare className="w-4 h-4 mr-2" />
-                  Compare Property
-                </Button>
-                <Button variant="outline" className="w-full justify-start" onClick={handleShare}>
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share Property
-                </Button>
-              </CardContent>
-            </Card>
           </div>
+
+          {/* Sidebar - Visible on Desktop */}
+          <div className="space-y-6 hidden lg:block">
+            <div className="bg-card p-5 rounded-lg shadow-sm border border-border/60 sticky top-24">
+              <h3 className="text-lg font-bold text-foreground mb-4">Contact Owner</h3>
+
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center border border-border">
+                  <User className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-bold text-foreground">{getOwnerDisplayName(property.owner)}</p>
+                </div>
+              </div>
+
+              <Button
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-10 rounded-md mb-3 shadow-lg shadow-primary/20"
+                onClick={() => setShowContactDialog(true)}
+              >
+                Get Phone No.
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full border-primary text-primary hover:bg-primary/10 font-bold h-10 rounded-md"
+                onClick={() => setShowMessageDialog(true)}
+              >
+                Contact Owner
+              </Button>
+
+              <p className="text-[10px] text-muted-foreground text-center mt-3">
+                Posted on {new Date(property.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+
         </div>
+      </div>
+
+      {/* Mobile Fixed Bottom Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-40 flex gap-3">
+        <Button
+          variant="outline"
+          className="flex-1 border-primary text-primary hover:bg-primary/10 font-bold"
+          onClick={() => setShowMessageDialog(true)}
+        >
+          Contact Owner
+        </Button>
+        <Button
+          className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20"
+          onClick={() => setShowContactDialog(true)}
+        >
+          Get Phone No.
+        </Button>
       </div>
 
       {/* Message Dialog */}
@@ -715,7 +606,6 @@ const PropertyDetails: React.FC = () => {
         onOpenChange={setShowMessageDialog}
         property={property}
         onMessageSent={() => {
-          console.log("Message sent for property:", property._id);
           toast({
             title: "Message sent",
             description: "Your inquiry has been sent to the property owner",
@@ -730,12 +620,46 @@ const PropertyDetails: React.FC = () => {
         property={property}
       />
 
-      {/* Enterprise Contact Dialog */}
+      {/* WhatsApp Contact Dialog */}
       <EnterprisePropertyContactDialog
-        open={showEnterpriseDialog}
-        onOpenChange={setShowEnterpriseDialog}
+        open={showWhatsAppDialog}
+        onOpenChange={setShowWhatsAppDialog}
         property={property}
+        whatsappNumber={whatsappNumber}
       />
+
+      {/* Full Screen Image Gallery */}
+      <Dialog open={showGallery} onOpenChange={setShowGallery}>
+        <DialogContent className="max-w-screen-xl w-full h-screen md:h-[90vh] p-0 bg-black/95 border-none">
+          <div className="relative w-full h-full flex items-center justify-center">
+            <DialogClose className="absolute top-4 right-4 z-50 rounded-full bg-white/10 p-2 hover:bg-white/20 text-white transition-colors">
+              <X className="h-6 w-6" />
+              <span className="sr-only">Close</span>
+            </DialogClose>
+
+            <Carousel setApi={setCarouselApi} className="w-full max-w-5xl">
+              <CarouselContent>
+                {property.images.map((image, index) => (
+                  <CarouselItem key={index} className="flex items-center justify-center h-[80vh]">
+                    <img
+                      src={typeof image === 'string' ? image : (image as any).url}
+                      alt={`Property image ${index + 1}`}
+                      className="max-w-full max-h-full object-contain"
+                      onError={(e) => { e.currentTarget.src = '/placeholder-property.jpg'; }}
+                    />
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="left-4 bg-white/10 hover:bg-white/20 text-white border-none" />
+              <CarouselNext className="right-4 bg-white/10 hover:bg-white/20 text-white border-none" />
+            </Carousel>
+
+            <div className="absolute bottom-4 left-0 right-0 text-center text-white/80 text-sm">
+              Image {selectedImageIndex + 1} of {property.images.length}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

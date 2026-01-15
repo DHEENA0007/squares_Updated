@@ -36,8 +36,7 @@ const addonServiceSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    required: true,
-    enum: ['photography', 'marketing', 'technology', 'support', 'crm']
+    required: true
   },
   icon: {
     type: String,

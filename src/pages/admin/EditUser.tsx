@@ -71,10 +71,10 @@ const EditUser = () => {
       try {
         setLoading(true);
         const response = await userService.getUser(id);
-        
+
         if (response.success) {
           const user = response.data.user;
-          
+
           // Set form values with user data
           form.reset({
             first_name: user.profile.firstName || "",
@@ -118,7 +118,7 @@ const EditUser = () => {
       };
 
       await userService.updateUser(id, userData);
-      
+
       toast({
         title: "Success",
         description: "User updated successfully.",
@@ -228,7 +228,6 @@ const EditUser = () => {
                         <SelectItem value="agent">Agent</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
                         <SelectItem value="subadmin">Sub Admin</SelectItem>
-                        <SelectItem value="superadmin">Super Admin</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

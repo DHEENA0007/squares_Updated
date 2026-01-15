@@ -11,6 +11,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { fetchWithAuth, handleApiResponse } from "@/utils/apiUtils";
@@ -40,6 +48,11 @@ const VendorPerformance = () => {
   const [selectedVendor, setSelectedVendor] = useState<VendorMetrics | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [sortBy, setSortBy] = useState<'performanceScore' | 'totalProperties' | 'averageRating'>('performanceScore');
+  const [overallStats, setOverallStats] = useState<{
+    totalVendors: number;
+    topPerformers: number;
+    averageRating: number;
+  } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -51,7 +64,19 @@ const VendorPerformance = () => {
       setLoading(true);
       const response = await fetchWithAuth(`/subadmin/vendors/performance?search=${searchTerm}&sortBy=${sortBy}`);
       const data = await handleApiResponse<{ data: { vendors: VendorMetrics[] } }>(response);
-      setVendors(data.data.vendors || []);
+      const fetchedVendors = data.data.vendors || [];
+      setVendors(fetchedVendors);
+
+      // Only update overall stats when not searching to keep them static during search
+      if (!searchTerm) {
+        setOverallStats({
+          totalVendors: fetchedVendors.length,
+          topPerformers: fetchedVendors.filter(v => v.performanceScore >= 80).length,
+          averageRating: fetchedVendors.length > 0
+            ? fetchedVendors.reduce((sum, v) => sum + v.averageRating, 0) / fetchedVendors.length
+            : 0
+        });
+      }
     } catch (error: any) {
       console.error('Error fetching vendor metrics:', error);
       toast({
@@ -118,7 +143,7 @@ const VendorPerformance = () => {
             <Building className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{vendors.length}</div>
+            <div className="text-2xl font-bold">{overallStats?.totalVendors || 0}</div>
             <p className="text-xs text-muted-foreground">
               Active property vendors
             </p>
@@ -132,7 +157,7 @@ const VendorPerformance = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {vendors.filter(v => v.performanceScore >= 80).length}
+              {overallStats?.topPerformers || 0}
             </div>
             <p className="text-xs text-muted-foreground">
               Excellent performance (80%+)
@@ -147,10 +172,7 @@ const VendorPerformance = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {vendors.length > 0
-                ? (vendors.reduce((sum, v) => sum + v.averageRating, 0) / vendors.length).toFixed(1)
-                : '0.0'
-              }
+              {overallStats?.averageRating.toFixed(1) || '0.0'}
             </div>
             <p className="text-xs text-muted-foreground">
               Overall vendor ratings
@@ -182,124 +204,99 @@ const VendorPerformance = () => {
       </div>
 
       {/* Vendors List */}
-      <div className="space-y-4">
-        {vendors.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Building className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold">No Vendors Found</h3>
-              <p className="text-muted-foreground text-center">
-                No vendor data available at the moment
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          vendors.map((vendor) => {
-            const perfBadge = getPerformanceBadge(vendor.performanceScore);
-            return (
-              <Card key={vendor._id}>
-                <CardHeader>
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                        <CardTitle className="text-lg sm:text-xl">{vendor.name}</CardTitle>
-                        <Badge className={perfBadge.class}>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[80px]">Rank</TableHead>
+              <TableHead>Vendor</TableHead>
+              <TableHead>Performance</TableHead>
+              <TableHead>Properties</TableHead>
+              <TableHead>Rating</TableHead>
+              <TableHead>Response</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {vendors.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="h-24 text-center">
+                  <div className="flex flex-col items-center justify-center">
+                    <Building className="h-8 w-8 text-muted-foreground mb-2" />
+                    <p>No vendors found</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              vendors.map((vendor, index) => {
+                const perfBadge = getPerformanceBadge(vendor.performanceScore);
+                return (
+                  <TableRow key={vendor._id}>
+                    <TableCell className="font-medium">#{index + 1}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{vendor.name}</span>
+                        <span className="text-xs text-muted-foreground">{vendor.email}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className={`text-lg font-bold ${getPerformanceColor(vendor.performanceScore)}`}>
+                          {vendor.performanceScore}%
+                        </div>
+                        <Badge className={`${perfBadge.class} text-white hover:${perfBadge.class}`}>
                           {perfBadge.label}
                         </Badge>
                       </div>
-                      <CardDescription>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm">
-                          <span className="truncate">{vendor.email}</span>
-                          {vendor.phone && <span className="hidden sm:inline">• {vendor.phone}</span>}
-                          <span className="truncate">Joined {new Date(vendor.joinedDate).toLocaleDateString()}</span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="text-sm">
+                          {vendor.activeProperties} / {vendor.totalProperties} Active
                         </div>
-                      </CardDescription>
-                    </div>
-                    <div className="text-center sm:text-right">
-                      <div className={`text-2xl sm:text-3xl font-bold ${getPerformanceColor(vendor.performanceScore)}`}>
-                        {vendor.performanceScore}%
+                        <Progress
+                          value={vendor.totalProperties > 0 ? (vendor.activeProperties / vendor.totalProperties) * 100 : 0}
+                          className="h-1.5 w-[100px]"
+                        />
                       </div>
-                      <p className="text-xs text-muted-foreground">Performance Score</p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Building className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-xl sm:text-2xl font-bold">{vendor.totalProperties}</p>
-                          <p className="text-xs text-muted-foreground">Total Properties</p>
-                        </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                        <span>{vendor.averageRating.toFixed(1)}</span>
+                        <span className="text-xs text-muted-foreground">({vendor.totalReviews})</span>
                       </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Star className="h-4 w-4 text-yellow-500 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-xl sm:text-2xl font-bold">{vendor.averageRating.toFixed(1)}</p>
-                          <p className="text-xs text-muted-foreground">{vendor.totalReviews} Reviews</p>
-                        </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="text-sm">{vendor.responseRate}% Rate</div>
+                        <div className="text-xs text-muted-foreground">{formatResponseTime(vendor.averageResponseTime)} Avg</div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-xl sm:text-2xl font-bold">{vendor.responseRate}%</p>
-                          <p className="text-xs text-muted-foreground">Response Rate</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        {vendor.performanceScore >= 80 ? (
-                          <TrendingUp className="h-4 w-4 text-green-600 flex-shrink-0" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4 text-red-600 flex-shrink-0" />
-                        )}
-                        <div className="min-w-0">
-                          <p className="text-xl sm:text-2xl font-bold">{formatResponseTime(vendor.averageResponseTime)}</p>
-                          <p className="text-xs text-muted-foreground">Avg Response</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm">
-                      <span>Active Properties</span>
-                      <span>{vendor.activeProperties} / {vendor.totalProperties}</span>
-                    </div>
-                    <Progress 
-                      value={(vendor.activeProperties / vendor.totalProperties) * 100} 
-                      className="h-2"
-                    />
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedVendor(vendor);
-                      setViewDialogOpen(true);
-                    }}
-                    className="w-full sm:w-auto touch-manipulation min-h-[40px]"
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Full Details
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedVendor(vendor);
+                          setViewDialogOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Details
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       {/* View Vendor Details Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-3xl mx-4 sm:mx-auto">
+        <DialogContent className="max-w-3xl mx-4 sm:mx-auto max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl">{selectedVendor?.name} - Performance Details</DialogTitle>
             <DialogDescription className="text-sm">

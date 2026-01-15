@@ -1,4 +1,5 @@
 import { authService } from './authService';
+import { handleAuthError } from "@/utils/apiUtils";
 
 export interface CustomerProperty {
   _id: string;
@@ -139,11 +140,11 @@ export interface PropertyStatsResponse {
 }
 
 class CustomerPropertiesService {
-  private baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  private baseUrl = import.meta.env.VITE_API_URL || 'https://app.buildhomemartsquares.com/api';
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -163,7 +164,10 @@ class CustomerPropertiesService {
 
     try {
       const response = await fetch(url, config);
-      
+
+      // Check for auth error
+      handleAuthError(response);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           success: false,
@@ -182,7 +186,7 @@ class CustomerPropertiesService {
   async getCustomerProperties(filters: PropertyFilters = {}): Promise<CustomerPropertiesResponse> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           queryParams.append(key, value.toString());
@@ -194,7 +198,7 @@ class CustomerPropertiesService {
       return response;
     } catch (error) {
       console.error('Failed to fetch customer properties:', error);
-      
+
       // Return mock data as fallback
       const mockData: CustomerPropertiesResponse = {
         success: true,
@@ -225,7 +229,7 @@ class CustomerPropertiesService {
           },
         },
       };
-      
+
       return mockData;
     }
   }
@@ -236,7 +240,7 @@ class CustomerPropertiesService {
       return response;
     } catch (error) {
       console.error('Failed to fetch customer property stats:', error);
-      
+
       // Return default stats as fallback
       return {
         success: true,
@@ -329,7 +333,7 @@ class CustomerPropertiesService {
       return response;
     } catch (error: any) {
       const errorData = error.response?.data || error;
-      
+
       // Show specific message for subscription-related errors
       if (errorData.upgradeRequired || errorData.limitReached) {
         toast({
@@ -338,7 +342,7 @@ class CustomerPropertiesService {
           variant: "destructive",
         });
       }
-      
+
       console.error('Failed to toggle property featured status:', error);
       throw error;
     }
@@ -356,7 +360,6 @@ class CustomerPropertiesService {
       engagement: {
         totalClicks: number;
         phoneClicks: number;
-        emailClicks: number;
         messageClicks: number;
       };
     };
@@ -366,7 +369,7 @@ class CustomerPropertiesService {
       return response;
     } catch (error) {
       console.error('Failed to fetch property analytics:', error);
-      
+
       // Return mock analytics as fallback
       return {
         success: true,
@@ -380,7 +383,6 @@ class CustomerPropertiesService {
           engagement: {
             totalClicks: 0,
             phoneClicks: 0,
-            emailClicks: 0,
             messageClicks: 0,
           },
         },
@@ -392,7 +394,7 @@ class CustomerPropertiesService {
   formatPrice(price: number, listingType: 'sale' | 'rent' | 'lease'): string {
     if (listingType === 'rent') return `₹${price.toLocaleString('en-IN')}/month`;
     if (listingType === 'lease') return `₹${price.toLocaleString('en-IN')}/year`;
-    
+
     if (price >= 10000000) return `₹${(price / 10000000).toFixed(1)} Cr`;
     if (price >= 100000) return `₹${(price / 100000).toFixed(1)} Lac`;
     return `₹${price.toLocaleString('en-IN')}`;
@@ -479,13 +481,13 @@ class CustomerPropertiesService {
   calculateTotalRevenue(properties: CustomerProperty[]): number {
     const soldProperties = properties.filter(p => p.status === 'sold');
     const rentedProperties = properties.filter(p => p.status === 'rented');
-    
+
     const soldRevenue = soldProperties.reduce((total, p) => total + p.price, 0);
     const monthlyRentRevenue = this.calculateMonthlyRevenue(properties);
-    
+
     // Estimate total rent revenue (assuming average 12 months)
     const estimatedRentRevenue = monthlyRentRevenue * 12;
-    
+
     return soldRevenue + estimatedRentRevenue;
   }
 }

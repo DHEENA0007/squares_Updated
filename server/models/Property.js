@@ -12,7 +12,6 @@ const propertySchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['apartment', 'house', 'villa', 'plot', 'land', 'commercial', 'office', 'pg'],
     required: true
   },
   status: {
@@ -22,7 +21,6 @@ const propertySchema = new mongoose.Schema({
   },
   listingType: {
     type: String,
-    enum: ['sale', 'rent', 'lease'],
     required: true
   },
   price: {
@@ -48,18 +46,15 @@ const propertySchema = new mongoose.Schema({
     default: 0
   },
   furnishing: {
-    type: String,
-    enum: ['fully-furnished', 'semi-furnished', 'unfurnished']
+    type: String
   },
   age: {
-    type: String,
-    enum: ['new', '1-3', '3-5', '5-10', '10+']
+    type: String
   },
   floor: String,
   totalFloors: String,
   facing: {
-    type: String,
-    enum: ['north', 'south', 'east', 'west', 'north-east', 'north-west', 'south-east', 'south-west']
+    type: String
   },
   parkingSpaces: String,
   priceNegotiable: {
@@ -224,6 +219,11 @@ const propertySchema = new mongoose.Schema({
   },
   archivedReason: {
     type: String
+  },
+  // Dynamic custom fields from property type configuration
+  customFields: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   }
 }, {
   timestamps: true

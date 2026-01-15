@@ -44,13 +44,14 @@ router.post('/single', upload.single('file'), asyncHandler(async (req, res) => {
   const { folder = 'general', public_id } = req.body;
 
   try {
-    // Upload to Cloudinary
-    const result = await new Promise((resolve, reject) => {
+    // Upload to Cloudinary with timeout
+    const uploadPromise = new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
           folder: `ninety-nine-acres/${folder}`,
           public_id: public_id || undefined,
-          resource_type: 'auto'
+          resource_type: 'auto',
+          timeout: 60000 // 60 second timeout
         },
         (error, result) => {
           if (error) reject(error);
@@ -58,6 +59,13 @@ router.post('/single', upload.single('file'), asyncHandler(async (req, res) => {
         }
       ).end(req.file.buffer);
     });
+
+    // Add a timeout wrapper (70 seconds to allow Cloudinary timeout to trigger first)
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Upload timeout - please try with a smaller file or check your connection')), 70000)
+    );
+
+    const result = await Promise.race([uploadPromise, timeoutPromise]);
 
     res.json({
       success: true,

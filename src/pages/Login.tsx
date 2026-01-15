@@ -20,8 +20,8 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   // Get the intended destination from location state
-  const from = location.state?.from || null;
-  
+  const from = location.state?.from?.pathname || location.state?.from || null;
+
   // Show message if redirected from protected route
   useEffect(() => {
     if (location.state?.message) {
@@ -52,7 +52,7 @@ const Login = () => {
 
     try {
       const result = await login(email, password);
-      
+
       if (result.success) {
         const user = JSON.parse(localStorage.getItem("user") || "{}");
         // Vendor trying to login through default portal
@@ -69,7 +69,7 @@ const Login = () => {
           }, 2000);
           return;
         }
-        
+
         // If user was trying to access a specific route, redirect there
         if (from) {
           // Convert public property route to customer property route
@@ -83,6 +83,7 @@ const Login = () => {
           }
         } else {
           // Otherwise redirect based on user role
+          // Otherwise redirect based on user role
           if (user.role === 'superadmin') {
             console.log('Login: Redirecting superadmin to admin dashboard');
             navigate("/admin/dashboard");
@@ -92,9 +93,17 @@ const Login = () => {
           } else if (user.role === 'admin') {
             console.log('Login: Redirecting admin to admin dashboard');
             navigate("/admin/dashboard");
-          } else {
+          } else if (user.role === 'agent') {
+            // Should be handled by the check above, but just in case
+            console.log('Login: Redirecting agent to vendor login');
+            navigate("/vendor/login");
+          } else if (user.role === 'customer') {
             console.log('Login: Redirecting customer to customer dashboard');
             navigate("/customer/dashboard");
+          } else {
+            // Custom role with permissions
+            console.log(`Login: Redirecting custom role '${user.role}' to role-based dashboard`);
+            navigate("/rolebased");
           }
         }
       } else {
@@ -147,7 +156,7 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-md mx-auto">
           <div className="bg-card border border-border rounded-2xl p-8">
@@ -211,11 +220,11 @@ const Login = () => {
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v3.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                 />
                 <path
                   fill="currentColor"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v3.84C3.99 20.53 7.7 23 12 23z"
                 />
                 <path
                   fill="currentColor"

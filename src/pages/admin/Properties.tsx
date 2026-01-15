@@ -16,6 +16,7 @@ import { Property, propertyService } from "@/services/propertyService";
 import { Column, DataTable } from "@/components/adminpanel/shared/DataTable";
 import { SearchFilter } from "@/components/adminpanel/shared/SearchFilter";
 import { Loader2, Plus, MoreHorizontal, Eye, Edit, Trash2, Star, StarOff } from "lucide-react";
+import { configurationService } from "@/services/configurationService";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,9 +46,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { adminPropertyService } from "@/services/adminPropertyService";
+import { usePermissions } from "@/hooks/usePermissions";
+import { PERMISSIONS } from "@/config/permissionConfig";
 import { useToast } from "@/hooks/use-toast";
 import { ViewPropertyDialog } from "@/components/adminpanel/ViewPropertyDialog";
 import authService from "@/services/authService";
@@ -55,6 +58,7 @@ import authService from "@/services/authService";
 const Properties = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { hasPermission } = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -68,6 +72,8 @@ const Properties = () => {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [propertyTypes, setPropertyTypes] = useState<Array<{ value: string; label: string }>>([]);
+  const [isLoadingPropertyTypes, setIsLoadingPropertyTypes] = useState(true);
 
   // Approval/Rejection form state
   const [approverName, setApproverName] = useState("");
@@ -83,13 +89,53 @@ const Properties = () => {
 
   useEffect(() => {
     // Get current user info
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-    // Pre-fill approver name from user profile
-    if (user?.profile) {
-      setApproverName(`${user.profile.firstName || ''} ${user.profile.lastName || ''}`.trim());
-    }
-    fetchProperties();
+    const fetchUserAndProperties = async () => {
+      const response = await authService.getCurrentUser();
+      const user = response?.data?.user || response;
+      setCurrentUser(user);
+      // Pre-fill approver name from user profile
+      if (user?.profile) {
+        setApproverName(`${user.profile.firstName || ''} ${user.profile.lastName || ''}`.trim());
+      }
+      fetchProperties();
+    };
+    fetchUserAndProperties();
+
+    // Fetch property types from admin portal
+    const fetchPropertyTypes = async () => {
+      try {
+        setIsLoadingPropertyTypes(true);
+        const propertyTypesData = await configurationService.getAllPropertyTypes(false);
+
+        // Map property types to the format expected by the form
+        const mappedPropertyTypes = propertyTypesData
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map(type => ({
+            value: type.value,
+            label: type.name
+          }));
+
+        setPropertyTypes(mappedPropertyTypes);
+      } catch (error) {
+        console.error('Error fetching property types:', error);
+        toast({
+          title: "Warning",
+          description: "Failed to load property types from configuration. Using defaults.",
+          variant: "default",
+        });
+        // Fallback to hardcoded types
+        setPropertyTypes([
+          { value: "house", label: "House" },
+          { value: "apartment", label: "Apartment" },
+          { value: "land", label: "Land" },
+          { value: "commercial", label: "Commercial" }
+        ]);
+      } finally {
+        setIsLoadingPropertyTypes(false);
+      }
+    };
+
+    fetchPropertyTypes();
   }, []);
 
   const fetchProperties = async () => {
@@ -99,7 +145,7 @@ const Properties = () => {
       const response = await adminPropertyService.getProperties({
         limit: 1000, // Get all properties for admin view
       });
-      
+
       if (response.success) {
         setProperties(response.data.properties);
       }
@@ -133,7 +179,7 @@ const Properties = () => {
 
   const handleDeleteProperty = async () => {
     if (!selectedProperty) return;
-    
+
     try {
       await adminPropertyService.deleteProperty(selectedProperty._id);
       // Realtime update: Remove from state
@@ -158,7 +204,7 @@ const Properties = () => {
     try {
       await adminPropertyService.togglePropertyFeatured(property._id, !property.featured);
       // Realtime update: Update in state
-      setProperties(properties.map(p => 
+      setProperties(properties.map(p =>
         p._id === property._id ? { ...p, featured: !p.featured } : p
       ));
       toast({
@@ -286,23 +332,30 @@ const Properties = () => {
     // If property has owner with admin or superadmin role, it was created by admin
     // Properties created by vendors/agents will have owner with 'agent' role
     if (!property.owner) return false;
-    
+
     // Check if the owner is the current admin user
     if (currentUser && property.owner._id === currentUser.id) {
       return true;
     }
-    
+
     // For safety, also check if vendor field is empty (admin-created properties won't have vendor)
     // and status is 'available' (admin properties don't go through approval)
     return !property.vendor && property.status === 'available';
   };
 
   // Create extended type for DataTable
-  type PropertyWithId = Property & { id: string };
+  type PropertyWithId = Property & { id: string; sNo: number };
 
   const columns: Column<PropertyWithId>[] = [
-    { 
-      key: "title", 
+    {
+      key: "sNo",
+      label: "S.no",
+      render: (property) => (
+        <span className="font-medium">{property.sNo}</span>
+      )
+    },
+    {
+      key: "title",
       label: "Property Title",
       render: (property) => (
         <div>
@@ -378,7 +431,7 @@ const Properties = () => {
       render: (property) => {
         const adminCreated = isAdminCreated(property);
         const isPending = property.status === 'pending';
-        
+
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -389,25 +442,25 @@ const Properties = () => {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              
-              {/* If property created by admin - show Edit */}
-              {adminCreated && (
-                <DropdownMenuItem onClick={() => navigate(`/admin/properties/edit/${property._id}`)}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit Property
-                </DropdownMenuItem>
-              )}
-              
-              {/* If property created by vendor/agent - show View Details */}
-              {!adminCreated && (
+
+              {/* View Details - Always show if user has view permission */}
+              {hasPermission(PERMISSIONS.PROPERTIES_VIEW) && (
                 <DropdownMenuItem onClick={() => openViewDialog(property)}>
                   <Eye className="w-4 h-4 mr-2" />
                   View Details
                 </DropdownMenuItem>
               )}
-              
-              {/* Approval Actions for Pending Vendor Properties */}
-              {!adminCreated && isPending && (
+
+              {/* If property created by admin - show Edit (with permission check) */}
+              {adminCreated && hasPermission(PERMISSIONS.PROPERTIES_EDIT) && (
+                <DropdownMenuItem onClick={() => navigate(`/admin/properties/edit/${property._id}`)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Property
+                </DropdownMenuItem>
+              )}
+
+              {/* Approval Actions for Pending Vendor Properties (with permission check) */}
+              {!adminCreated && isPending && hasPermission(PERMISSIONS.PROPERTIES_APPROVE) && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -427,8 +480,8 @@ const Properties = () => {
                 </>
               )}
 
-              {/* Featured Toggle for Available Properties */}
-              {property.status === 'available' && (
+              {/* Featured Toggle for Available Properties (with permission check) */}
+              {property.status === 'available' && hasPermission(PERMISSIONS.PROPERTIES_EDIT) && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => handleToggleFeatured(property)}>
@@ -447,14 +500,19 @@ const Properties = () => {
                 </>
               )}
 
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => openDeleteDialog(property)}
-                className="text-red-600"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
+              {/* Delete action (with permission check) */}
+              {hasPermission(PERMISSIONS.PROPERTIES_DELETE) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => openDeleteDialog(property)}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -480,11 +538,13 @@ const Properties = () => {
             Manage property listings and details
           </p>
         </div>
-        <Button onClick={() => navigate("/admin/properties/add")} className="w-full sm:w-auto">
-          <Plus className="w-4 h-4 mr-2" />
-          <span className="hidden sm:inline">Add Property</span>
-          <span className="sm:hidden">Add</span>
-        </Button>
+        {hasPermission(PERMISSIONS.PROPERTIES_CREATE) && (
+          <Button onClick={() => navigate("/admin/properties/add")} className="w-full sm:w-auto">
+            <Plus className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">Add Property</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        )}
       </div>
 
       {/* Statistics Cards */}
@@ -531,42 +591,73 @@ const Properties = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg md:text-xl">All Properties</CardTitle>
+          <CardTitle className="text-lg md:text-xl">Property Approvals</CardTitle>
           <CardDescription className="text-sm md:text-base">
             {filteredProperties.length} propert{filteredProperties.length !== 1 ? "ies" : "y"} found
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 mb-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <SearchFilter
-                  searchTerm={searchTerm}
-                  onSearchChange={setSearchTerm}
-                />
+          <div className="flex flex-col xl:flex-row gap-4 items-end mb-6">
+            <div className="flex-1 w-full">
+              <SearchFilter
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+              />
+            </div>
+
+            <div className="flex gap-4 flex-wrap xl:flex-nowrap w-full xl:w-auto">
+              {/* Price Range */}
+              <div className="flex gap-2">
+                <div className="w-28 sm:w-32">
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Min Price</Label>
+                  <Input
+                    type="number"
+                    value={priceRange[0]}
+                    onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])}
+                    min={0}
+                    max={50000000}
+                    className="h-10"
+                    placeholder="Min"
+                  />
+                </div>
+                <div className="w-28 sm:w-32">
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Max Price</Label>
+                  <Input
+                    type="number"
+                    value={priceRange[1]}
+                    onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
+                    min={0}
+                    max={50000000}
+                    className="h-10"
+                    placeholder="Max"
+                  />
+                </div>
               </div>
+
               <div className="w-full sm:w-48">
-                <Label htmlFor="type-filter" className="text-sm font-medium">Property Type</Label>
+                <Label htmlFor="type-filter" className="text-xs text-muted-foreground mb-1.5 block">Property Type</Label>
                 <select
                   id="type-filter"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="w-full p-2 border rounded-md mt-1"
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={isLoadingPropertyTypes}
                 >
-                  <option value="all">All Types</option>
-                  <option value="house">House</option>
-                  <option value="apartment">Apartment</option>
-                  <option value="land">Land</option>
-                  <option value="commercial">Commercial</option>
+                  <option value="all">{isLoadingPropertyTypes ? "Loading..." : "All Types"}</option>
+                  {propertyTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="w-full sm:w-48">
-                <Label htmlFor="status-filter" className="text-sm font-medium">Property Status</Label>
+                <Label htmlFor="status-filter" className="text-xs text-muted-foreground mb-1.5 block">Property Status</Label>
                 <select
                   id="status-filter"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full p-2 border rounded-md mt-1"
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="all">All Statuses</option>
                   <option value="available">Available</option>
@@ -574,22 +665,8 @@ const Properties = () => {
                   <option value="rejected">Rejected</option>
                   <option value="sold">Sold</option>
                   <option value="rented">Rented</option>
+                  <option value="leased">Leased</option>
                 </select>
-              </div>
-            </div>
-            <div className="w-full">
-              <Label className="text-sm font-medium">Price Range</Label>
-              <div className="flex items-center gap-4 mt-2">
-                <span className="text-sm font-medium">₹{priceRange[0].toLocaleString()}</span>
-                <Slider
-                  min={0}
-                  max={50000000}
-                  step={100000}
-                  value={priceRange}
-                  onValueChange={setPriceRange}
-                  className="flex-1"
-                />
-                <span className="text-sm font-medium">₹{priceRange[1].toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -597,7 +674,7 @@ const Properties = () => {
           <div className="table-responsive-wrapper">
             <DataTable
               columns={columns}
-              data={paginatedItems.map(property => ({ ...property, id: property._id }))}
+              data={paginatedItems.map((property, index) => ({ ...property, id: property._id, sNo: (currentPage - 1) * 10 + index + 1 }))}
               hideDefaultActions
             />
           </div>
@@ -671,8 +748,8 @@ const Properties = () => {
                 id="approver-name"
                 placeholder="Enter your full name"
                 value={approverName}
-                onChange={(e) => setApproverName(e.target.value)}
-                className="mt-1"
+                readOnly
+                className="mt-1 bg-muted cursor-not-allowed"
               />
             </div>
 
@@ -803,8 +880,8 @@ const Properties = () => {
                 id="approver-name-reject"
                 placeholder="Enter your full name"
                 value={approverName}
-                onChange={(e) => setApproverName(e.target.value)}
-                className="mt-1"
+                readOnly
+                className="mt-1 bg-muted cursor-not-allowed"
               />
             </div>
 

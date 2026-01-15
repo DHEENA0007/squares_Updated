@@ -52,7 +52,7 @@ const planSchema = new mongoose.Schema({
   limits: {
     properties: {
       type: Number,
-      default: 0 // 0 means unlimited
+      default: null // null means unlimited (infinity), -1 and 0 supported for legacy
     },
     featuredListings: {
       type: Number,
@@ -89,27 +89,46 @@ const planSchema = new mongoose.Schema({
     }
   },
   benefits: {
-    topRated: {
-      type: Boolean,
-      default: false
+    type: mongoose.Schema.Types.Mixed,
+    default: function() {
+      // Default to new array format, but support legacy object format
+      return [];
     },
-    verifiedBadge: {
-      type: Boolean,
-      default: false
-    },
-    marketingManager: {
-      type: Boolean,
-      default: false
-    },
-    commissionBased: {
-      type: Boolean,
-      default: false
+    validate: {
+      validator: function(value) {
+        // Allow both array format and legacy object format
+        if (Array.isArray(value)) {
+          return value.every(benefit => 
+            benefit.key && benefit.name && typeof benefit.enabled === 'boolean'
+          );
+        }
+        // Legacy object format validation
+        if (typeof value === 'object' && value !== null) {
+          const allowedKeys = ['topRated', 'verifiedBadge', 'marketingManager', 'commissionBased'];
+          return Object.keys(value).every(key => 
+            allowedKeys.includes(key) && typeof value[key] === 'boolean'
+          );
+        }
+        return false;
+      },
+      message: 'Benefits must be either an array of benefit objects or legacy object format'
     }
   },
   support: {
     type: String,
     enum: ['none', 'email', 'priority', 'phone', 'dedicated'],
     default: 'email'
+  },
+  whatsappSupport: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    number: {
+      type: String,
+      trim: true,
+      default: null
+    }
   },
   isActive: {
     type: Boolean,
@@ -176,7 +195,7 @@ planSchema.pre('save', function(next) {
   next();
 });
 
-// Method to update price with tracking
+// Method to update price with tracking (does not save - caller must save)
 planSchema.methods.updatePrice = function(newPrice, userId, reason) {
   const oldPrice = this.price;
   this.price = newPrice;
@@ -186,10 +205,10 @@ planSchema.methods.updatePrice = function(newPrice, userId, reason) {
     changedBy: userId,
     reason: reason || `Price changed from ${oldPrice} to ${newPrice}`
   });
-  return this.save();
+  return this;
 };
 
-// Method to add/update feature with tracking
+// Method to add/update feature with tracking (does not save - caller must save)
 planSchema.methods.updateFeature = function(featureName, action, value, userId) {
   if (!this.featureHistory) {
     this.featureHistory = [];
@@ -203,7 +222,7 @@ planSchema.methods.updateFeature = function(featureName, action, value, userId) 
     changedBy: userId
   });
   
-  return this.save();
+  return this;
 };
 
 // Virtual for subscriber count

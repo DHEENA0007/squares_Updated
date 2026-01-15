@@ -141,29 +141,169 @@ class PlanChangeService {
     const validationErrors = [];
     const warnings = [];
 
+    // Define allowed fields for plan updates
+    const allowedFields = [
+      'identifier', 'name', 'description', 'price', 'currency', 'billingPeriod', 
+      'billingCycleMonths', 'features', 'limits', 'benefits', 'support', 
+      'isActive', 'isPopular', 'sortOrder'
+    ];
+
+    // Filter out any unknown fields
+    const filteredChanges = {};
+    Object.keys(changes).forEach(key => {
+      if (allowedFields.includes(key)) {
+        filteredChanges[key] = changes[key];
+      } else {
+        warnings.push(`Field '${key}' is not a valid plan field and will be ignored`);
+      }
+    });
+
+    // Continue validation with filtered changes
+    const changesToValidate = filteredChanges;
+
     // Validate price changes
-    if (changes.price !== undefined) {
-      if (changes.price < 0) {
+    if (changesToValidate.price !== undefined) {
+      if (changesToValidate.price < 0) {
         validationErrors.push('Price cannot be negative');
       }
       
       const plan = await Plan.findById(planId);
-      if (plan && changes.price > plan.price * 2) {
+      if (plan && changesToValidate.price > plan.price * 2) {
         warnings.push('Price increase is more than 100%. This might affect new subscriptions.');
       }
     }
 
     // Validate limit changes
-    if (changes.limits) {
-      if (changes.limits.properties !== undefined && changes.limits.properties < 0) {
-        validationErrors.push('Property limit cannot be negative');
+    if (changesToValidate.limits) {
+      // Remove any invalid limit fields
+      const validLimitFields = [
+        'properties', 'featuredListings', 'photos', 'propertyImages', 'videoTours', 
+        'videos', 'leads', 'messages', 'leadManagement'
+      ];
+      
+      const filteredLimits = {};
+      Object.keys(changesToValidate.limits).forEach(key => {
+        if (validLimitFields.includes(key)) {
+          filteredLimits[key] = changesToValidate.limits[key];
+        } else {
+          warnings.push(`Limit field '${key}' is not valid and will be ignored`);
+        }
+      });
+      
+      changesToValidate.limits = filteredLimits;
+
+      if (changesToValidate.limits.properties !== undefined && changesToValidate.limits.properties < -1) {
+        validationErrors.push('Property limit cannot be less than -1 (use -1 for unlimited)');
+      }
+      if (changesToValidate.limits.featuredListings !== undefined && changesToValidate.limits.featuredListings < 0) {
+        validationErrors.push('Featured listings limit cannot be negative');
+      }
+      if (changesToValidate.limits.photos !== undefined && changesToValidate.limits.photos < 0) {
+        validationErrors.push('Photos limit cannot be negative');
+      }
+      if (changesToValidate.limits.videoTours !== undefined && changesToValidate.limits.videoTours < 0) {
+        validationErrors.push('Video tours limit cannot be negative');
+      }
+      if (changesToValidate.limits.leads !== undefined && changesToValidate.limits.leads < 0) {
+        validationErrors.push('Leads limit cannot be negative');
+      }
+      if (changesToValidate.limits.videos !== undefined && changesToValidate.limits.videos < 0) {
+        validationErrors.push('Videos limit cannot be negative');
+      }
+      if (changesToValidate.limits.messages !== undefined && changesToValidate.limits.messages < 0) {
+        validationErrors.push('Messages limit cannot be negative');
+      }
+      if (changesToValidate.limits.leadManagement !== undefined) {
+        const validValues = ['none', 'basic', 'advanced', 'premium', 'enterprise'];
+        if (!validValues.includes(changesToValidate.limits.leadManagement)) {
+          validationErrors.push('Lead management must be one of: ' + validValues.join(', '));
+        }
+      }
+    }
+
+    // Validate features changes
+    if (changesToValidate.features !== undefined) {
+      if (!Array.isArray(changesToValidate.features)) {
+        validationErrors.push('Features must be an array');
+      } else {
+        const invalidFeature = changesToValidate.features.find(feature => 
+          !feature.name || typeof feature.enabled !== 'boolean'
+        );
+        if (invalidFeature) {
+          validationErrors.push('Features array contains invalid feature objects. Each feature must have name and enabled properties.');
+        }
+      }
+    }
+
+    // Validate benefits changes
+    if (changesToValidate.benefits !== undefined) {
+      if (Array.isArray(changesToValidate.benefits)) {
+        // New array format validation
+        const invalidBenefit = changesToValidate.benefits.find(benefit => 
+          !benefit.key || !benefit.name || typeof benefit.enabled !== 'boolean'
+        );
+        if (invalidBenefit) {
+          validationErrors.push('Benefits array contains invalid benefit objects. Each benefit must have key, name, and enabled properties.');
+        }
+      } else if (changesToValidate.benefits && typeof changesToValidate.benefits === 'object') {
+        // Legacy object format validation
+        const allowedKeys = ['topRated', 'verifiedBadge', 'marketingManager', 'commissionBased'];
+        const invalidKey = Object.keys(changesToValidate.benefits).find(key => 
+          !allowedKeys.includes(key) || typeof changesToValidate.benefits[key] !== 'boolean'
+        );
+        if (invalidKey) {
+          validationErrors.push('Benefits object contains invalid keys or non-boolean values. Allowed keys: ' + allowedKeys.join(', '));
+        }
+      } else if (changesToValidate.benefits !== null) {
+        validationErrors.push('Benefits must be either an array of benefit objects or legacy object format');
+      }
+    }
+
+    // Validate text fields
+    if (changesToValidate.name !== undefined && (!changesToValidate.name || changesToValidate.name.trim().length === 0)) {
+      validationErrors.push('Plan name cannot be empty');
+    }
+
+    if (changesToValidate.description !== undefined && changesToValidate.description && changesToValidate.description.length > 1000) {
+      validationErrors.push('Description cannot exceed 1000 characters');
+    }
+
+    // Validate support level
+    if (changesToValidate.support !== undefined) {
+      const validSupportLevels = ['none', 'email', 'priority', 'phone', 'dedicated'];
+      if (!validSupportLevels.includes(changesToValidate.support)) {
+        validationErrors.push('Support level must be one of: ' + validSupportLevels.join(', '));
+      }
+    }
+
+    // Validate currency
+    if (changesToValidate.currency !== undefined) {
+      const validCurrencies = ['INR', 'USD', 'EUR', 'GBP'];
+      if (!validCurrencies.includes(changesToValidate.currency)) {
+        validationErrors.push('Currency must be one of: ' + validCurrencies.join(', '));
+      }
+    }
+
+    // Validate billing period
+    if (changesToValidate.billingPeriod !== undefined) {
+      const validBillingPeriods = ['custom', 'monthly', 'yearly', 'lifetime', 'one-time'];
+      if (!validBillingPeriods.includes(changesToValidate.billingPeriod)) {
+        validationErrors.push('Billing period must be one of: ' + validBillingPeriods.join(', '));
+      }
+    }
+
+    // Validate billing cycle months
+    if (changesToValidate.billingCycleMonths !== undefined) {
+      if (changesToValidate.billingCycleMonths < 1 || changesToValidate.billingCycleMonths > 120) {
+        validationErrors.push('Billing cycle months must be between 1 and 120');
       }
     }
 
     return {
       isValid: validationErrors.length === 0,
       errors: validationErrors,
-      warnings
+      warnings,
+      filteredChanges: changesToValidate
     };
   }
 }

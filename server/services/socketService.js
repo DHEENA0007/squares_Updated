@@ -154,13 +154,18 @@ class SocketService {
             conversationId
           });
 
-          // Send notification to recipient
-          this.io.to(`user:${recipientId}`).emit('message_notification', {
-            conversationId,
-            message: newMessage,
-            senderId: userId,
-            senderName: `${newMessage.sender.profile?.firstName} ${newMessage.sender.profile?.lastName}`.trim()
-          });
+          // Send notification to recipient (check preferences first)
+          const notificationService = require('./notificationService');
+          const shouldNotify = await notificationService.checkUserNotificationPreferences(recipientId, 'new_message');
+
+          if (shouldNotify) {
+            this.io.to(`user:${recipientId}`).emit('message_notification', {
+              conversationId,
+              message: newMessage,
+              senderId: userId,
+              senderName: `${newMessage.sender.profile?.firstName} ${newMessage.sender.profile?.lastName}`.trim()
+            });
+          }
 
           // Confirm to sender
           socket.emit('message_sent', {
@@ -286,6 +291,40 @@ class SocketService {
           }
         } catch (error) {
           console.error('Error marking conversation as read:', error);
+        }
+      });
+
+      // Handle notification read/opened
+      socket.on('notification_read', async (data) => {
+        try {
+          const { notificationTimestamp, notificationTitle } = data;
+          const UserNotification = require('../models/UserNotification');
+
+          console.log(`📖 Marking notification as read for user ${userId}:`, notificationTitle);
+
+          // Mark user notification as read in UserNotification collection
+          const updated = await UserNotification.findOneAndUpdate(
+            {
+              user: userId,
+              title: notificationTitle,
+              read: false
+            },
+            {
+              $set: {
+                read: true,
+                readAt: new Date()
+              }
+            },
+            { new: true }
+          );
+
+          if (updated) {
+            console.log(`✅ UserNotification marked as read:`, { user: userId, title: updated.title });
+          } else {
+            console.log(`ℹ️ UserNotification already read or not found for user ${userId}`);
+          }
+        } catch (error) {
+          console.error('❌ Error marking notification as read:', error);
         }
       });
 

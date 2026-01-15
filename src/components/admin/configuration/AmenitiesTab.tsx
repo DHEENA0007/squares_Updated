@@ -33,8 +33,25 @@ import { Plus, Pencil, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { configurationService } from '@/services/configurationService';
 import type { Amenity, CreateAmenityDTO, PropertyType } from '@/types/configuration';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { PERMISSIONS } from '@/config/permissionConfig';
 
 const AmenitiesTab: React.FC = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const permissions = user?.rolePermissions || [];
+
+  // Check if user has admin role
+  const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
+
+  // Permission checks - support both old role-based AND new permission-based
+  const hasPermission = (permission: string) => permissions.includes(permission);
+  const canCreateAmenity = hasAdminRole || hasPermission(PERMISSIONS.PM_A_CREATE);
+  const canEditAmenity = hasAdminRole || hasPermission(PERMISSIONS.PM_A_EDIT);
+  const canDeleteAmenity = hasAdminRole || hasPermission(PERMISSIONS.PM_A_DELETE);
+  const canToggleStatus = hasAdminRole || hasPermission(PERMISSIONS.PM_A_STATUS);
+  const canChangeOrder = hasAdminRole || hasPermission(PERMISSIONS.PM_A_ORDER);
+
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>([]);
@@ -49,7 +66,7 @@ const AmenitiesTab: React.FC = () => {
     displayOrder: 0,
   });
   const [searchTerm, setSearchTerm] = useState('');
-  const { toast } = useToast();
+
 
   useEffect(() => {
     fetchData();
@@ -65,18 +82,32 @@ const AmenitiesTab: React.FC = () => {
       setAmenities(amenitiesData);
       setPropertyTypes(propertyTypesData);
 
-      // Fetch property types for each amenity
+      // Fetch all mappings in one go
+      const allMappings = await configurationService.getAllPropertyTypeAmenities();
+
       const amenityPTMap: Record<string, string[]> = {};
-      for (const amenity of amenitiesData) {
-        const linkedPTs: string[] = [];
-        for (const pt of propertyTypesData) {
-          const ptAmenities = await configurationService.getPropertyTypeAmenities(pt._id);
-          if (ptAmenities.some(a => a._id === amenity._id)) {
-            linkedPTs.push(pt._id);
+
+      // Initialize map
+      amenitiesData.forEach(a => {
+        amenityPTMap[a._id] = [];
+      });
+
+      // Populate map from mappings
+      allMappings.forEach(mapping => {
+        // Handle populated fields
+        const amenityId = mapping.amenityId?._id || mapping.amenityId;
+        const propertyTypeId = mapping.propertyTypeId?._id || mapping.propertyTypeId;
+
+        if (amenityId && propertyTypeId) {
+          if (!amenityPTMap[amenityId]) {
+            amenityPTMap[amenityId] = [];
+          }
+          if (!amenityPTMap[amenityId].includes(propertyTypeId)) {
+            amenityPTMap[amenityId].push(propertyTypeId);
           }
         }
-        amenityPTMap[amenity._id] = linkedPTs;
-      }
+      });
+
       setAmenityPropertyTypesMap(amenityPTMap);
     } catch (error) {
       toast({
@@ -99,20 +130,8 @@ const AmenitiesTab: React.FC = () => {
         displayOrder: amenity.displayOrder,
       });
 
-      // Fetch which property types have this amenity
-      try {
-        const linkedPropertyTypes: string[] = [];
-        for (const pt of propertyTypes) {
-          const ptAmenities = await configurationService.getPropertyTypeAmenities(pt._id);
-          if (ptAmenities.some(a => a._id === amenity._id)) {
-            linkedPropertyTypes.push(pt._id);
-          }
-        }
-        setSelectedPropertyTypes(linkedPropertyTypes);
-      } catch (error) {
-        console.error('Failed to fetch property type amenities:', error);
-        setSelectedPropertyTypes([]);
-      }
+      // Use cached property type mappings
+      setSelectedPropertyTypes(amenityPropertyTypesMap[amenity._id] || []);
     } else {
       setEditingAmenity(null);
       setFormData({
@@ -150,22 +169,33 @@ const AmenitiesTab: React.FC = () => {
         amenityId = newAmenity._id;
       }
 
-      // Update property type amenity mappings
-      for (const propertyType of propertyTypes) {
-        const isSelected = selectedPropertyTypes.includes(propertyType._id);
-        const currentAmenities = await configurationService.getPropertyTypeAmenities(propertyType._id);
-        const hasAmenity = currentAmenities.some(a => a._id === amenityId);
+      // Update property type amenity mappings efficiently
+      // Get currently linked property types from our local cache
+      const currentLinkedPTs = editingAmenity ? (amenityPropertyTypesMap[editingAmenity._id] || []) : [];
 
-        if (isSelected && !hasAmenity) {
-          // Add amenity to property type
-          const updatedAmenityIds = [...currentAmenities.map(a => a._id), amenityId];
-          await configurationService.updatePropertyTypeAmenities(propertyType._id, updatedAmenityIds);
-        } else if (!isSelected && hasAmenity) {
-          // Remove amenity from property type
-          const updatedAmenityIds = currentAmenities.filter(a => a._id !== amenityId).map(a => a._id);
-          await configurationService.updatePropertyTypeAmenities(propertyType._id, updatedAmenityIds);
+      // Determine which PTs need updates
+      const ptsToAdd = selectedPropertyTypes.filter(id => !currentLinkedPTs.includes(id));
+      const ptsToRemove = currentLinkedPTs.filter(id => !selectedPropertyTypes.includes(id));
+
+      const ptsToUpdate = [...ptsToAdd, ...ptsToRemove];
+
+      // Only update the ones that changed
+      await Promise.all(ptsToUpdate.map(async (ptId) => {
+        const currentAmenities = await configurationService.getPropertyTypeAmenities(ptId);
+        let updatedAmenityIds = currentAmenities.map(a => a._id);
+
+        if (ptsToAdd.includes(ptId)) {
+          // Add if not already present
+          if (!updatedAmenityIds.includes(amenityId)) {
+            updatedAmenityIds.push(amenityId);
+          }
+        } else {
+          // Remove
+          updatedAmenityIds = updatedAmenityIds.filter(id => id !== amenityId);
         }
-      }
+
+        await configurationService.updatePropertyTypeAmenities(ptId, updatedAmenityIds);
+      }));
 
       toast({
         title: 'Success',
@@ -270,10 +300,12 @@ const AmenitiesTab: React.FC = () => {
             Manage amenities available for property listings
           </p>
         </div>
-        <Button onClick={() => handleOpenDialog()}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Amenity
-        </Button>
+        {canCreateAmenity && (
+          <Button onClick={() => handleOpenDialog()}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Amenity
+          </Button>
+        )}
       </div>
 
       <div className="border rounded-lg">
@@ -315,24 +347,26 @@ const AmenitiesTab: React.FC = () => {
                 return (
                   <TableRow key={amenity._id}>
                     <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleReorder(amenity._id, 'up')}
-                          disabled={index === 0}
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleReorder(amenity._id, 'down')}
-                          disabled={index === amenities.length - 1}
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {canChangeOrder && (
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReorder(amenity._id, 'up')}
+                            disabled={index === 0}
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReorder(amenity._id, 'down')}
+                            disabled={index === amenities.length - 1}
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="font-medium">{amenity.name}</TableCell>
                     <TableCell>
@@ -359,24 +393,29 @@ const AmenitiesTab: React.FC = () => {
                       <Switch
                         checked={amenity.isActive}
                         onCheckedChange={() => handleToggleActive(amenity._id, amenity.isActive)}
+                        disabled={!canToggleStatus}
                       />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenDialog(amenity)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(amenity._id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {canEditAmenity && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenDialog(amenity)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDeleteAmenity && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(amenity._id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

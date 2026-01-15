@@ -1,0 +1,322 @@
+[
+  {
+    "_id": "69622225856fea44f3281962",
+    "property": "6961fe9b927d125074c4fb2d",
+    "viewer": "68f76792ae8ba267e353c0e9",
+    "sessionId": "f2a8f327-29e6-49c0-989f-3b1c56294f7b",
+    "ipAddress": "49.47.216.197",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "referrer": "https://buildhomemartsquares.com/",
+    "viewedAt": "2026-01-10T09:55:49.642Z",
+    "viewDuration": 0,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": true
+    },
+    "createdAt": "2026-01-10T09:55:49.642Z",
+    "updatedAt": "2026-01-10T11:11:27.315Z",
+    "__v": 0
+  },
+  {
+    "_id": "69622225856fea44f3281967",
+    "property": "6961ff3b40ef819d22926458",
+    "viewer": "68f76792ae8ba267e353c0e9",
+    "sessionId": "f2a8f327-29e6-49c0-989f-3b1c56294f7b",
+    "ipAddress": "49.47.216.197",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "referrer": "https://buildhomemartsquares.com/",
+    "viewedAt": "2026-01-10T09:55:49.657Z",
+    "viewDuration": 0,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-10T09:55:49.658Z",
+    "updatedAt": "2026-01-10T09:55:49.658Z",
+    "__v": 0
+  },
+  {
+    "_id": "6962246f856fea44f3281daf",
+    "property": "6961fe9b927d125074c4fb2d",
+    "viewer": "68f76792ae8ba267e353c0e9",
+    "sessionId": "983cfcb1-db7e-4820-b4a3-17fc9926dfb7",
+    "ipAddress": "223.182.215.179",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36",
+    "referrer": "https://buildhomemartsquares.com/",
+    "viewedAt": "2026-01-10T10:05:35.536Z",
+    "viewDuration": 0,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-10T10:05:35.537Z",
+    "updatedAt": "2026-01-10T10:05:35.537Z",
+    "__v": 0
+  },
+  {
+    "_id": "6962248c856fea44f3281e1d",
+    "property": "6962132a856fea44f3280d98",
+    "viewer": "68f76792ae8ba267e353c0e9",
+    "sessionId": "983cfcb1-db7e-4820-b4a3-17fc9926dfb7",
+    "ipAddress": "223.182.215.179",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36",
+    "referrer": "https://buildhomemartsquares.com/",
+    "viewedAt": "2026-01-10T10:06:04.768Z",
+    "viewDuration": 0,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-10T10:06:04.769Z",
+    "updatedAt": "2026-01-10T10:06:04.769Z",
+    "__v": 0
+  },
+  {
+    "_id": "6962248d856fea44f3281e2d",
+    "property": "6962132a856fea44f3280d98",
+    "viewer": "68f76792ae8ba267e353c0e9",
+    "sessionId": "983cfcb1-db7e-4820-b4a3-17fc9926dfb7",
+    "ipAddress": "223.182.215.179",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36",
+    "referrer": "https://buildhomemartsquares.com/",
+    "viewedAt": "2026-01-10T10:06:05.358Z",
+    "viewDuration": 28,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-10T10:06:05.358Z",
+    "updatedAt": "2026-01-10T10:06:33.910Z",
+    "__v": 0
+  },
+  {
+    "_id": "6962251d856fea44f3281f60",
+    "property": "6961fe9b927d125074c4fb2d",
+    "viewer": "68f76792ae8ba267e353c0e9",
+    "sessionId": "983cfcb1-db7e-4820-b4a3-17fc9926dfb7",
+    "ipAddress": "223.182.215.179",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36",
+    "referrer": "https://buildhomemartsquares.com/",
+    "viewedAt": "2026-01-10T10:08:29.648Z",
+    "viewDuration": 3,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-10T10:08:29.649Z",
+    "updatedAt": "2026-01-10T10:08:33.185Z",
+    "__v": 0
+  },
+  {
+    "_id": "69622f28856fea44f328373a",
+    "property": "6961fe9b927d125074c4fb2d",
+    "viewer": "68f76792ae8ba267e353c0e9",
+    "sessionId": "983cfcb1-db7e-4820-b4a3-17fc9926dfb7",
+    "ipAddress": "223.182.215.179",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36",
+    "referrer": "https://buildhomemartsquares.com/",
+    "viewedAt": "2026-01-10T10:51:20.167Z",
+    "viewDuration": 3,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-10T10:51:20.168Z",
+    "updatedAt": "2026-01-10T10:51:23.661Z",
+    "__v": 0
+  },
+  {
+    "_id": "696233d0856fea44f3283e76",
+    "property": "6961fe9b927d125074c4fb2d",
+    "viewer": "68f76792ae8ba267e353c0e9",
+    "sessionId": "f2a8f327-29e6-49c0-989f-3b1c56294f7b",
+    "ipAddress": "49.47.216.197",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "referrer": "https://buildhomemartsquares.com/",
+    "viewedAt": "2026-01-10T11:11:12.683Z",
+    "viewDuration": 0,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-10T11:11:12.684Z",
+    "updatedAt": "2026-01-10T11:11:12.684Z",
+    "__v": 0
+  },
+  {
+    "_id": "696233d1856fea44f3283e85",
+    "property": "6961fe9b927d125074c4fb2d",
+    "viewer": "68f76792ae8ba267e353c0e9",
+    "sessionId": "f2a8f327-29e6-49c0-989f-3b1c56294f7b",
+    "ipAddress": "49.47.216.197",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "referrer": "https://buildhomemartsquares.com/",
+    "viewedAt": "2026-01-10T11:11:13.064Z",
+    "viewDuration": 6,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-10T11:11:13.065Z",
+    "updatedAt": "2026-01-10T11:11:19.487Z",
+    "__v": 0
+  },
+  {
+    "_id": "69623428856fea44f328407c",
+    "property": "6962132a856fea44f3280d98",
+    "viewer": "68f76792ae8ba267e353c0e9",
+    "sessionId": "f2a8f327-29e6-49c0-989f-3b1c56294f7b",
+    "ipAddress": "49.47.216.197",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "referrer": "https://buildhomemartsquares.com/",
+    "viewedAt": "2026-01-10T11:12:40.349Z",
+    "viewDuration": 0,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-10T11:12:40.349Z",
+    "updatedAt": "2026-01-10T11:12:40.349Z",
+    "__v": 0
+  },
+  {
+    "_id": "69623428856fea44f328408b",
+    "property": "6962132a856fea44f3280d98",
+    "viewer": "68f76792ae8ba267e353c0e9",
+    "sessionId": "f2a8f327-29e6-49c0-989f-3b1c56294f7b",
+    "ipAddress": "49.47.216.197",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "referrer": "https://buildhomemartsquares.com/",
+    "viewedAt": "2026-01-10T11:12:40.512Z",
+    "viewDuration": 23,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-10T11:12:40.513Z",
+    "updatedAt": "2026-01-10T11:13:03.309Z",
+    "__v": 0
+  },
+  {
+    "_id": "6963268f3c65e42e72ebed51",
+    "property": "6961fe9b927d125074c4fb2d",
+    "viewer": "68f76792ae8ba267e353c0e9",
+    "sessionId": "a76e759b-d341-4940-bd55-57981adebc31",
+    "ipAddress": "223.237.184.210",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
+    "referrer": "http://localhost:3001/",
+    "viewedAt": "2026-01-11T04:26:54.999Z",
+    "viewDuration": 5,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-11T04:26:55.004Z",
+    "updatedAt": "2026-01-11T04:27:03.488Z",
+    "__v": 0
+  },
+  {
+    "_id": "696337a93c65e42e72ebfb5f",
+    "property": "6962866538a455a6274a2d20",
+    "viewer": "68f76792ae8ba267e353c0e9",
+    "sessionId": "6b4e8a87-77bc-4d2b-b57d-ac012e6e972e",
+    "ipAddress": "223.237.189.172",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
+    "referrer": "http://localhost:3001/",
+    "viewedAt": "2026-01-11T05:39:53.133Z",
+    "viewDuration": 81,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-11T05:39:53.134Z",
+    "updatedAt": "2026-01-11T05:41:14.171Z",
+    "__v": 0
+  },
+  {
+    "_id": "6964e430bb5101ad09052528",
+    "property": "6963d5b53c65e42e72ec22bc",
+    "viewer": "6964e3a9bb5101ad090523dc",
+    "sessionId": "64b9cdc3-59c2-4084-bd4c-2299b180bfa3",
+    "ipAddress": "171.79.60.185",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
+    "referrer": "http://localhost:3001/",
+    "viewedAt": "2026-01-12T12:08:16.442Z",
+    "viewDuration": 0,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-12T12:08:16.443Z",
+    "updatedAt": "2026-01-12T12:08:16.443Z",
+    "__v": 0
+  },
+  {
+    "_id": "6964e431bb5101ad09052538",
+    "property": "6963d5b53c65e42e72ec22bc",
+    "viewer": "6964e3a9bb5101ad090523dc",
+    "sessionId": "64b9cdc3-59c2-4084-bd4c-2299b180bfa3",
+    "ipAddress": "171.79.60.185",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
+    "referrer": "http://localhost:3001/",
+    "viewedAt": "2026-01-12T12:08:17.410Z",
+    "viewDuration": 29,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-12T12:08:17.410Z",
+    "updatedAt": "2026-01-12T12:08:47.189Z",
+    "__v": 0
+  },
+  {
+    "_id": "6964e47ebb5101ad090525a9",
+    "property": "6963d5b53c65e42e72ec22bc",
+    "viewer": "6964e3a9bb5101ad090523dc",
+    "sessionId": "64b9cdc3-59c2-4084-bd4c-2299b180bfa3",
+    "ipAddress": "171.79.60.185",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
+    "referrer": "http://localhost:3001/",
+    "viewedAt": "2026-01-12T12:09:34.752Z",
+    "viewDuration": 0,
+    "interactions": {
+      "clickedPhone": false,
+      "clickedMessage": false,
+      "sharedProperty": false,
+      "clickedInterest": false
+    },
+    "createdAt": "2026-01-12T12:09:34.752Z",
+    "updatedAt": "2026-01-12T12:09:34.752Z",
+    "__v": 0
+  }
+]

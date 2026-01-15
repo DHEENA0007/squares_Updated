@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['customer', 'agent', 'admin', 'subadmin', 'superadmin'],
+    required: true,
     default: 'customer'
   },
   rolePages: [{
@@ -98,17 +98,31 @@ const userSchema = new mongoose.Schema({
         email: { type: Boolean, default: true },
         sms: { type: Boolean, default: false },
         push: { type: Boolean, default: true },
+        propertyAlerts: { type: Boolean, default: true },
+        priceDrops: { type: Boolean, default: true },
+        newMessages: { type: Boolean, default: true },
+        newsUpdates: { type: Boolean, default: false },
         desktop: { type: Boolean, default: true },
         sound: { type: Boolean, default: true },
         typing: { type: Boolean, default: true }
       },
       privacy: {
         showEmail: { type: Boolean, default: false },
-        showPhone: { type: Boolean, default: false }
+        showPhone: { type: Boolean, default: false },
+        showActivity: { type: Boolean, default: true },
+        dataCollection: { type: Boolean, default: true },
+        marketingConsent: { type: Boolean, default: false },
+        thirdPartySharing: { type: Boolean, default: false },
+        allowMessages: { type: Boolean, default: true }
+      },
+      security: {
+        twoFactorEnabled: { type: Boolean, default: false },
+        loginAlerts: { type: Boolean, default: true },
+        sessionTimeout: { type: String, default: '30' }
       }
     }
   },
-  
+
   // Reference to vendor profile if user is an agent
   vendorProfile: {
     type: mongoose.Schema.Types.ObjectId,
@@ -118,7 +132,7 @@ const userSchema = new mongoose.Schema({
 }, {
   timestamps: true,
   toJSON: {
-    transform: function(doc, ret) {
+    transform: function (doc, ret) {
       delete ret.password;
       return ret;
     }
@@ -126,14 +140,14 @@ const userSchema = new mongoose.Schema({
 });
 
 // Virtual for full name
-userSchema.virtual('profile.fullName').get(function() {
+userSchema.virtual('profile.fullName').get(function () {
   return `${this.profile.firstName} ${this.profile.lastName}`;
 });
 
 // Pre-save middleware to hash password
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-  
+
   try {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
@@ -144,12 +158,12 @@ userSchema.pre('save', async function(next) {
 });
 
 // Method to compare password
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Method to get public profile
-userSchema.methods.getPublicProfile = function() {
+userSchema.methods.getPublicProfile = function () {
   return {
     id: this._id,
     email: this.email,
@@ -166,17 +180,17 @@ userSchema.methods.getPublicProfile = function() {
 };
 
 // Method to get vendor profile if user is an agent
-userSchema.methods.getVendorProfile = async function() {
+userSchema.methods.getVendorProfile = async function () {
   if (this.role !== 'agent' || !this.vendorProfile) {
     return null;
   }
-  
+
   const Vendor = require('./Vendor');
   return await Vendor.findById(this.vendorProfile);
 };
 
 // Method to check if user is a vendor
-userSchema.methods.isVendor = function() {
+userSchema.methods.isVendor = function () {
   return this.role === 'agent' && this.vendorProfile;
 };
 

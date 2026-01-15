@@ -161,8 +161,14 @@ notificationSchema.pre('save', function(next) {
     
     if (this.statistics.totalRecipients > 0) {
       this.statistics.deliveryRate = (this.statistics.delivered / this.statistics.totalRecipients) * 100;
-      this.statistics.openRate = (this.statistics.opened / this.statistics.delivered) * 100;
-      this.statistics.clickRate = (this.statistics.clicked / this.statistics.opened) * 100;
+      
+      this.statistics.openRate = this.statistics.delivered > 0 
+        ? (this.statistics.opened / this.statistics.delivered) * 100 
+        : 0;
+        
+      this.statistics.clickRate = this.statistics.opened > 0 
+        ? (this.statistics.clicked / this.statistics.opened) * 100 
+        : 0;
     }
   }
   next();

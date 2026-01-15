@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Upload, X, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import supportService, { CreateTicketData } from "@/services/supportService";
 
 interface SupportDialogProps {
@@ -30,6 +31,7 @@ interface SupportDialogProps {
 
 export const SupportDialog = ({ open, onOpenChange, onSuccess }: SupportDialogProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [formData, setFormData] = useState<CreateTicketData>({
@@ -42,16 +44,43 @@ export const SupportDialog = ({ open, onOpenChange, onSuccess }: SupportDialogPr
     description: "",
   });
 
+  // Auto-fill user information when dialog opens
+  useEffect(() => {
+    if (open && user) {
+      const fullName = user.profile?.firstName && user.profile?.lastName
+        ? `${user.profile.firstName} ${user.profile.lastName}`
+        : user.profile?.firstName || user.profile?.lastName || "";
+      
+      setFormData(prev => ({
+        ...prev,
+        name: fullName,
+        email: user.email || "",
+        phone: user.profile?.phone || "",
+      }));
+    }
+  }, [open, user]);
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
     const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxFiles = 5;
+
+    // Check total files limit
+    if (attachments.length + files.length > maxFiles) {
+      toast({
+        title: "Too many files",
+        description: `You can only upload up to ${maxFiles} files`,
+        variant: "destructive"
+      });
+      return;
+    }
 
     const validFiles = files.filter(file => {
       if (!validTypes.includes(file.type)) {
         toast({
           title: "Invalid file type",
-          description: `${file.name} is not a supported file type`,
+          description: `${file.name} is not a supported file type. Supported: JPG, PNG, PDF, DOC, DOCX`,
           variant: "destructive"
         });
         return false;
@@ -59,15 +88,29 @@ export const SupportDialog = ({ open, onOpenChange, onSuccess }: SupportDialogPr
       if (file.size > maxSize) {
         toast({
           title: "File too large",
-          description: `${file.name} exceeds 5MB limit`,
+          description: `${file.name} exceeds 5MB limit (${(file.size / 1024 / 1024).toFixed(2)}MB)`,
           variant: "destructive"
         });
         return false;
       }
+      // Warn for files larger than 2MB
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "Large file",
+          description: `${file.name} is ${(file.size / 1024 / 1024).toFixed(2)}MB. Upload may take longer.`,
+          variant: "default"
+        });
+      }
       return true;
     });
 
-    setAttachments(prev => [...prev, ...validFiles]);
+    if (validFiles.length > 0) {
+      setAttachments(prev => [...prev, ...validFiles]);
+      toast({
+        title: "Files added",
+        description: `${validFiles.length} file(s) ready to upload`,
+      });
+    }
   };
 
   const removeFile = (index: number) => {
@@ -103,6 +146,11 @@ export const SupportDialog = ({ open, onOpenChange, onSuccess }: SupportDialogPr
         attachments,
       });
 
+      toast({
+        title: "Success",
+        description: `Support ticket #${response.data.ticket.ticketNumber} created successfully!${attachments.length > 0 ? ` ${attachments.length} file(s) attached.` : ''}`,
+      });
+
       onSuccess?.(response.data.ticket.ticketNumber);
       onOpenChange(false);
       
@@ -119,6 +167,11 @@ export const SupportDialog = ({ open, onOpenChange, onSuccess }: SupportDialogPr
       setAttachments([]);
     } catch (error) {
       console.error("Error creating support ticket:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create support ticket. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -130,7 +183,10 @@ export const SupportDialog = ({ open, onOpenChange, onSuccess }: SupportDialogPr
         <DialogHeader>
           <DialogTitle>Submit Support Request</DialogTitle>
           <DialogDescription>
-            Fill out the form below and we'll get back to you as soon as possible
+            {user 
+              ? "Your account information has been auto-filled. Just describe your issue below."
+              : "Fill out the form below and we'll get back to you as soon as possible"
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -143,8 +199,15 @@ export const SupportDialog = ({ open, onOpenChange, onSuccess }: SupportDialogPr
                 placeholder="Enter your full name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                disabled={!!user}
+                className={user ? "bg-muted cursor-not-allowed" : ""}
                 required
               />
+              {user && (
+                <p className="text-xs text-muted-foreground">
+                  Auto-filled from your account
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -155,8 +218,15 @@ export const SupportDialog = ({ open, onOpenChange, onSuccess }: SupportDialogPr
                 placeholder="your.email@example.com"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                disabled={!!user}
+                className={user ? "bg-muted cursor-not-allowed" : ""}
                 required
               />
+              {user && (
+                <p className="text-xs text-muted-foreground">
+                  Auto-filled from your account
+                </p>
+              )}
             </div>
           </div>
 
@@ -169,7 +239,14 @@ export const SupportDialog = ({ open, onOpenChange, onSuccess }: SupportDialogPr
                 placeholder="+91 98765 43210"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                disabled={!!user && !!formData.phone}
+                className={user && formData.phone ? "bg-muted cursor-not-allowed" : ""}
               />
+              {user && formData.phone && (
+                <p className="text-xs text-muted-foreground">
+                  Auto-filled from your account
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -237,41 +314,51 @@ export const SupportDialog = ({ open, onOpenChange, onSuccess }: SupportDialogPr
 
           <div className="space-y-2">
             <Label>Attachments (Optional)</Label>
+            <p className="text-xs text-muted-foreground">
+              Upload images, PDFs, or documents (Max 5 files, 5MB each)
+            </p>
             <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => document.getElementById('file-upload')?.click()}
                 className="w-full"
+                disabled={attachments.length >= 5}
               >
                 <Upload className="w-4 h-4 mr-2" />
-                Upload Files (Max 5MB each)
+                {attachments.length >= 5 ? 'Maximum files reached' : 'Upload Files'}
               </Button>
               <input
                 id="file-upload"
                 type="file"
                 multiple
-                accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                accept="image/jpeg,image/jpg,image/png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 onChange={handleFileSelect}
                 className="hidden"
               />
             </div>
             {attachments.length > 0 && (
               <div className="space-y-2 mt-2">
+                <p className="text-sm text-muted-foreground">
+                  {attachments.length} file{attachments.length > 1 ? 's' : ''} selected
+                </p>
                 {attachments.map((file, index) => (
                   <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">{file.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        ({(file.size / 1024).toFixed(2)} KB)
-                      </span>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.size / 1024).toFixed(2)} KB • {file.type.split('/')[1].toUpperCase()}
+                        </p>
+                      </div>
                     </div>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => removeFile(index)}
+                      className="flex-shrink-0"
                     >
                       <X className="w-4 h-4" />
                     </Button>

@@ -303,6 +303,13 @@ class ConfigurationService {
 
   // ============= Property Type Amenities Mapping =============
 
+  async getAllPropertyTypeAmenities(): Promise<any[]> {
+    const { data } = await api.get<{ success: boolean; data: any[] }>(
+      '/property-type-amenities'
+    );
+    return data.data;
+  }
+
   async getPropertyTypeAmenities(propertyTypeId: string): Promise<Amenity[]> {
     const { data } = await api.get<{ success: boolean; data: Amenity[] }>(
       `/property-types/${propertyTypeId}/amenities`
@@ -446,6 +453,24 @@ class ConfigurationService {
     await api.delete(`/filters/${id}`);
   }
 
+  // ============= Filter Dependencies =============
+
+  async getFilterDependencies(): Promise<import('@/types/configuration').FilterDependency[]> {
+    try {
+      const { data } = await api.get<{ success: boolean; data: import('@/types/configuration').FilterDependency[] }>(
+        '/filter-dependencies'
+      );
+      return data.data || [];
+    } catch (error) {
+      console.error('Error fetching filter dependencies:', error);
+      return [];
+    }
+  }
+
+  async saveFilterDependencies(dependencies: import('@/types/configuration').FilterDependency[]): Promise<void> {
+    await api.post('/filter-dependencies', dependencies);
+  }
+
   // ============= Configuration Metadata =============
 
   async getConfigurationMetadata(key: string): Promise<ConfigurationMetadata | null> {
@@ -490,6 +515,23 @@ class ConfigurationService {
       created_at: metadata.createdAt,
       updated_at: metadata.updatedAt,
     } as any;
+  }
+
+  // ============= Navigation Categories =============
+
+  async getNavigationCategories(): Promise<Array<{ value: string; label: string; isActive: boolean; displayOrder: number }>> {
+    const { data } = await api.get<{ success: boolean; data: Array<{ value: string; label: string; isActive: boolean; displayOrder: number }> }>(
+      '/navigation-categories'
+    );
+    return data.data;
+  }
+
+  async updateNavigationCategories(categories: Array<{ value: string; label: string; isActive: boolean; displayOrder: number }>): Promise<Array<{ value: string; label: string; isActive: boolean; displayOrder: number }>> {
+    const { data } = await api.post<{ success: boolean; data: Array<{ value: string; label: string; isActive: boolean; displayOrder: number }> }>(
+      '/navigation-categories',
+      { categories }
+    );
+    return data.data;
   }
 
   // ============= Navigation Items =============

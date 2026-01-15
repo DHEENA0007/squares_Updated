@@ -181,7 +181,7 @@ Located in `public/`:
 
 ```bash
 # Navigate to project root
-cd "/run/media/dheena/Leave you files/Squares-v2"
+cd "/run/media/dheena/Leave you files/Squares-v3"
 
 # Remove backup and old component files
 rm -f src/components/PasswordChangeDialog_backup.tsx
