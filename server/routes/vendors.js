@@ -746,17 +746,36 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
 
   // Helper to deeply clean undefined values from objects
   const cleanUndefined = (obj) => {
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+    if (obj === null || obj === undefined) return undefined;
+    if (typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) {
+      const cleanedArray = obj
+        .map(item => cleanUndefined(item))
+        .filter(item => item !== undefined);
+      return cleanedArray.length > 0 ? cleanedArray : undefined;
+    }
 
     const cleaned = {};
     for (const [key, value] of Object.entries(obj)) {
+      // Skip undefined values completely
       if (value === undefined) continue;
+      
+      // Skip null values for nested objects (but allow null for primitive values)
+      if (value === null) {
+        cleaned[key] = null;
+        continue;
+      }
 
-      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      if (typeof value === 'object' && !Array.isArray(value)) {
         const cleanedNested = cleanUndefined(value);
         // Only add if nested object has properties
-        if (cleanedNested && Object.keys(cleanedNested).length > 0) {
+        if (cleanedNested !== undefined && Object.keys(cleanedNested).length > 0) {
           cleaned[key] = cleanedNested;
+        }
+      } else if (Array.isArray(value)) {
+        const cleanedArray = cleanUndefined(value);
+        if (cleanedArray !== undefined) {
+          cleaned[key] = cleanedArray;
         }
       } else {
         cleaned[key] = value;
@@ -795,22 +814,22 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
     if (profile.avatar !== undefined) user.profile.avatar = profile.avatar;
 
     // Handle preferences update with proper defaults
-    if (profile.preferences) {
+    if (profile.preferences && typeof profile.preferences === 'object') {
       // Initialize preferences if it doesn't exist
       if (!user.profile.preferences) {
         user.profile.preferences = {};
       }
 
-      // Only update the nested objects that are actually provided
+      // Only update the nested objects that are actually provided and not undefined
       // Don't create or touch privacy/security if they're not in the update
-      if (profile.preferences.notifications) {
+      if (profile.preferences.notifications && typeof profile.preferences.notifications === 'object') {
         user.profile.preferences.notifications = {
           ...(user.profile.preferences.notifications || {}),
           ...profile.preferences.notifications
         };
       }
 
-      if (profile.preferences.privacy) {
+      if (profile.preferences.privacy && typeof profile.preferences.privacy === 'object') {
         const defaultPrivacy = {
           showEmail: false,
           showPhone: false,
@@ -827,7 +846,7 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
         };
       }
 
-      if (profile.preferences.security) {
+      if (profile.preferences.security && typeof profile.preferences.security === 'object') {
         const defaultSecurity = {
           twoFactorEnabled: false,
           loginAlerts: true,
@@ -840,9 +859,13 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
         };
       }
 
-      // Update any other preferences fields that might exist
+      // Update any other preferences fields that might exist (skip undefined values)
       const { notifications, privacy, security, ...otherPrefs } = profile.preferences;
-      Object.assign(user.profile.preferences, otherPrefs);
+      for (const [key, value] of Object.entries(otherPrefs)) {
+        if (value !== undefined) {
+          user.profile.preferences[key] = value;
+        }
+      }
     }
 
     // Update user address
