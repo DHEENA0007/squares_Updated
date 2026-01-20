@@ -379,20 +379,78 @@ const requireVendorRole = asyncHandler(async (req, res, next) => {
       }
     }
 
+    // Auto-create vendor profile for agents if missing
     if (!vendor) {
-      console.error(`[requireVendorRole] No vendor profile found for agent: ${req.user.id}`);
-      return res.status(404).json({
-        success: false,
-        message: 'Vendor profile not found. Please contact support.'
-      });
-    }
+      console.log(`[requireVendorRole] Creating vendor profile for agent: ${req.user.id}`);
+      const user = await User.findById(req.user.id);
+      
+      if (!user) {
+        console.error(`[requireVendorRole] User not found: ${req.user.id}`);
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
 
-    // Ensure user has vendorProfile reference
-    const user = await User.findById(req.user.id);
-    if (user && !user.vendorProfile) {
-      user.vendorProfile = vendor._id;
-      await user.save();
-      console.log(`[requireVendorRole] Updated user vendorProfile reference`);
+      const vendorData = {
+        user: req.user.id,
+        businessInfo: {
+          companyName: `${user.profile?.firstName || 'Vendor'} ${user.profile?.lastName || ''} Properties`.trim(),
+          businessType: 'real_estate_agent'
+        },
+        professionalInfo: {
+          experience: 0,
+          specializations: [],
+          serviceAreas: [],
+          languages: ['english'],
+          certifications: []
+        },
+        contactInfo: {
+          officePhone: user.profile?.phone || '',
+          whatsappNumber: user.profile?.phone || ''
+        },
+        status: 'active',
+        verification: {
+          isVerified: false,
+          verificationLevel: 'basic',
+          verificationDate: new Date()
+        },
+        approval: {
+          status: 'approved',
+          submittedAt: new Date(),
+          reviewedAt: new Date(),
+          approvalNotes: 'Auto-created for agent user'
+        },
+        metadata: {
+          source: 'auto',
+          notes: 'Auto-created when vendor profile was missing'
+        }
+      };
+
+      try {
+        vendor = new Vendor(vendorData);
+        await vendor.save();
+        
+        // Link user to vendor profile
+        user.vendorProfile = vendor._id;
+        await user.save();
+        
+        console.log(`[requireVendorRole] Created vendor profile for agent: ${vendor._id}`);
+      } catch (createError) {
+        console.error(`[requireVendorRole] Failed to create vendor profile:`, createError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to create vendor profile. Please contact support.'
+        });
+      }
+    } else {
+      // Ensure user has vendorProfile reference
+      const user = await User.findById(req.user.id);
+      if (user && !user.vendorProfile) {
+        user.vendorProfile = vendor._id;
+        await user.save();
+        console.log(`[requireVendorRole] Updated user vendorProfile reference`);
+      }
     }
 
     console.log(`[requireVendorRole] Vendor profile found: ${vendor._id}`);

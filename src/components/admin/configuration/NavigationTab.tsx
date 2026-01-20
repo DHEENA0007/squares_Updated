@@ -523,11 +523,13 @@ const NavigationTab: React.FC = () => {
                     <SelectValue placeholder="Choose from Property Management..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {propertyTypes.map(pt => (
-                      <SelectItem key={pt._id} value={pt.value}>
-                        {pt.name}
-                      </SelectItem>
-                    ))}
+                    {propertyTypes
+                      .filter(pt => pt.value && pt.value.trim() !== '')
+                      .map(pt => (
+                        <SelectItem key={pt._id} value={pt.value}>
+                          {pt.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
@@ -576,20 +578,19 @@ const NavigationTab: React.FC = () => {
                 <Select
                   value={formData.category}
                   onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  disabled={categories.length === 0}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select category..." />
+                    <SelectValue placeholder={categories.length === 0 ? "No categories available" : "Select category..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.length === 0 ? (
-                      <SelectItem value="" disabled>No categories available</SelectItem>
-                    ) : (
-                      categories.map(cat => (
+                    {categories
+                      .filter(cat => cat.value && cat.value.trim() !== '')
+                      .map(cat => (
                         <SelectItem key={cat.value} value={cat.value}>
                           {cat.label}
                         </SelectItem>
-                      ))
-                    )}
+                      ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
@@ -608,11 +609,13 @@ const NavigationTab: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No parent (top level)</SelectItem>
-                    {listingTypes.map(type => (
-                      <SelectItem key={type._id} value={type.value}>
-                        {type.displayLabel || type.name}
-                      </SelectItem>
-                    ))}
+                    {listingTypes
+                      .filter(type => type.value && type.value.trim() !== '')
+                      .map(type => (
+                        <SelectItem key={type._id} value={type.value}>
+                          {type.displayLabel || type.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
