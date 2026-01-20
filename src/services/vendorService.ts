@@ -394,14 +394,28 @@ class VendorService {
         console.log("Vendor profile update successful:", response);
       } catch (vendorUpdateError) {
         console.log("Vendor profile update failed, trying user profile update:", vendorUpdateError);
-        response = await this.makeRequest<{
-          success: boolean;
-          data: { user: VendorProfile };
-        }>(`/users/${userId}`, {
-          method: "PUT",
-          body: JSON.stringify(cleanedData),
-        });
-        console.log("User profile update result:", response);
+        
+        // Try /users/profile first (more reliable), then fall back to /users/:id
+        try {
+          response = await this.makeRequest<{
+            success: boolean;
+            data: { user: VendorProfile };
+          }>("/users/profile", {
+            method: "PUT",
+            body: JSON.stringify(cleanedData),
+          });
+          console.log("User profile update via /users/profile successful:", response);
+        } catch (profileUpdateError) {
+          console.log("User profile update via /users/profile failed, trying /users/:id:", profileUpdateError);
+          response = await this.makeRequest<{
+            success: boolean;
+            data: { user: VendorProfile };
+          }>(`/users/${userId}`, {
+            method: "PUT",
+            body: JSON.stringify(cleanedData),
+          });
+          console.log("User profile update via /users/:id result:", response);
+        }
       }
 
       if (response.success && response.data) {
