@@ -598,6 +598,211 @@ router.post('/', asyncHandler(async (req, res) => {
   });
 }));
 
+// @desc    Update current user profile
+// @route   PUT /api/users/profile
+// @access  Private
+router.put('/profile', asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user.id);
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  const {
+    email,
+    profile,
+    preferences,
+  } = req.body;
+
+  // Check if email or phone is being changed - these require OTP verification
+  const isEmailChanging = email && email !== user.email;
+  const isPhoneChanging = profile?.phone && profile.phone !== user.profile.phone;
+
+  if (isEmailChanging || isPhoneChanging) {
+    return res.status(403).json({
+      success: false,
+      requiresOTP: true,
+      message: 'Email and phone changes require verification. Please use the OTP verification flow.',
+      endpoint: '/api/auth/request-profile-update-otp'
+    });
+  }
+
+  // Helper function to deeply merge objects, filtering out undefined values
+  const deepMerge = (target, source) => {
+    const result = { ...target };
+
+    for (const key in source) {
+      if (source[key] === undefined) {
+        continue; // Skip undefined values
+      }
+
+      if (source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+        // Check if source object has any defined values recursively
+        const hasDefinedValues = (obj) => {
+          return Object.values(obj).some(v => {
+            if (v === undefined) return false;
+            if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+              return hasDefinedValues(v);
+            }
+            return true;
+          });
+        };
+
+        if (!hasDefinedValues(source[key])) {
+          continue; // Skip objects with only undefined values
+        }
+
+        // If both target and source have object values, merge them recursively
+        if (result[key] && typeof result[key] === 'object' && !Array.isArray(result[key])) {
+          result[key] = deepMerge(result[key], source[key]);
+        } else {
+          result[key] = source[key];
+        }
+      } else {
+        result[key] = source[key];
+      }
+    }
+
+    return result;
+  };
+
+  // Helper function to clean object from undefined values
+  const cleanObject = (obj) => {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+
+    const cleaned = {};
+    for (const key in obj) {
+      if (obj[key] === undefined) continue;
+
+      if (obj[key] !== null && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+        const cleanedNested = cleanObject(obj[key]);
+        if (Object.keys(cleanedNested).length > 0) {
+          cleaned[key] = cleanedNested;
+        }
+      } else {
+        cleaned[key] = obj[key];
+      }
+    }
+    return cleaned;
+  };
+
+  // Update fields - use toObject() to get plain object for merging
+  if (profile) {
+    const cleanedProfile = cleanObject(profile);
+    if (Object.keys(cleanedProfile).length > 0) {
+      const currentProfile = user.profile.toObject ? user.profile.toObject() : { ...user.profile };
+      const mergedProfile = deepMerge(currentProfile, cleanedProfile);
+      
+      // Only set defined fields to avoid validation errors
+      if (mergedProfile.firstName !== undefined) user.profile.firstName = mergedProfile.firstName;
+      if (mergedProfile.lastName !== undefined) user.profile.lastName = mergedProfile.lastName;
+      if (mergedProfile.phone !== undefined) user.profile.phone = mergedProfile.phone;
+      if (mergedProfile.avatar !== undefined) user.profile.avatar = mergedProfile.avatar;
+      if (mergedProfile.bio !== undefined) user.profile.bio = mergedProfile.bio;
+      
+      // Handle address separately - only update if provided
+      if (cleanedProfile.address && Object.keys(cleanedProfile.address).length > 0) {
+        const currentAddress = user.profile.address?.toObject ? user.profile.address.toObject() : (user.profile.address || {});
+        user.profile.address = { ...currentAddress, ...cleanedProfile.address };
+      }
+      
+      // Handle preferences separately - only update if provided
+      if (cleanedProfile.preferences && Object.keys(cleanedProfile.preferences).length > 0) {
+        const currentPrefs = user.profile.preferences?.toObject ? user.profile.preferences.toObject() : (user.profile.preferences || {});
+        
+        // Merge notifications if provided
+        if (cleanedProfile.preferences.notifications) {
+          currentPrefs.notifications = { ...(currentPrefs.notifications || {}), ...cleanedProfile.preferences.notifications };
+        }
+        
+        // Merge privacy if provided
+        if (cleanedProfile.preferences.privacy) {
+          currentPrefs.privacy = { ...(currentPrefs.privacy || {}), ...cleanedProfile.preferences.privacy };
+        }
+        
+        // Merge security if provided
+        if (cleanedProfile.preferences.security) {
+          currentPrefs.security = { ...(currentPrefs.security || {}), ...cleanedProfile.preferences.security };
+        }
+        
+        // Handle other preferences
+        const { notifications, privacy, security, ...otherPrefs } = cleanedProfile.preferences;
+        for (const [key, value] of Object.entries(otherPrefs)) {
+          if (value !== undefined) {
+            currentPrefs[key] = value;
+          }
+        }
+        
+        user.profile.preferences = currentPrefs;
+      }
+    }
+  }
+
+  // Handle preferences if sent separately (for backward compatibility)
+  if (preferences !== undefined && typeof preferences === 'object' && preferences !== null) {
+    const cleanedPreferences = cleanObject(preferences);
+    if (Object.keys(cleanedPreferences).length > 0) {
+      const currentPrefs = user.profile.preferences?.toObject ? user.profile.preferences.toObject() : (user.profile.preferences || {});
+      
+      // Merge notifications if provided
+      if (cleanedPreferences.notifications) {
+        currentPrefs.notifications = { ...(currentPrefs.notifications || {}), ...cleanedPreferences.notifications };
+      }
+      
+      // Merge privacy if provided
+      if (cleanedPreferences.privacy) {
+        currentPrefs.privacy = { ...(currentPrefs.privacy || {}), ...cleanedPreferences.privacy };
+      }
+      
+      // Merge security if provided
+      if (cleanedPreferences.security) {
+        currentPrefs.security = { ...(currentPrefs.security || {}), ...cleanedPreferences.security };
+      }
+      
+      // Handle other preferences
+      const { notifications, privacy, security, ...otherPrefs } = cleanedPreferences;
+      for (const [key, value] of Object.entries(otherPrefs)) {
+        if (value !== undefined) {
+          currentPrefs[key] = value;
+        }
+      }
+      
+      user.profile.preferences = currentPrefs;
+    }
+  }
+
+  await user.save();
+
+  // Get updated statistics
+  const [totalProperties, totalFavorites, totalMessages] = await Promise.all([
+    Property.countDocuments({ owner: req.user.id }),
+    Favorite.countDocuments({ user: req.user.id }),
+    Message.countDocuments({ $or: [{ sender: req.user.id }, { recipient: req.user.id }] })
+  ]);
+
+  // Remove password from response
+  const userResponse = user.toObject();
+  delete userResponse.password;
+  delete userResponse.verificationToken;
+
+  res.json({
+    success: true,
+    data: {
+      user: {
+        ...userResponse,
+        statistics: {
+          totalProperties,
+          totalFavorites,
+          totalMessages
+        }
+      }
+    }
+  });
+}));
+
 // @desc    Update user
 // @route   PUT /api/users/:id
 // @access  Private
@@ -720,145 +925,6 @@ router.put('/:id', asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: { user: userResponse }
-  });
-}));
-
-// @desc    Update current user profile
-// @route   PUT /api/users/profile
-// @access  Private
-router.put('/profile', asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.id);
-
-  if (!user) {
-    return res.status(404).json({
-      success: false,
-      message: 'User not found'
-    });
-  }
-
-  const {
-    email,
-    profile,
-    preferences,
-  } = req.body;
-
-  // Check if email or phone is being changed - these require OTP verification
-  const isEmailChanging = email && email !== user.email;
-  const isPhoneChanging = profile?.phone && profile.phone !== user.profile.phone;
-
-  if (isEmailChanging || isPhoneChanging) {
-    return res.status(403).json({
-      success: false,
-      requiresOTP: true,
-      message: 'Email and phone changes require verification. Please use the OTP verification flow.',
-      endpoint: '/api/auth/request-profile-update-otp'
-    });
-  }
-
-  // Helper function to deeply merge objects, filtering out undefined values
-  const deepMerge = (target, source) => {
-    const result = { ...target };
-
-    for (const key in source) {
-      if (source[key] === undefined) {
-        continue; // Skip undefined values
-      }
-
-      if (source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-        // Check if source object has any defined values recursively
-        const hasDefinedValues = (obj) => {
-          return Object.values(obj).some(v => {
-            if (v === undefined) return false;
-            if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
-              return hasDefinedValues(v);
-            }
-            return true;
-          });
-        };
-
-        if (!hasDefinedValues(source[key])) {
-          continue; // Skip objects with only undefined values
-        }
-
-        // If both target and source have object values, merge them recursively
-        if (result[key] && typeof result[key] === 'object' && !Array.isArray(result[key])) {
-          result[key] = deepMerge(result[key], source[key]);
-        } else {
-          result[key] = source[key];
-        }
-      } else {
-        result[key] = source[key];
-      }
-    }
-
-    return result;
-  };
-
-  // Helper function to clean object from undefined values
-  const cleanObject = (obj) => {
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
-
-    const cleaned = {};
-    for (const key in obj) {
-      if (obj[key] === undefined) continue;
-
-      if (obj[key] !== null && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
-        const cleanedNested = cleanObject(obj[key]);
-        if (Object.keys(cleanedNested).length > 0) {
-          cleaned[key] = cleanedNested;
-        }
-      } else {
-        cleaned[key] = obj[key];
-      }
-    }
-    return cleaned;
-  };
-
-  // Update fields
-  if (profile) {
-    const cleanedProfile = cleanObject(profile);
-    if (Object.keys(cleanedProfile).length > 0) {
-      user.profile = deepMerge(user.profile || {}, cleanedProfile);
-    }
-  }
-
-  // Handle preferences if sent separately (for backward compatibility)
-  if (preferences !== undefined && typeof preferences === 'object' && preferences !== null) {
-    const cleanedPreferences = cleanObject(preferences);
-    if (Object.keys(cleanedPreferences).length > 0) {
-      if (!user.profile.preferences) {
-        user.profile.preferences = {};
-      }
-      user.profile.preferences = deepMerge(user.profile.preferences, cleanedPreferences);
-    }
-  }
-
-  await user.save();
-
-  // Get updated statistics
-  const [totalProperties, totalFavorites, totalMessages] = await Promise.all([
-    Property.countDocuments({ owner: req.user.id }),
-    Favorite.countDocuments({ user: req.user.id }),
-    Message.countDocuments({ $or: [{ sender: req.user.id }, { recipient: req.user.id }] })
-  ]);
-
-  // Remove password from response
-  const userResponse = user.toObject();
-  delete userResponse.password;
-  delete userResponse.verificationToken;
-
-  res.json({
-    success: true,
-    data: {
-      user: {
-        ...userResponse,
-        statistics: {
-          totalProperties,
-          totalFavorites,
-          totalMessages
-        }
-      }
-    }
   });
 }));
 
