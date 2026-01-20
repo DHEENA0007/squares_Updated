@@ -422,7 +422,7 @@ const requireVendorRole = asyncHandler(async (req, res, next) => {
           approvalNotes: 'Auto-created for agent user'
         },
         metadata: {
-          source: 'auto',
+          source: 'admin',
           notes: 'Auto-created when vendor profile was missing'
         }
       };
@@ -596,17 +596,17 @@ router.get('/profile', requireVendorRole, asyncHandler(async (req, res) => {
       },
       address: {
         street: user.profile.address?.street || vendor.contactInfo?.officeAddress?.street,
-        area: vendor.contactInfo?.officeAddress?.area,
+        area: user.profile.address?.area || vendor.contactInfo?.officeAddress?.area,
         city: user.profile.address?.city || vendor.contactInfo?.officeAddress?.city,
         state: user.profile.address?.state || vendor.contactInfo?.officeAddress?.state,
-        district: vendor.contactInfo?.officeAddress?.district,
+        district: user.profile.address?.district || vendor.contactInfo?.officeAddress?.district,
         zipCode: user.profile.address?.zipCode || vendor.contactInfo?.officeAddress?.pincode,
         country: user.profile.address?.country || vendor.contactInfo?.officeAddress?.country,
-        countryCode: vendor.contactInfo?.officeAddress?.countryCode,
-        stateCode: vendor.contactInfo?.officeAddress?.stateCode,
-        districtCode: vendor.contactInfo?.officeAddress?.districtCode,
-        cityCode: vendor.contactInfo?.officeAddress?.cityCode,
-        landmark: vendor.contactInfo?.officeAddress?.landmark,
+        countryCode: user.profile.address?.countryCode || vendor.contactInfo?.officeAddress?.countryCode,
+        stateCode: user.profile.address?.stateCode || vendor.contactInfo?.officeAddress?.stateCode,
+        districtCode: user.profile.address?.districtCode || vendor.contactInfo?.officeAddress?.districtCode,
+        cityCode: user.profile.address?.cityCode || vendor.contactInfo?.officeAddress?.cityCode,
+        landmark: user.profile.address?.landmark || vendor.contactInfo?.officeAddress?.landmark,
       },
       vendorInfo: {
         licenseNumber: vendor.businessInfo?.licenseNumber,
@@ -1002,7 +1002,20 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
           allowMessages: user.profile.preferences?.privacy?.allowMessages ?? true,
         }
       },
-      address: user.profile.address,
+      address: {
+        street: user.profile.address?.street || vendor.contactInfo?.officeAddress?.street,
+        area: user.profile.address?.area || vendor.contactInfo?.officeAddress?.area,
+        city: user.profile.address?.city || vendor.contactInfo?.officeAddress?.city,
+        state: user.profile.address?.state || vendor.contactInfo?.officeAddress?.state,
+        district: user.profile.address?.district || vendor.contactInfo?.officeAddress?.district,
+        zipCode: user.profile.address?.zipCode || vendor.contactInfo?.officeAddress?.pincode,
+        country: user.profile.address?.country || vendor.contactInfo?.officeAddress?.country,
+        countryCode: user.profile.address?.countryCode || vendor.contactInfo?.officeAddress?.countryCode,
+        stateCode: user.profile.address?.stateCode || vendor.contactInfo?.officeAddress?.stateCode,
+        districtCode: user.profile.address?.districtCode || vendor.contactInfo?.officeAddress?.districtCode,
+        cityCode: user.profile.address?.cityCode || vendor.contactInfo?.officeAddress?.cityCode,
+        landmark: user.profile.address?.landmark || vendor.contactInfo?.officeAddress?.landmark,
+      },
       vendorInfo: {
         licenseNumber: vendor.businessInfo?.licenseNumber,
         gstNumber: vendor.businessInfo?.gstNumber,

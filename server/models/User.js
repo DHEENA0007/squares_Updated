@@ -66,10 +66,17 @@ const userSchema = new mongoose.Schema({
     },
     address: {
       street: String,
+      area: String,
       city: String,
       state: String,
+      district: String,
       zipCode: String,
-      country: String
+      country: String,
+      countryCode: String,
+      stateCode: String,
+      districtCode: String,
+      cityCode: String,
+      landmark: String
     },
     emailVerified: {
       type: Boolean,
