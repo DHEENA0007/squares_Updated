@@ -135,6 +135,23 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Vendor',
     default: null
+  },
+
+  // Business info for agents/vendors (cached from vendor profile)
+  businessInfo: {
+    businessName: String,
+    businessType: String,
+    businessDescription: String,
+    experience: Number,
+    licenseNumber: String,
+    gstNumber: String,
+    panNumber: String,
+    website: String,
+    address: String,
+    city: String,
+    district: String,
+    state: String,
+    pincode: String
   }
 }, {
   timestamps: true,

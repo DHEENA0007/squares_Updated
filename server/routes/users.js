@@ -106,16 +106,49 @@ router.get('/', asyncHandler(async (req, res) => {
   // Get users with pagination
   const users = await User.find(filter)
     .select('-password -verificationToken')
+    .populate('vendorProfile', 'businessInfo professionalInfo contactInfo')
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(parseInt(limit));
+
+  // Transform users to include businessInfo from vendorProfile if not cached
+  const transformedUsers = users.map(user => {
+    const userObj = user.toObject();
+    
+    // If user is agent/vendor and has vendorProfile but no cached businessInfo, populate it
+    if ((userObj.role === 'agent' || userObj.role === 'vendor') && userObj.vendorProfile && !userObj.businessInfo?.businessName) {
+      const vendor = userObj.vendorProfile;
+      userObj.businessInfo = {
+        businessName: vendor.businessInfo?.companyName || '',
+        businessType: vendor.businessInfo?.businessType || '',
+        businessDescription: vendor.businessInfo?.description || '',
+        experience: vendor.professionalInfo?.experience || 0,
+        licenseNumber: vendor.businessInfo?.licenseNumber || '',
+        gstNumber: vendor.businessInfo?.gstNumber || '',
+        panNumber: vendor.businessInfo?.panNumber || '',
+        website: vendor.businessInfo?.website || '',
+        address: vendor.contactInfo?.officeAddress?.street || '',
+        city: vendor.contactInfo?.officeAddress?.city || '',
+        district: vendor.contactInfo?.officeAddress?.district || '',
+        state: vendor.contactInfo?.officeAddress?.state || '',
+        pincode: vendor.contactInfo?.officeAddress?.pincode || ''
+      };
+    }
+    
+    // Remove full vendorProfile from response (keep only ID reference)
+    if (userObj.vendorProfile && typeof userObj.vendorProfile === 'object') {
+      userObj.vendorProfile = userObj.vendorProfile._id;
+    }
+    
+    return userObj;
+  });
 
   const totalPages = Math.ceil(totalUsers / parseInt(limit));
 
   res.json({
     success: true,
     data: {
-      users,
+      users: transformedUsers,
       pagination: {
         currentPage: parseInt(page),
         totalPages,
@@ -1107,16 +1140,56 @@ router.patch('/:id/promote', asyncHandler(async (req, res) => {
   const oldRole = user.role;
   user.role = role;
 
-  // If promoting to agent/vendor, create vendor profile
+  // If promoting to agent/vendor, handle business info and vendor profile
   if ((role === 'agent' || role === 'vendor') && businessInfo) {
     try {
-      console.log(`[User Promotion] Creating vendor profile for ${user.email}`);
+      console.log(`[User Promotion] Processing vendor profile for ${user.email}`);
+
+      // Save businessInfo to user document for quick access
+      user.businessInfo = {
+        businessName: businessInfo.businessName,
+        businessType: businessInfo.businessType,
+        businessDescription: businessInfo.businessDescription,
+        experience: businessInfo.experience ? parseInt(businessInfo.experience) : 0,
+        licenseNumber: businessInfo.licenseNumber || '',
+        gstNumber: businessInfo.gstNumber || '',
+        panNumber: businessInfo.panNumber || '',
+        website: businessInfo.website || '',
+        address: businessInfo.address,
+        city: businessInfo.city,
+        district: businessInfo.district,
+        state: businessInfo.state,
+        pincode: businessInfo.pincode
+      };
 
       // Check if vendor profile already exists
       const existingVendor = await Vendor.findOne({ user: user._id });
       if (existingVendor) {
-        console.log(`[User Promotion] Vendor profile already exists for user ${user.email}`);
+        console.log(`[User Promotion] Updating existing vendor profile for ${user.email}`);
+        
+        // Update existing vendor profile
+        existingVendor.businessInfo = {
+          companyName: businessInfo.businessName,
+          businessType: businessInfo.businessType,
+          description: businessInfo.businessDescription,
+          licenseNumber: businessInfo.licenseNumber || undefined,
+          gstNumber: businessInfo.gstNumber || undefined,
+          panNumber: businessInfo.panNumber || undefined,
+          website: businessInfo.website || undefined,
+        };
+        existingVendor.professionalInfo.experience = businessInfo.experience ? parseInt(businessInfo.experience) : existingVendor.professionalInfo.experience;
+        existingVendor.contactInfo.officeAddress = {
+          ...existingVendor.contactInfo.officeAddress,
+          street: businessInfo.address || existingVendor.contactInfo.officeAddress?.street || '',
+          city: businessInfo.city || existingVendor.contactInfo.officeAddress?.city || '',
+          state: businessInfo.state || existingVendor.contactInfo.officeAddress?.state || '',
+          district: businessInfo.district || existingVendor.contactInfo.officeAddress?.district || '',
+          pincode: businessInfo.pincode || existingVendor.contactInfo.officeAddress?.pincode || '',
+        };
+        
+        await existingVendor.save();
         user.vendorProfile = existingVendor._id;
+        console.log(`[User Promotion] ✓ Vendor profile updated: ${existingVendor._id}`);
       } else {
         // Ensure businessInfo has required fields
         const companyName = businessInfo?.businessName || `${user.profile.firstName} ${user.profile.lastName} Properties`;

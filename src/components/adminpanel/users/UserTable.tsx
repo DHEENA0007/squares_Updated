@@ -319,26 +319,21 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter, startDa
     let finalBusinessInfo = null;
 
     if (isVendorRole) {
-      // Check if we need to collect data
-      const needsData = !selectedUser.businessInfo;
+      // Always validate and send business info for agent/vendor role
+      if (!businessInfo.businessName) return alert("Business Name is required");
+      if (!businessInfo.businessType) return alert("Business Type is required");
+      if (!businessInfo.businessDescription || businessInfo.businessDescription.length < 10) return alert("Description must be at least 10 chars");
+      if (!businessInfo.panNumber) return alert("PAN Number is required");
+      if (!businessInfo.address) return alert("Address is required");
+      if (!businessInfo.city) return alert("City is required");
+      if (!businessInfo.district) return alert("District is required");
+      if (!businessInfo.state) return alert("State is required");
+      if (!businessInfo.pincode) return alert("Pincode is required");
 
-      if (needsData) {
-        // Validate required fields
-        if (!businessInfo.businessName) return alert("Business Name is required");
-        if (!businessInfo.businessType) return alert("Business Type is required");
-        if (!businessInfo.businessDescription || businessInfo.businessDescription.length < 10) return alert("Description must be at least 10 chars");
-        if (!businessInfo.panNumber) return alert("PAN Number is required");
-        if (!businessInfo.address) return alert("Address is required");
-        if (!businessInfo.city) return alert("City is required");
-        if (!businessInfo.district) return alert("District is required");
-        if (!businessInfo.state) return alert("State is required");
-        if (!businessInfo.pincode) return alert("Pincode is required");
-
-        finalBusinessInfo = {
-          ...businessInfo,
-          experience: parseInt(businessInfo.experience) || 0
-        };
-      }
+      finalBusinessInfo = {
+        ...businessInfo,
+        experience: parseInt(businessInfo.experience) || 0
+      };
     }
 
     setPromotingUserId(selectedUser._id);
@@ -786,7 +781,9 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter, startDa
                   <SelectContent>
                     {roles.length > 0 ? (
                       roles
-                        .filter(role => role.name.toLowerCase() !== 'superadmin')
+                        .filter(role => 
+                          role.name.toLowerCase() !== selectedUser.role.toLowerCase()
+                        )
                         .map((role) => (
                           <SelectItem key={role._id} value={role.name}>
                             {role.name}
@@ -794,9 +791,9 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter, startDa
                         ))
                     ) : (
                       <>
-                        <SelectItem value="customer">Customer</SelectItem>
-                        <SelectItem value="agent">Vendor/Agent</SelectItem>
-                        <SelectItem value="subadmin">Sub Admin</SelectItem>
+                        {selectedUser.role.toLowerCase() !== 'customer' && <SelectItem value="customer">Customer</SelectItem>}
+                        {selectedUser.role.toLowerCase() !== 'agent' && <SelectItem value="agent">Vendor/Agent</SelectItem>}
+                        {selectedUser.role.toLowerCase() !== 'subadmin' && <SelectItem value="subadmin">Sub Admin</SelectItem>}
                       </>
                     )}
                   </SelectContent>
@@ -810,12 +807,14 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter, startDa
               </div>
 
               {/* Business Info Form for Agent/Vendor */}
-              {(selectedRole.toLowerCase() === 'agent' || selectedRole.toLowerCase() === 'vendor') && !selectedUser.businessInfo && (
+              {(selectedRole.toLowerCase() === 'agent' || selectedRole.toLowerCase() === 'vendor') && (
                 <ScrollArea className="h-[300px] pr-4 border rounded-md p-2">
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Shield className="w-4 h-4 text-primary" />
-                      <h3 className="font-semibold">Business Information Required</h3>
+                      <h3 className="font-semibold">
+                        {selectedUser.businessInfo ? 'Business Information' : 'Business Information Required'}
+                      </h3>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
