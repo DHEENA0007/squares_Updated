@@ -1141,26 +1141,30 @@ router.patch('/:id/promote', asyncHandler(async (req, res) => {
   user.role = role;
 
   // If promoting to agent/vendor, handle business info and vendor profile
-  if ((role === 'agent' || role === 'vendor') && businessInfo) {
-    try {
-      console.log(`[User Promotion] Processing vendor profile for ${user.email}`);
+  if (role === 'agent' || role === 'vendor') {
+    // Use provided businessInfo, or preserve existing businessInfo
+    const finalBusinessInfo = businessInfo || user.businessInfo;
 
-      // Save businessInfo to user document for quick access
-      user.businessInfo = {
-        businessName: businessInfo.businessName,
-        businessType: businessInfo.businessType,
-        businessDescription: businessInfo.businessDescription,
-        experience: businessInfo.experience ? parseInt(businessInfo.experience) : 0,
-        licenseNumber: businessInfo.licenseNumber || '',
-        gstNumber: businessInfo.gstNumber || '',
-        panNumber: businessInfo.panNumber || '',
-        website: businessInfo.website || '',
-        address: businessInfo.address,
-        city: businessInfo.city,
-        district: businessInfo.district,
-        state: businessInfo.state,
-        pincode: businessInfo.pincode
-      };
+    if (finalBusinessInfo) {
+      try {
+        console.log(`[User Promotion] Processing vendor profile for ${user.email}`);
+
+        // Save/update businessInfo to user document for persistence
+        user.businessInfo = {
+          businessName: finalBusinessInfo.businessName,
+          businessType: finalBusinessInfo.businessType,
+          businessDescription: finalBusinessInfo.businessDescription,
+          experience: finalBusinessInfo.experience ? parseInt(finalBusinessInfo.experience) : 0,
+          licenseNumber: finalBusinessInfo.licenseNumber || '',
+          gstNumber: finalBusinessInfo.gstNumber || '',
+          panNumber: finalBusinessInfo.panNumber || '',
+          website: finalBusinessInfo.website || '',
+          address: finalBusinessInfo.address,
+          city: finalBusinessInfo.city,
+          district: finalBusinessInfo.district,
+          state: finalBusinessInfo.state,
+          pincode: finalBusinessInfo.pincode
+        };
 
       // Check if vendor profile already exists
       const existingVendor = await Vendor.findOne({ user: user._id });
@@ -1169,22 +1173,22 @@ router.patch('/:id/promote', asyncHandler(async (req, res) => {
         
         // Update existing vendor profile
         existingVendor.businessInfo = {
-          companyName: businessInfo.businessName,
-          businessType: businessInfo.businessType,
-          description: businessInfo.businessDescription,
-          licenseNumber: businessInfo.licenseNumber || undefined,
-          gstNumber: businessInfo.gstNumber || undefined,
-          panNumber: businessInfo.panNumber || undefined,
-          website: businessInfo.website || undefined,
+          companyName: finalBusinessInfo.businessName,
+          businessType: finalBusinessInfo.businessType,
+          description: finalBusinessInfo.businessDescription,
+          licenseNumber: finalBusinessInfo.licenseNumber || undefined,
+          gstNumber: finalBusinessInfo.gstNumber || undefined,
+          panNumber: finalBusinessInfo.panNumber || undefined,
+          website: finalBusinessInfo.website || undefined,
         };
-        existingVendor.professionalInfo.experience = businessInfo.experience ? parseInt(businessInfo.experience) : existingVendor.professionalInfo.experience;
+        existingVendor.professionalInfo.experience = finalBusinessInfo.experience ? parseInt(finalBusinessInfo.experience) : existingVendor.professionalInfo.experience;
         existingVendor.contactInfo.officeAddress = {
           ...existingVendor.contactInfo.officeAddress,
-          street: businessInfo.address || existingVendor.contactInfo.officeAddress?.street || '',
-          city: businessInfo.city || existingVendor.contactInfo.officeAddress?.city || '',
-          state: businessInfo.state || existingVendor.contactInfo.officeAddress?.state || '',
-          district: businessInfo.district || existingVendor.contactInfo.officeAddress?.district || '',
-          pincode: businessInfo.pincode || existingVendor.contactInfo.officeAddress?.pincode || '',
+          street: finalBusinessInfo.address || existingVendor.contactInfo.officeAddress?.street || '',
+          city: finalBusinessInfo.city || existingVendor.contactInfo.officeAddress?.city || '',
+          state: finalBusinessInfo.state || existingVendor.contactInfo.officeAddress?.state || '',
+          district: finalBusinessInfo.district || existingVendor.contactInfo.officeAddress?.district || '',
+          pincode: finalBusinessInfo.pincode || existingVendor.contactInfo.officeAddress?.pincode || '',
         };
         
         await existingVendor.save();
@@ -1192,21 +1196,21 @@ router.patch('/:id/promote', asyncHandler(async (req, res) => {
         console.log(`[User Promotion] ✓ Vendor profile updated: ${existingVendor._id}`);
       } else {
         // Ensure businessInfo has required fields
-        const companyName = businessInfo?.businessName || `${user.profile.firstName} ${user.profile.lastName} Properties`;
+        const companyName = finalBusinessInfo?.businessName || `${user.profile.firstName} ${user.profile.lastName} Properties`;
 
         const vendorData = {
           user: user._id,
           businessInfo: {
             companyName: companyName,
-            businessType: businessInfo?.businessType || 'real_estate_agent',
-            description: businessInfo?.businessDescription || undefined,
-            licenseNumber: businessInfo?.licenseNumber || undefined,
-            gstNumber: businessInfo?.gstNumber || undefined,
-            panNumber: businessInfo?.panNumber || undefined,
-            website: businessInfo?.website || undefined,
+            businessType: finalBusinessInfo?.businessType || 'real_estate_agent',
+            description: finalBusinessInfo?.businessDescription || undefined,
+            licenseNumber: finalBusinessInfo?.licenseNumber || undefined,
+            gstNumber: finalBusinessInfo?.gstNumber || undefined,
+            panNumber: finalBusinessInfo?.panNumber || undefined,
+            website: finalBusinessInfo?.website || undefined,
           },
           professionalInfo: {
-            experience: businessInfo?.experience ? parseInt(businessInfo.experience) : 0,
+            experience: finalBusinessInfo?.experience ? parseInt(finalBusinessInfo.experience) : 0,
             specializations: [],
             serviceAreas: [],
             languages: ['english'],
@@ -1214,17 +1218,17 @@ router.patch('/:id/promote', asyncHandler(async (req, res) => {
           },
           contactInfo: {
             officeAddress: {
-              street: businessInfo?.address || user.profile.address?.street || '',
+              street: finalBusinessInfo?.address || user.profile.address?.street || '',
               area: '',
-              city: businessInfo?.city || user.profile.address?.city || '',
-              state: businessInfo?.state || user.profile.address?.state || '',
+              city: finalBusinessInfo?.city || user.profile.address?.city || '',
+              state: finalBusinessInfo?.state || user.profile.address?.state || '',
               district: '',
               country: 'India',
               countryCode: 'IN',
               stateCode: '',
               districtCode: '',
               cityCode: '',
-              pincode: businessInfo?.pincode || user.profile.address?.zipCode || '',
+              pincode: finalBusinessInfo?.pincode || user.profile.address?.zipCode || '',
               landmark: ''
             },
             officePhone: user.profile.phone || '',
@@ -1292,9 +1296,10 @@ router.patch('/:id/promote', asyncHandler(async (req, res) => {
         user.vendorProfile = vendor._id;
         console.log(`[User Promotion] ✓ Vendor profile created: ${vendor._id}`);
       }
-    } catch (vendorError) {
-      console.error('[User Promotion] Error creating vendor profile:', vendorError);
-      // Don't fail the promotion if vendor creation fails, but log it
+      } catch (vendorError) {
+        console.error('[User Promotion] Error creating vendor profile:', vendorError);
+        // Don't fail the promotion if vendor creation fails, but log it
+      }
     }
   }
 

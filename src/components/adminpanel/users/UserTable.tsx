@@ -265,7 +265,7 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter, startDa
 
   const handlePromoteUser = (user: User) => {
     setSelectedUser(user);
-    setSelectedRole(user.role);
+    setSelectedRole(""); // Start with empty selection, don't pre-select current role
     // Pre-fill business info if available
     if (user.businessInfo) {
       setBusinessInfo({
@@ -319,21 +319,42 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter, startDa
     let finalBusinessInfo = null;
 
     if (isVendorRole) {
-      // Always validate and send business info for agent/vendor role
-      if (!businessInfo.businessName) return alert("Business Name is required");
-      if (!businessInfo.businessType) return alert("Business Type is required");
-      if (!businessInfo.businessDescription || businessInfo.businessDescription.length < 10) return alert("Description must be at least 10 chars");
-      if (!businessInfo.panNumber) return alert("PAN Number is required");
-      if (!businessInfo.address) return alert("Address is required");
-      if (!businessInfo.city) return alert("City is required");
-      if (!businessInfo.district) return alert("District is required");
-      if (!businessInfo.state) return alert("State is required");
-      if (!businessInfo.pincode) return alert("Pincode is required");
+      // If user already has business info (from previous agent role), use it
+      // Otherwise validate and require new business info
+      if (selectedUser.businessInfo && selectedUser.businessInfo.businessName) {
+        // Use existing business info, but allow updates from form if fields are filled
+        finalBusinessInfo = {
+          businessName: businessInfo.businessName || selectedUser.businessInfo.businessName,
+          businessType: businessInfo.businessType || selectedUser.businessInfo.businessType,
+          businessDescription: businessInfo.businessDescription || selectedUser.businessInfo.businessDescription,
+          panNumber: businessInfo.panNumber || selectedUser.businessInfo.panNumber,
+          address: businessInfo.address || selectedUser.businessInfo.address,
+          city: businessInfo.city || selectedUser.businessInfo.city,
+          district: businessInfo.district || selectedUser.businessInfo.district,
+          state: businessInfo.state || selectedUser.businessInfo.state,
+          pincode: businessInfo.pincode || selectedUser.businessInfo.pincode,
+          experience: parseInt(businessInfo.experience) || selectedUser.businessInfo.experience || 0,
+          licenseNumber: businessInfo.licenseNumber || selectedUser.businessInfo.licenseNumber || '',
+          gstNumber: businessInfo.gstNumber || selectedUser.businessInfo.gstNumber || '',
+          website: businessInfo.website || selectedUser.businessInfo.website || '',
+        };
+      } else {
+        // New business info required - validate all required fields
+        if (!businessInfo.businessName) return alert("Business Name is required");
+        if (!businessInfo.businessType) return alert("Business Type is required");
+        if (!businessInfo.businessDescription || businessInfo.businessDescription.length < 10) return alert("Description must be at least 10 chars");
+        if (!businessInfo.panNumber) return alert("PAN Number is required");
+        if (!businessInfo.address) return alert("Address is required");
+        if (!businessInfo.city) return alert("City is required");
+        if (!businessInfo.district) return alert("District is required");
+        if (!businessInfo.state) return alert("State is required");
+        if (!businessInfo.pincode) return alert("Pincode is required");
 
-      finalBusinessInfo = {
-        ...businessInfo,
-        experience: parseInt(businessInfo.experience) || 0
-      };
+        finalBusinessInfo = {
+          ...businessInfo,
+          experience: parseInt(businessInfo.experience) || 0
+        };
+      }
     }
 
     setPromotingUserId(selectedUser._id);
@@ -782,6 +803,10 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter, startDa
                     {roles.length > 0 ? (
                       roles
                         .filter(role => 
+                          role.name && 
+                          role.name.trim() !== '' &&
+                          role.name.toLowerCase() !== 'superadmin' && 
+                          role.name.toLowerCase() !== 'super admin' &&
                           role.name.toLowerCase() !== selectedUser.role.toLowerCase()
                         )
                         .map((role) => (
