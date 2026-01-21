@@ -38,6 +38,8 @@ import { messageService } from '@/services/messageService';
 import { vendorService } from '@/services/vendorService';
 import PropertyMessageDialog from '@/components/PropertyMessageDialog';
 import PropertyContactDialog from '@/components/PropertyContactDialog';
+import { configurationService } from '@/services/configurationService';
+import { PropertyTypeField } from '@/types/configuration';
 
 import EnterprisePropertyContactDialog from '@/components/EnterprisePropertyContactDialog';
 import {
@@ -68,6 +70,7 @@ const PropertyDetails: React.FC = () => {
   const [isFavorited, setIsFavorited] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [propertyTypeFields, setPropertyTypeFields] = useState<PropertyTypeField[]>([]);
 
   // Dialog states
   const [showMessageDialog, setShowMessageDialog] = useState(false);
@@ -150,6 +153,24 @@ const PropertyDetails: React.FC = () => {
   useEffect(() => {
     loadProperty();
   }, [loadProperty]);
+
+  useEffect(() => {
+    const fetchFields = async () => {
+      if (property?.type) {
+        try {
+          const types = await configurationService.getAllPropertyTypes();
+          const currentType = types.find(t => t.value === property.type);
+          if (currentType) {
+            const fields = await configurationService.getPropertyTypeFields(currentType._id);
+            setPropertyTypeFields(fields.filter(f => f.isActive).sort((a, b) => a.displayOrder - b.displayOrder));
+          }
+        } catch (error) {
+          console.error("Failed to fetch property type fields:", error);
+        }
+      }
+    };
+    fetchFields();
+  }, [property?.type]);
 
   // Track view duration
   useEffect(() => {
@@ -392,7 +413,7 @@ const PropertyDetails: React.FC = () => {
       { label: 'Car Parking', value: property.parkingSpaces ? `${property.parkingSpaces}` : null },
       { label: 'Bathroom', value: property.bathrooms ? `${property.bathrooms}` : null },
     ];
-    return specs.filter(spec => spec.value);
+    return specs.filter(spec => spec.value && spec.value !== 'N/A');
   };
 
   const getMoreDetails = () => {
@@ -516,6 +537,20 @@ const PropertyDetails: React.FC = () => {
                     </span>
                   </div>
                 ))}
+
+                {/* Dynamic Fields */}
+                {propertyTypeFields.map((field) => {
+                  const value = property.customFields?.[field.fieldName];
+                  if (value === undefined || value === null || value === '') return null;
+                  return (
+                    <div key={field._id} className="grid grid-cols-1 md:grid-cols-3 gap-4 py-2 border-b border-border/40">
+                      <span className="text-sm text-muted-foreground">{field.fieldLabel}</span>
+                      <span className="text-sm font-medium text-foreground md:col-span-2 capitalize">
+                        {Array.isArray(value) ? value.join(', ') : value.toString()}
+                      </span>
+                    </div>
+                  );
+                })}
 
                 {property.amenities && property.amenities.length > 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-2 border-b border-border/40">

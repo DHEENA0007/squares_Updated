@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import { propertyService, type Property } from '@/services/propertyService';
 import { vendorService } from '@/services/vendorService';
+import { configurationService } from '@/services/configurationService';
+import { PropertyTypeField } from '@/types/configuration';
 import EnterprisePropertyContactDialog from '@/components/EnterprisePropertyContactDialog';
 
 const PublicPropertyDetails: React.FC = () => {
@@ -42,6 +44,7 @@ const PublicPropertyDetails: React.FC = () => {
   const [hasWhatsAppSupport, setHasWhatsAppSupport] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
   const [checkingWhatsApp, setCheckingWhatsApp] = useState(false);
+  const [propertyTypeFields, setPropertyTypeFields] = useState<PropertyTypeField[]>([]);
 
   const loadProperty = useCallback(async () => {
     if (!id) return;
@@ -97,6 +100,24 @@ const PublicPropertyDetails: React.FC = () => {
   useEffect(() => {
     loadProperty();
   }, [loadProperty]);
+
+  useEffect(() => {
+    const fetchFields = async () => {
+      if (property?.type) {
+        try {
+          const types = await configurationService.getAllPropertyTypes();
+          const currentType = types.find(t => t.value === property.type);
+          if (currentType) {
+            const fields = await configurationService.getPropertyTypeFields(currentType._id);
+            setPropertyTypeFields(fields.filter(f => f.isActive).sort((a, b) => a.displayOrder - b.displayOrder));
+          }
+        } catch (error) {
+          console.error("Failed to fetch property type fields:", error);
+        }
+      }
+    };
+    fetchFields();
+  }, [property?.type]);
 
   // Redirect authenticated users to customer property page
   useEffect(() => {
@@ -412,6 +433,12 @@ const PublicPropertyDetails: React.FC = () => {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Property Overview */}
+            {/* Only show standard overview if dynamic fields are NOT present, or if we want to show both? 
+                The user wants dynamic details. The overview has Bedrooms, Bathrooms, Sq Ft, Type.
+                These are very common. I'll leave them for now as they are "Overview", not "Details". 
+                But if they are empty/zero, they might look weird if dynamic fields are used instead.
+                Let's keep it for now, as it's a summary.
+            */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -421,26 +448,30 @@ const PublicPropertyDetails: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {property.bedrooms && property.bedrooms > 0 && (
+                  {property.bedrooms > 0 && (
                     <div className="text-center p-4 bg-muted rounded-lg">
                       <Bed className="w-6 h-6 mx-auto mb-2 text-primary" />
                       <p className="text-2xl font-bold">{property.bedrooms}</p>
                       <p className="text-sm text-muted-foreground">Bedrooms</p>
                     </div>
                   )}
-                  <div className="text-center p-4 bg-muted rounded-lg">
-                    <Bath className="w-6 h-6 mx-auto mb-2 text-primary" />
-                    <p className="text-2xl font-bold">{property.bathrooms || 0}</p>
-                    <p className="text-sm text-muted-foreground">Bathrooms</p>
-                  </div>
-                  <div className="text-center p-4 bg-muted rounded-lg">
-                    <Maximize className="w-6 h-6 mx-auto mb-2 text-primary" />
-                    <p className="text-2xl font-bold">{formatArea(property.area).split(' ')[0]}</p>
-                    <p className="text-sm text-muted-foreground">Sq Ft</p>
-                  </div>
+                  {property.bathrooms > 0 && (
+                    <div className="text-center p-4 bg-muted rounded-lg">
+                      <Bath className="w-6 h-6 mx-auto mb-2 text-primary" />
+                      <p className="text-2xl font-bold">{property.bathrooms}</p>
+                      <p className="text-sm text-muted-foreground">Bathrooms</p>
+                    </div>
+                  )}
+                  {formatArea(property.area) !== 'N/A' && (
+                    <div className="text-center p-4 bg-muted rounded-lg">
+                      <Maximize className="w-6 h-6 mx-auto mb-2 text-primary" />
+                      <p className="text-2xl font-bold">{formatArea(property.area).split(' ')[0]}</p>
+                      <p className="text-sm text-muted-foreground">Sq Ft</p>
+                    </div>
+                  )}
                   <div className="text-center p-4 bg-muted rounded-lg">
                     <Building2 className="w-6 h-6 mx-auto mb-2 text-primary" />
-                    <p className="text-2xl font-bold capitalize">{property.type}</p>
+                    <p className="text-xl md:text-2xl font-bold capitalize break-words leading-tight">{property.type.replace(/_/g, ' ')}</p>
                     <p className="text-sm text-muted-foreground">Type</p>
                   </div>
                 </div>
@@ -457,80 +488,51 @@ const PublicPropertyDetails: React.FC = () => {
             </Card>
 
             {/* Property Details */}
+            {/* Property Details */}
             <Card>
               <CardHeader>
                 <CardTitle>Property Details</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Property Type:</span>
-                      <span className="font-medium capitalize">{property.type}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Listing Type:</span>
-                      <span className="font-medium capitalize">{property.listingType}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Bedrooms:</span>
-                      <span className="font-medium">{property.bedrooms || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Bathrooms:</span>
-                      <span className="font-medium">{property.bathrooms || 0}</span>
-                    </div>
-                    {property.floor && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Floor:</span>
-                        <span className="font-medium">{property.floor}</span>
+                  {propertyTypeFields.length > 0 ? (
+                    <>
+                      {/* Render Dynamic Fields */}
+                      <div className="space-y-3">
+                        {propertyTypeFields.filter((_, i) => i % 2 === 0).map(field => {
+                          const value = property.customFields?.[field.fieldName];
+                          if (value === undefined || value === null || value === '') return null;
+                          return (
+                            <div key={field._id} className="flex justify-between">
+                              <span className="text-muted-foreground">{field.fieldLabel}:</span>
+                              <span className="font-medium capitalize">
+                                {Array.isArray(value) ? value.join(', ') : value.toString()}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {/* Always show Listed On */}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Listed On:</span>
+                          <span className="font-medium">{new Date(property.createdAt).toLocaleDateString()}</span>
+                        </div>
                       </div>
-                    )}
-                    {property.totalFloors && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Floors:</span>
-                        <span className="font-medium">{property.totalFloors}</span>
+                      <div className="space-y-3">
+                        {propertyTypeFields.filter((_, i) => i % 2 !== 0).map(field => {
+                          const value = property.customFields?.[field.fieldName];
+                          if (value === undefined || value === null || value === '') return null;
+                          return (
+                            <div key={field._id} className="flex justify-between">
+                              <span className="text-muted-foreground">{field.fieldLabel}:</span>
+                              <span className="font-medium capitalize">
+                                {Array.isArray(value) ? value.join(', ') : value.toString()}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
-                    )}
-                    {property.furnishing && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Furnishing:</span>
-                        <span className="font-medium capitalize">{property.furnishing.replace('-', ' ')}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Area:</span>
-                      <span className="font-medium">{formatArea(property.area)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Status:</span>
-                      <span className="font-medium capitalize">{property.status}</span>
-                    </div>
-                    {property.facing && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Facing:</span>
-                        <span className="font-medium capitalize">{property.facing}</span>
-                      </div>
-                    )}
-                    {property.parkingSpaces && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Parking:</span>
-                        <span className="font-medium">{property.parkingSpaces}</span>
-                      </div>
-                    )}
-                    {property.age && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Age:</span>
-                        <span className="font-medium">{property.age} years</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Listed On:</span>
-                      <span className="font-medium">{new Date(property.createdAt).toLocaleDateString()}</span>
-                    </div>
-                  </div>
+                    </>
+                  ) : null}
                 </div>
               </CardContent>
             </Card>

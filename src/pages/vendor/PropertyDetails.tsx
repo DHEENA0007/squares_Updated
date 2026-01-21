@@ -31,6 +31,8 @@ import {
   IndianRupee
 } from "lucide-react";
 import { propertyService, type Property } from "@/services/propertyService";
+import { configurationService } from "@/services/configurationService";
+import { PropertyTypeField } from "@/types/configuration";
 
 const PropertyDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -48,6 +50,7 @@ const PropertyDetails = () => {
     shares: number;
     favorites: number;
   } | null>(null);
+  const [propertyTypeFields, setPropertyTypeFields] = useState<PropertyTypeField[]>([]);
 
   useEffect(() => {
     if (id) {
@@ -55,6 +58,24 @@ const PropertyDetails = () => {
       loadInteractionStats(id);
     }
   }, [id]);
+
+  useEffect(() => {
+    const fetchFields = async () => {
+      if (property?.type) {
+        try {
+          const types = await configurationService.getAllPropertyTypes();
+          const currentType = types.find(t => t.value === property.type);
+          if (currentType) {
+            const fields = await configurationService.getPropertyTypeFields(currentType._id);
+            setPropertyTypeFields(fields.filter(f => f.isActive).sort((a, b) => a.displayOrder - b.displayOrder));
+          }
+        } catch (error) {
+          console.error("Failed to fetch property type fields:", error);
+        }
+      }
+    };
+    fetchFields();
+  }, [property?.type]);
 
   const loadProperty = async (propertyId: string) => {
     try {
@@ -329,7 +350,7 @@ const PropertyDetails = () => {
                 {property.type && (
                   <div className="text-center p-4 bg-amber-50 rounded-xl border border-amber-100">
                     <Building2 className="w-6 h-6 mx-auto mb-2 text-amber-600" />
-                    <p className="text-2xl font-bold text-gray-900 capitalize">{property.type}</p>
+                    <p className="text-xl md:text-2xl font-bold text-gray-900 capitalize break-words leading-tight">{property.type.replace(/_/g, ' ')}</p>
                     <p className="text-sm text-amber-600/80 font-medium">Type</p>
                   </div>
                 )}
@@ -347,58 +368,53 @@ const PropertyDetails = () => {
           </Card>
 
           {/* Property Details */}
+          {/* Property Details */}
           <Card className="border-none shadow-md">
             <CardHeader>
               <CardTitle className="text-xl">Property Details</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-                <div className="space-y-4">
-                  {property.type && (
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                      <span className="text-muted-foreground">Property Type</span>
-                      <span className="font-semibold capitalize text-gray-900">{property.type}</span>
+                {propertyTypeFields.length > 0 ? (
+                  <>
+                    <div className="space-y-4">
+                      {propertyTypeFields.filter((_, i) => i % 2 === 0).map(field => {
+                        const value = property.customFields?.[field.fieldName];
+                        if (value === undefined || value === null || value === '') return null;
+                        return (
+                          <div key={field._id} className="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span className="text-muted-foreground">{field.fieldLabel}</span>
+                            <span className="font-semibold capitalize text-gray-900">
+                              {Array.isArray(value) ? value.join(', ') : value.toString()}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-muted-foreground">Listed On</span>
+                        <span className="font-semibold text-gray-900">{formatDate(property.createdAt)}</span>
+                      </div>
                     </div>
-                  )}
-                  {property.listingType && (
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                      <span className="text-muted-foreground">Listing Type</span>
-                      <span className="font-semibold capitalize text-gray-900">{property.listingType}</span>
+                    <div className="space-y-4">
+                      {propertyTypeFields.filter((_, i) => i % 2 !== 0).map(field => {
+                        const value = property.customFields?.[field.fieldName];
+                        if (value === undefined || value === null || value === '') return null;
+                        return (
+                          <div key={field._id} className="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span className="text-muted-foreground">{field.fieldLabel}</span>
+                            <span className="font-semibold capitalize text-gray-900">
+                              {Array.isArray(value) ? value.join(', ') : value.toString()}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-muted-foreground">Last Updated</span>
+                        <span className="font-semibold text-gray-900">{formatDate(property.updatedAt)}</span>
+                      </div>
                     </div>
-                  )}
-                  {property.bedrooms > 0 && (
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                      <span className="text-muted-foreground">Bedrooms</span>
-                      <span className="font-semibold text-gray-900">{property.bedrooms}</span>
-                    </div>
-                  )}
-                  {property.bathrooms > 0 && (
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                      <span className="text-muted-foreground">Bathrooms</span>
-                      <span className="font-semibold text-gray-900">{property.bathrooms}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-4">
-                  {propertyService.hasValidArea(property.area) && (
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                      <span className="text-muted-foreground">Area</span>
-                      <span className="font-semibold text-gray-900">{propertyService.formatArea(property.area)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                    <span className="text-muted-foreground">Status</span>
-                    <span className="font-semibold capitalize text-gray-900">{property.status}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                    <span className="text-muted-foreground">Listed On</span>
-                    <span className="font-semibold text-gray-900">{formatDate(property.createdAt)}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                    <span className="text-muted-foreground">Last Updated</span>
-                    <span className="font-semibold text-gray-900">{formatDate(property.updatedAt)}</span>
-                  </div>
-                </div>
+                  </>
+                ) : null}
               </div>
             </CardContent>
           </Card>
