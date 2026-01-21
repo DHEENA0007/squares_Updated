@@ -317,6 +317,7 @@ const PropertyDetails = () => {
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Property Overview */}
+          {/* Property Overview */}
           <Card className="border-none shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center text-xl">
@@ -326,46 +327,50 @@ const PropertyDetails = () => {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {property.bedrooms > 0 && (
-                  <div className="text-center p-4 bg-blue-50 rounded-xl border border-blue-100">
-                    <Bed className="w-6 h-6 mx-auto mb-2 text-blue-600" />
-                    <p className="text-2xl font-bold text-gray-900">{property.bedrooms}</p>
-                    <p className="text-sm text-blue-600/80 font-medium">Bedrooms</p>
-                  </div>
-                )}
-                {property.bathrooms > 0 && (
-                  <div className="text-center p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                    <Bath className="w-6 h-6 mx-auto mb-2 text-indigo-600" />
-                    <p className="text-2xl font-bold text-gray-900">{property.bathrooms}</p>
-                    <p className="text-sm text-indigo-600/80 font-medium">Bathrooms</p>
-                  </div>
-                )}
-                {propertyService.hasValidArea(property.area) && (
-                  <div className="text-center p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-                    <Maximize className="w-6 h-6 mx-auto mb-2 text-emerald-600" />
-                    <p className="text-2xl font-bold text-gray-900">{propertyService.formatArea(property.area).split(' ')[0]}</p>
-                    <p className="text-sm text-emerald-600/80 font-medium">Sq Ft</p>
-                  </div>
-                )}
-                {property.type && (
-                  <div className="text-center p-4 bg-amber-50 rounded-xl border border-amber-100">
-                    <Building2 className="w-6 h-6 mx-auto mb-2 text-amber-600" />
-                    <p className="text-xl md:text-2xl font-bold text-gray-900 capitalize break-words leading-tight">{property.type.replace(/_/g, ' ')}</p>
-                    <p className="text-sm text-amber-600/80 font-medium">Type</p>
-                  </div>
-                )}
-              </div>
+                {propertyTypeFields.map((field) => {
+                  const value = property.customFields?.[field.fieldName];
+                  if (value === undefined || value === null || value === '' || value === 'N/A') return null;
 
-              {property.description && (
-                <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
-                  <h3 className="font-semibold mb-3 text-lg">Description</h3>
-                  <p className="text-muted-foreground leading-relaxed text-base">
-                    {property.description}
-                  </p>
-                </div>
-              )}
+                  // Determine Icon based on field name
+                  let Icon = Building2;
+                  const lowerName = field.fieldName.toLowerCase();
+                  if (lowerName.includes('bed')) Icon = Bed;
+                  else if (lowerName.includes('bath')) Icon = Bath;
+                  else if (lowerName.includes('area')) Icon = Maximize;
+                  else if (lowerName.includes('park')) Icon = Car;
+                  else if (lowerName.includes('date') || lowerName.includes('year') || lowerName.includes('age')) Icon = Calendar;
+
+                  let displayValue = value;
+                  if (field.fieldType === 'boolean') {
+                    displayValue = value ? 'Yes' : 'No';
+                  } else if (Array.isArray(value)) {
+                    displayValue = value.join(', ');
+                  }
+
+                  return (
+                    <div key={field._id} className="text-center p-4 bg-blue-50 rounded-xl border border-blue-100">
+                      <Icon className="w-6 h-6 mx-auto mb-2 text-blue-600" />
+                      <p className="text-xl md:text-2xl font-bold text-gray-900 capitalize break-words leading-tight">
+                        {displayValue.toString()}
+                      </p>
+                      <p className="text-sm text-blue-600/80 font-medium">{field.fieldLabel}</p>
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
+
+          {property.description && (
+            <Card className="border-none shadow-md">
+              <CardContent className="p-6">
+                <h3 className="font-semibold mb-3 text-lg">Description</h3>
+                <p className="text-muted-foreground leading-relaxed text-base">
+                  {property.description}
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Property Details */}
           {/* Property Details */}
@@ -380,12 +385,20 @@ const PropertyDetails = () => {
                     <div className="space-y-4">
                       {propertyTypeFields.filter((_, i) => i % 2 === 0).map(field => {
                         const value = property.customFields?.[field.fieldName];
-                        if (value === undefined || value === null || value === '') return null;
+                        if (value === undefined || value === null || value === '' || value === 'N/A') return null;
+
+                        let displayValue = value;
+                        if (field.fieldType === 'boolean') {
+                          displayValue = value ? 'Yes' : 'No';
+                        } else if (Array.isArray(value)) {
+                          displayValue = value.join(', ');
+                        }
+
                         return (
                           <div key={field._id} className="flex justify-between items-center py-2 border-b border-gray-100">
                             <span className="text-muted-foreground">{field.fieldLabel}</span>
                             <span className="font-semibold capitalize text-gray-900">
-                              {Array.isArray(value) ? value.join(', ') : value.toString()}
+                              {displayValue.toString()}
                             </span>
                           </div>
                         );
@@ -398,12 +411,20 @@ const PropertyDetails = () => {
                     <div className="space-y-4">
                       {propertyTypeFields.filter((_, i) => i % 2 !== 0).map(field => {
                         const value = property.customFields?.[field.fieldName];
-                        if (value === undefined || value === null || value === '') return null;
+                        if (value === undefined || value === null || value === '' || value === 'N/A') return null;
+
+                        let displayValue = value;
+                        if (field.fieldType === 'boolean') {
+                          displayValue = value ? 'Yes' : 'No';
+                        } else if (Array.isArray(value)) {
+                          displayValue = value.join(', ');
+                        }
+
                         return (
                           <div key={field._id} className="flex justify-between items-center py-2 border-b border-gray-100">
                             <span className="text-muted-foreground">{field.fieldLabel}</span>
                             <span className="font-semibold capitalize text-gray-900">
-                              {Array.isArray(value) ? value.join(', ') : value.toString()}
+                              {displayValue.toString()}
                             </span>
                           </div>
                         );

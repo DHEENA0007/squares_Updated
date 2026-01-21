@@ -401,30 +401,7 @@ const PropertyDetails: React.FC = () => {
     );
   }
 
-  // Helper to generate dynamic specs
-  const getKeySpecs = () => {
-    const specs = [
-      { label: 'Super Built-up Area', value: formatArea(property.area) },
-      { label: 'Floor', value: property.floor ? `${property.floor}${property.totalFloors ? ' (Out of ' + property.totalFloors + ')' : ''}` : null },
-      { label: 'Transaction Type', value: property.listingType === 'sale' ? 'Resale' : 'Rent', capitalize: true },
-      { label: 'Status', value: property.status, capitalize: true },
-      { label: 'Facing', value: property.facing, capitalize: true },
-      { label: 'Furnished Status', value: property.furnishing ? property.furnishing.replace('-', ' ') : null, capitalize: true },
-      { label: 'Car Parking', value: property.parkingSpaces ? `${property.parkingSpaces}` : null },
-      { label: 'Bathroom', value: property.bathrooms ? `${property.bathrooms}` : null },
-    ];
-    return specs.filter(spec => spec.value && spec.value !== 'N/A');
-  };
 
-  const getMoreDetails = () => {
-    const details = [
-      { label: 'Price Breakup', value: formatPrice(property.price, property.listingType) },
-      { label: 'Address', value: getLocationString(property) },
-      { label: 'Furnishing', value: property.furnishing ? property.furnishing.replace('-', ' ') : null, capitalize: true },
-      { label: 'Property Age', value: property.age ? `${property.age} Years` : null },
-    ];
-    return details.filter(detail => detail.value);
-  };
 
   return (
     <div className="min-h-screen bg-muted/10 pb-24 lg:pb-12 font-sans text-foreground">
@@ -486,10 +463,12 @@ const PropertyDetails: React.FC = () => {
               </div>
 
               {/* Image Section */}
-              <div className="mt-6 relative group cursor-pointer" onClick={() => openGallery(0)}>
+              <div className="mt-6 relative group cursor-pointer" onClick={() => openGallery(selectedImageIndex)}>
                 <div className="aspect-video w-full rounded-lg overflow-hidden bg-muted border border-border/60">
                   <img
-                    src={getPrimaryImage(property)}
+                    src={typeof property.images[selectedImageIndex] === 'string'
+                      ? property.images[selectedImageIndex]
+                      : (property.images[selectedImageIndex] as any).url}
                     alt={property.title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     onError={(e) => { e.currentTarget.src = '/placeholder-property.jpg'; }}
@@ -501,6 +480,27 @@ const PropertyDetails: React.FC = () => {
                 </div>
               </div>
 
+              {/* Thumbnails */}
+              {property.images.length > 1 && (
+                <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
+                  {property.images.map((image, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedImageIndex(index)}
+                      className={`flex-shrink-0 w-20 h-16 rounded-md overflow-hidden border-2 transition-all ${index === selectedImageIndex ? 'border-primary ring-2 ring-primary/20' : 'border-transparent opacity-70 hover:opacity-100'
+                        }`}
+                    >
+                      <img
+                        src={typeof image === 'string' ? image : image.url}
+                        alt={`Thumbnail ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.currentTarget.src = '/placeholder-property.jpg'; }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Tabs Bar */}
               <div className="flex border-b border-border mt-4">
                 <button className="px-4 py-2 text-sm font-medium text-primary border-b-2 border-primary">Photos</button>
@@ -508,20 +508,44 @@ const PropertyDetails: React.FC = () => {
               </div>
 
               {/* Key Specs Grid */}
-              <div className="bg-muted/30 p-5 mt-4 rounded-lg border border-border/60">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
-                  {getKeySpecs().map((spec, index) => (
-                    <div key={index}>
-                      <p className="text-xs text-muted-foreground mb-1">{spec.label}</p>
-                      <p className={`text-sm font-bold text-foreground ${spec.capitalize ? 'capitalize' : ''}`}>
-                        {spec.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+
 
               {/* Removed duplicate Primary Actions buttons from here */}
+              {/* Property Overview */}
+              <div className="bg-muted/30 p-5 mt-4 rounded-lg border border-border/60">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {propertyTypeFields.map((field) => {
+                    const value = property.customFields?.[field.fieldName];
+                    if (value === undefined || value === null || value === '' || value === 'N/A') return null;
+
+                    // Determine Icon based on field name
+                    let Icon = Building2;
+                    const lowerName = field.fieldName.toLowerCase();
+                    if (lowerName.includes('bed')) Icon = Bed;
+                    else if (lowerName.includes('bath')) Icon = Bath;
+                    else if (lowerName.includes('area')) Icon = Maximize;
+                    else if (lowerName.includes('park')) Icon = Car;
+                    else if (lowerName.includes('date') || lowerName.includes('year') || lowerName.includes('age')) Icon = Calendar;
+
+                    let displayValue = value;
+                    if (field.fieldType === 'boolean') {
+                      displayValue = value ? 'Yes' : 'No';
+                    } else if (Array.isArray(value)) {
+                      displayValue = value.join(', ');
+                    }
+
+                    return (
+                      <div key={field._id} className="text-center p-4 bg-card rounded-lg border border-border/60 shadow-sm">
+                        <Icon className="w-6 h-6 mx-auto mb-2 text-primary" />
+                        <p className="text-xl md:text-2xl font-bold text-foreground capitalize break-words leading-tight">
+                          {displayValue.toString()}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{field.fieldLabel}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             {/* More Details Section */}
@@ -529,24 +553,25 @@ const PropertyDetails: React.FC = () => {
               <h3 className="text-lg font-bold text-foreground mb-6">More Details</h3>
 
               <div className="space-y-4">
-                {getMoreDetails().map((detail, index) => (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 py-2 border-b border-border/40">
-                    <span className="text-sm text-muted-foreground">{detail.label}</span>
-                    <span className={`text-sm font-medium text-foreground md:col-span-2 ${detail.capitalize ? 'capitalize' : ''}`}>
-                      {detail.value}
-                    </span>
-                  </div>
-                ))}
+
 
                 {/* Dynamic Fields */}
                 {propertyTypeFields.map((field) => {
                   const value = property.customFields?.[field.fieldName];
-                  if (value === undefined || value === null || value === '') return null;
+                  if (value === undefined || value === null || value === '' || value === 'N/A') return null;
+
+                  let displayValue = value;
+                  if (field.fieldType === 'boolean') {
+                    displayValue = value ? 'Yes' : 'No';
+                  } else if (Array.isArray(value)) {
+                    displayValue = value.join(', ');
+                  }
+
                   return (
                     <div key={field._id} className="grid grid-cols-1 md:grid-cols-3 gap-4 py-2 border-b border-border/40">
                       <span className="text-sm text-muted-foreground">{field.fieldLabel}</span>
                       <span className="text-sm font-medium text-foreground md:col-span-2 capitalize">
-                        {Array.isArray(value) ? value.join(', ') : value.toString()}
+                        {displayValue.toString()}
                       </span>
                     </div>
                   );
@@ -565,9 +590,7 @@ const PropertyDetails: React.FC = () => {
               </div>
 
               <div className="mt-6">
-                <h4 className="text-sm font-bold text-primary mb-2 cursor-pointer hover:underline inline-flex items-center">
-                  View all details <span className="ml-1">▾</span>
-                </h4>
+
                 <div className="mt-4 bg-muted/30 p-4 rounded-lg border border-border/60">
                   <h4 className="text-sm font-bold text-foreground mb-2">Description</h4>
                   <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">

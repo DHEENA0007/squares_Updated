@@ -24,7 +24,8 @@ import {
   User,
   GitCompare,
   ExternalLink,
-  LogIn
+  LogIn,
+  Car
 } from 'lucide-react';
 import { propertyService, type Property } from '@/services/propertyService';
 import { vendorService } from '@/services/vendorService';
@@ -439,6 +440,8 @@ const PublicPropertyDetails: React.FC = () => {
                 But if they are empty/zero, they might look weird if dynamic fields are used instead.
                 Let's keep it for now, as it's a summary.
             */}
+
+            {/* Property Overview */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -448,44 +451,49 @@ const PublicPropertyDetails: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {property.bedrooms > 0 && (
-                    <div className="text-center p-4 bg-muted rounded-lg">
-                      <Bed className="w-6 h-6 mx-auto mb-2 text-primary" />
-                      <p className="text-2xl font-bold">{property.bedrooms}</p>
-                      <p className="text-sm text-muted-foreground">Bedrooms</p>
-                    </div>
-                  )}
-                  {property.bathrooms > 0 && (
-                    <div className="text-center p-4 bg-muted rounded-lg">
-                      <Bath className="w-6 h-6 mx-auto mb-2 text-primary" />
-                      <p className="text-2xl font-bold">{property.bathrooms}</p>
-                      <p className="text-sm text-muted-foreground">Bathrooms</p>
-                    </div>
-                  )}
-                  {formatArea(property.area) !== 'N/A' && (
-                    <div className="text-center p-4 bg-muted rounded-lg">
-                      <Maximize className="w-6 h-6 mx-auto mb-2 text-primary" />
-                      <p className="text-2xl font-bold">{formatArea(property.area).split(' ')[0]}</p>
-                      <p className="text-sm text-muted-foreground">Sq Ft</p>
-                    </div>
-                  )}
-                  <div className="text-center p-4 bg-muted rounded-lg">
-                    <Building2 className="w-6 h-6 mx-auto mb-2 text-primary" />
-                    <p className="text-xl md:text-2xl font-bold capitalize break-words leading-tight">{property.type.replace(/_/g, ' ')}</p>
-                    <p className="text-sm text-muted-foreground">Type</p>
-                  </div>
-                </div>
+                  {propertyTypeFields.map((field) => {
+                    const value = property.customFields?.[field.fieldName];
+                    if (value === undefined || value === null || value === '' || value === 'N/A') return null;
 
-                {property.description && (
-                  <div>
-                    <h3 className="font-semibold mb-2">Description</h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {property.description}
-                    </p>
-                  </div>
-                )}
+                    // Determine Icon based on field name
+                    let Icon = Building2;
+                    const lowerName = field.fieldName.toLowerCase();
+                    if (lowerName.includes('bed')) Icon = Bed;
+                    else if (lowerName.includes('bath')) Icon = Bath;
+                    else if (lowerName.includes('area')) Icon = Maximize;
+                    else if (lowerName.includes('park')) Icon = Car;
+                    else if (lowerName.includes('date') || lowerName.includes('year') || lowerName.includes('age')) Icon = Calendar;
+
+                    let displayValue = value;
+                    if (field.fieldType === 'boolean') {
+                      displayValue = value ? 'Yes' : 'No';
+                    } else if (Array.isArray(value)) {
+                      displayValue = value.join(', ');
+                    }
+
+                    return (
+                      <div key={field._id} className="text-center p-4 bg-muted rounded-lg">
+                        <Icon className="w-6 h-6 mx-auto mb-2 text-primary" />
+                        <p className="text-xl md:text-2xl font-bold capitalize break-words leading-tight">
+                          {displayValue.toString()}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{field.fieldLabel}</p>
+                      </div>
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
+            {property.description && (
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="font-semibold mb-2">Description</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    {property.description}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Property Details */}
             {/* Property Details */}
@@ -501,12 +509,20 @@ const PublicPropertyDetails: React.FC = () => {
                       <div className="space-y-3">
                         {propertyTypeFields.filter((_, i) => i % 2 === 0).map(field => {
                           const value = property.customFields?.[field.fieldName];
-                          if (value === undefined || value === null || value === '') return null;
+                          if (value === undefined || value === null || value === '' || value === 'N/A') return null;
+
+                          let displayValue = value;
+                          if (field.fieldType === 'boolean') {
+                            displayValue = value ? 'Yes' : 'No';
+                          } else if (Array.isArray(value)) {
+                            displayValue = value.join(', ');
+                          }
+
                           return (
                             <div key={field._id} className="flex justify-between">
                               <span className="text-muted-foreground">{field.fieldLabel}:</span>
                               <span className="font-medium capitalize">
-                                {Array.isArray(value) ? value.join(', ') : value.toString()}
+                                {displayValue.toString()}
                               </span>
                             </div>
                           );
@@ -520,12 +536,20 @@ const PublicPropertyDetails: React.FC = () => {
                       <div className="space-y-3">
                         {propertyTypeFields.filter((_, i) => i % 2 !== 0).map(field => {
                           const value = property.customFields?.[field.fieldName];
-                          if (value === undefined || value === null || value === '') return null;
+                          if (value === undefined || value === null || value === '' || value === 'N/A') return null;
+
+                          let displayValue = value;
+                          if (field.fieldType === 'boolean') {
+                            displayValue = value ? 'Yes' : 'No';
+                          } else if (Array.isArray(value)) {
+                            displayValue = value.join(', ');
+                          }
+
                           return (
                             <div key={field._id} className="flex justify-between">
                               <span className="text-muted-foreground">{field.fieldLabel}:</span>
                               <span className="font-medium capitalize">
-                                {Array.isArray(value) ? value.join(', ') : value.toString()}
+                                {displayValue.toString()}
                               </span>
                             </div>
                           );
@@ -696,16 +720,16 @@ const PublicPropertyDetails: React.FC = () => {
             </Card>
           </div>
         </div>
-      </div>
+      </div >
 
       {/* WhatsApp Contact Dialog */}
-      <EnterprisePropertyContactDialog
+      < EnterprisePropertyContactDialog
         open={showWhatsAppDialog}
         onOpenChange={setShowWhatsAppDialog}
         property={property}
         whatsappNumber={whatsappNumber}
       />
-    </div>
+    </div >
   );
 };
 
