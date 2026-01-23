@@ -346,13 +346,15 @@ class SubscriptionService {
 
   // Helper methods
   formatSubscriptionStatus(status: string): { label: string; color: string } {
-    const statusMap = {
+    const statusMap: Record<string, { label: string; color: string }> = {
       active: { label: "Active", color: "green" },
       cancelled: { label: "Cancelled", color: "red" },
       expired: { label: "Expired", color: "orange" },
       pending: { label: "Pending", color: "blue" },
+      // Additional statuses for better UX
+      superseded: { label: "Upgraded", color: "blue" },
     };
-    return statusMap[status as keyof typeof statusMap] || { label: status, color: "gray" };
+    return statusMap[status] || { label: status.charAt(0).toUpperCase() + status.slice(1), color: "gray" };
   }
 
   formatAmount(subscription: Subscription): string {
