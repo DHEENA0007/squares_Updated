@@ -126,7 +126,7 @@ router.get('/all', authenticateToken, async (req, res) => {
     }
 
     const subscriptions = await Subscription.find()
-      .populate('user', 'email profile.firstName profile.lastName')
+      .populate('user', 'email phone profile.firstName profile.lastName profile.phone')
       .populate('plan', 'name price')
       .sort({ createdAt: -1 });
 
@@ -241,7 +241,7 @@ router.get('/revenue-stats', authenticateToken, async (req, res) => {
 
     // Get all subscriptions with payment details
     const subscriptions = await Subscription.find({})
-      .populate('user', 'name email')
+      .populate('user', 'name email phone profile.firstName profile.lastName profile.phone')
       .populate('plan', 'name price')
       .populate('addons', 'name price')
       .lean();
