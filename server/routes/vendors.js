@@ -422,7 +422,7 @@ const requireVendorRole = asyncHandler(async (req, res, next) => {
           approvalNotes: 'Auto-created for agent user'
         },
         metadata: {
-          source: 'auto',
+          source: 'admin',
           notes: 'Auto-created when vendor profile was missing'
         }
       };
@@ -596,17 +596,17 @@ router.get('/profile', requireVendorRole, asyncHandler(async (req, res) => {
       },
       address: {
         street: user.profile.address?.street || vendor.contactInfo?.officeAddress?.street,
-        area: vendor.contactInfo?.officeAddress?.area,
+        area: user.profile.address?.area || vendor.contactInfo?.officeAddress?.area,
         city: user.profile.address?.city || vendor.contactInfo?.officeAddress?.city,
         state: user.profile.address?.state || vendor.contactInfo?.officeAddress?.state,
-        district: vendor.contactInfo?.officeAddress?.district,
+        district: user.profile.address?.district || vendor.contactInfo?.officeAddress?.district,
         zipCode: user.profile.address?.zipCode || vendor.contactInfo?.officeAddress?.pincode,
         country: user.profile.address?.country || vendor.contactInfo?.officeAddress?.country,
-        countryCode: vendor.contactInfo?.officeAddress?.countryCode,
-        stateCode: vendor.contactInfo?.officeAddress?.stateCode,
-        districtCode: vendor.contactInfo?.officeAddress?.districtCode,
-        cityCode: vendor.contactInfo?.officeAddress?.cityCode,
-        landmark: vendor.contactInfo?.officeAddress?.landmark,
+        countryCode: user.profile.address?.countryCode || vendor.contactInfo?.officeAddress?.countryCode,
+        stateCode: user.profile.address?.stateCode || vendor.contactInfo?.officeAddress?.stateCode,
+        districtCode: user.profile.address?.districtCode || vendor.contactInfo?.officeAddress?.districtCode,
+        cityCode: user.profile.address?.cityCode || vendor.contactInfo?.officeAddress?.cityCode,
+        landmark: user.profile.address?.landmark || vendor.contactInfo?.officeAddress?.landmark,
       },
       vendorInfo: {
         licenseNumber: vendor.businessInfo?.licenseNumber,
@@ -1002,7 +1002,20 @@ router.put('/profile', requireVendorRole, asyncHandler(async (req, res) => {
           allowMessages: user.profile.preferences?.privacy?.allowMessages ?? true,
         }
       },
-      address: user.profile.address,
+      address: {
+        street: user.profile.address?.street || vendor.contactInfo?.officeAddress?.street,
+        area: user.profile.address?.area || vendor.contactInfo?.officeAddress?.area,
+        city: user.profile.address?.city || vendor.contactInfo?.officeAddress?.city,
+        state: user.profile.address?.state || vendor.contactInfo?.officeAddress?.state,
+        district: user.profile.address?.district || vendor.contactInfo?.officeAddress?.district,
+        zipCode: user.profile.address?.zipCode || vendor.contactInfo?.officeAddress?.pincode,
+        country: user.profile.address?.country || vendor.contactInfo?.officeAddress?.country,
+        countryCode: user.profile.address?.countryCode || vendor.contactInfo?.officeAddress?.countryCode,
+        stateCode: user.profile.address?.stateCode || vendor.contactInfo?.officeAddress?.stateCode,
+        districtCode: user.profile.address?.districtCode || vendor.contactInfo?.officeAddress?.districtCode,
+        cityCode: user.profile.address?.cityCode || vendor.contactInfo?.officeAddress?.cityCode,
+        landmark: user.profile.address?.landmark || vendor.contactInfo?.officeAddress?.landmark,
+      },
       vendorInfo: {
         licenseNumber: vendor.businessInfo?.licenseNumber,
         gstNumber: vendor.businessInfo?.gstNumber,
@@ -3881,41 +3894,97 @@ router.get('/payments', requireVendorRole, asyncHandler(async (req, res) => {
   const { page = 1, limit = 20, dateFrom, dateTo, status } = req.query;
 
   try {
-    // For now, create mock payment data based on subscriptions
-    // In a real implementation, you'd query a Payment/Transaction model
+    const Payment = require('../models/Payment');
     const Subscription = require('../models/Subscription');
 
-    const filter = { user: vendorId };
-    if (status) filter.status = status;
+    // Build filter for actual Payment records
+    const paymentFilter = { user: vendorId };
+    if (status) {
+      // Map frontend status to payment status
+      if (status === 'completed') paymentFilter.status = 'paid';
+      else if (status === 'pending') paymentFilter.status = 'pending';
+      else if (status === 'failed') paymentFilter.status = { $in: ['failed', 'cancelled'] };
+      else paymentFilter.status = status;
+    }
+    if (dateFrom) paymentFilter.createdAt = { $gte: new Date(dateFrom) };
+    if (dateTo) {
+      paymentFilter.createdAt = paymentFilter.createdAt || {};
+      paymentFilter.createdAt.$lte = new Date(dateTo);
+    }
 
-    const subscriptions = await Subscription.find(filter)
-      .populate('plan', 'name price')
+    // First, get actual Payment records
+    const actualPayments = await Payment.find(paymentFilter)
+      .populate('subscription')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit));
 
-    const totalCount = await Subscription.countDocuments(filter);
+    const paymentCount = await Payment.countDocuments(paymentFilter);
 
-    // Convert subscriptions to payment format
-    const payments = subscriptions.map(sub => ({
-      _id: sub._id,
-      paymentId: `PAY_${sub._id.toString().slice(-8).toUpperCase()}`,
-      subscriptionId: sub._id,
-      amount: sub.amount || (sub.plan ? sub.plan.price : 0),
-      currency: sub.currency || 'INR',
-      status: sub.status === 'active' ? 'completed' : 'pending',
-      paymentMethod: 'razorpay',
-      description: `Payment for ${sub.plan ? sub.plan.name : 'Subscription'}`,
-      createdAt: sub.createdAt,
-      paidAt: sub.status === 'active' ? sub.startDate : null
+    // Format payment records
+    const formattedPayments = actualPayments.map(payment => ({
+      _id: payment._id,
+      paymentId: payment.razorpayPaymentId || `PAY_${payment._id.toString().slice(-8).toUpperCase()}`,
+      transactionId: payment.razorpayPaymentId || payment._id.toString(),
+      subscriptionId: payment.subscription?._id,
+      amount: payment.amount,
+      currency: payment.currency || 'INR',
+      status: payment.status === 'paid' ? 'completed' : payment.status,
+      paymentMethod: payment.paymentMethod || 'razorpay',
+      paymentGateway: payment.paymentGateway || 'razorpay',
+      description: payment.description || `Payment for ${payment.metadata?.planName || 'Subscription'}`,
+      createdAt: payment.createdAt,
+      paidAt: payment.status === 'paid' ? payment.updatedAt : null,
+      failureReason: payment.failureReason,
+      type: payment.type
     }));
+
+    // If no actual payments found, fall back to subscription-based data for older records
+    if (formattedPayments.length === 0 && !status) {
+      const subFilter = { user: vendorId };
+      const subscriptions = await Subscription.find(subFilter)
+        .populate('plan', 'name price')
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit));
+
+      const subCount = await Subscription.countDocuments(subFilter);
+
+      const subPayments = subscriptions
+        .filter(sub => sub.status === 'active' && sub.paymentDetails?.razorpayPaymentId)
+        .map(sub => ({
+          _id: sub._id,
+          paymentId: sub.paymentDetails?.razorpayPaymentId || `PAY_${sub._id.toString().slice(-8).toUpperCase()}`,
+          transactionId: sub.paymentDetails?.razorpayPaymentId || sub.transactionId,
+          subscriptionId: sub._id,
+          amount: sub.amount || (sub.plan ? sub.plan.price : 0),
+          currency: sub.currency || 'INR',
+          status: 'completed',
+          paymentMethod: 'razorpay',
+          paymentGateway: 'razorpay',
+          description: `Payment for ${sub.plan ? sub.plan.name : 'Subscription'}`,
+          createdAt: sub.createdAt,
+          paidAt: sub.startDate,
+          type: 'subscription_purchase'
+        }));
+
+      return res.json({
+        success: true,
+        data: {
+          payments: subPayments,
+          totalCount: subPayments.length,
+          totalPages: Math.ceil(subCount / parseInt(limit)),
+          currentPage: parseInt(page)
+        }
+      });
+    }
 
     res.json({
       success: true,
       data: {
-        payments,
-        totalCount,
-        totalPages: Math.ceil(totalCount / parseInt(limit)),
+        payments: formattedPayments,
+        totalCount: paymentCount,
+        totalPages: Math.ceil(paymentCount / parseInt(limit)),
         currentPage: parseInt(page)
       }
     });
@@ -4015,6 +4084,7 @@ router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) =>
     const Subscription = require('../models/Subscription');
     const Property = require('../models/Property');
     const Message = require('../models/Message');
+    const Payment = require('../models/Payment');
 
     // Get subscription stats
     const activeSubscription = await Subscription.findOne({
@@ -4025,16 +4095,27 @@ router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) =>
 
     const totalSubscriptions = await Subscription.countDocuments({ user: vendorId });
 
+    // Get actual payment counts from Payment model
+    const paidPaymentsCount = await Payment.countDocuments({ user: vendorId, status: 'paid' });
+    const pendingPaymentsCount = await Payment.countDocuments({ user: vendorId, status: 'pending' });
+    const failedPaymentsCount = await Payment.countDocuments({ user: vendorId, status: { $in: ['failed', 'cancelled'] } });
+
+    // Calculate total subscription revenue from paid payments
+    const paidPayments = await Payment.find({ user: vendorId, status: 'paid' }).select('amount');
+    const totalSubscriptionRevenue = paidPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+
     // Calculate property revenue from sold properties
     const soldProperties = await Property.find({
       owner: vendorId,
       status: 'sold'
     }).select('price');
 
-    const totalRevenue = soldProperties.reduce((sum, prop) => {
+    const propertyRevenue = soldProperties.reduce((sum, prop) => {
       const price = parseFloat(prop.price.toString().replace(/[^0-9.]/g, ''));
       return sum + (isNaN(price) ? 0 : price);
     }, 0);
+
+    const totalRevenue = propertyRevenue;
 
     // Calculate monthly revenue from properties sold this month
     const firstDayOfMonth = new Date();
@@ -4091,9 +4172,12 @@ router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) =>
     const stats = {
       totalRevenue: totalRevenue,
       monthlyRevenue: monthlyRevenue,
+      totalSubscriptionRevenue: totalSubscriptionRevenue,
       activeSubscriptions: activeSubscription ? 1 : 0,
-      totalInvoices: totalSubscriptions,
-      paidInvoices: await Subscription.countDocuments({ user: vendorId, status: 'active' }),
+      totalInvoices: Math.max(totalSubscriptions, paidPaymentsCount + pendingPaymentsCount),
+      paidInvoices: paidPaymentsCount || await Subscription.countDocuments({ user: vendorId, status: 'active' }),
+      pendingInvoices: pendingPaymentsCount,
+      failedPayments: failedPaymentsCount,
       overdueInvoices: await Subscription.countDocuments({
         user: vendorId,
         status: 'expired',

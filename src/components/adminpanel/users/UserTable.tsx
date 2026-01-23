@@ -265,7 +265,7 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter, startDa
 
   const handlePromoteUser = (user: User) => {
     setSelectedUser(user);
-    setSelectedRole(user.role);
+    setSelectedRole(""); // Start with empty selection, don't pre-select current role
     // Pre-fill business info if available
     if (user.businessInfo) {
       setBusinessInfo({
@@ -319,11 +319,27 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter, startDa
     let finalBusinessInfo = null;
 
     if (isVendorRole) {
-      // Check if we need to collect data
-      const needsData = !selectedUser.businessInfo;
-
-      if (needsData) {
-        // Validate required fields
+      // If user already has business info (from previous agent role), use it
+      // Otherwise validate and require new business info
+      if (selectedUser.businessInfo && selectedUser.businessInfo.businessName) {
+        // Use existing business info, but allow updates from form if fields are filled
+        finalBusinessInfo = {
+          businessName: businessInfo.businessName || selectedUser.businessInfo.businessName,
+          businessType: businessInfo.businessType || selectedUser.businessInfo.businessType,
+          businessDescription: businessInfo.businessDescription || selectedUser.businessInfo.businessDescription,
+          panNumber: businessInfo.panNumber || selectedUser.businessInfo.panNumber,
+          address: businessInfo.address || selectedUser.businessInfo.address,
+          city: businessInfo.city || selectedUser.businessInfo.city,
+          district: businessInfo.district || selectedUser.businessInfo.district,
+          state: businessInfo.state || selectedUser.businessInfo.state,
+          pincode: businessInfo.pincode || selectedUser.businessInfo.pincode,
+          experience: parseInt(businessInfo.experience) || selectedUser.businessInfo.experience || 0,
+          licenseNumber: businessInfo.licenseNumber || selectedUser.businessInfo.licenseNumber || '',
+          gstNumber: businessInfo.gstNumber || selectedUser.businessInfo.gstNumber || '',
+          website: businessInfo.website || selectedUser.businessInfo.website || '',
+        };
+      } else {
+        // New business info required - validate all required fields
         if (!businessInfo.businessName) return alert("Business Name is required");
         if (!businessInfo.businessType) return alert("Business Type is required");
         if (!businessInfo.businessDescription || businessInfo.businessDescription.length < 10) return alert("Description must be at least 10 chars");
@@ -786,7 +802,13 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter, startDa
                   <SelectContent>
                     {roles.length > 0 ? (
                       roles
-                        .filter(role => role.name.toLowerCase() !== 'superadmin')
+                        .filter(role => 
+                          role.name && 
+                          role.name.trim() !== '' &&
+                          role.name.toLowerCase() !== 'superadmin' && 
+                          role.name.toLowerCase() !== 'super admin' &&
+                          role.name.toLowerCase() !== selectedUser.role.toLowerCase()
+                        )
                         .map((role) => (
                           <SelectItem key={role._id} value={role.name}>
                             {role.name}
@@ -794,9 +816,9 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter, startDa
                         ))
                     ) : (
                       <>
-                        <SelectItem value="customer">Customer</SelectItem>
-                        <SelectItem value="agent">Vendor/Agent</SelectItem>
-                        <SelectItem value="subadmin">Sub Admin</SelectItem>
+                        {selectedUser.role.toLowerCase() !== 'customer' && <SelectItem value="customer">Customer</SelectItem>}
+                        {selectedUser.role.toLowerCase() !== 'agent' && <SelectItem value="agent">Vendor/Agent</SelectItem>}
+                        {selectedUser.role.toLowerCase() !== 'subadmin' && <SelectItem value="subadmin">Sub Admin</SelectItem>}
                       </>
                     )}
                   </SelectContent>
@@ -810,12 +832,14 @@ const UserTable = ({ searchQuery, roleFilter, monthFilter, statusFilter, startDa
               </div>
 
               {/* Business Info Form for Agent/Vendor */}
-              {(selectedRole.toLowerCase() === 'agent' || selectedRole.toLowerCase() === 'vendor') && !selectedUser.businessInfo && (
+              {(selectedRole.toLowerCase() === 'agent' || selectedRole.toLowerCase() === 'vendor') && (
                 <ScrollArea className="h-[300px] pr-4 border rounded-md p-2">
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Shield className="w-4 h-4 text-primary" />
-                      <h3 className="font-semibold">Business Information Required</h3>
+                      <h3 className="font-semibold">
+                        {selectedUser.businessInfo ? 'Business Information' : 'Business Information Required'}
+                      </h3>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

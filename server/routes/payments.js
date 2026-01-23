@@ -79,7 +79,7 @@ router.post('/create-order', authenticateToken, asyncHandler(async (req, res) =>
 
   // Check if user already has an active subscription
   const existingSubscription = await Subscription.findOne({
-    userId: req.user.id,
+    user: req.user.id,
     status: 'active'
   });
 
@@ -241,7 +241,7 @@ router.post('/create-subscription-order', authenticateToken, asyncHandler(async 
 
   // Check if user already has an active subscription
   const existingSubscription = await Subscription.findOne({
-    userId: req.user.id,
+    user: req.user.id,
     status: 'active'
   });
 
@@ -691,15 +691,16 @@ router.post('/verify-subscription-payment', authenticateToken, asyncHandler(asyn
     const addonCost = addonServices.reduce((total, addon) => total + addon.price, 0);
     amount += addonCost;
 
-    // Deactivate existing active subscriptions for this user
+    // Deactivate existing active subscriptions for this user (mark as expired since they're being replaced)
     await Subscription.updateMany(
       { 
         user: req.user.id, 
         status: 'active' 
       },
       { 
-        status: 'cancelled',
-        updatedAt: new Date()
+        status: 'expired',
+        updatedAt: new Date(),
+        cancellationReason: 'Replaced by new subscription (upgrade)'
       }
     );
 
@@ -784,7 +785,7 @@ router.post('/verify-subscription-payment', authenticateToken, asyncHandler(asyn
 // @desc    Verify Razorpay payment and create subscription
 // @route   POST /api/payments/verify-payment
 // @access  Private
-router.post('/verify-payment', asyncHandler(async (req, res) => {
+router.post('/verify-payment', authenticateToken, asyncHandler(async (req, res) => {
   const { 
     razorpay_order_id, 
     razorpay_payment_id, 
@@ -816,6 +817,16 @@ router.post('/verify-payment', asyncHandler(async (req, res) => {
       });
     }
 
+    // Find and update payment record
+    const paymentRecord = await Payment.findOne({ razorpayOrderId: razorpay_order_id });
+    if (paymentRecord) {
+      paymentRecord.razorpayPaymentId = razorpay_payment_id;
+      paymentRecord.razorpaySignature = razorpay_signature;
+      paymentRecord.status = 'paid';
+      await paymentRecord.save();
+      console.log('Payment record updated to paid:', paymentRecord._id);
+    }
+
     // Calculate subscription dates
     const startDate = new Date();
     const endDate = new Date(startDate);
@@ -827,15 +838,16 @@ router.post('/verify-payment', asyncHandler(async (req, res) => {
     // Calculate amount
     let amount = plan.price;
 
-    // Deactivate existing active subscriptions for this user
+    // Deactivate existing active subscriptions for this user (mark as expired since they're being replaced)
     await Subscription.updateMany(
       { 
         user: req.user.id, 
         status: 'active' 
       },
       { 
-        status: 'cancelled',
-        updatedAt: new Date()
+        status: 'expired',
+        updatedAt: new Date(),
+        cancellationReason: 'Replaced by new subscription (upgrade)'
       }
     );
 
@@ -862,6 +874,12 @@ router.post('/verify-payment', asyncHandler(async (req, res) => {
     await subscription.createPlanSnapshot();
 
     await subscription.save();
+
+    // Link payment to subscription if payment record exists
+    if (paymentRecord) {
+      paymentRecord.subscription = subscription._id;
+      await paymentRecord.save();
+    }
 
     // Update plan subscriber count
     await Plan.findByIdAndUpdate(planId, {
@@ -892,7 +910,7 @@ router.post('/verify-payment', asyncHandler(async (req, res) => {
 // @desc    Get payment status
 // @route   GET /api/payments/:paymentId/status
 // @access  Private
-router.get('/:paymentId/status', asyncHandler(async (req, res) => {
+router.get('/:paymentId/status', authenticateToken, asyncHandler(async (req, res) => {
   try {
     const razorpayPayment = await razorpay.payments.fetch(req.params.paymentId);
     
@@ -931,7 +949,7 @@ router.get('/:paymentId/status', asyncHandler(async (req, res) => {
 // @desc    Refund payment
 // @route   POST /api/payments/:paymentId/refund
 // @access  Private/Admin
-router.post('/:paymentId/refund', asyncHandler(async (req, res) => {
+router.post('/:paymentId/refund', authenticateToken, asyncHandler(async (req, res) => {
   if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
