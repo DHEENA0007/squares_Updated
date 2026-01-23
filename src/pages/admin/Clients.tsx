@@ -1501,7 +1501,7 @@ const Clients = () => {
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-base truncate">{subscription.user.name}</div>
                             <div className="text-sm text-muted-foreground truncate">{subscription.user.email}</div>
-                            <div className="text-sm text-muted-foreground truncate">{subscription.user.phone || 'N/A'}</div>
+                            <div className="text-sm text-muted-foreground truncate">{subscription.user.phone || subscription.user.profile?.phone || 'N/A'}</div>
                           </div>
                         </div>
                         <Badge
@@ -1629,7 +1629,7 @@ const Clients = () => {
                         </div>
                       </TableCell>
                       <TableCell className="w-[140px] min-w-[120px]">
-                        <span className="whitespace-nowrap">{subscription.user.phone || 'N/A'}</span>
+                        <span className="whitespace-nowrap">{subscription.user.phone || subscription.user.profile?.phone || 'N/A'}</span>
                       </TableCell>
                       <TableCell className="w-[200px] min-w-[150px]">
                         <div className="space-y-1">
@@ -1760,10 +1760,10 @@ const Clients = () => {
                       <p className="text-sm font-medium text-muted-foreground">Email</p>
                       <p className="text-base">{selectedSubscription.user.email}</p>
                     </div>
-                    {selectedSubscription.user.phone && (
+                    {(selectedSubscription.user.phone || selectedSubscription.user.profile?.phone) && (
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Phone</p>
-                        <p className="text-base">{selectedSubscription.user.phone}</p>
+                        <p className="text-base">{selectedSubscription.user.phone || selectedSubscription.user.profile?.phone}</p>
                       </div>
                     )}
                     <div>

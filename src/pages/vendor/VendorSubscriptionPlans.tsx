@@ -251,20 +251,27 @@ const VendorSubscriptionPlans: React.FC = () => {
       const result = await paymentService.processSubscriptionPayment(paymentData);
       
       if (result.success) {
+        console.log('Payment successful, navigating to subscription manager...');
+        
         toast({
           title: "Payment Successful!",
           description: `Successfully subscribed to ${selectedPlan.name}${selectedAddons.length > 0 ? ` with ${selectedAddons.length} addon(s)` : ''}`,
         });
         
-        // Refresh subscription data globally after successful payment
+        // Refresh subscription data globally after successful payment (non-blocking)
         try {
           const { vendorService } = await import('../../services/vendorService');
-          await vendorService.refreshSubscriptionData();
+          vendorService.refreshSubscriptionData().catch(err => 
+            console.warn('Failed to refresh subscription data:', err)
+          );
         } catch (refreshError) {
-          console.warn('Failed to refresh subscription data:', refreshError);
+          console.warn('Failed to import vendor service:', refreshError);
         }
         
-        navigate("/vendor/subscription-manager");
+        // Navigate immediately without waiting for refresh
+        setLoading(false);
+        navigate("/vendor/subscription-manager", { replace: true });
+        return;
       } else {
         throw new Error(result.message || 'Payment failed');
       }

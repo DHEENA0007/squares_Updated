@@ -276,6 +276,7 @@ class PaymentService {
           },
           handler: async (response: any) => {
             try {
+              console.log('Razorpay payment success, verifying...', response);
               // Verify payment
               const verificationData = await this.verifySubscriptionPayment({
                 razorpay_order_id: response.razorpay_order_id,
@@ -287,13 +288,15 @@ class PaymentService {
                 totalAmount: paymentData.totalAmount
               });
 
+              console.log('Payment verification successful:', verificationData);
               resolve({
                 success: true,
                 data: verificationData
               });
             } catch (error) {
               console.error('Payment verification failed:', error);
-              reject({
+              // Resolve with failure instead of reject to ensure proper handling
+              resolve({
                 success: false,
                 message: error instanceof Error ? error.message : 'Payment verification failed'
               });
@@ -301,7 +304,8 @@ class PaymentService {
           },
           modal: {
             ondismiss: () => {
-              reject({
+              console.log('Razorpay modal dismissed by user');
+              resolve({
                 success: false,
                 message: 'Payment was cancelled by user'
               });
@@ -316,10 +320,9 @@ class PaymentService {
           // Add error listener for checkout failures
           razorpay.on('payment.failed', function (response: any) {
             console.error('Razorpay payment failed:', response.error);
-            reject({
+            resolve({
               success: false,
-              message: response.error.description || 'Payment failed',
-              error: response.error
+              message: response.error.description || 'Payment failed'
             });
           });
           
@@ -336,10 +339,9 @@ class PaymentService {
             variant: "destructive",
           });
           
-          reject({
+          resolve({
             success: false,
-            message: `Checkout failed: ${errorMsg}`,
-            error: checkoutError
+            message: `Checkout failed: ${errorMsg}`
           });
         }
       });
