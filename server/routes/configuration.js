@@ -805,11 +805,20 @@ router.post('/navigation-items', authenticateToken, isSuperAdmin, async (req, re
   try {
     console.log('Creating navigation item with data:', req.body);
 
-    // Validate required fields
-    if (!req.body.name || !req.body.value || !req.body.category) {
+    // Validate required fields - category is optional if parentId is provided
+    if (!req.body.name || !req.body.value) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: name, value, and category are required',
+        message: 'Missing required fields: name and value are required',
+        receivedData: req.body,
+      });
+    }
+
+    // Category is required only for top-level items (no parentId)
+    if (!req.body.parentId && !req.body.category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category is required for top-level navigation items',
         receivedData: req.body,
       });
     }
