@@ -451,12 +451,35 @@ const AddProperty = () => {
     { id: 7, title: "Review", description: "Review and submit listing" }
   ];
 
-  // Fetch amenities from admin configuration
+  // Fetch amenities based on selected property type from admin configuration
   useEffect(() => {
-    const fetchAmenities = async () => {
+    const fetchPropertyTypeAmenities = async () => {
+      if (!formData.propertyType) {
+        setAmenitiesList([]);
+        return;
+      }
+
       try {
         setIsLoadingAmenities(true);
-        const amenitiesData = await configurationService.getAllAmenities(false);
+        
+        // Find the property type to get its ID
+        const selectedPropertyType = propertyTypes.find(pt => pt.value === formData.propertyType);
+        console.log('[DEBUG] Property types available:', propertyTypes);
+        console.log('[DEBUG] Looking for property type value:', formData.propertyType);
+        console.log('[DEBUG] Found property type:', selectedPropertyType);
+        
+        if (!selectedPropertyType || !selectedPropertyType.id) {
+          console.log('[DEBUG] No valid property type found or missing ID, clearing amenities');
+          setAmenitiesList([]);
+          return;
+        }
+
+        console.log('[DEBUG] Fetching amenities for property type ID:', selectedPropertyType.id);
+        
+        // Fetch amenities configured for this property type
+        const amenitiesData = await configurationService.getPropertyTypeAmenities(selectedPropertyType.id);
+        
+        console.log('[DEBUG] Raw amenities data from API:', amenitiesData);
 
         // Sort by displayOrder and map to just the names
         const sortedAmenities = amenitiesData
@@ -464,27 +487,17 @@ const AddProperty = () => {
           .map(amenity => amenity.name);
 
         setAmenitiesList(sortedAmenities);
+        console.log(`[DEBUG] Loaded ${sortedAmenities.length} configured amenities for property type ${formData.propertyType}:`, sortedAmenities);
       } catch (error) {
-        console.error('Error fetching amenities:', error);
-        toast({
-          title: "Warning",
-          description: "Failed to load amenities. Using default list.",
-          variant: "destructive",
-        });
-        // Fallback to default amenities if API fails
-        setAmenitiesList([
-          "Swimming Pool", "Gym/Fitness Center", "Parking", "Security",
-          "Garden/Park", "Playground", "Clubhouse", "Power Backup",
-          "Elevator", "WiFi", "CCTV Surveillance", "Intercom",
-          "Water Supply", "Waste Management", "Fire Safety", "Visitor Parking"
-        ]);
+        console.error('Error fetching property type amenities:', error);
+        setAmenitiesList([]);
       } finally {
         setIsLoadingAmenities(false);
       }
     };
 
-    fetchAmenities();
-  }, []);
+    fetchPropertyTypeAmenities();
+  }, [formData.propertyType, propertyTypes]);
 
   // Fetch facing options from admin configuration
   useEffect(() => {
@@ -1781,9 +1794,13 @@ const AddProperty = () => {
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
                     <span className="text-sm text-muted-foreground">Loading amenities...</span>
                   </div>
+                ) : !formData.propertyType ? (
+                  <div className="col-span-full text-center py-8 border rounded-lg bg-muted/20">
+                    <p className="text-sm text-muted-foreground">Please select a property type first to see available amenities</p>
+                  </div>
                 ) : amenitiesList.length === 0 ? (
-                  <div className="col-span-full text-center py-4 text-muted-foreground">
-                    No amenities configured. Please contact admin.
+                  <div className="col-span-full text-center py-8 border rounded-lg bg-muted/20">
+                    <p className="text-sm text-muted-foreground">No amenities configured for this property type.</p>
                   </div>
                 ) : (
                   amenitiesList.map((amenity) => (

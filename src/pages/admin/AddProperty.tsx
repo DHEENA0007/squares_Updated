@@ -189,15 +189,14 @@ const AddProperty = () => {
         console.log(`Loaded ${statesData.length} states from loca.json`);
 
         // Fetch property types, amenities, listing types, facing, and parking options from configuration
-        const [typesData, amenitiesData, listingTypesData, facingData, parkingData] = await Promise.all([
+        const [typesData, listingTypesData, facingData, parkingData] = await Promise.all([
           configurationService.getAllPropertyTypes(false), // Only active
-          configurationService.getAllAmenities(false), // Only active
           configurationService.getFilterConfigurationsByType('listing_type', false), // Only active
           configurationService.getFilterConfigurationsByType('facing', false), // Only active
           configurationService.getFilterConfigurationsByType('parking_spaces', false), // Only active
         ]);
         setPropertyTypes(typesData);
-        setAmenitiesList(amenitiesData);
+        // Don't set amenitiesList here - it will be fetched when property type is selected
 
         // Map listing types to include id
         const mappedListingTypes = listingTypesData.map(type => ({
@@ -240,7 +239,7 @@ const AddProperty = () => {
           { value: "3", label: "3+ Cars" }
         ]);
 
-        console.log(`Loaded ${typesData.length} property types, ${amenitiesData.length} amenities, ${mappedListingTypes.length} listing types, ${mappedFacing.length} facing options, and ${mappedParking.length} parking options from configuration`);
+        console.log(`Loaded ${typesData.length} property types, ${mappedListingTypes.length} listing types, ${mappedFacing.length} facing options, and ${mappedParking.length} parking options from configuration`);
         console.log('AddProperty - Listing types data:', mappedListingTypes);
       } catch (error) {
         console.error('Error initializing data:', error);
@@ -354,6 +353,7 @@ const AddProperty = () => {
   useEffect(() => {
     const fetchPropertyTypeAmenities = async () => {
       if (!formData.propertyType) {
+        setAmenitiesList([]);
         return;
       }
 
@@ -366,10 +366,13 @@ const AddProperty = () => {
             selectedPropertyType._id
           );
           setAmenitiesList(typeAmenities);
-          console.log(`Loaded ${typeAmenities.length} amenities for property type ${formData.propertyType}`);
+          console.log(`Loaded ${typeAmenities.length} configured amenities for property type ${formData.propertyType}`);
+        } else {
+          setAmenitiesList([]);
         }
       } catch (error) {
         console.error('Error fetching property type amenities:', error);
+        setAmenitiesList([]);
       }
     };
 
@@ -1062,9 +1065,14 @@ const AddProperty = () => {
                     <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
                     <p className="text-sm text-muted-foreground mt-2">Loading amenities...</p>
                   </div>
-                ) : amenitiesList.length === 0 && formData.propertyType ? (
-                  <div className="col-span-full text-center py-8">
-                    <p className="text-sm text-muted-foreground">No amenities configured for this property type</p>
+                ) : !formData.propertyType ? (
+                  <div className="col-span-full text-center py-8 border rounded-lg bg-muted/20">
+                    <p className="text-sm text-muted-foreground">Please select a property type first to see available amenities</p>
+                  </div>
+                ) : amenitiesList.length === 0 ? (
+                  <div className="col-span-full text-center py-8 border rounded-lg bg-muted/20">
+                    <p className="text-sm text-muted-foreground">No amenities configured for this property type.</p>
+                    <p className="text-xs text-muted-foreground mt-1">Admin can configure amenities in Property Management → Amenities</p>
                   </div>
                 ) : (
                   amenitiesList.map((amenity) => (

@@ -197,6 +197,34 @@ const PropertyComparison = () => {
     setShowPropertyDialog(true);
   }, [selectedProperties.length]);
 
+  const handleShareComparison = useCallback(async () => {
+    const shareUrl = `${window.location.origin}/customer/compare?properties=${selectedProperties.join(',')}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Property Comparison',
+          text: `Compare ${properties.length} properties`,
+          url: shareUrl,
+        });
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          await navigator.clipboard.writeText(shareUrl);
+          toast({
+            title: "Link Copied",
+            description: "Comparison link copied to clipboard",
+          });
+        }
+      }
+    } else {
+      await navigator.clipboard.writeText(shareUrl);
+      toast({
+        title: "Link Copied",
+        description: "Comparison link copied to clipboard",
+      });
+    }
+  }, [selectedProperties, properties.length]);
+
   const handlePropertySelect = useCallback(async (propertyId: string): Promise<void> => {
     try {
       // Check if property is already selected
@@ -336,7 +364,7 @@ const PropertyComparison = () => {
               Back to Favorites
             </Button>
           </Link>
-          <Button variant="outline" disabled={properties.length === 0}>
+          <Button variant="outline" disabled={properties.length === 0} onClick={handleShareComparison}>
             <Share className="w-4 h-4 mr-2" />
             Share Comparison
           </Button>
