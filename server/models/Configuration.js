@@ -178,7 +178,10 @@ const navigationItemSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    required: true,
+    required: function() {
+      return !this.parentId; // Required only for top-level items
+    },
+    default: '',
   },
   parentId: {
     type: String,
