@@ -4370,9 +4370,22 @@ router.get('/notifications/history', authenticateToken, isAnyAdmin, asyncHandler
 // @route   POST /api/admin/notifications/send
 // @access  Private/Admin
 router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(async (req, res) => {
+  console.log('📢 [Notification Send] Route hit - /api/admin/notifications/send');
+  console.log('📢 [Notification Send] User:', req.user?.id, 'Role:', req.user?.role);
+  
   const { subject, message, targetAudience, channels, isScheduled, scheduledDate, saveAsDraft, notificationId } = req.body;
 
+  console.log('📢 [Notification Send] Request body received:', { 
+    subject: subject ? 'YES' : 'NO', 
+    message: message ? 'YES' : 'NO', 
+    targetAudience, 
+    channels, 
+    isScheduled, 
+    saveAsDraft 
+  });
+
   if (!subject || !message || !channels || channels.length === 0) {
+    console.log('📢 [Notification Send] Validation failed - missing required fields');
     return res.status(400).json({ success: false, message: 'Missing required fields' });
   }
 
@@ -4582,7 +4595,11 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
     console.error('📢 [Notification Send] FATAL ERROR:', error.message);
     console.error('📢 [Notification Send] Stack:', error.stack);
     console.error('Send notification error:', error);
-    res.status(500).json({ success: false, message: 'Failed to process notification' });
+    res.status(500).json({ 
+      success: false, 
+      message: `Failed to process notification: ${error.message}`,
+      error: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+    });
   }
 }));
 

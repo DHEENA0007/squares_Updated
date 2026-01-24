@@ -307,11 +307,12 @@ const SendNotifications = () => {
         // Refresh history if on that tab, or just invalidate cache
         if (activeTab === 'history') fetchHistory();
       } else {
+        console.error('Notification send failed:', data);
         alert(data.message || 'Failed to send notification');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to send notification:', error);
-      alert('Failed to send notification');
+      alert(`Failed to send notification: ${error?.message || 'Network error'}`);
     } finally {
       setSending(false);
     }
