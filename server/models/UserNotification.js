@@ -20,7 +20,10 @@ const userNotificationSchema = new mongoose.Schema({
       'inquiry_received',
       'weekly_report',
       'business_update',
-      'system'
+      'system',
+      'admin_broadcast',
+      'promotional',
+      'announcement'
     ],
     default: 'general'
   },
