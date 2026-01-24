@@ -4370,13 +4370,29 @@ router.get('/notifications/history', authenticateToken, isAnyAdmin, asyncHandler
 // @route   POST /api/admin/notifications/send
 // @access  Private/Admin
 router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(async (req, res) => {
+  console.log('📢 [Notification Send] Route hit - /api/admin/notifications/send');
+  console.log('📢 [Notification Send] User:', req.user?.id, 'Role:', req.user?.role);
+  
   const { subject, message, targetAudience, channels, isScheduled, scheduledDate, saveAsDraft, notificationId } = req.body;
 
+  console.log('📢 [Notification Send] Request body received:', { 
+    subject: subject ? 'YES' : 'NO', 
+    message: message ? 'YES' : 'NO', 
+    targetAudience, 
+    channels, 
+    isScheduled, 
+    saveAsDraft 
+  });
+
   if (!subject || !message || !channels || channels.length === 0) {
+    console.log('📢 [Notification Send] Validation failed - missing required fields');
     return res.status(400).json({ success: false, message: 'Missing required fields' });
   }
 
   try {
+    console.log('📢 [Notification Send] Starting notification send process...');
+    console.log('📢 [Notification Send] Request body:', { subject, targetAudience, channels, isScheduled, saveAsDraft });
+    
     // Define audience query
     let query = {};
     const thirtyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 30));
@@ -4385,46 +4401,54 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
       case 'customers':
       case 'customer':
         query = { role: 'customer' };
+        console.log('📢 [Notification Send] Target: customers');
         break;
       case 'vendors':
       case 'vendor':
       case 'agent':
         query = { role: { $in: ['vendor', 'agent'] } };
+        console.log('📢 [Notification Send] Target: vendors/agents');
         break;
       case 'active_users':
         query = { lastLogin: { $gte: thirtyDaysAgo } };
+        console.log('📢 [Notification Send] Target: active_users');
         break;
       case 'premium_users':
         const activeSubUserIds = await Subscription.distinct('user', { status: 'active' });
         query = { _id: { $in: activeSubUserIds } };
+        console.log('📢 [Notification Send] Target: premium_users, found:', activeSubUserIds.length);
         break;
       case 'all_users':
         query = {};
+        console.log('📢 [Notification Send] Target: all_users');
         break;
       default:
         // Handle custom roles from the roles collection
-        // Check if targetAudience is a valid role name
+        console.log('📢 [Notification Send] Target: custom role -', targetAudience);
         const roleExists = await Role.findOne({ 
           $or: [
             { name: { $regex: new RegExp(`^${targetAudience}$`, 'i') } },
             { name: targetAudience }
           ]
         });
+        console.log('📢 [Notification Send] Role lookup result:', roleExists ? roleExists.name : 'NOT FOUND');
         
         if (roleExists) {
-          // Use case-insensitive matching for the role
           query = { role: { $regex: new RegExp(`^${targetAudience}$`, 'i') } };
         } else {
-          // If no matching role found, default to all users
-          console.warn(`Unknown targetAudience: ${targetAudience}, defaulting to all users`);
+          console.warn(`📢 [Notification Send] Unknown targetAudience: ${targetAudience}, defaulting to all users`);
           query = {};
         }
     }
 
+    console.log('📢 [Notification Send] Query:', JSON.stringify(query));
+    
     // Fetch users (projection to save memory)
     const users = await User.find(query).select('_id email role profile');
+    console.log('📢 [Notification Send] Found users:', users.length);
 
     if (users.length === 0) {
+      console.log('📢 [Notification Send] ERROR: No users found for audience');
       return res.status(404).json({ success: false, message: 'No users found for the selected audience' });
     }
 
@@ -4486,8 +4510,12 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
 
     // Process Emails
     if (channels.includes('email') && !isScheduled) {
+      console.log('📢 [Notification Send] Processing emails for', users.length, 'users');
       const emailPromises = users.map(user => {
-        if (!user.email) return Promise.resolve();
+        if (!user.email) {
+          console.log('📢 [Notification Send] Skipping user without email:', user._id);
+          return Promise.resolve();
+        }
         return sendTemplateEmail(user.email, 'general-notification', {
           subject,
           message,
@@ -4495,16 +4523,25 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
           actionLink: process.env.CLIENT_URL,
           actionText: 'Go to Dashboard'
         }).then(res => {
-          if (res.success) results.email.sent++;
-          else results.email.failed++;
+          if (res.success) {
+            results.email.sent++;
+          } else {
+            results.email.failed++;
+            console.log('📢 [Notification Send] Email failed for:', user.email, res.error || '');
+          }
+        }).catch(err => {
+          results.email.failed++;
+          console.error('📢 [Notification Send] Email error for:', user.email, err.message);
         });
       });
 
       await Promise.all(emailPromises);
+      console.log('📢 [Notification Send] Email results:', results.email);
     }
 
     // Process Push (Socket.IO)
     if (channels.includes('push') && !isScheduled) {
+      console.log('📢 [Notification Send] Processing push notifications for', users.length, 'users');
       const userIds = users.map(u => u._id.toString());
       const notificationData = {
         type: 'admin_broadcast',
@@ -4516,9 +4553,15 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
         }
       };
 
-      const notificationService = require('../services/notificationService');
-      notificationService.sendNotification(userIds, notificationData);
-      results.push.sent = userIds.length;
+      try {
+        const notificationService = require('../services/notificationService');
+        notificationService.sendNotification(userIds, notificationData);
+        results.push.sent = userIds.length;
+        console.log('📢 [Notification Send] Push notifications queued:', userIds.length);
+      } catch (pushError) {
+        console.error('📢 [Notification Send] Push notification error:', pushError.message);
+        results.push.failed = userIds.length;
+      }
     }
 
     // Update notification status and stats
@@ -4538,8 +4581,10 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
         delivered: results.push.sent + results.email.sent,
       };
       await notification.save();
+      console.log('📢 [Notification Send] Notification saved with status: sent');
     }
 
+    console.log('📢 [Notification Send] Final results:', results);
     res.json({
       success: true,
       message: isScheduled ? 'Notification scheduled successfully' : 'Notifications sent successfully',
@@ -4547,8 +4592,14 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
       notification
     });
   } catch (error) {
+    console.error('📢 [Notification Send] FATAL ERROR:', error.message);
+    console.error('📢 [Notification Send] Stack:', error.stack);
     console.error('Send notification error:', error);
-    res.status(500).json({ success: false, message: 'Failed to process notification' });
+    res.status(500).json({ 
+      success: false, 
+      message: `Failed to process notification: ${error.message}`,
+      error: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+    });
   }
 }));
 
