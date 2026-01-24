@@ -4383,10 +4383,13 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
 
     switch (targetAudience) {
       case 'customers':
+      case 'customer':
         query = { role: 'customer' };
         break;
       case 'vendors':
-        query = { role: 'vendor' };
+      case 'vendor':
+      case 'agent':
+        query = { role: { $in: ['vendor', 'agent'] } };
         break;
       case 'active_users':
         query = { lastLogin: { $gte: thirtyDaysAgo } };
@@ -4396,8 +4399,26 @@ router.post('/notifications/send', authenticateToken, isAnyAdmin, asyncHandler(a
         query = { _id: { $in: activeSubUserIds } };
         break;
       case 'all_users':
-      default:
         query = {};
+        break;
+      default:
+        // Handle custom roles from the roles collection
+        // Check if targetAudience is a valid role name
+        const roleExists = await Role.findOne({ 
+          $or: [
+            { name: { $regex: new RegExp(`^${targetAudience}$`, 'i') } },
+            { name: targetAudience }
+          ]
+        });
+        
+        if (roleExists) {
+          // Use case-insensitive matching for the role
+          query = { role: { $regex: new RegExp(`^${targetAudience}$`, 'i') } };
+        } else {
+          // If no matching role found, default to all users
+          console.warn(`Unknown targetAudience: ${targetAudience}, defaulting to all users`);
+          query = {};
+        }
     }
 
     // Fetch users (projection to save memory)
