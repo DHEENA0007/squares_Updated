@@ -13,6 +13,7 @@ import { Bell, Send, Users, Mail, Eye, RotateCcw, Calendar, CheckCircle, XCircle
 import { format } from "date-fns";
 import roleService, { Role } from "@/services/roleService";
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchWithAuth } from "@/utils/apiUtils";
 
 interface NotificationTemplate {
   _id: string;
@@ -72,11 +73,7 @@ const SendNotifications = () => {
     // Fetch audience counts
     const fetchCounts = async () => {
       try {
-        const response = await fetch('/api/admin/notifications/audience-counts', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
+        const response = await fetchWithAuth('/api/admin/notifications/audience-counts');
         if (response.ok) {
           const data = await response.json();
           if (data.success) {
@@ -114,11 +111,7 @@ const SendNotifications = () => {
   const fetchHistory = async () => {
     setLoadingHistory(true);
     try {
-      const response = await fetch('/api/admin/notifications/history', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await fetchWithAuth('/api/admin/notifications/history');
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -233,12 +226,8 @@ const SendNotifications = () => {
         notificationId: currentNotificationId
       };
 
-      const response = await fetch('/api/admin/notifications/send', {
+      const response = await fetchWithAuth('/api/admin/notifications/send', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(payload)
       });
 
@@ -278,12 +267,8 @@ const SendNotifications = () => {
         notificationId: currentNotificationId
       };
 
-      const response = await fetch('/api/admin/notifications/send', {
+      const response = await fetchWithAuth('/api/admin/notifications/send', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(payload)
       });
 
@@ -344,11 +329,8 @@ const SendNotifications = () => {
     if (!confirm('Are you sure you want to delete this notification record?')) return;
 
     try {
-      const response = await fetch(`/api/admin/notifications/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      const response = await fetchWithAuth(`/api/admin/notifications/${id}`, {
+        method: 'DELETE'
       });
 
       if (response.ok) {
