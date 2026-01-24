@@ -165,18 +165,24 @@ const FiltersTab: React.FC = () => {
 
   // Helper to get source values when source filter type changes
   useEffect(() => {
-    const fetchSourceValues = async () => {
+    const fetchSourceValues = () => {
       if (!newDependency.sourceFilterType) {
         setAvailableSourceValues([]);
         return;
       }
 
-      if (newDependency.sourceFilterType === 'property_type') {
-        const types = await configurationService.getAllPropertyTypes(false);
-        setAvailableSourceValues(types.map(t => ({ label: t.name, value: t.value })));
+      // Get filter options configured for this type
+      const filterOptions = getFiltersByType(newDependency.sourceFilterType);
+      
+      if (filterOptions.length > 0) {
+        // Use configured filter options (only active ones)
+        setAvailableSourceValues(
+          filterOptions
+            .filter(o => o.isActive)
+            .map(o => ({ label: o.displayLabel || o.name, value: o.value }))
+        );
       } else {
-        const options = getFiltersByType(newDependency.sourceFilterType);
-        setAvailableSourceValues(options.map(o => ({ label: o.displayLabel || o.name, value: o.value })));
+        setAvailableSourceValues([]);
       }
     };
     fetchSourceValues();
@@ -597,7 +603,7 @@ const FiltersTab: React.FC = () => {
                   <SelectContent>
                     {filterTypes.map(t => (
                       <SelectItem key={t} value={t}>
-                        {t.replace(/_/g, ' ')}
+                        {t.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -614,10 +620,9 @@ const FiltersTab: React.FC = () => {
                     <SelectValue placeholder="Select parent filter" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="property_type">Property Type</SelectItem>
                     {filterTypes.filter(t => t !== newDependency.targetFilterType).map(t => (
                       <SelectItem key={t} value={t}>
-                        {t.replace(/_/g, ' ')}
+                        {t.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
                       </SelectItem>
                     ))}
                   </SelectContent>

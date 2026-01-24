@@ -814,8 +814,18 @@ router.post('/navigation-items', authenticateToken, isSuperAdmin, async (req, re
       });
     }
 
-    // Category is required only for top-level items (no parentId)
-    if (!req.body.parentId && !req.body.category) {
+    // If parentId is provided but category is empty, try to inherit from parent
+    let itemData = { ...req.body };
+    if (req.body.parentId && !req.body.category) {
+      const parentItem = await NavigationItem.findOne({ value: req.body.parentId });
+      if (parentItem && parentItem.category) {
+        itemData.category = parentItem.category;
+        console.log(`Inherited category '${parentItem.category}' from parent '${req.body.parentId}'`);
+      }
+    }
+
+    // Category is required only for top-level items (no parentId) and if not inherited
+    if (!itemData.parentId && !itemData.category) {
       return res.status(400).json({
         success: false,
         message: 'Category is required for top-level navigation items',
@@ -823,7 +833,7 @@ router.post('/navigation-items', authenticateToken, isSuperAdmin, async (req, re
       });
     }
 
-    const navigationItem = new NavigationItem(req.body);
+    const navigationItem = new NavigationItem(itemData);
     await navigationItem.save();
 
     res.status(201).json({

@@ -515,7 +515,12 @@ const NavigationTab: React.FC = () => {
                         name: selected.name,
                         value: selected.value,
                         displayLabel: selected.name,
+                        category: selected.category || prev.category,
                       }));
+                      toast({
+                        title: 'Auto-filled',
+                        description: `Category set to "${selected.category}" from Property Management`,
+                      });
                     }
                   }}
                 >
@@ -527,13 +532,13 @@ const NavigationTab: React.FC = () => {
                       .filter(pt => pt.value && pt.value.trim() !== '')
                       .map(pt => (
                         <SelectItem key={pt._id} value={pt.value}>
-                          {pt.name}
+                          {pt.name} <span className="text-muted-foreground ml-2">({pt.category})</span>
                         </SelectItem>
                       ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Select a property type created in Property Management to auto-fill details
+                  Select a property type to auto-fill name, value, and category
                 </p>
               </div>
             )}
@@ -574,27 +579,17 @@ const NavigationTab: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="category">Category *</Label>
-                <Select
+                <Label htmlFor="category">Category</Label>
+                <Input
+                  id="category"
                   value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
-                  disabled={categories.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={categories.length === 0 ? "No categories available" : "Select category..."} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories
-                      .filter(cat => cat.value && cat.value.trim() !== '')
-                      .map(cat => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                  readOnly
+                  disabled
+                  className="bg-muted"
+                  placeholder="Auto-filled from Property Type"
+                />
                 <p className="text-xs text-muted-foreground">
-                  Manage categories in Configuration Management
+                  Auto-filled from Property Management when selecting a property type
                 </p>
               </div>
 
