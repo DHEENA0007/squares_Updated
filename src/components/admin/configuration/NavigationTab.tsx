@@ -515,6 +515,7 @@ const NavigationTab: React.FC = () => {
                         name: selected.name,
                         value: selected.value,
                         displayLabel: selected.name,
+                        category: selected.category || prev.category,
                       }));
                     }
                   }}
