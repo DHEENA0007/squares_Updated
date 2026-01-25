@@ -417,27 +417,49 @@ const MyFavorites: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Key Specs */}
-                    <div className="flex items-center justify-between py-3 border-t border-b border-border">
-                      <div className="text-center">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Bed</p>
-                        <p className="font-semibold text-foreground">{property.bedrooms || '-'}</p>
-                      </div>
-                      <div className="w-px h-8 bg-border" />
-                      <div className="text-center">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Bath</p>
-                        <p className="font-semibold text-foreground">{property.bathrooms || '-'}</p>
-                      </div>
-                      <div className="w-px h-8 bg-border" />
-                      <div className="text-center">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Area</p>
-                        <p className="font-semibold text-foreground">
-                          {property.area && typeof property.area === 'object'
-                            ? ((property.area as any).builtUp || (property.area as any).plot || '-')
-                            : '-'}
-                        </p>
-                      </div>
-                    </div>
+                    {/* Key Specs - Dynamic based on available data */}
+                    {(() => {
+                      const areaValue = property.area && typeof property.area === 'object'
+                        ? ((property.area as any).builtUp || (property.area as any).plot || (property.area as any).carpet)
+                        : null;
+                      const areaUnit = property.area && typeof property.area === 'object'
+                        ? (property.area as any).unit || 'sq ft'
+                        : 'sq ft';
+
+                      const specs: { label: string; value: string | number }[] = [];
+                      
+                      // Add bedrooms if available
+                      if (property.bedrooms !== undefined && property.bedrooms !== null && property.bedrooms > 0) {
+                        specs.push({ label: 'Bed', value: property.bedrooms });
+                      }
+                      
+                      // Add bathrooms if available
+                      if (property.bathrooms !== undefined && property.bathrooms !== null && property.bathrooms > 0) {
+                        specs.push({ label: 'Bath', value: property.bathrooms });
+                      }
+                      
+                      // Add area if available
+                      if (areaValue) {
+                        specs.push({ label: 'Area', value: `${areaValue} ${areaUnit}` });
+                      }
+
+                      // If no specs available, don't render the section
+                      if (specs.length === 0) return null;
+
+                      return (
+                        <div className="flex items-center justify-between py-3 border-t border-b border-border">
+                          {specs.map((spec, index) => (
+                            <React.Fragment key={spec.label}>
+                              <div className="text-center flex-1">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wider">{spec.label}</p>
+                                <p className="font-semibold text-foreground">{spec.value}</p>
+                              </div>
+                              {index < specs.length - 1 && <div className="w-px h-8 bg-border" />}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      );
+                    })()}
 
                     {/* Action Buttons */}
                     <div className="flex flex-col gap-2">
@@ -480,9 +502,17 @@ const MyFavorites: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="text-xs text-center text-muted-foreground pt-1">
-                      Added {new Date(favorite.createdAt).toLocaleDateString()}
-                    </div>
+                    {/* Property Date - Show approved date or created date */}
+                    {(() => {
+                      const propAny = property as any;
+                      const dateToShow = propAny.approvedAt || propAny.createdAt;
+                      if (!dateToShow || isNaN(new Date(dateToShow).getTime())) return null;
+                      return (
+                        <div className="text-xs text-center text-muted-foreground pt-1">
+                          Listed {new Date(dateToShow).toLocaleDateString()}
+                        </div>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               );

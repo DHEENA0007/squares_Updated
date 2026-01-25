@@ -198,7 +198,11 @@ const PropertyComparison = () => {
   }, [selectedProperties.length]);
 
   const handleShareComparison = useCallback(async () => {
-    const shareUrl = `${window.location.origin}/customer/compare?properties=${selectedProperties.join(',')}`;
+    // Use current URL's base path dynamically
+    const currentPath = window.location.pathname;
+    const compareIndex = currentPath.indexOf('/customer/compare');
+    const basePath = compareIndex > 0 ? currentPath.substring(0, compareIndex) : '';
+    const shareUrl = `${window.location.origin}${basePath}/customer/compare?properties=${selectedProperties.join(',')}`;
     
     if (navigator.share) {
       try {

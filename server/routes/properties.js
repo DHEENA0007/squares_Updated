@@ -725,17 +725,23 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
 
       // Count current properties
       const vendorObjectId = new mongoose.Types.ObjectId(req.user.id);
-      const currentProperties = await Property.countDocuments({
-        $or: [
-          { owner: req.user.id },
-          { agent: req.user.id },
-          { vendor: vendorObjectId }
-        ]
-      });
-
+      
       // Check limits using planSnapshot for existing subscriptions or fetch FREE plan from database
       let maxProperties;
+      let freeListingCount = 0;
+      
       if (activeSubscription) {
+        // User has active paid subscription
+        // Count only properties posted AFTER subscribing (non-free listings)
+        const currentProperties = await Property.countDocuments({
+          $or: [
+            { owner: req.user.id },
+            { agent: req.user.id },
+            { vendor: vendorObjectId }
+          ],
+          isFreeListing: { $ne: true } // Only count paid plan properties
+        });
+
         // Use snapshot if available (preserves plan at subscription time)
         const planData = activeSubscription.planSnapshot || activeSubscription.plan;
         if (planData && planData.limits && planData.limits.properties !== undefined) {
@@ -747,8 +753,26 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
             message: 'Invalid subscription data. Please contact support.'
           });
         }
+
+        if (currentProperties >= maxProperties && maxProperties !== 999999) {
+          return res.status(403).json({
+            success: false,
+            message: `Property limit reached. Your current plan allows ${maxProperties} properties (excluding free listings).`,
+            code: 'PROPERTY_LIMIT_EXCEEDED'
+          });
+        }
       } else {
-        // No subscription - fetch FREE plan from database to use admin-set limits
+        // No subscription - using FREE plan
+        // Count only free listings
+        freeListingCount = await Property.countDocuments({
+          $or: [
+            { owner: req.user.id },
+            { agent: req.user.id },
+            { vendor: vendorObjectId }
+          ],
+          isFreeListing: true
+        });
+
         const Plan = require('../models/Plan');
         const freePlan = await Plan.findOne({ identifier: 'free', isActive: true });
         if (!freePlan || freePlan.limits?.properties === undefined) {
@@ -759,14 +783,14 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
         }
         const freePlanLimit = freePlan.limits.properties;
         maxProperties = freePlanLimit === 0 ? 999999 : freePlanLimit;
-      }
 
-      if (currentProperties >= maxProperties && maxProperties !== 999999) {
-        return res.status(403).json({
-          success: false,
-          message: `Property limit reached. Your current plan allows ${maxProperties} properties.`,
-          code: 'PROPERTY_LIMIT_EXCEEDED'
-        });
+        if (freeListingCount >= maxProperties && maxProperties !== 999999) {
+          return res.status(403).json({
+            success: false,
+            message: `Free listing limit reached. Your free plan allows ${maxProperties} properties. Purchase a subscription to post more properties.`,
+            code: 'FREE_LISTING_LIMIT_EXCEEDED'
+          });
+        }
       }
     }
 

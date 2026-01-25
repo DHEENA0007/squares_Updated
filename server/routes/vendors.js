@@ -3638,20 +3638,31 @@ router.get('/subscription-limits', authenticateToken, authorizeRoles('agent', 'a
       endDate: { $gt: new Date() }
     }).populate('plan').sort({ createdAt: -1 });
 
-    // Count current properties
-    const currentProperties = await Property.countDocuments({ owner: vendorId });
-
+    let currentProperties;
     let maxProperties;
     let planName;
     let features;
     let planData = null;
 
     if (activeSubscription && activeSubscription.plan) {
+      // User has active paid subscription
+      // Count only properties posted AFTER subscribing (non-free listings)
+      currentProperties = await Property.countDocuments({ 
+        owner: vendorId,
+        isFreeListing: { $ne: true } // Only count paid plan properties
+      });
+
       // Use planSnapshot for limits (grandfathering existing subscribers)
-      // Existing subscribers keep their original limits until subscription expires
       planData = activeSubscription.planSnapshot || activeSubscription.plan;
     } else {
-      // If no subscription, fetch the FREE plan from database to get current admin settings
+      // No subscription - using FREE plan
+      // Count only free listings
+      currentProperties = await Property.countDocuments({ 
+        owner: vendorId,
+        isFreeListing: true // Only count free listings
+      });
+
+      // Fetch the FREE plan from database
       const Plan = require('../models/Plan');
       planData = await Plan.findOne({ identifier: 'free', isActive: true });
     }
@@ -4134,7 +4145,21 @@ router.get('/billing/stats', requireVendorRole, asyncHandler(async (req, res) =>
     }, 0);
 
     // Get usage stats
-    const propertyCount = await Property.countDocuments({ owner: vendorId });
+    let propertyCount;
+    if (activeSubscription && activeSubscription.plan) {
+      // Has active subscription - count only non-free listings
+      propertyCount = await Property.countDocuments({ 
+        owner: vendorId,
+        isFreeListing: { $ne: true }
+      });
+    } else {
+      // No subscription - count only free listings
+      propertyCount = await Property.countDocuments({ 
+        owner: vendorId,
+        isFreeListing: true
+      });
+    }
+    
     const leadCount = await Message.countDocuments({
       recipient: vendorId,
       type: { $in: ['inquiry', 'lead', 'property_inquiry'] }
@@ -4872,14 +4897,29 @@ router.post('/subscription/refresh', requireVendorRole, asyncHandler(async (req,
       endDate: { $gt: new Date() }
     }).populate('plan').sort({ createdAt: -1 });
 
-    // Count current properties
-    const currentProperties = await Property.countDocuments({
-      $or: [
-        { owner: vendorId },
-        { agent: vendorId },
-        { vendor: new mongoose.Types.ObjectId(vendorId) }
-      ]
-    });
+    // Count current properties based on subscription status
+    let currentProperties;
+    if (activeSubscription && activeSubscription.plan) {
+      // User has active paid subscription - count only non-free listings
+      currentProperties = await Property.countDocuments({
+        $or: [
+          { owner: vendorId },
+          { agent: vendorId },
+          { vendor: new mongoose.Types.ObjectId(vendorId) }
+        ],
+        isFreeListing: { $ne: true }
+      });
+    } else {
+      // No subscription - count only free listings
+      currentProperties = await Property.countDocuments({
+        $or: [
+          { owner: vendorId },
+          { agent: vendorId },
+          { vendor: new mongoose.Types.ObjectId(vendorId) }
+        ],
+        isFreeListing: true
+      });
+    }
 
     // Determine which plan to use
     let plan = null;
