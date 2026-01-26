@@ -11,10 +11,10 @@ const propertyTypeSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  category: {
-    type: String,
+  categories: {
+    type: [String],
     required: true,
-    // Remove enum to allow custom property type categories
+    default: [],
   },
   icon: String,
   isActive: {
@@ -178,7 +178,7 @@ const navigationItemSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    required: function() {
+    required: function () {
       return !this.parentId; // Required only for top-level items
     },
     default: '',
@@ -220,7 +220,7 @@ const configurationMetadataSchema = new mongoose.Schema({
 });
 
 // Create indexes for better performance
-propertyTypeSchema.index({ category: 1, isActive: 1 });
+propertyTypeSchema.index({ categories: 1, isActive: 1 });
 propertyTypeFieldSchema.index({ propertyTypeId: 1, isActive: 1 });
 amenitySchema.index({ category: 1, isActive: 1 });
 filterConfigurationSchema.index({ filterType: 1, isActive: 1 });

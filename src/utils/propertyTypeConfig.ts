@@ -6,7 +6,7 @@
 export interface PropertyTypeConfig {
   type: string;
   label: string;
-  category: 'residential' | 'commercial' | 'land' | 'special';
+  categories: ('residential' | 'commercial' | 'land' | 'special')[];
   requiredFields: string[];
   optionalFields: string[];
   fieldConfigurations: {
@@ -44,7 +44,7 @@ export const PROPERTY_TYPE_CONFIGS: PropertyTypeConfig[] = [
   {
     type: 'apartment',
     label: 'Apartment',
-    category: 'residential',
+    categories: ['residential'],
     requiredFields: ['bedrooms', 'bathrooms', 'builtUpArea', 'floor', 'totalFloors'],
     optionalFields: ['carpetArea', 'furnishing', 'age', 'facing', 'parkingSpaces'],
     fieldConfigurations: {
@@ -99,7 +99,7 @@ export const PROPERTY_TYPE_CONFIGS: PropertyTypeConfig[] = [
   {
     type: 'house',
     label: 'House',
-    category: 'residential',
+    categories: ['residential'],
     requiredFields: ['bedrooms', 'bathrooms', 'builtUpArea'],
     optionalFields: ['carpetArea', 'plotArea', 'furnishing', 'age', 'facing', 'parkingSpaces'],
     fieldConfigurations: {
@@ -141,7 +141,7 @@ export const PROPERTY_TYPE_CONFIGS: PropertyTypeConfig[] = [
   {
     type: 'villa',
     label: 'Villa',
-    category: 'residential',
+    categories: ['residential'],
     requiredFields: ['bedrooms', 'bathrooms', 'builtUpArea', 'plotArea'],
     optionalFields: ['carpetArea', 'furnishing', 'age', 'facing', 'parkingSpaces'],
     fieldConfigurations: {
@@ -183,7 +183,7 @@ export const PROPERTY_TYPE_CONFIGS: PropertyTypeConfig[] = [
   {
     type: 'commercial',
     label: 'Commercial',
-    category: 'commercial',
+    categories: ['commercial'],
     requiredFields: ['builtUpArea'],
     optionalFields: ['carpetArea', 'furnishing', 'floor', 'totalFloors', 'parkingSpaces'],
     fieldConfigurations: {
@@ -219,7 +219,7 @@ export const PROPERTY_TYPE_CONFIGS: PropertyTypeConfig[] = [
   {
     type: 'office',
     label: 'Office Space',
-    category: 'commercial',
+    categories: ['commercial'],
     requiredFields: ['builtUpArea', 'floor'],
     optionalFields: ['carpetArea', 'furnishing', 'totalFloors', 'parkingSpaces'],
     fieldConfigurations: {
@@ -262,7 +262,7 @@ export const PROPERTY_TYPE_CONFIGS: PropertyTypeConfig[] = [
   {
     type: 'plot',
     label: 'Plot',
-    category: 'land',
+    categories: ['land'],
     requiredFields: ['plotArea'],
     optionalFields: ['facing'],
     fieldConfigurations: {
@@ -314,7 +314,7 @@ export const PROPERTY_TYPE_CONFIGS: PropertyTypeConfig[] = [
   {
     type: 'land',
     label: 'Land',
-    category: 'land',
+    categories: ['land'],
     requiredFields: ['plotArea'],
     optionalFields: ['facing'],
     fieldConfigurations: {
@@ -368,7 +368,7 @@ export const PROPERTY_TYPE_CONFIGS: PropertyTypeConfig[] = [
   {
     type: 'pg',
     label: 'PG (Paying Guest)',
-    category: 'special',
+    categories: ['special'],
     requiredFields: ['bedrooms', 'builtUpArea'],
     optionalFields: ['bathrooms', 'floor', 'furnishing'],
     fieldConfigurations: {
@@ -447,7 +447,7 @@ export const isFieldRequired = (propertyType: string, fieldName: string): boolea
 export const getFieldConfiguration = (propertyType: string, fieldName: string) => {
   const config = getPropertyTypeConfig(propertyType);
   if (!config) return null;
-  
+
   return config.fieldConfigurations[fieldName as keyof typeof config.fieldConfigurations] || null;
 };
 
@@ -463,7 +463,7 @@ export const validatePropertyData = (propertyType: string, formData: any): { isV
   }
 
   const errors: string[] = [];
-  
+
   // Check required fields
   config.requiredFields.forEach(field => {
     if (!formData[field] || formData[field] === '') {

@@ -1,0 +1,390 @@
+{
+  "timestamp": "2026-01-26T13:38:26.404Z",
+  "configurations": {
+    "propertyTypes": [
+      {
+        "_id": "696126450f417fd1cc1f5c3b",
+        "name": "House",
+        "value": "Home",
+        "category": "for_rent",
+        "icon": "",
+        "isActive": true,
+        "displayOrder": 0,
+        "createdAt": "2026-01-09T16:01:09.762Z",
+        "updatedAt": "2026-01-09T16:01:09.762Z",
+        "__v": 0
+      },
+      {
+        "_id": "6961ebe50f417fd1cc1f752e",
+        "name": "Flat / Apartment",
+        "value": "apartment",
+        "category": "residential",
+        "icon": "",
+        "isActive": true,
+        "displayOrder": 1,
+        "createdAt": "2026-01-10T06:04:21.040Z",
+        "updatedAt": "2026-01-10T14:45:08.656Z",
+        "__v": 0
+      },
+      {
+        "_id": "696265f55d3a69bc3ae876ae",
+        "value": "builder_floor",
+        "__v": 0,
+        "category": "residential",
+        "createdAt": "2026-01-10T14:45:09.748Z",
+        "displayOrder": 3,
+        "isActive": true,
+        "name": "Builder Floor",
+        "updatedAt": "2026-01-10T14:45:09.748Z"
+      },
+      {
+        "_id": "696265f55d3a69bc3ae876b0",
+        "value": "farm_house",
+        "__v": 0,
+        "category": "residential",
+        "createdAt": "2026-01-10T14:45:09.902Z",
+        "displayOrder": 4,
+        "isActive": true,
+        "name": "Farm House",
+        "updatedAt": "2026-01-10T14:45:09.902Z"
+      },
+      {
+        "_id": "696265f65d3a69bc3ae876b2",
+        "value": "office_space",
+        "__v": 0,
+        "category": "commercial",
+        "createdAt": "2026-01-10T14:45:10.073Z",
+        "displayOrder": 5,
+        "isActive": true,
+        "name": "Office Space",
+        "updatedAt": "2026-01-10T14:45:10.073Z"
+      },
+      {
+        "_id": "696265f65d3a69bc3ae876b4",
+        "value": "shop",
+        "__v": 0,
+        "category": "commercial",
+        "createdAt": "2026-01-10T14:45:10.229Z",
+        "displayOrder": 6,
+        "isActive": true,
+        "name": "Shop / Showroom",
+        "updatedAt": "2026-01-10T14:45:10.229Z"
+      },
+      {
+        "_id": "696265f65d3a69bc3ae876b6",
+        "value": "warehouse",
+        "__v": 0,
+        "category": "commercial",
+        "createdAt": "2026-01-10T14:45:10.356Z",
+        "displayOrder": 7,
+        "isActive": true,
+        "name": "Warehouse / Godown",
+        "updatedAt": "2026-01-10T14:45:10.356Z"
+      },
+      {
+        "_id": "696265f65d3a69bc3ae876b8",
+        "value": "residential_plot",
+        "__v": 0,
+        "category": "land",
+        "createdAt": "2026-01-10T14:45:10.513Z",
+        "displayOrder": 8,
+        "isActive": true,
+        "name": "Residential Plot",
+        "updatedAt": "2026-01-10T14:45:10.513Z"
+      },
+      {
+        "_id": "696265f65d3a69bc3ae876ba",
+        "value": "agricultural_land",
+        "__v": 0,
+        "category": "land",
+        "createdAt": "2026-01-10T14:45:10.672Z",
+        "displayOrder": 9,
+        "isActive": true,
+        "name": "Agricultural Land",
+        "updatedAt": "2026-01-10T14:45:10.672Z"
+      },
+      {
+        "_id": "697316a441c4d5f18de9d1dc",
+        "name": "Farm Land",
+        "value": "Farm Land",
+        "category": "land",
+        "icon": "Land",
+        "isActive": true,
+        "displayOrder": 5,
+        "createdAt": "2026-01-23T06:35:16.710Z",
+        "updatedAt": "2026-01-23T06:35:16.710Z",
+        "__v": 0
+      },
+      {
+        "_id": "69771e4769a41c600ffbb445",
+        "name": "Flat / Apartment",
+        "value": "Flat / Apartment",
+        "category": "for_rent",
+        "icon": "building",
+        "isActive": true,
+        "displayOrder": 1,
+        "createdAt": "2026-01-26T07:56:55.598Z",
+        "updatedAt": "2026-01-26T07:56:55.598Z",
+        "__v": 0
+      },
+      {
+        "_id": "69771e7469a41c600ffbb4a7",
+        "name": "Independent House / Villa",
+        "value": "Independent House / Villa",
+        "category": "for_rent",
+        "icon": "home",
+        "isActive": true,
+        "displayOrder": 2,
+        "createdAt": "2026-01-26T07:57:40.560Z",
+        "updatedAt": "2026-01-26T07:57:40.560Z",
+        "__v": 0
+      },
+      {
+        "_id": "69773c0669a41c600ffc0025",
+        "name": "Flat / Apartment",
+        "value": "flat/apartment",
+        "category": "buy",
+        "icon": "home",
+        "isActive": true,
+        "displayOrder": 1,
+        "createdAt": "2026-01-26T10:03:50.085Z",
+        "updatedAt": "2026-01-26T10:03:50.085Z",
+        "__v": 0
+      },
+      {
+        "_id": "697741cb69a41c600ffc1aed",
+        "name": "Co working space",
+        "value": "Co working space",
+        "category": "for_rent",
+        "icon": "",
+        "isActive": true,
+        "displayOrder": 3,
+        "createdAt": "2026-01-26T10:28:27.838Z",
+        "updatedAt": "2026-01-26T10:28:27.838Z",
+        "__v": 0
+      }
+    ]
+  },
+  "properties": [
+    {
+      "_id": "696b186b2e8495fb24a4e129",
+      "title": "Raghavi Garden",
+      "type": "residential_plot",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "696b13282e8495fb24a4dbba",
+      "createdAt": "2026-01-17T05:04:43.934Z"
+    },
+    {
+      "_id": "696b2e732e8495fb24a50254",
+      "title": "VIP Hill View Haven |13.69L Per Cent",
+      "type": "residential_plot",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "6968725981a3c20c5d8d85cc",
+      "createdAt": "2026-01-17T06:38:43.054Z"
+    },
+    {
+      "_id": "696b35572e8495fb24a51c2b",
+      "title": "Prime Residential Plot for Sale in Kattankulathur – ₹3,999/sq.ft",
+      "type": "residential_plot",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "696b2b672e8495fb24a4fcaf",
+      "createdAt": "2026-01-17T07:08:07.437Z"
+    },
+    {
+      "_id": "696f0d3dfef9476feaf958f6",
+      "title": "Premium Commercial Plot for Sale in Trichy",
+      "type": "residential_plot",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "696f0843fef9476feaf95308",
+      "createdAt": "2026-01-20T05:06:05.909Z"
+    },
+    {
+      "_id": "696f18a6fef9476feaf96610",
+      "title": "Land Available for Sale in Trichy | Price 1650",
+      "type": "residential_plot",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "696f167afef9476feaf9618f",
+      "createdAt": "2026-01-20T05:54:46.979Z"
+    },
+    {
+      "_id": "696f1e8efef9476feaf971e7",
+      "title": "Premium Land Available for Sale in coimbatore |  Per Cent -749,000 Lakhs",
+      "type": "residential_plot",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "696f1cd1fef9476feaf96e4e",
+      "createdAt": "2026-01-20T06:19:58.709Z"
+    },
+    {
+      "_id": "696f43dffef9476feaf9a8e9",
+      "title": "Land For Sales In  Kanchipuram  | 650 per sqft",
+      "type": "agricultural_land",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "696f2bf3fef9476feaf98e24",
+      "createdAt": "2026-01-20T08:59:11.120Z"
+    },
+    {
+      "_id": "696f4afffef9476feaf9b73d",
+      "title": "Land For Sale in trichy",
+      "type": "agricultural_land",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "696f2bf3fef9476feaf98e24",
+      "createdAt": "2026-01-20T09:29:35.124Z"
+    },
+    {
+      "_id": "696fa888fef9476feaf9c435",
+      "title": "MERLOAM ESTATES",
+      "type": "residential_plot",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "696fa6e8fef9476feaf9c2e1",
+      "createdAt": "2026-01-20T16:08:40.665Z"
+    },
+    {
+      "_id": "69707a8141c4d5f18de8b86e",
+      "title": "Railway nagar",
+      "type": "residential_plot",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "69706ce641c4d5f18de8b1c0",
+      "createdAt": "2026-01-21T07:04:33.699Z"
+    },
+    {
+      "_id": "69707ce141c4d5f18de8ba62",
+      "title": "Agam Puram | Morais City",
+      "type": "apartment",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "69706b0241c4d5f18de8afc5",
+      "createdAt": "2026-01-21T07:14:41.063Z"
+    },
+    {
+      "_id": "6970832c41c4d5f18de8c573",
+      "title": "Independent Villa for Sale in Chengalpattu",
+      "type": "villa",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "69706fe441c4d5f18de8b4e6",
+      "createdAt": "2026-01-21T07:41:32.306Z"
+    },
+    {
+      "_id": "6971b6ee41c4d5f18de9430c",
+      "title": "Land for Sale in Thanjavur  | Sq feet : 400 rs",
+      "type": "agricultural_land",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "696f2fd4fef9476feaf996b8",
+      "createdAt": "2026-01-22T05:34:38.077Z"
+    },
+    {
+      "_id": "6971c5c241c4d5f18de952a6",
+      "title": "Prime Land for Sale in Tambaram | ₹4,000/sqft",
+      "type": "residential_plot",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "6971bc4341c4d5f18de948e9",
+      "createdAt": "2026-01-22T06:37:54.296Z"
+    },
+    {
+      "_id": "6971d1a341c4d5f18de96c14",
+      "title": "Appartments For Sale In Chennai",
+      "type": "apartment",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "6971ce2f41c4d5f18de961bd",
+      "createdAt": "2026-01-22T07:28:35.028Z"
+    },
+    {
+      "_id": "697308fa41c4d5f18de9b0a2",
+      "title": "Land For Sale  | 1 acres -15 lahks",
+      "type": "agricultural_land",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "697306b341c4d5f18de9a93c",
+      "createdAt": "2026-01-23T05:36:58.438Z"
+    },
+    {
+      "_id": "69734a0341c4d5f18dea364a",
+      "title": "Office space for rent",
+      "type": "office_space",
+      "status": "pending",
+      "listingType": "rent",
+      "owner": "69691c262e8495fb24a4c483",
+      "createdAt": "2026-01-23T10:14:27.803Z"
+    },
+    {
+      "_id": "697351a441c4d5f18dea56e7",
+      "title": "Office For Rent",
+      "type": "farm_house",
+      "status": "rented",
+      "listingType": "rent",
+      "owner": "69734c6e41c4d5f18dea3a8a",
+      "createdAt": "2026-01-23T10:47:00.894Z"
+    },
+    {
+      "_id": "6977211b69a41c600ffbc107",
+      "title": "Land for Sale|NH Road in Nammakal",
+      "type": "agricultural_land",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "69771b4a69a41c600ffbad55",
+      "createdAt": "2026-01-26T08:08:59.013Z"
+    },
+    {
+      "_id": "697733a369a41c600ffbe62b",
+      "title": "Plot for Sale – 532 Sq. Ft",
+      "type": "residential_plot",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "69772f8369a41c600ffbd90c",
+      "createdAt": "2026-01-26T09:28:03.182Z"
+    },
+    {
+      "_id": "69773a7a69a41c600ffbfb60",
+      "title": "Approved Plot for Sale",
+      "type": "residential_plot",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "6977384269a41c600ffbf422",
+      "createdAt": "2026-01-26T09:57:14.015Z"
+    },
+    {
+      "_id": "69774f8b69a41c600ffc57cd",
+      "title": "Apartment for Sale! | Saligramam",
+      "type": "flat/apartment",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "69774d3769a41c600ffc4d2e",
+      "createdAt": "2026-01-26T11:27:07.510Z"
+    },
+    {
+      "_id": "697757f669a41c600ffc7b73",
+      "title": "Land For Sale In Coimbatore",
+      "type": "residential_plot",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "697755db69a41c600ffc7548",
+      "createdAt": "2026-01-26T12:03:02.683Z"
+    },
+    {
+      "_id": "69775fa569a41c600ffc9751",
+      "title": "Commercial Plot for sale in Pudukkottai District",
+      "type": "residential_plot",
+      "status": "available",
+      "listingType": "sale",
+      "owner": "6977506869a41c600ffc5c43",
+      "createdAt": "2026-01-26T12:35:49.017Z"
+    }
+  ],
+  "summary": {
+    "totalPropertyTypes": 14,
+    "totalProperties": 24
+  }
+}

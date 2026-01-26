@@ -77,7 +77,7 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
       const matchingTypes = await PropertyType.find({
         $or: [
           { name: { $regex: search, $options: 'i' } },
-          { category: { $regex: search, $options: 'i' } }
+          { categories: { $regex: search, $options: 'i' } }
         ]
       }).select('value');
 

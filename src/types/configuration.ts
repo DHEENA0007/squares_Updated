@@ -5,7 +5,7 @@ export interface PropertyType {
   id?: string;
   name: string;
   value: string;
-  category: string; // Allow any category, not just predefined ones
+  categories: string[]; // Allow multiple categories
   icon?: string;
   isActive: boolean;
   displayOrder: number;
@@ -96,7 +96,7 @@ export interface FilterDependency {
 export interface CreatePropertyTypeDTO {
   name: string;
   value: string;
-  category: string; // Allow any category
+  categories: string[]; // Allow multiple categories
   icon?: string;
   displayOrder?: number;
 }

@@ -101,6 +101,21 @@ const HeroManagement = () => {
     const [availableFilterTypes, setAvailableFilterTypes] = useState<string[]>([]);
     const [selectedNewFilter, setSelectedNewFilter] = useState<string>("");
 
+    // Helper to format filter type label
+    const formatFilterType = (type: string) => {
+        if (!type) return '';
+        // Handle camelCase: insert space before caps
+        const withSpaces = type.replace(/([A-Z])/g, ' $1');
+        // Replace underscores/dashes with spaces
+        const cleanString = withSpaces.replace(/[_-]/g, ' ');
+        // Split into words and title case
+        return cleanString
+            .split(/\s+/)
+            .filter(Boolean)
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+    };
+
     // Helper to get image URL
     const getImageUrl = (url: string) => {
         if (!url) return '';
@@ -150,9 +165,10 @@ const HeroManagement = () => {
                 const defaults = ['propertyType', 'bedrooms', 'budget'];
                 const initialFilters = defaults
                     .filter(d => types.includes(d) || d === 'budget') // budget might be special
+                    .filter(d => types.includes(d) || d === 'budget') // budget might be special
                     .map((id, index) => ({
                         id,
-                        label: id.charAt(0).toUpperCase() + id.slice(1).replace(/([A-Z])/g, ' $1').trim(),
+                        label: formatFilterType(id),
                         isVisible: true,
                         displayOrder: index
                     }));
@@ -351,7 +367,7 @@ const HeroManagement = () => {
 
         const newFilter: QuickFilterConfig = {
             id: selectedNewFilter,
-            label: selectedNewFilter.charAt(0).toUpperCase() + selectedNewFilter.slice(1).replace(/([A-Z])/g, ' $1').trim(),
+            label: formatFilterType(selectedNewFilter),
             isVisible: true,
             displayOrder: quickFilters.length
         };
@@ -746,7 +762,7 @@ const HeroManagement = () => {
                                                 .filter(type => !quickFilters.some(qf => qf.id === type))
                                                 .map(type => (
                                                     <SelectItem key={type} value={type}>
-                                                        {type.charAt(0).toUpperCase() + type.slice(1).replace(/([A-Z])/g, ' $1').trim()}
+                                                        {formatFilterType(type)}
                                                     </SelectItem>
                                                 ))}
                                         </SelectContent>

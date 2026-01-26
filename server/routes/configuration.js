@@ -24,9 +24,8 @@ const isSuperAdmin = (req, res, next) => {
 // Get all property type categories
 router.get('/property-type-categories', async (req, res) => {
   try {
-    const propertyTypes = await PropertyType.find({}).select('category').distinct('category');
-
-    const categories = propertyTypes.sort();
+    const categories = await PropertyType.distinct('categories');
+    categories.sort();
 
     res.json({
       success: true,
@@ -46,9 +45,10 @@ router.get('/property-type-categories', async (req, res) => {
 router.get('/property-type-categories/details', async (req, res) => {
   try {
     const categories = await PropertyType.aggregate([
+      { $unwind: '$categories' },
       {
         $group: {
-          _id: '$category',
+          _id: '$categories',
           count: { $sum: 1 },
           activeCount: {
             $sum: { $cond: ['$isActive', 1, 0] }

@@ -343,41 +343,50 @@ const Hero = () => {
     loadHeroContent();
   }, []);
 
-  // Fetch filter options from configuration
+  // Fetch filter options and quick filters configuration
   useEffect(() => {
-    const fetchFilterOptions = async () => {
+    const loadHeroData = async () => {
       try {
-        const [bedroomOpts, propertyTypes, budgetOpts, listingTypes] = await Promise.all([
+        console.log('Loading hero data...');
+
+        // 1. Fetch all necessary data in parallel
+        const [
+          bedroomOpts,
+          propertyTypes,
+          budgetOpts,
+          listingTypes,
+          allFilters,
+          deps,
+          quickFiltersMetadata
+        ] = await Promise.all([
           configurationService.getFilterConfigurationsByType('bedroom', false),
           configurationService.getAllPropertyTypes(false),
           configurationService.getFilterConfigurationsByType('budget', false),
           configurationService.getFilterConfigurationsByType('listing_type', false),
+          configurationService.getAllFilterConfigurations(false),
+          configurationService.getFilterDependencies(),
+          configurationService.getConfigurationMetadata('home_quick_filters').catch(e => null)
         ]);
 
-        // Sort bedroom options by display order and filter out 'any' option for display
+        // 2. Process specific options
         const sortedBedroomOptions = bedroomOpts
           .filter(o => o.value !== 'any')
           .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
         setBedroomOptions(sortedBedroomOptions);
 
-        // Set property types
         setPropertyTypeOptions(propertyTypes);
 
-        // Sort budget options by display order
         const sortedBudgetOptions = budgetOpts
           .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
         setBudgetOptions(sortedBudgetOptions);
 
-        // Sort listing types
         const sortedListingTypes = listingTypes
-          .filter(l => l.value !== 'all') // Exclude 'all' from tabs
+          .filter(l => l.value !== 'all')
           .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
         setListingTypeOptions(sortedListingTypes);
 
-        // Fetch all filter configurations for dynamic filters
-        const allFilters = await configurationService.getAllFilterConfigurations(false);
+        // 3. Process dynamic filters
         const groupedFilters: Record<string, FilterConfiguration[]> = {};
-
         allFilters.forEach(filter => {
           if (!groupedFilters[filter.filterType]) {
             groupedFilters[filter.filterType] = [];
@@ -389,49 +398,45 @@ const Hero = () => {
         Object.keys(groupedFilters).forEach(key => {
           groupedFilters[key].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
         });
-
         setFilterOptions(groupedFilters);
-
-        // Fetch dependencies
-        const deps = await configurationService.getFilterDependencies();
         setDependencies(deps);
 
-      } catch (error) {
-        console.error('Failed to load filter options:', error);
-        // Fallback to empty - will show defaults
-      }
-    };
+        // 4. Process Quick Filters
+        console.log('Quick filters metadata:', quickFiltersMetadata);
 
-    fetchFilterOptions();
-  }, []);
-
-  // Fetch quick filters configuration
-  useEffect(() => {
-    const fetchQuickFilters = async () => {
-      try {
-        const metadata = await configurationService.getConfigurationMetadata('home_quick_filters');
-        if (metadata && metadata.configValue) {
-          setQuickFilters(metadata.configValue as any[]);
+        if (quickFiltersMetadata && quickFiltersMetadata.configValue) {
+          setQuickFilters(quickFiltersMetadata.configValue as any[]);
         } else {
-          // Default filters if not configured
+          console.warn('No quick filters configuration found, using defaults');
+          // Fallback defaults - using snake_case for property_type as per DB standard
+          // But check if propertyType exists in groupedFilters to be safe
+          const hasPropertyTypeCamel = !!groupedFilters['propertyType'];
+          const hasPropertyTypeSnake = !!groupedFilters['property_type'];
+
           setQuickFilters([
-            { id: 'propertyType', label: 'Property Type', isVisible: true, displayOrder: 0 },
+            {
+              id: hasPropertyTypeSnake ? 'property_type' : 'propertyType',
+              label: 'Property Type',
+              isVisible: true,
+              displayOrder: 0
+            },
             { id: 'bedrooms', label: 'Bedrooms', isVisible: true, displayOrder: 1 },
             { id: 'budget', label: 'Budget', isVisible: true, displayOrder: 2 },
           ]);
         }
+
       } catch (error) {
-        console.error('Failed to load quick filters:', error);
-        // Fallback defaults
+        console.error('Failed to load hero data:', error);
+        // Emergency fallback
         setQuickFilters([
-          { id: 'propertyType', label: 'Property Type', isVisible: true, displayOrder: 0 },
+          { id: 'property_type', label: 'Property Type', isVisible: true, displayOrder: 0 },
           { id: 'bedrooms', label: 'Bedrooms', isVisible: true, displayOrder: 1 },
           { id: 'budget', label: 'Budget', isVisible: true, displayOrder: 2 },
         ]);
       }
     };
 
-    fetchQuickFilters();
+    loadHeroData();
   }, []);
 
   // Load recent searches from localStorage
@@ -1114,7 +1119,17 @@ const Hero = () => {
                               }
 
                               // Generic renderer for other filters
-                              const options = filterOptions[filter.id] || [];
+                              let options = filterOptions[filter.id] || [];
+
+                              // Try case-insensitive match if not found
+                              if (options.length === 0) {
+                                const matchingKey = Object.keys(filterOptions).find(
+                                  k => k.toLowerCase() === filter.id.toLowerCase()
+                                );
+                                if (matchingKey) {
+                                  options = filterOptions[matchingKey];
+                                }
+                              }
 
                               // If no options found (and not budget), skip or show empty
                               if (options.length === 0 && filter.id !== 'budget') return null;
@@ -1129,8 +1144,8 @@ const Hero = () => {
                                       setFilterValues(prev => ({ ...prev, [filter.id]: newValue }));
 
                                       // Sync legacy states for backward compatibility if needed
-                                      if (filter.id === 'propertyType') setPropertyType(newValue);
-                                      if (filter.id === 'bedrooms') setBedrooms(newValue ? parseInt(newValue) : undefined);
+                                      if (filter.id.toLowerCase() === 'propertytype' || filter.id.toLowerCase() === 'property_type') setPropertyType(newValue);
+                                      if (filter.id.toLowerCase() === 'bedrooms') setBedrooms(newValue ? parseInt(newValue) : undefined);
                                     }}
                                   >
                                     <SelectTrigger>

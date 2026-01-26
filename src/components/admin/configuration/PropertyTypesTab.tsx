@@ -35,15 +35,16 @@ import { useToast } from '@/hooks/use-toast';
 import PropertyTypeFieldsDialog from './PropertyTypeFieldsDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { PERMISSIONS } from '@/config/permissionConfig';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const PropertyTypesTab: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const permissions = user?.rolePermissions || [];
-  
+
   // Check if user has admin role
   const hasAdminRole = user?.role === 'admin' || user?.role === 'superadmin';
-  
+
   // Permission checks - support both old role-based AND new permission-based
   const hasPermission = (permission: string) => permissions.includes(permission);
   const canCreatePropertyType = hasAdminRole || hasPermission(PERMISSIONS.PM_T_CREATE);
@@ -52,7 +53,7 @@ const PropertyTypesTab: React.FC = () => {
   const canToggleStatus = hasAdminRole || hasPermission(PERMISSIONS.PM_T_STATUS);
   const canManageFields = hasAdminRole || hasPermission(PERMISSIONS.PM_T_MANAGE_FIELDS);
   const canChangeOrder = hasAdminRole || hasPermission(PERMISSIONS.PM_T_ORDER);
-  
+
   const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,7 +68,7 @@ const PropertyTypesTab: React.FC = () => {
   const [formData, setFormData] = useState<CreatePropertyTypeDTO>({
     name: '',
     value: '',
-    category: '',
+    categories: [],
     icon: '',
     displayOrder: 0,
   });
@@ -83,11 +84,12 @@ const PropertyTypesTab: React.FC = () => {
         configurationService.getAllPropertyTypes(true),
         configurationService.getPropertyTypeCategoryDetails(),
       ]);
-      
+
       setPropertyTypes(data);
 
       // Extract unique categories from API response
-      const uniqueCategories = Array.from(new Set(data.map(pt => pt.category))).sort();
+      const allCategories = data.flatMap(pt => pt.categories || []);
+      const uniqueCategories = Array.from(new Set(allCategories)).sort();
       setCategories(uniqueCategories);
 
       // Set active category to first one if not set
@@ -139,7 +141,7 @@ const PropertyTypesTab: React.FC = () => {
   };
 
   const getTypesByCategory = (category: string) => {
-    return propertyTypes.filter((type) => type.category === category);
+    return propertyTypes.filter((type) => type.categories && type.categories.includes(category));
   };
 
   const getCategoryCount = (category: string) => {
@@ -154,7 +156,7 @@ const PropertyTypesTab: React.FC = () => {
       setFormData({
         name: type.name,
         value: type.value,
-        category: type.category,
+        categories: type.categories || [],
         icon: type.icon || '',
         displayOrder: type.displayOrder,
       });
@@ -163,7 +165,7 @@ const PropertyTypesTab: React.FC = () => {
       setFormData({
         name: '',
         value: '',
-        category: activeCategory,
+        categories: activeCategory ? [activeCategory] : [],
         icon: '',
         displayOrder: getTypesByCategory(activeCategory).length,
       });
@@ -177,7 +179,7 @@ const PropertyTypesTab: React.FC = () => {
     setFormData({
       name: '',
       value: '',
-      category: '',
+      categories: [],
       icon: '',
       displayOrder: 0,
     });
@@ -337,76 +339,76 @@ const PropertyTypesTab: React.FC = () => {
                 filteredTypes.map((type, index) => {
                   const originalIndex = types.findIndex(t => t._id === type._id);
                   return (
-                  <TableRow key={type._id}>
-                    <TableCell>
-                      {canChangeOrder && (
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleReorder(type._id, 'up', category)}
-                            disabled={originalIndex === 0}
-                          >
-                            <ChevronUp className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleReorder(type._id, 'down', category)}
-                            disabled={originalIndex === types.length - 1}
-                          >
-                            <ChevronDown className="h-4 w-4" />
-                          </Button>
+                    <TableRow key={type._id}>
+                      <TableCell>
+                        {canChangeOrder && (
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleReorder(type._id, 'up', category)}
+                              disabled={originalIndex === 0}
+                            >
+                              <ChevronUp className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleReorder(type._id, 'down', category)}
+                              disabled={originalIndex === types.length - 1}
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-medium">{type.name}</TableCell>
+                      <TableCell>
+                        <code className="text-sm bg-muted px-2 py-1 rounded">{type.value}</code>
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={type.isActive}
+                          onCheckedChange={() => handleToggleActive(type._id, type.isActive)}
+                          disabled={!canToggleStatus}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          {canManageFields && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedPropertyType(type);
+                                setIsFieldsDialogOpen(true);
+                              }}
+                              title="Manage Fields"
+                            >
+                              <Settings2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canEditPropertyType && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenDialog(type)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDeletePropertyType && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(type._id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">{type.name}</TableCell>
-                    <TableCell>
-                      <code className="text-sm bg-muted px-2 py-1 rounded">{type.value}</code>
-                    </TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={type.isActive}
-                        onCheckedChange={() => handleToggleActive(type._id, type.isActive)}
-                        disabled={!canToggleStatus}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {canManageFields && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedPropertyType(type);
-                              setIsFieldsDialogOpen(true);
-                            }}
-                            title="Manage Fields"
-                          >
-                            <Settings2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {canEditPropertyType && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleOpenDialog(type)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {canDeletePropertyType && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(type._id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                      </TableCell>
+                    </TableRow>
                   );
                 })
               )}
@@ -512,26 +514,40 @@ const PropertyTypesTab: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value: any) => setFormData({ ...formData, category: value })}
-                disabled={!!editingType}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
+              <Label>Categories *</Label>
+              <div className="border rounded-md p-4 space-y-2 max-h-40 overflow-y-auto">
+                {categories.map((category) => (
+                  <div key={category} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`category-${category}`}
+                      checked={formData.categories.includes(category)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setFormData({
+                            ...formData,
+                            categories: [...formData.categories, category],
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            categories: formData.categories.filter((c) => c !== category),
+                          });
+                        }
+                      }}
+                      disabled={!!editingType} // Keep disabled if editing is restricted, or remove if we want to allow changing categories
+                    />
+                    <Label
+                      htmlFor={`category-${category}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
                       {getCategoryLabel(category)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    </Label>
+                  </div>
+                ))}
+              </div>
               {editingType && (
                 <p className="text-xs text-muted-foreground">
-                  Category cannot be changed after creation
+                  Categories cannot be changed after creation (currently restricted)
                 </p>
               )}
             </div>
