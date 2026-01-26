@@ -30,6 +30,8 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Home,
   Building,
   MapPin,
+  Filter,
+  Search,
 };
 
 const Hero = () => {
@@ -76,6 +78,12 @@ const Hero = () => {
   const [budgetOptions, setBudgetOptions] = useState<FilterConfiguration[]>([]);
   const [selectedBudget, setSelectedBudget] = useState<string>("");
   const [listingTypeOptions, setListingTypeOptions] = useState<FilterConfiguration[]>([]);
+  const [quickFilters, setQuickFilters] = useState<any[]>([]);
+
+  // Dynamic filters state
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({});
+  const [filterOptions, setFilterOptions] = useState<Record<string, FilterConfiguration[]>>({});
+  const [dependencies, setDependencies] = useState<any[]>([]);
 
 
   // Handle post property navigation based on role
@@ -365,6 +373,29 @@ const Hero = () => {
           .filter(l => l.value !== 'all') // Exclude 'all' from tabs
           .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
         setListingTypeOptions(sortedListingTypes);
+
+        // Fetch all filter configurations for dynamic filters
+        const allFilters = await configurationService.getAllFilterConfigurations(false);
+        const groupedFilters: Record<string, FilterConfiguration[]> = {};
+
+        allFilters.forEach(filter => {
+          if (!groupedFilters[filter.filterType]) {
+            groupedFilters[filter.filterType] = [];
+          }
+          groupedFilters[filter.filterType].push(filter);
+        });
+
+        // Sort options within each group
+        Object.keys(groupedFilters).forEach(key => {
+          groupedFilters[key].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+        });
+
+        setFilterOptions(groupedFilters);
+
+        // Fetch dependencies
+        const deps = await configurationService.getFilterDependencies();
+        setDependencies(deps);
+
       } catch (error) {
         console.error('Failed to load filter options:', error);
         // Fallback to empty - will show defaults
@@ -372,6 +403,35 @@ const Hero = () => {
     };
 
     fetchFilterOptions();
+  }, []);
+
+  // Fetch quick filters configuration
+  useEffect(() => {
+    const fetchQuickFilters = async () => {
+      try {
+        const metadata = await configurationService.getConfigurationMetadata('home_quick_filters');
+        if (metadata && metadata.configValue) {
+          setQuickFilters(metadata.configValue as any[]);
+        } else {
+          // Default filters if not configured
+          setQuickFilters([
+            { id: 'propertyType', label: 'Property Type', isVisible: true, displayOrder: 0 },
+            { id: 'bedrooms', label: 'Bedrooms', isVisible: true, displayOrder: 1 },
+            { id: 'budget', label: 'Budget', isVisible: true, displayOrder: 2 },
+          ]);
+        }
+      } catch (error) {
+        console.error('Failed to load quick filters:', error);
+        // Fallback defaults
+        setQuickFilters([
+          { id: 'propertyType', label: 'Property Type', isVisible: true, displayOrder: 0 },
+          { id: 'bedrooms', label: 'Bedrooms', isVisible: true, displayOrder: 1 },
+          { id: 'budget', label: 'Budget', isVisible: true, displayOrder: 2 },
+        ]);
+      }
+    };
+
+    fetchQuickFilters();
   }, []);
 
   // Load recent searches from localStorage
@@ -561,6 +621,27 @@ const Hero = () => {
         filters.maxPrice = priceRange.max;
       }
 
+      if (priceRange.max) {
+        filters.maxPrice = priceRange.max;
+      }
+
+      // Add dynamic filters
+      Object.entries(filterValues).forEach(([key, value]) => {
+        if (value && value !== 'any' && value !== 'all') {
+          // Map specific keys if needed, otherwise pass as is
+          if (key === 'propertyType') {
+            filters.propertyType = value;
+          } else if (key === 'bedrooms') {
+            filters.bedrooms = parseInt(value);
+          } else if (key === 'budget') {
+            // Budget is handled via priceRange state, so skip here
+          } else {
+            // Generic filters
+            filters[key] = value;
+          }
+        }
+      });
+
       const response = await propertyService.getProperties(filters);
 
       console.log('Search response:', {
@@ -605,7 +686,7 @@ const Hero = () => {
       setIsLoading(false);
       abortControllerRef.current = null;
     }
-  }, [activeTab, propertyType, bedrooms, priceRange, selectedState, selectedDistrict, selectedCity, saveToRecentSearches]);
+  }, [activeTab, propertyType, bedrooms, priceRange, selectedState, selectedDistrict, selectedCity, saveToRecentSearches, filterValues]);
 
   // Trigger search when location filters change (state/district/city)
   useEffect(() => {
@@ -970,78 +1051,103 @@ const Hero = () => {
                                 setSelectedDistrict("");
                                 setSelectedCity("");
                                 setSelectedBudget("");
+                                setFilterValues({});
                               }}
                             >
                               Clear All
                             </Button>
                           </div>
 
-                          <div>
-                            <label className="text-sm font-medium mb-2 block">Property Type</label>
-                            <Select value={propertyType || "all"} onValueChange={(v) => setPropertyType(v === "all" ? "" : v)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="All Properties" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">All Properties</SelectItem>
-                                {propertyTypeOptions.map((type) => (
-                                  <SelectItem key={type.id || type._id} value={type.value}>
-                                    {type.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <label className="text-sm font-medium mb-2 block">Bedrooms</label>
-                            <Select value={bedrooms?.toString() ?? "any"} onValueChange={(value) => setBedrooms(value === "any" ? undefined : parseInt(value))}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Any BHK" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="any">Any BHK</SelectItem>
-                                {bedroomOptions.map((option) => (
-                                  <SelectItem key={option.id || option._id} value={option.value}>
-                                    {option.displayLabel || option.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <label className="text-sm font-medium mb-2 block">Budget</label>
-                            <Select
-                              value={selectedBudget}
-                              onValueChange={(value) => {
-                                setSelectedBudget(value);
-                                if (value === 'any-budget' || value === '') {
-                                  setPriceRange({});
-                                } else {
-                                  const selectedOption = budgetOptions.find(b => (b.id || b._id) === value);
-                                  if (selectedOption) {
-                                    setPriceRange({
-                                      min: selectedOption.minValue,
-                                      max: selectedOption.maxValue
-                                    });
-                                  }
+                          {quickFilters
+                            .filter(f => f.isVisible)
+                            .sort((a, b) => a.displayOrder - b.displayOrder)
+                            .map(filter => {
+                              // Check dependencies
+                              const dependency = dependencies.find(d => d.targetFilterType === filter.id);
+                              if (dependency) {
+                                const sourceValue = filterValues[dependency.sourceFilterType];
+                                // If source value is not selected or not in allowed values, hide this filter
+                                if (!sourceValue || !dependency.sourceFilterValues.includes(sourceValue)) {
+                                  return null;
                                 }
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Any Budget" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="any-budget">Any Budget</SelectItem>
-                                {budgetOptions.filter(b => b.value !== 'any-budget').map((option) => (
-                                  <SelectItem key={option.id || option._id} value={option.id || option._id}>
-                                    {option.displayLabel || option.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                              }
+
+                              // Special handling for legacy hardcoded filters to maintain backward compatibility if needed
+                              // But ideally we use the generic renderer for everything
+
+                              // Budget is special because it sets a range
+                              if (filter.id === 'budget') {
+                                return (
+                                  <div key="budget">
+                                    <label className="text-sm font-medium mb-2 block">{filter.label}</label>
+                                    <Select
+                                      value={selectedBudget}
+                                      onValueChange={(value) => {
+                                        setSelectedBudget(value);
+                                        if (value === 'any-budget' || value === '') {
+                                          setPriceRange({});
+                                        } else {
+                                          const selectedOption = budgetOptions.find(b => (b.id || b._id) === value);
+                                          if (selectedOption) {
+                                            setPriceRange({
+                                              min: selectedOption.minValue,
+                                              max: selectedOption.maxValue
+                                            });
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder={`Any ${filter.label}`} />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="any-budget">Any {filter.label}</SelectItem>
+                                        {budgetOptions.filter(b => b.value !== 'any-budget').map((option) => (
+                                          <SelectItem key={option.id || option._id} value={option.id || option._id}>
+                                            {option.displayLabel || option.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                );
+                              }
+
+                              // Generic renderer for other filters
+                              const options = filterOptions[filter.id] || [];
+
+                              // If no options found (and not budget), skip or show empty
+                              if (options.length === 0 && filter.id !== 'budget') return null;
+
+                              return (
+                                <div key={filter.id}>
+                                  <label className="text-sm font-medium mb-2 block">{filter.label}</label>
+                                  <Select
+                                    value={filterValues[filter.id] || "all"}
+                                    onValueChange={(v) => {
+                                      const newValue = v === "all" ? "" : v;
+                                      setFilterValues(prev => ({ ...prev, [filter.id]: newValue }));
+
+                                      // Sync legacy states for backward compatibility if needed
+                                      if (filter.id === 'propertyType') setPropertyType(newValue);
+                                      if (filter.id === 'bedrooms') setBedrooms(newValue ? parseInt(newValue) : undefined);
+                                    }}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder={`All ${filter.label}s`} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all">All {filter.label}s</SelectItem>
+                                      {options.map((option) => (
+                                        <SelectItem key={option.id || option._id} value={option.value}>
+                                          {option.displayLabel || option.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              );
+                            })}
 
                           <Button
                             className="w-full"

@@ -124,41 +124,72 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
       queryFilter.price = { ...queryFilter.price, $lte: parseInt(maxPrice) };
     }
 
-    if (propertyType) {
-      // Handle comma-separated property types (e.g., "commercial,office")
-      if (propertyType.includes(',')) {
-        const propertyTypeArray = propertyType.split(',').map(type => new RegExp(`^${type.trim()}$`, 'i'));
-        queryFilter.type = { $in: propertyTypeArray };
-      } else {
-        queryFilter.type = { $regex: new RegExp(`^${propertyType}$`, 'i') };
-      }
-    }
+    // Dynamic Filtering Logic
+    const reservedParams = ['page', 'limit', 'sort', 'location', 'search', 'minPrice', 'maxPrice', 'amenities'];
 
-    // Handle bedrooms (accept both 'bedrooms' and 'bedroom')
-    const targetBedrooms = bedrooms || bedroom;
-    if (targetBedrooms) {
-      const bedroomsNum = parseInt(targetBedrooms);
-      if (!isNaN(bedroomsNum) && bedroomsNum > 0) {
-        queryFilter.bedrooms = bedroomsNum;
-      } else {
-        console.warn(`Invalid bedrooms filter value: ${targetBedrooms}`);
-      }
-    }
+    // Mapping frontend keys to DB keys
+    const keyMapping = {
+      'propertyType': 'type',
+      'bedroom': 'bedrooms',
+      'bathroom': 'bathrooms'
+    };
 
-    // Handle bathrooms (accept both 'bathrooms' and 'bathroom')
-    const targetBathrooms = bathrooms || bathroom;
-    if (targetBathrooms) {
-      const bathroomsNum = parseInt(targetBathrooms);
-      if (!isNaN(bathroomsNum) && bathroomsNum > 0) {
-        queryFilter.bathrooms = bathroomsNum;
-      } else {
-        console.warn(`Invalid bathrooms filter value: ${targetBathrooms}`);
-      }
-    }
+    // Get all paths from the schema to check validity
+    const schemaPaths = Object.keys(Property.schema.paths);
 
-    if (listingType) {
-      queryFilter.listingType = listingType;
-    }
+    Object.keys(req.query).forEach(key => {
+      // Skip reserved params
+      if (reservedParams.includes(key)) return;
+
+      let value = req.query[key];
+      if (value === undefined || value === null || value === '') return;
+
+      // Map key if alias exists
+      let dbKey = keyMapping[key] || key;
+
+      // Determine if we should query customFields
+      // If the key is not in schema paths and not an alias we already mapped, check customFields
+      if (!schemaPaths.includes(dbKey) && !keyMapping[key]) {
+        // If it's not a top-level field, assume it might be a custom field
+        // We check both the direct key (in case schema is dynamic/mixed) and customFields.key
+        // But for now, let's prioritize customFields for unknown keys if they are not in schema
+        // However, to be safe and support "purely dynamic" which might mean new top level fields added to schema later,
+        // we can try to check if it matches a custom field pattern or just query it.
+
+        // Strategy: If not in schema, try `customFields.key`
+        // But wait, `customFields` is Mixed, so paths won't show sub-fields.
+        // Let's assume if it's not a standard field, it's a custom field.
+        dbKey = `customFields.${key}`;
+      }
+
+      // Handle comma-separated values (OR condition)
+      if (typeof value === 'string' && value.includes(',')) {
+        const values = value.split(',').map(v => v.trim());
+
+        // Check if values look like numbers
+        const areNumbers = values.every(v => !isNaN(v) && v !== '');
+
+        if (areNumbers) {
+          queryFilter[dbKey] = { $in: values.map(Number) };
+        } else {
+          // Case insensitive regex for strings
+          queryFilter[dbKey] = { $in: values.map(v => new RegExp(`^${v}$`, 'i')) };
+        }
+      } else {
+        // Single value handling
+        if (!isNaN(value) && value !== '') {
+          // It's a number
+          queryFilter[dbKey] = Number(value);
+        } else if (value === 'true') {
+          queryFilter[dbKey] = true;
+        } else if (value === 'false') {
+          queryFilter[dbKey] = false;
+        } else {
+          // String - use case-insensitive regex
+          queryFilter[dbKey] = { $regex: new RegExp(`^${value}$`, 'i') };
+        }
+      }
+    });
 
     // Apply amenities filter
     if (req.query.amenities) {
@@ -725,11 +756,11 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
 
       // Count current properties
       const vendorObjectId = new mongoose.Types.ObjectId(req.user.id);
-      
+
       // Check limits using planSnapshot for existing subscriptions or fetch FREE plan from database
       let maxProperties;
       let freeListingCount = 0;
-      
+
       if (activeSubscription) {
         // User has active paid subscription
         // Count only properties posted AFTER subscribing (non-free listings)

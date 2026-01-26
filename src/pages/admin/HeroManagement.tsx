@@ -28,6 +28,10 @@ import {
     MapPin,
     GripVertical,
     Loader2,
+    Filter,
+    ArrowUp,
+    ArrowDown,
+    Search,
 } from "lucide-react";
 import {
     heroContentService,
@@ -52,6 +56,8 @@ const iconOptions = [
     { value: 'Home', label: 'Home', icon: Home },
     { value: 'Building', label: 'Building', icon: Building },
     { value: 'MapPin', label: 'Map Pin', icon: MapPin },
+    { value: 'Filter', label: 'Filter', icon: Filter },
+    { value: 'Search', label: 'Search', icon: Search },
 ];
 
 const actionOptions = [
@@ -61,6 +67,13 @@ const actionOptions = [
     { value: 'manage-properties', label: 'Manage Properties' },
     { value: 'contact', label: 'Contact Page' },
 ];
+
+interface QuickFilterConfig {
+    id: string;
+    label: string;
+    isVisible: boolean;
+    displayOrder: number;
+}
 
 const HeroManagement = () => {
     const [activeTab, setActiveTab] = useState("slides");
@@ -82,6 +95,11 @@ const HeroManagement = () => {
 
     // Listing types state
     const [listingTypes, setListingTypes] = useState<FilterConfiguration[]>([]);
+
+    // Quick Filters state
+    const [quickFilters, setQuickFilters] = useState<QuickFilterConfig[]>([]);
+    const [availableFilterTypes, setAvailableFilterTypes] = useState<string[]>([]);
+    const [selectedNewFilter, setSelectedNewFilter] = useState<string>("");
 
     // Helper to get image URL
     const getImageUrl = (url: string) => {
@@ -107,16 +125,41 @@ const HeroManagement = () => {
     const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [slidesData, settingsData, optionsData, listingTypesData] = await Promise.all([
+            const [slidesData, settingsData, optionsData, listingTypesData, quickFiltersData, allFiltersData] = await Promise.all([
                 heroContentService.getSlides(true),
                 heroContentService.getSettings(),
                 heroContentService.getSellingOptions(true),
                 configurationService.getFilterConfigurationsByType('listing_type', false),
+                configurationService.getConfigurationMetadata('home_quick_filters'),
+                configurationService.getAllFilterConfigurations(false),
             ]);
             setSlides(slidesData);
             setSettings(settingsData);
             setSellingOptions(optionsData);
             setListingTypes(listingTypesData);
+
+            // Extract unique filter types
+            const types = Array.from(new Set(allFiltersData.map(f => f.filterType))).sort();
+            setAvailableFilterTypes(types);
+
+            // Initialize quick filters
+            const savedFilters = quickFiltersData?.configValue as QuickFilterConfig[] || [];
+
+            // If no saved filters, default to common ones if available
+            if (savedFilters.length === 0) {
+                const defaults = ['propertyType', 'bedrooms', 'budget'];
+                const initialFilters = defaults
+                    .filter(d => types.includes(d) || d === 'budget') // budget might be special
+                    .map((id, index) => ({
+                        id,
+                        label: id.charAt(0).toUpperCase() + id.slice(1).replace(/([A-Z])/g, ' $1').trim(),
+                        isVisible: true,
+                        displayOrder: index
+                    }));
+                setQuickFilters(initialFilters);
+            } else {
+                setQuickFilters(savedFilters.sort((a, b) => a.displayOrder - b.displayOrder));
+            }
         } catch (error) {
             console.error('Error loading hero content:', error);
             toast.error('Failed to load hero content');
@@ -259,6 +302,69 @@ const HeroManagement = () => {
         }
     };
 
+    // Handle quick filters save
+    const handleSaveQuickFilters = async () => {
+        setIsSaving(true);
+        try {
+            await configurationService.setConfigurationMetadata('home_quick_filters', quickFilters, 'Home Page Quick Filters Configuration');
+            toast.success('Quick filters saved successfully');
+        } catch (error) {
+            console.error('Error saving quick filters:', error);
+            toast.error('Failed to save quick filters');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Handle filter toggle
+    const handleToggleFilter = (id: string, checked: boolean) => {
+        setQuickFilters(prev => prev.map(f =>
+            f.id === id ? { ...f, isVisible: checked } : f
+        ));
+    };
+
+    // Handle filter reorder
+    const handleMoveFilter = (index: number, direction: 'up' | 'down') => {
+        if (
+            (direction === 'up' && index === 0) ||
+            (direction === 'down' && index === quickFilters.length - 1)
+        ) return;
+
+        const newFilters = [...quickFilters];
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+        [newFilters[index], newFilters[targetIndex]] = [newFilters[targetIndex], newFilters[index]];
+
+        // Update display orders
+        const updatedFilters = newFilters.map((f, i) => ({ ...f, displayOrder: i }));
+        setQuickFilters(updatedFilters);
+    };
+
+    // Handle add filter
+    const handleAddFilter = () => {
+        if (!selectedNewFilter) return;
+
+        if (quickFilters.some(f => f.id === selectedNewFilter)) {
+            toast.error('Filter already added');
+            return;
+        }
+
+        const newFilter: QuickFilterConfig = {
+            id: selectedNewFilter,
+            label: selectedNewFilter.charAt(0).toUpperCase() + selectedNewFilter.slice(1).replace(/([A-Z])/g, ' $1').trim(),
+            isVisible: true,
+            displayOrder: quickFilters.length
+        };
+
+        setQuickFilters([...quickFilters, newFilter]);
+        setSelectedNewFilter("");
+    };
+
+    // Handle remove filter
+    const handleRemoveFilter = (id: string) => {
+        setQuickFilters(prev => prev.filter(f => f.id !== id));
+    };
+
     // Reset slides to defaults
     const handleResetSlides = async () => {
         if (!confirm('Are you sure you want to reset all slides to defaults?')) return;
@@ -311,7 +417,7 @@ const HeroManagement = () => {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="slides" className="flex items-center gap-2">
                         <ImageIcon className="w-4 h-4" />
                         Slides
@@ -323,6 +429,10 @@ const HeroManagement = () => {
                     <TabsTrigger value="selling" className="flex items-center gap-2">
                         <Plus className="w-4 h-4" />
                         Selling Options
+                    </TabsTrigger>
+                    <TabsTrigger value="filters" className="flex items-center gap-2">
+                        <Filter className="w-4 h-4" />
+                        Quick Filters
                     </TabsTrigger>
                 </TabsList>
 
@@ -612,6 +722,112 @@ const HeroManagement = () => {
                             );
                         })}
                     </div>
+                </TabsContent>
+
+                {/* Quick Filters Tab */}
+                <TabsContent value="filters" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Quick Filters Configuration</CardTitle>
+                            <CardDescription>
+                                Configure which filters appear in the quick search popup on the home page
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="flex gap-4 items-end">
+                                <div className="flex-1 space-y-2">
+                                    <Label>Add Filter</Label>
+                                    <Select value={selectedNewFilter} onValueChange={setSelectedNewFilter}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a filter to add" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableFilterTypes
+                                                .filter(type => !quickFilters.some(qf => qf.id === type))
+                                                .map(type => (
+                                                    <SelectItem key={type} value={type}>
+                                                        {type.charAt(0).toUpperCase() + type.slice(1).replace(/([A-Z])/g, ' $1').trim()}
+                                                    </SelectItem>
+                                                ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <Button onClick={handleAddFilter} disabled={!selectedNewFilter}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Add
+                                </Button>
+                            </div>
+
+                            <div className="space-y-4">
+                                {quickFilters.length === 0 ? (
+                                    <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">
+                                        No quick filters configured. Add filters to display them on the home page.
+                                    </div>
+                                ) : (
+                                    quickFilters.map((filter, index) => (
+                                        <div key={filter.id} className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex flex-col gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6"
+                                                        disabled={index === 0}
+                                                        onClick={() => handleMoveFilter(index, 'up')}
+                                                    >
+                                                        <ArrowUp className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6"
+                                                        disabled={index === quickFilters.length - 1}
+                                                        onClick={() => handleMoveFilter(index, 'down')}
+                                                    >
+                                                        <ArrowDown className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-medium">{filter.label}</span>
+                                                        <Badge variant="outline" className="text-xs font-normal">
+                                                            {filter.id}
+                                                        </Badge>
+                                                    </div>
+                                                    <div className="text-sm text-muted-foreground">
+                                                        {filter.isVisible ? 'Visible' : 'Hidden'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <Switch
+                                                    checked={filter.isVisible}
+                                                    onCheckedChange={(checked) => handleToggleFilter(filter.id, checked)}
+                                                />
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-destructive hover:text-destructive"
+                                                    onClick={() => handleRemoveFilter(filter.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            <Button onClick={handleSaveQuickFilters} disabled={isSaving}>
+                                {isSaving ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                    <Save className="w-4 h-4 mr-2" />
+                                )}
+                                Save Configuration
+                            </Button>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
             </Tabs>
 
