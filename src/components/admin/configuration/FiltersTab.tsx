@@ -63,6 +63,7 @@ const FiltersTab: React.FC = () => {
   const [activeFilterType, setActiveFilterType] = useState<string>('');
   const [newFilterTypeName, setNewFilterTypeName] = useState('');
   const [allPropertyFields, setAllPropertyFields] = useState<any[]>([]);
+  const [propertyTypes, setPropertyTypes] = useState<import('@/types/configuration').PropertyType[]>([]);
   const [isLoadingFields, setIsLoadingFields] = useState(false);
   const [selectedFieldData, setSelectedFieldData] = useState<any>(null); // To track if a field was selected from suggestions
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,13 +78,22 @@ const FiltersTab: React.FC = () => {
   });
 
   const [dependencies, setDependencies] = useState<FilterDependency[]>([]);
+  const [optionVisibilityRules, setOptionVisibilityRules] = useState<import('@/types/configuration').FilterOptionVisibility[]>([]);
   const [isDependencyDialogOpen, setIsDependencyDialogOpen] = useState(false);
+  const [isOptionVisibilityDialogOpen, setIsOptionVisibilityDialogOpen] = useState(false);
   const [newDependency, setNewDependency] = useState<FilterDependency>({
     targetFilterType: '',
     sourceFilterType: '',
     sourceFilterValues: [],
   });
+  const [newOptionVisibility, setNewOptionVisibility] = useState<import('@/types/configuration').FilterOptionVisibility>({
+    filterType: '',
+    optionValue: '',
+    sourceFilterType: '',
+    sourceFilterValues: [],
+  });
   const [availableSourceValues, setAvailableSourceValues] = useState<any[]>([]);
+  const [availableOptionValues, setAvailableOptionValues] = useState<any[]>([]);
 
   // Location Search State
   const [locationQuery, setLocationQuery] = useState('');
@@ -94,12 +104,22 @@ const FiltersTab: React.FC = () => {
   useEffect(() => {
     fetchFilters();
     fetchDependencies();
+    fetchOptionVisibility();
     fetchAllPropertyFields(); // Fetch property fields on mount
     // Initialize location service
     locaService.initialize().then(() => {
       setIsLocaReady(true);
     }).catch(console.error);
   }, []);
+
+  const fetchOptionVisibility = async () => {
+    try {
+      const rules = await configurationService.getFilterOptionVisibility();
+      setOptionVisibilityRules(rules);
+    } catch (error) {
+      console.error('Failed to fetch option visibility rules', error);
+    }
+  };
 
   const fetchDependencies = async () => {
     try {
@@ -145,6 +165,58 @@ const FiltersTab: React.FC = () => {
     }
   };
 
+  const handleSaveOptionVisibility = async () => {
+    if (!newOptionVisibility.filterType || !newOptionVisibility.optionValue || !newOptionVisibility.sourceFilterType || newOptionVisibility.sourceFilterValues.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'Please fill all fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const updatedRules = [...optionVisibilityRules, newOptionVisibility];
+    try {
+      await configurationService.saveFilterOptionVisibility(updatedRules);
+      setOptionVisibilityRules(updatedRules);
+      setIsOptionVisibilityDialogOpen(false);
+      setNewOptionVisibility({
+        filterType: '',
+        optionValue: '',
+        sourceFilterType: '',
+        sourceFilterValues: [],
+      });
+      toast({
+        title: 'Success',
+        description: 'Option visibility rule saved successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to save option visibility rule',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteOptionVisibility = async (index: number) => {
+    const updatedRules = optionVisibilityRules.filter((_, i) => i !== index);
+    try {
+      await configurationService.saveFilterOptionVisibility(updatedRules);
+      setOptionVisibilityRules(updatedRules);
+      toast({
+        title: 'Success',
+        description: 'Option visibility rule deleted successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete option visibility rule',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleDeleteDependency = async (index: number) => {
     const updatedDependencies = dependencies.filter((_, i) => i !== index);
     try {
@@ -173,7 +245,7 @@ const FiltersTab: React.FC = () => {
 
       // Get filter options configured for this type
       const filterOptions = getFiltersByType(newDependency.sourceFilterType);
-      
+
       if (filterOptions.length > 0) {
         // Use configured filter options (only active ones)
         setAvailableSourceValues(
@@ -188,11 +260,36 @@ const FiltersTab: React.FC = () => {
     fetchSourceValues();
   }, [newDependency.sourceFilterType, filters]);
 
+  // Helper to get option values for target filter type (for option visibility)
+  useEffect(() => {
+    if (!newOptionVisibility.filterType) {
+      setAvailableOptionValues([]);
+      return;
+    }
+    const options = getFiltersByType(newOptionVisibility.filterType);
+    setAvailableOptionValues(options.map(o => ({ label: o.displayLabel || o.name, value: o.value })));
+  }, [newOptionVisibility.filterType, filters]);
+
+  // Helper to get source values for option visibility
+  const [optionSourceValues, setOptionSourceValues] = useState<any[]>([]);
+  useEffect(() => {
+    if (!newOptionVisibility.sourceFilterType) {
+      setOptionSourceValues([]);
+      return;
+    }
+    const options = getFiltersByType(newOptionVisibility.sourceFilterType);
+    setOptionSourceValues(options.filter(o => o.isActive).map(o => ({ label: o.displayLabel || o.name, value: o.value })));
+  }, [newOptionVisibility.sourceFilterType, filters]);
+
   const fetchFilters = async () => {
     try {
       setIsLoading(true);
-      const data = await configurationService.getAllFilterConfigurations(true); // Include inactive
+      const [data, typesData] = await Promise.all([
+        configurationService.getAllFilterConfigurations(true),
+        configurationService.getAllPropertyTypes(false)
+      ]);
       setFilters(data);
+      setPropertyTypes(typesData);
 
       // Extract unique filter types
       const types = Array.from(new Set(data.map(f => f.filterType)));
@@ -215,6 +312,13 @@ const FiltersTab: React.FC = () => {
 
   const getFiltersByType = (type: string) => {
     return filters.filter(f => f.filterType === type).sort((a, b) => a.displayOrder - b.displayOrder);
+  };
+
+  const getFilterOrigin = (type: string) => {
+    if (type === 'property_type') return 'Property Management';
+    if (type === 'listing_type' || type === 'location') return 'System Filter';
+    if (allPropertyFields.some(f => f.fieldName === type)) return 'Property Field';
+    return 'Custom Filter';
   };
 
   const handleCreateNewFilterType = async () => {
@@ -539,6 +643,9 @@ const FiltersTab: React.FC = () => {
           <Button variant="outline" onClick={() => setIsDependencyDialogOpen(true)}>
             Manage Dependencies
           </Button>
+          <Button variant="outline" onClick={() => setIsOptionVisibilityDialogOpen(true)}>
+            Manage Option Visibility
+          </Button>
           {canCreateFilterType && (
             <Button onClick={() => setIsNewFilterTypeDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -564,8 +671,11 @@ const FiltersTab: React.FC = () => {
           <div className="flex items-center gap-2 overflow-x-auto">
             <TabsList className="inline-flex">
               {filterTypes.map((type) => (
-                <TabsTrigger key={type} value={type}>
-                  {type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                <TabsTrigger key={type} value={type} className="flex items-center gap-2">
+                  <span>{type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</span>
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 font-normal opacity-70">
+                    {getFilterOrigin(type)}
+                  </Badge>
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -603,7 +713,12 @@ const FiltersTab: React.FC = () => {
                   <SelectContent>
                     {filterTypes.map(t => (
                       <SelectItem key={t} value={t}>
-                        {t.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                        <div className="flex items-center justify-between w-full gap-2">
+                          <span>{t.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</span>
+                          <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                            {getFilterOrigin(t)}
+                          </Badge>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -622,7 +737,12 @@ const FiltersTab: React.FC = () => {
                   <SelectContent>
                     {filterTypes.filter(t => t !== newDependency.targetFilterType).map(t => (
                       <SelectItem key={t} value={t}>
-                        {t.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                        <div className="flex items-center justify-between w-full gap-2">
+                          <span>{t.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</span>
+                          <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                            {getFilterOrigin(t)}
+                          </Badge>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -646,11 +766,24 @@ const FiltersTab: React.FC = () => {
                     <SelectValue placeholder="Add value..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableSourceValues.map((opt: any) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
+                    {availableSourceValues.map((opt: any) => {
+                      const isPropertyType = newDependency.sourceFilterType === 'property_type';
+                      const propertyType = isPropertyType ? propertyTypes.find(pt => pt.value === opt.value) : null;
+                      const category = propertyType?.categories?.[0];
+
+                      return (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <div className="flex items-center justify-between w-full gap-2">
+                            <span>{opt.label}</span>
+                            {category && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                                {category}
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
                 <div className="flex flex-wrap gap-1 mt-2">
@@ -712,6 +845,199 @@ const FiltersTab: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Option Visibility Dialog */}
+      <Dialog open={isOptionVisibilityDialogOpen} onOpenChange={setIsOptionVisibilityDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Manage Filter Option Visibility</DialogTitle>
+            <DialogDescription>
+              Configure which specific options should appear based on other filter selections.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="grid grid-cols-4 gap-4 items-end border p-4 rounded-lg bg-muted/20">
+              <div className="space-y-2">
+                <Label>Filter Type</Label>
+                <Select
+                  value={newOptionVisibility.filterType}
+                  onValueChange={(val) => setNewOptionVisibility({ ...newOptionVisibility, filterType: val, optionValue: '' })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filterTypes.map(t => (
+                      <SelectItem key={t} value={t}>
+                        <div className="flex items-center justify-between w-full gap-2">
+                          <span>{t.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</span>
+                          <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                            {getFilterOrigin(t)}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Specific Option</Label>
+                <Select
+                  disabled={!newOptionVisibility.filterType}
+                  value={newOptionVisibility.optionValue}
+                  onValueChange={(val) => setNewOptionVisibility({ ...newOptionVisibility, optionValue: val })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select option" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableOptionValues.map(opt => {
+                      const isPropertyType = newOptionVisibility.filterType === 'property_type';
+                      const propertyType = isPropertyType ? propertyTypes.find(pt => pt.value === opt.value) : null;
+                      const category = propertyType?.categories?.[0];
+
+                      return (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <div className="flex items-center justify-between w-full gap-2">
+                            <span>{opt.label}</span>
+                            {category && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                                {category}
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Source Filter</Label>
+                <Select
+                  value={newOptionVisibility.sourceFilterType}
+                  onValueChange={(val) => setNewOptionVisibility({ ...newOptionVisibility, sourceFilterType: val, sourceFilterValues: [] })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select parent" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filterTypes.filter(t => t !== newOptionVisibility.filterType).map(t => (
+                      <SelectItem key={t} value={t}>
+                        <div className="flex items-center justify-between w-full gap-2">
+                          <span>{t.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</span>
+                          <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                            {getFilterOrigin(t)}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Trigger Values</Label>
+                <Select
+                  disabled={!newOptionVisibility.sourceFilterType}
+                  onValueChange={(val) => {
+                    if (!newOptionVisibility.sourceFilterValues.includes(val)) {
+                      setNewOptionVisibility({
+                        ...newOptionVisibility,
+                        sourceFilterValues: [...newOptionVisibility.sourceFilterValues, val]
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Add value..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {optionSourceValues.map((opt: any) => {
+                      const isPropertyType = newOptionVisibility.sourceFilterType === 'property_type';
+                      const propertyType = isPropertyType ? propertyTypes.find(pt => pt.value === opt.value) : null;
+                      const category = propertyType?.categories?.[0];
+
+                      return (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <div className="flex items-center justify-between w-full gap-2">
+                            <span>{opt.label}</span>
+                            {category && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                                {category}
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {newOptionVisibility.sourceFilterValues.map(val => (
+                    <Badge key={val} variant="secondary" className="cursor-pointer" onClick={() => {
+                      setNewOptionVisibility({
+                        ...newOptionVisibility,
+                        sourceFilterValues: newOptionVisibility.sourceFilterValues.filter(v => v !== val)
+                      });
+                    }}>
+                      {optionSourceValues.find((o: any) => o.value === val)?.label || val} ×
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <Button onClick={handleSaveOptionVisibility} className="w-full">Add Visibility Rule</Button>
+
+            <div className="border rounded-lg max-h-[400px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Target Filter</TableHead>
+                    <TableHead>Option</TableHead>
+                    <TableHead>Depends On</TableHead>
+                    <TableHead>Source Values</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {optionVisibilityRules.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">No option visibility rules configured</TableCell>
+                    </TableRow>
+                  ) : (
+                    optionVisibilityRules.map((rule, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">{rule.filterType}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{rule.optionValue}</Badge>
+                        </TableCell>
+                        <TableCell>{rule.sourceFilterType}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {rule.sourceFilterValues.map(v => (
+                              <Badge key={v} variant="outline" className="text-xs">{v}</Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => handleDeleteOptionVisibility(idx)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ... existing Dialogs ... */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         {/* ... existing content ... */}
@@ -747,7 +1073,12 @@ const FiltersTab: React.FC = () => {
                 <SelectContent>
                   {filterTypes.map((type) => (
                     <SelectItem key={type} value={type}>
-                      {type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span>{type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</span>
+                        <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                          {getFilterOrigin(type)}
+                        </Badge>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>

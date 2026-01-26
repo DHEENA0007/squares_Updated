@@ -744,6 +744,63 @@ router.post('/filter-dependencies', authenticateToken, isSuperAdmin, async (req,
   }
 });
 
+// ============= Filter Option Visibility =============
+
+// Get filter option visibility rules
+router.get('/filter-option-visibility', async (req, res) => {
+  try {
+    const metadata = await ConfigurationMetadata.findOne({ configKey: 'filter_option_visibility' });
+    res.json({
+      success: true,
+      data: metadata?.configValue || [],
+    });
+  } catch (error) {
+    console.error('Error fetching filter option visibility:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch filter option visibility',
+      error: error.message,
+    });
+  }
+});
+
+// Update filter option visibility rules (superadmin only)
+router.post('/filter-option-visibility', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const visibilityRules = req.body;
+
+    if (!Array.isArray(visibilityRules)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Visibility rules must be an array',
+      });
+    }
+
+    const metadata = await ConfigurationMetadata.findOneAndUpdate(
+      { configKey: 'filter_option_visibility' },
+      {
+        configKey: 'filter_option_visibility',
+        configValue: visibilityRules,
+        description: 'Configuration for individual filter option visibility dependencies'
+      },
+      { upsert: true, new: true, runValidators: true }
+    );
+
+    res.json({
+      success: true,
+      data: metadata.configValue,
+      message: 'Filter option visibility rules updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating filter option visibility:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update filter option visibility',
+      error: error.message,
+    });
+  }
+});
+
 // ============= Navigation Items =============
 
 // Get all navigation items

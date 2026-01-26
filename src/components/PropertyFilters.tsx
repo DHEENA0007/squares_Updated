@@ -133,6 +133,8 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
     const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
     const [filterConfigurations, setFilterConfigurations] = useState<FilterConfiguration[]>([]);
     const [filterDependencies, setFilterDependencies] = useState<import('@/types/configuration').FilterDependency[]>([]);
+    const [optionVisibilityRules, setOptionVisibilityRules] = useState<import('@/types/configuration').FilterOptionVisibility[]>([]);
+    const [allPropertyFields, setAllPropertyFields] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // Fetch configuration data on component mount
@@ -141,15 +143,19 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
             try {
                 setIsLoading(true);
                 // Fetch property types and all filter configurations
-                const [typesData, filtersData, dependenciesData] = await Promise.all([
+                const [typesData, filtersData, dependenciesData, visibilityData, fieldsData] = await Promise.all([
                     configurationService.getAllPropertyTypes(false),
                     configurationService.getAllFilterConfigurations(false),
                     configurationService.getFilterDependencies(),
+                    configurationService.getFilterOptionVisibility(),
+                    configurationService.getPropertyTypeFields('', true), // Get all fields
                 ]);
 
                 setPropertyTypes(typesData);
                 setFilterConfigurations(filtersData);
                 setFilterDependencies(dependenciesData);
+                setOptionVisibilityRules(visibilityData);
+                setAllPropertyFields(fieldsData);
 
             } catch (error) {
                 console.error('Error fetching filter data:', error);
@@ -207,6 +213,23 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
             return dependency.sourceFilterValues.includes(sourceValue);
         };
 
+        // Helper to check if a specific option should be shown with temp filters
+        const checkOptionVisibilityWithTempFilters = (filterType: string, optionValue: string, currentTempFilters: PropertyFilterType) => {
+            const rules = optionVisibilityRules.filter(r => r.filterType === filterType && r.optionValue === optionValue);
+            if (rules.length === 0) return true;
+
+            return rules.some(rule => {
+                let sourceValue;
+                if (rule.sourceFilterType === 'property_type') {
+                    sourceValue = currentTempFilters.propertyType;
+                } else {
+                    sourceValue = currentTempFilters[rule.sourceFilterType];
+                }
+                if (!sourceValue || sourceValue === 'all' || sourceValue === 'any' || sourceValue === 'any-budget') return false;
+                return rule.sourceFilterValues.includes(sourceValue);
+            });
+        };
+
         // Clear dependent filters if their parent filter's value changes and dependency is no longer met
         const allFilterTypes = getUniqueFilterTypes(); // Get all possible filter types
         for (const dependentFilterType of allFilterTypes) {
@@ -215,13 +238,21 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
                 continue;
             }
 
-            // If the dependent filter is currently set, and its dependency is no longer met with the new parent value
-            if (newFilters[dependentFilterType] !== undefined && !checkDependencyWithTempFilters(dependentFilterType, newFilters)) {
-                newFilters[dependentFilterType] = undefined;
-                // If it was a budget filter, clear min/max price too
-                if (dependentFilterType === 'budget') {
-                    newFilters.minPrice = undefined;
-                    newFilters.maxPrice = undefined;
+            const currentValue = newFilters[dependentFilterType];
+            if (currentValue !== undefined) {
+                // Check category-level dependency
+                const isCategoryVisible = checkDependencyWithTempFilters(dependentFilterType, newFilters);
+
+                // Check option-level visibility
+                const isOptionVisible = checkOptionVisibilityWithTempFilters(dependentFilterType, currentValue, newFilters);
+
+                if (!isCategoryVisible || !isOptionVisible) {
+                    newFilters[dependentFilterType] = undefined;
+                    // If it was a budget filter, clear min/max price too
+                    if (dependentFilterType === 'budget') {
+                        newFilters.minPrice = undefined;
+                        newFilters.maxPrice = undefined;
+                    }
                 }
             }
         }
@@ -270,6 +301,34 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
         return dependency.sourceFilterValues.includes(sourceValue);
     };
 
+    // Helper to check if a specific option should be shown
+    const shouldShowOption = (filterType: string, optionValue: string) => {
+        const rules = optionVisibilityRules.filter(r => r.filterType === filterType && r.optionValue === optionValue);
+
+        if (rules.length === 0) return true; // No rules for this option, show by default
+
+        // If there are rules, at least one must be satisfied
+        return rules.some(rule => {
+            let sourceValue;
+            if (rule.sourceFilterType === 'property_type') {
+                sourceValue = filters.propertyType;
+            } else {
+                sourceValue = filters[rule.sourceFilterType];
+            }
+
+            if (!sourceValue || sourceValue === 'all' || sourceValue === 'any' || sourceValue === 'any-budget') return false;
+
+            return rule.sourceFilterValues.includes(sourceValue);
+        });
+    };
+
+    const getFilterOrigin = (type: string) => {
+        if (type === 'property_type') return 'Property Management';
+        if (type === 'listing_type' || type === 'location') return 'System Filter';
+        if (allPropertyFields.some(f => f.fieldName === type)) return 'Property Field';
+        return 'Custom Filter';
+    };
+
     if (isLoading) {
         return (
             <div className="bg-card border border-border rounded-xl p-4 shadow-[var(--shadow-soft)]">
@@ -310,11 +369,16 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Types</SelectItem>
-                            {getOptionsForType('listing_type').map((type) => (
-                                <SelectItem key={type.id || type._id} value={type.value}>
-                                    {type.displayLabel || type.name}
-                                </SelectItem>
-                            ))}
+                            {getOptionsForType('listing_type')
+                                .filter(opt => shouldShowOption('listing_type', opt.value))
+                                .map((type) => (
+                                    <SelectItem key={type.id || type._id} value={type.value}>
+                                        <div className="flex items-center justify-between w-full gap-2">
+                                            <span>{type.displayLabel || type.name}</span>
+                                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Listing</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
                         </SelectContent>
                     </Select>
                 )}
@@ -340,7 +404,14 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
                             <SelectItem value="all">All Properties</SelectItem>
                             {propertyTypes.map((type) => (
                                 <SelectItem key={type.id || type._id} value={type.id || type._id}>
-                                    {type.name}
+                                    <div className="flex items-center justify-between w-full gap-2">
+                                        <span>{type.name}</span>
+                                        {type.categories?.[0] && (
+                                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                                                {type.categories[0]}
+                                            </span>
+                                        )}
+                                    </div>
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -373,11 +444,18 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value={filterType === 'budget' ? 'any-budget' : 'any'}>Any {label}</SelectItem>
-                                    {options.map((option) => (
-                                        <SelectItem key={option.id || option._id} value={filterType === 'budget' ? (option.id || option._id) : option.value}>
-                                            {option.displayLabel || option.name}
-                                        </SelectItem>
-                                    ))}
+                                    {options
+                                        .filter(opt => shouldShowOption(filterType, opt.value))
+                                        .map((option) => (
+                                            <SelectItem key={option.id || option._id} value={filterType === 'budget' ? (option.id || option._id) : option.value}>
+                                                <div className="flex items-center justify-between w-full gap-2">
+                                                    <span>{option.displayLabel || option.name}</span>
+                                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                                                        {getFilterOrigin(filterType)}
+                                                    </span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
                                 </SelectContent>
                             </Select>
                         );

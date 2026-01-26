@@ -92,6 +92,13 @@ export interface FilterDependency {
   sourceFilterValues: string[];
 }
 
+export interface FilterOptionVisibility {
+  filterType: string;
+  optionValue: string;
+  sourceFilterType: string;
+  sourceFilterValues: string[];
+}
+
 // DTOs for API operations (camelCase for MongoDB)
 export interface CreatePropertyTypeDTO {
   name: string;

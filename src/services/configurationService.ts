@@ -471,6 +471,24 @@ class ConfigurationService {
     await api.post('/filter-dependencies', dependencies);
   }
 
+  // ============= Filter Option Visibility =============
+
+  async getFilterOptionVisibility(): Promise<import('@/types/configuration').FilterOptionVisibility[]> {
+    try {
+      const { data } = await api.get<{ success: boolean; data: import('@/types/configuration').FilterOptionVisibility[] }>(
+        '/filter-option-visibility'
+      );
+      return data.data || [];
+    } catch (error) {
+      console.error('Error fetching filter option visibility:', error);
+      return [];
+    }
+  }
+
+  async saveFilterOptionVisibility(visibilityRules: import('@/types/configuration').FilterOptionVisibility[]): Promise<void> {
+    await api.post('/filter-option-visibility', visibilityRules);
+  }
+
   // ============= Configuration Metadata =============
 
   async getConfigurationMetadata(key: string): Promise<ConfigurationMetadata | null> {
