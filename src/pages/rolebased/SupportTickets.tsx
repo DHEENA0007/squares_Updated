@@ -335,11 +335,8 @@ const SupportTickets = () => {
 
   const fetchTransferRoles = async () => {
     try {
-      const response = await fetch('/api/support/transfer-roles', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      const data = await response.json();
-      if (data.success) setTransferRoles(data.data.roles || []);
+      const data = await subAdminService.getTransferRoles();
+      setTransferRoles(data.roles || []);
     } catch (error) {
       console.error('Failed to fetch transfer roles:', error);
     }
@@ -347,15 +344,8 @@ const SupportTickets = () => {
 
   const fetchTransferUsers = async (role?: string) => {
     try {
-      const url = role && role !== 'all'
-        ? `/api/support/transfer-users?role=${role}`
-        : '/api/support/transfer-users';
-
-      const response = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      const data = await response.json();
-      if (data.success) setTransferUsers(data.data.users);
+      const data = await subAdminService.getTransferUsers(role);
+      setTransferUsers(data.users);
     } catch (error) {
       console.error('Failed to fetch transfer users:', error);
     }
@@ -366,17 +356,7 @@ const SupportTickets = () => {
 
     try {
       setActionLoading(true);
-      const response = await fetch(`/api/support/tickets/${selectedTicket.ticketNumber}/transfer`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ targetUserId: selectedUser })
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Failed to transfer ticket');
+      await subAdminService.transferTicket(selectedTicket.ticketNumber!, selectedUser);
 
       toast({
         title: "Success",

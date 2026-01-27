@@ -447,7 +447,9 @@ const MyProperties = () => {
                           {property.description}
                         </p>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>{customerPropertiesService.formatArea(property.area)}</span>
+                          {customerPropertiesService.formatArea(property.area) && (
+                            <span>{customerPropertiesService.formatArea(property.area)}</span>
+                          )}
                           <span>{property.bedrooms} BHK</span>
                           <span className="capitalize">{property.listingType}</span>
                         </div>

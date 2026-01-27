@@ -388,6 +388,46 @@ class SubAdminService {
       throw new Error(error.message || 'Failed to fetch pending promotions');
     }
   }
+  // Ticket Transfer
+  async getTransferRoles(): Promise<{ roles: any[] }> {
+    try {
+      const response = await this.makeRequest<{ success: boolean; data: { roles: any[] } }>(
+        '/support/transfer-roles'
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to fetch transfer roles');
+    }
+  }
+
+  async getTransferUsers(role?: string): Promise<{ users: any[] }> {
+    try {
+      const url = role && role !== 'all'
+        ? `/support/transfer-users?role=${role}`
+        : '/support/transfer-users';
+
+      const response = await this.makeRequest<{ success: boolean; data: { users: any[] } }>(
+        url
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to fetch transfer users');
+    }
+  }
+
+  async transferTicket(ticketNumber: string, targetUserId: string): Promise<void> {
+    try {
+      await this.makeRequest<{ success: boolean }>(
+        `/support/tickets/${ticketNumber}/transfer`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ targetUserId }),
+        }
+      );
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to transfer ticket');
+    }
+  }
 }
 
 export default new SubAdminService();

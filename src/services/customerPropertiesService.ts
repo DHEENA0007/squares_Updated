@@ -401,14 +401,15 @@ class CustomerPropertiesService {
   }
 
   formatArea(area: CustomerProperty['area']): string {
-    if (area.builtUp) {
+    if (!area) return '';
+    if (area.builtUp !== undefined && area.builtUp !== null) {
       return `${area.builtUp} ${area.unit}`;
-    } else if (area.plot) {
+    } else if (area.plot !== undefined && area.plot !== null) {
       return `${area.plot} ${area.unit}`;
-    } else if (area.carpet) {
+    } else if (area.carpet !== undefined && area.carpet !== null) {
       return `${area.carpet} ${area.unit}`;
     }
-    return 'Area not specified';
+    return '';
   }
 
   getStatusColor(status: CustomerProperty['status']): string {

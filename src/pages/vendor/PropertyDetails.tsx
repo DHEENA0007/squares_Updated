@@ -221,9 +221,9 @@ const PropertyDetails = () => {
                 <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 px-3 py-1">Verified</Badge>
               )}
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">{property.title}</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{property.title}</h1>
             <p className="text-muted-foreground flex items-center text-base">
-              <MapPin className="w-4 h-4 mr-1.5 text-gray-400" />
+              <MapPin className="w-4 h-4 mr-1.5 text-muted-foreground" />
               {getLocationString(property)}
             </p>
           </div>
@@ -348,12 +348,12 @@ const PropertyDetails = () => {
                   }
 
                   return (
-                    <div key={field._id} className="text-center p-4 bg-blue-50 rounded-xl border border-blue-100">
-                      <Icon className="w-6 h-6 mx-auto mb-2 text-blue-600" />
-                      <p className="text-xl md:text-2xl font-bold text-gray-900 capitalize break-words leading-tight">
+                    <div key={field._id} className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+                      <Icon className="w-6 h-6 mx-auto mb-2 text-blue-600 dark:text-blue-400" />
+                      <p className="text-xl md:text-2xl font-bold text-foreground capitalize break-words leading-tight">
                         {displayValue.toString()}
                       </p>
-                      <p className="text-sm text-blue-600/80 font-medium">{field.fieldLabel}</p>
+                      <p className="text-sm text-blue-600/80 dark:text-blue-400/80 font-medium">{field.fieldLabel}</p>
                     </div>
                   );
                 })}
@@ -395,17 +395,17 @@ const PropertyDetails = () => {
                         }
 
                         return (
-                          <div key={field._id} className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <div key={field._id} className="flex justify-between items-center py-2 border-b border-border">
                             <span className="text-muted-foreground">{field.fieldLabel}</span>
-                            <span className="font-semibold capitalize text-gray-900">
+                            <span className="font-semibold capitalize text-foreground">
                               {displayValue.toString()}
                             </span>
                           </div>
                         );
                       })}
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                      <div className="flex justify-between items-center py-2 border-b border-border">
                         <span className="text-muted-foreground">Listed On</span>
-                        <span className="font-semibold text-gray-900">{formatDate(property.createdAt)}</span>
+                        <span className="font-semibold text-foreground">{formatDate(property.createdAt)}</span>
                       </div>
                     </div>
                     <div className="space-y-4">
@@ -421,17 +421,17 @@ const PropertyDetails = () => {
                         }
 
                         return (
-                          <div key={field._id} className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <div key={field._id} className="flex justify-between items-center py-2 border-b border-border">
                             <span className="text-muted-foreground">{field.fieldLabel}</span>
-                            <span className="font-semibold capitalize text-gray-900">
+                            <span className="font-semibold capitalize text-foreground">
                               {displayValue.toString()}
                             </span>
                           </div>
                         );
                       })}
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                      <div className="flex justify-between items-center py-2 border-b border-border">
                         <span className="text-muted-foreground">Last Updated</span>
-                        <span className="font-semibold text-gray-900">{formatDate(property.updatedAt)}</span>
+                        <span className="font-semibold text-foreground">{formatDate(property.updatedAt)}</span>
                       </div>
                     </div>
                   </>
@@ -449,9 +449,9 @@ const PropertyDetails = () => {
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {property.amenities.map((amenity, index) => (
-                    <div key={index} className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-primary/20 hover:bg-primary/5 transition-colors">
+                    <div key={index} className="flex items-center p-3 bg-muted/50 rounded-lg border border-border hover:border-primary/20 hover:bg-primary/5 transition-colors">
                       <div className="w-2 h-2 bg-primary rounded-full mr-3 shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
-                      <span className="text-sm font-medium text-gray-700">{amenity}</span>
+                      <span className="text-sm font-medium text-foreground">{amenity}</span>
                     </div>
                   ))}
                 </div>
@@ -465,7 +465,7 @@ const PropertyDetails = () => {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Performance Stats */}
-          <Card className="border-none shadow-md bg-gradient-to-b from-white to-gray-50">
+          <Card className="border-none shadow-md bg-gradient-to-b from-card to-muted/20">
             <CardHeader>
               <CardTitle className="flex items-center text-xl">
                 <TrendingUp className="w-5 h-5 mr-2 text-primary" />
@@ -473,41 +473,41 @@ const PropertyDetails = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+              <div className="flex items-center justify-between p-3 bg-card rounded-lg border border-border shadow-sm">
                 <div className="flex items-center">
-                  <div className="p-2 bg-blue-50 rounded-lg mr-3">
-                    <Eye className="w-4 h-4 text-blue-600" />
+                  <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg mr-3">
+                    <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <span className="text-sm font-medium text-gray-700">Views</span>
+                  <span className="text-sm font-medium text-muted-foreground">Views</span>
                 </div>
-                <span className="font-bold text-lg text-gray-900">{interactionStats?.views || property.views || 0}</span>
+                <span className="font-bold text-lg text-foreground">{interactionStats?.views || property.views || 0}</span>
               </div>
-              <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+              <div className="flex items-center justify-between p-3 bg-card rounded-lg border border-border shadow-sm">
                 <div className="flex items-center">
-                  <div className="p-2 bg-green-50 rounded-lg mr-3">
-                    <Users className="w-4 h-4 text-green-600" />
+                  <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg mr-3">
+                    <Users className="w-4 h-4 text-green-600 dark:text-green-400" />
                   </div>
-                  <span className="text-sm font-medium text-gray-700">Leads</span>
+                  <span className="text-sm font-medium text-muted-foreground">Leads</span>
                 </div>
-                <span className="font-bold text-lg text-gray-900">{interactionStats?.messageClicks || 0}</span>
+                <span className="font-bold text-lg text-foreground">{interactionStats?.messageClicks || 0}</span>
               </div>
-              <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+              <div className="flex items-center justify-between p-3 bg-card rounded-lg border border-border shadow-sm">
                 <div className="flex items-center">
-                  <div className="p-2 bg-red-50 rounded-lg mr-3">
-                    <Heart className="w-4 h-4 text-red-600" />
+                  <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg mr-3">
+                    <Heart className="w-4 h-4 text-red-600 dark:text-red-400" />
                   </div>
-                  <span className="text-sm font-medium text-gray-700">Favorites</span>
+                  <span className="text-sm font-medium text-muted-foreground">Favorites</span>
                 </div>
-                <span className="font-bold text-lg text-gray-900">{interactionStats?.favorites || 0}</span>
+                <span className="font-bold text-lg text-foreground">{interactionStats?.favorites || 0}</span>
               </div>
-              <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+              <div className="flex items-center justify-between p-3 bg-card rounded-lg border border-border shadow-sm">
                 <div className="flex items-center">
-                  <div className="p-2 bg-purple-50 rounded-lg mr-3">
-                    <Phone className="w-4 h-4 text-purple-600" />
+                  <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg mr-3">
+                    <Phone className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <span className="text-sm font-medium text-gray-700">Phone Clicks</span>
+                  <span className="text-sm font-medium text-muted-foreground">Phone Clicks</span>
                 </div>
-                <span className="font-bold text-lg text-gray-900">{interactionStats?.phoneClicks || 0}</span>
+                <span className="font-bold text-lg text-foreground">{interactionStats?.phoneClicks || 0}</span>
               </div>
             </CardContent>
           </Card>
@@ -552,7 +552,7 @@ const PropertyDetails = () => {
               <Separator className="my-2" />
               <Button
                 variant="destructive"
-                className="w-full justify-start h-11 bg-red-50 text-red-600 hover:bg-red-100 border border-red-100"
+                className="w-full justify-start h-11 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 border border-red-100 dark:border-red-900/30"
                 onClick={handleDelete}
                 disabled={deleteLoading}
               >

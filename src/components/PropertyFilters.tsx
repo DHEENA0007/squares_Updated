@@ -70,8 +70,9 @@ const LocationSearch = ({ value, onChange }: { value?: string, onChange: (value:
     };
 
     const handleSelect = (suggestion: PincodeSuggestion) => {
-        setQuery(suggestion.city);
-        onChange(suggestion.city);
+        const locationString = `${suggestion.city}, ${suggestion.district}, ${suggestion.state}`;
+        setQuery(locationString);
+        onChange(locationString);
         setShowSuggestions(false);
     };
 
@@ -130,11 +131,9 @@ const LocationSearch = ({ value, onChange }: { value?: string, onChange: (value:
 
 const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProps) => {
     const [filters, setFilters] = useState<PropertyFilterType>({});
-    const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
     const [filterConfigurations, setFilterConfigurations] = useState<FilterConfiguration[]>([]);
     const [filterDependencies, setFilterDependencies] = useState<import('@/types/configuration').FilterDependency[]>([]);
     const [optionVisibilityRules, setOptionVisibilityRules] = useState<import('@/types/configuration').FilterOptionVisibility[]>([]);
-    const [allPropertyFields, setAllPropertyFields] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // Fetch configuration data on component mount
@@ -142,20 +141,28 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
         const fetchFilterData = async () => {
             try {
                 setIsLoading(true);
-                // Fetch property types and all filter configurations
-                const [typesData, filtersData, dependenciesData, visibilityData, fieldsData] = await Promise.all([
-                    configurationService.getAllPropertyTypes(false),
-                    configurationService.getAllFilterConfigurations(false),
-                    configurationService.getFilterDependencies(),
-                    configurationService.getFilterOptionVisibility(),
-                    configurationService.getPropertyTypeFields('', true), // Get all fields
+                // Fetch all filter configurations and dependencies
+                // We'll fetch them individually to handle errors more gracefully
+                const [filtersData, dependenciesData, visibilityData] = await Promise.all([
+                    configurationService.getAllFilterConfigurations(false).catch(err => {
+                        console.error('Error fetching filter configurations:', err);
+                        return [];
+                    }),
+                    configurationService.getFilterDependencies().catch(err => {
+                        console.error('Error fetching filter dependencies:', err);
+                        return [];
+                    }),
+                    configurationService.getFilterOptionVisibility().catch(err => {
+                        console.error('Error fetching filter visibility:', err);
+                        return [];
+                    }),
                 ]);
 
-                setPropertyTypes(typesData);
                 setFilterConfigurations(filtersData);
                 setFilterDependencies(dependenciesData);
                 setOptionVisibilityRules(visibilityData);
-                setAllPropertyFields(fieldsData);
+
+
 
             } catch (error) {
                 console.error('Error fetching filter data:', error);
@@ -201,16 +208,18 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
             }
 
             let sourceValue;
-            // Special handling for propertyType which might be stored as 'propertyType' key but dependency refers to 'property_type'
+            // Special handling for propertyType/listingType which might be stored as camelCase but dependency refers to snake_case
             if (dependency.sourceFilterType === 'property_type') {
                 sourceValue = currentTempFilters.propertyType;
+            } else if (dependency.sourceFilterType === 'listing_type') {
+                sourceValue = currentTempFilters.listingType;
             } else {
                 sourceValue = currentTempFilters[dependency.sourceFilterType];
             }
 
             if (!sourceValue || sourceValue === 'all' || sourceValue === 'any' || sourceValue === 'any-budget') return false;
 
-            return dependency.sourceFilterValues.includes(sourceValue);
+            return dependency.sourceFilterValues.some(v => String(v).toLowerCase() === String(sourceValue).toLowerCase());
         };
 
         // Helper to check if a specific option should be shown with temp filters
@@ -222,11 +231,13 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
                 let sourceValue;
                 if (rule.sourceFilterType === 'property_type') {
                     sourceValue = currentTempFilters.propertyType;
+                } else if (rule.sourceFilterType === 'listing_type') {
+                    sourceValue = currentTempFilters.listingType;
                 } else {
                     sourceValue = currentTempFilters[rule.sourceFilterType];
                 }
-                if (!sourceValue || sourceValue === 'all' || sourceValue === 'any' || sourceValue === 'any-budget') return false;
-                return rule.sourceFilterValues.includes(sourceValue);
+                if (!sourceValue || sourceValue === 'all' || sourceValue === 'any' || sourceValue === 'any-budget') return true;
+                return rule.sourceFilterValues.some(v => String(v).toLowerCase() === String(sourceValue).toLowerCase());
             });
         };
 
@@ -268,8 +279,27 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
 
     // Helper to get unique filter types
     const getUniqueFilterTypes = () => {
-        const types = new Set(filterConfigurations.map(f => f.filterType));
-        return Array.from(types).sort();
+        const types = Array.from(new Set(filterConfigurations.map(f => f.filterType)));
+
+        // Define standard filters that should appear at the beginning
+        const standardFilters = ['location', 'listing_type', 'property_type'];
+
+        return types.sort((a, b) => {
+            const isAStandard = standardFilters.includes(a);
+            const isBStandard = standardFilters.includes(b);
+
+            // If one is standard and other is "new" (dynamic), standard comes first (left)
+            if (isAStandard && !isBStandard) return -1;
+            if (!isAStandard && isBStandard) return 1;
+
+            // If both are standard, maintain their specific relative order
+            if (isAStandard && isBStandard) {
+                return standardFilters.indexOf(a) - standardFilters.indexOf(b);
+            }
+
+            // If both are dynamic, sort alphabetically
+            return a.localeCompare(b);
+        });
     };
 
     // Helper to get options for a filter type
@@ -288,17 +318,18 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
 
         // Check if the source filter has the required value
         let sourceValue;
-        // Special handling for propertyType which might be stored as 'propertyType' key but dependency refers to 'property_type'
-        // In our dependency UI we used 'property_type' as the source key for Property Type
+        // Special handling for propertyType/listingType which might be stored as camelCase but dependency refers to snake_case
         if (dependency.sourceFilterType === 'property_type') {
             sourceValue = filters.propertyType;
+        } else if (dependency.sourceFilterType === 'listing_type') {
+            sourceValue = filters.listingType;
         } else {
             sourceValue = filters[dependency.sourceFilterType];
         }
 
         if (!sourceValue || sourceValue === 'all' || sourceValue === 'any' || sourceValue === 'any-budget') return false;
 
-        return dependency.sourceFilterValues.includes(sourceValue);
+        return dependency.sourceFilterValues.some(v => String(v).toLowerCase() === String(sourceValue).toLowerCase());
     };
 
     // Helper to check if a specific option should be shown
@@ -312,22 +343,19 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
             let sourceValue;
             if (rule.sourceFilterType === 'property_type') {
                 sourceValue = filters.propertyType;
+            } else if (rule.sourceFilterType === 'listing_type') {
+                sourceValue = filters.listingType;
             } else {
                 sourceValue = filters[rule.sourceFilterType];
             }
 
-            if (!sourceValue || sourceValue === 'all' || sourceValue === 'any' || sourceValue === 'any-budget') return false;
+            if (!sourceValue || sourceValue === 'all' || sourceValue === 'any' || sourceValue === 'any-budget') return true;
 
-            return rule.sourceFilterValues.includes(sourceValue);
+            return rule.sourceFilterValues.some(v => String(v).toLowerCase() === String(sourceValue).toLowerCase());
         });
     };
 
-    const getFilterOrigin = (type: string) => {
-        if (type === 'property_type') return 'Property Management';
-        if (type === 'listing_type' || type === 'location') return 'System Filter';
-        if (allPropertyFields.some(f => f.fieldName === type)) return 'Property Field';
-        return 'Custom Filter';
-    };
+
 
     if (isLoading) {
         return (
@@ -350,78 +378,15 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
                     <span>Filters:</span>
                 </div>
 
-                {/* Location Filter (Custom LocaService Implementation) */}
+                {/* Location Filter - Always First */}
                 <LocationSearch
                     value={filters.location}
                     onChange={(val) => handleFilterChange('location', val)}
                 />
 
-                {/* Listing Type (Special handling for display order if needed, or just part of dynamic loop) */}
-                {/* We'll prioritize Listing Type and Property Type if they exist */}
-
-                {getOptionsForType('listing_type').length > 0 && shouldShowFilter('listing_type') && (
-                    <Select
-                        value={filters.listingType || 'all'}
-                        onValueChange={(value) => handleFilterChange('listingType', value)}
-                    >
-                        <SelectTrigger className="w-[150px]">
-                            <SelectValue placeholder="Listing Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Types</SelectItem>
-                            {getOptionsForType('listing_type')
-                                .filter(opt => shouldShowOption('listing_type', opt.value))
-                                .map((type) => (
-                                    <SelectItem key={type.id || type._id} value={type.value}>
-                                        <div className="flex items-center justify-between w-full gap-2">
-                                            <span>{type.displayLabel || type.name}</span>
-                                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Listing</span>
-                                        </div>
-                                    </SelectItem>
-                                ))}
-                        </SelectContent>
-                    </Select>
-                )}
-
-                {propertyTypes.length > 0 && shouldShowFilter('property_type') && (
-                    <Select
-                        value={filters.propertyType ? propertyTypes.find(t => t.value.toLowerCase() === filters.propertyType?.toLowerCase())?.id || propertyTypes.find(t => t.value.toLowerCase() === filters.propertyType?.toLowerCase())?._id || 'all' : 'all'}
-                        onValueChange={(value) => {
-                            if (value === 'all') {
-                                handleFilterChange('propertyType', 'all');
-                            } else {
-                                const type = propertyTypes.find(t => (t.id || t._id) === value);
-                                if (type) {
-                                    handleFilterChange('propertyType', type.value);
-                                }
-                            }
-                        }}
-                    >
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Property Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Properties</SelectItem>
-                            {propertyTypes.map((type) => (
-                                <SelectItem key={type.id || type._id} value={type.id || type._id}>
-                                    <div className="flex items-center justify-between w-full gap-2">
-                                        <span>{type.name}</span>
-                                        {type.categories?.[0] && (
-                                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                                                {type.categories[0]}
-                                            </span>
-                                        )}
-                                    </div>
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                )}
-
-                {/* Dynamic Filters */}
+                {/* Dynamic Filters from Admin Configuration */}
                 {uniqueFilterTypes
-                    .filter(type => type !== 'listing_type' && type !== 'property_type' && type !== 'location') // Exclude location as we handle it manually
-                    .filter(type => shouldShowFilter(type)) // Check dependencies
+                    .filter(type => shouldShowFilter(type) && type !== 'location') // Check dependencies and exclude location
                     .map(filterType => {
                         const options = getOptionsForType(filterType);
                         if (options.length === 0) return null;
@@ -429,15 +394,19 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
                         // Determine label
                         const label = filterType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-                        // Determine value
-                        // For budget, we might store the ID to look up min/max later
-                        const currentValue = filters[filterType] || (filterType === 'budget' ? 'any-budget' : 'any');
+                        // Determine current value
+                        const currentValue = filters[filterType === 'listing_type' ? 'listingType' : filterType === 'property_type' ? 'propertyType' : filterType] || (filterType === 'budget' ? 'any-budget' : 'any');
 
                         return (
                             <Select
                                 key={filterType}
                                 value={currentValue}
-                                onValueChange={(value) => handleFilterChange(filterType, value)}
+                                onValueChange={(value) => {
+                                    const key = filterType === 'listing_type' ? 'listingType' :
+                                        filterType === 'property_type' ? 'propertyType' :
+                                            filterType;
+                                    handleFilterChange(key, value);
+                                }}
                             >
                                 <SelectTrigger className="w-[150px]">
                                     <SelectValue placeholder={label} />
@@ -448,12 +417,7 @@ const PropertyFilters = ({ onFilterChange, initialFilters }: PropertyFiltersProp
                                         .filter(opt => shouldShowOption(filterType, opt.value))
                                         .map((option) => (
                                             <SelectItem key={option.id || option._id} value={filterType === 'budget' ? (option.id || option._id) : option.value}>
-                                                <div className="flex items-center justify-between w-full gap-2">
-                                                    <span>{option.displayLabel || option.name}</span>
-                                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                                                        {getFilterOrigin(filterType)}
-                                                    </span>
-                                                </div>
+                                                <span>{option.displayLabel || option.name}</span>
                                             </SelectItem>
                                         ))}
                                 </SelectContent>

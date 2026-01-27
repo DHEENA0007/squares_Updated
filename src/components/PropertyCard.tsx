@@ -255,10 +255,12 @@ const PropertyCard = ({ property }: PropertyCardProps) => {
               <span>{property.bathrooms} Bath</span>
             </div>
           )}
-          <div className="flex items-center gap-1">
-            <Square className="h-4 w-4" />
-            <span>{formattedArea}</span>
-          </div>
+          {formattedArea && (
+            <div className="flex items-center gap-1">
+              <Square className="h-4 w-4" />
+              <span>{formattedArea}</span>
+            </div>
+          )}
         </div>
 
         <div className="text-xl md:text-2xl font-bold text-primary">{formattedPrice}</div>

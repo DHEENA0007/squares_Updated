@@ -291,7 +291,7 @@ const PropertyCard = memo(({
     if (area.builtUp) return `${area.builtUp} ${area.unit}`;
     if (area.plot) return `${area.plot} ${area.unit}`;
     if (area.carpet) return `${area.carpet} ${area.unit}`;
-    return "N/A";
+    return "";
   };
 
   const getPrimaryImage = (images: any[]) => {
@@ -340,10 +340,12 @@ const PropertyCard = memo(({
                 <Bath className="w-3 h-3" />
                 <span>{property.bathrooms}</span>
               </div>
-              <div className="flex items-center gap-1">
-                <Maximize className="w-3 h-3" />
-                <span>{formatArea(property.area)}</span>
-              </div>
+              {formatArea(property.area) && (
+                <div className="flex items-center gap-1">
+                  <Maximize className="w-3 h-3" />
+                  <span>{formatArea(property.area)}</span>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2">

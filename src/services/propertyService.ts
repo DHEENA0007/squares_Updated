@@ -437,7 +437,7 @@ class PropertyService {
     } else if (area.carpet) {
       return `${area.carpet} ${area.unit}`;
     }
-    return 'Area not specified';
+    return '';
   }
 
   hasValidArea(area: Property['area']): boolean {

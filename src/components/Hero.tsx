@@ -1334,7 +1334,7 @@ const Hero = () => {
                                   <span>{property.bathrooms} Bath</span>
                                 </div>
                               )}
-                              {(property.area.builtUp || property.area.plot) && (
+                              {propertyService.hasValidArea(property.area) && (
                                 <div className="flex items-center gap-1">
                                   <Maximize className="h-3 w-3" />
                                   <span>

@@ -176,28 +176,49 @@ const PropertySearch = () => {
       .sort((a, b) => a.displayOrder - b.displayOrder);
   };
 
-  // Get unique filter types
+  // Get unique filter types - Sorted to match Home Page logic
   const filterTypes = useMemo(() => {
-    return Array.from(new Set(filterConfigurations.map(f => f.filterType)));
+    const types = Array.from(new Set(filterConfigurations.map(f => f.filterType)));
+    const standardFilters = ['location', 'listing_type', 'property_type'];
+
+    return types.sort((a, b) => {
+      const isAStandard = standardFilters.includes(a);
+      const isBStandard = standardFilters.includes(b);
+
+      // If one is standard and other is "new" (dynamic), standard comes first (left/top)
+      if (isAStandard && !isBStandard) return -1;
+      if (!isAStandard && isBStandard) return 1;
+
+      // If both are standard, maintain their specific relative order
+      if (isAStandard && isBStandard) {
+        return standardFilters.indexOf(a) - standardFilters.indexOf(b);
+      }
+
+      // If both are dynamic, sort alphabetically
+      return a.localeCompare(b);
+    });
   }, [filterConfigurations]);
 
   const [priceLimits, setPriceLimits] = useState<{ min: number; max: number }>({ min: 0, max: 50000000 }); // Default fallback
   const [areaLimits, setAreaLimits] = useState<{ min: number; max: number }>({ min: 0, max: 10000 }); // Default fallback
 
   const [filterDependencies, setFilterDependencies] = useState<import('@/types/configuration').FilterDependency[]>([]);
+  const [optionVisibilityRules, setOptionVisibilityRules] = useState<import('@/types/configuration').FilterOptionVisibility[]>([]);
 
   // Fetch property types and filter configurations on mount
   useEffect(() => {
     const fetchConfigurations = async () => {
       try {
-        const [typesData, filtersData, dependenciesData] = await Promise.all([
+        const [typesData, filtersData, dependenciesData, visibilityData] = await Promise.all([
           configurationService.getAllPropertyTypes(false),
           configurationService.getAllFilterConfigurations(false),
           configurationService.getFilterDependencies(),
+          configurationService.getFilterOptionVisibility(),
         ]);
         setPropertyTypes(typesData);
         setFilterConfigurations(filtersData);
         setFilterDependencies(dependenciesData);
+        setOptionVisibilityRules(visibilityData);
 
         // Calculate Price Limits from Budget filters
         const budgetFilters = filtersData.filter(f => f.filterType === 'budget');
@@ -244,7 +265,31 @@ const PropertySearch = () => {
     }
 
     if (!sourceValue || sourceValue === 'all' || sourceValue === 'any') return false;
-    return dependency.sourceFilterValues.includes(sourceValue);
+
+    return dependency.sourceFilterValues.some(v => String(v).toLowerCase() === String(sourceValue).toLowerCase());
+  };
+
+  // Helper to check if a specific option should be shown
+  const shouldShowOption = (filterType: string, optionValue: string) => {
+    const rules = optionVisibilityRules.filter(r => r.filterType === filterType && r.optionValue === optionValue);
+
+    if (rules.length === 0) return true; // No rules for this option, show by default
+
+    // If there are rules, at least one must be satisfied
+    return rules.some(rule => {
+      let sourceValue;
+      if (rule.sourceFilterType === 'property_type') {
+        sourceValue = propertyType;
+      } else if (rule.sourceFilterType === 'listing_type') {
+        sourceValue = listingType;
+      } else {
+        sourceValue = dynamicFilters[rule.sourceFilterType];
+      }
+
+      if (!sourceValue || sourceValue === 'all' || sourceValue === 'any') return true;
+
+      return rule.sourceFilterValues.some(v => String(v).toLowerCase() === String(sourceValue).toLowerCase());
+    });
   };
 
   // Fetch amenities based on selected property type
@@ -478,53 +523,9 @@ const PropertySearch = () => {
                   </div>
                 </div>
 
-                {/* Listing Type - Dynamic from Admin Configuration */}
-                {getFiltersByType('listing_type').length > 0 && (
-                  <div className="mb-4">
-                    <label className="text-sm font-medium mb-2 block">Listing Type</label>
-                    <Select value={listingType} onValueChange={setListingType}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Type" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px] overflow-y-auto">
-                        <SelectItem value="all">All Types</SelectItem>
-                        {getFiltersByType('listing_type').map((filter) => (
-                          <SelectItem key={filter._id} value={filter.value}>
-                            {filter.displayLabel?.trim() || filter.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Property Type */}
-                <div className="mb-4">
-                  <label className="text-sm font-medium mb-2 block">Property Type</label>
-                  <Select value={propertyType} onValueChange={(value) => {
-                    setPropertyType(value);
-                    // Reset dynamic filters when property type changes
-                    setDynamicFilters({});
-                    setSelectedAmenities([]);
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Property" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px] overflow-y-auto">
-                      <SelectItem value="all">All Properties</SelectItem>
-                      {propertyTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 {/* Dynamic Filters from Admin Configuration */}
                 {filterTypes
-                  .filter(type => !['listing_type', 'budget', 'area', 'property_type'].includes(type)) // Exclude handled types
-                  .filter(type => shouldShowFilter(type)) // Check dependencies
+                  .filter(type => shouldShowFilter(type) && type !== 'location' && type !== 'budget' && type !== 'area') // Exclude handled types and location
                   .map((filterType) => {
                     const options = filterConfigurations
                       .filter(f => f.filterType === filterType)
@@ -534,28 +535,46 @@ const PropertySearch = () => {
 
                     const label = filterType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
+                    // Determine current value based on filter type
+                    const currentValue = filterType === 'listing_type' ? listingType :
+                      filterType === 'property_type' ? propertyType :
+                        dynamicFilters[filterType] || 'any';
+
                     return (
                       <div key={filterType} className="space-y-2">
                         <Label>{label}</Label>
                         <Select
-                          value={dynamicFilters[filterType] || 'any'}
+                          value={currentValue}
                           onValueChange={(value) => {
-                            setDynamicFilters(prev => ({
-                              ...prev,
-                              [filterType]: value
-                            }));
+                            if (filterType === 'listing_type') {
+                              setListingType(value);
+                            } else if (filterType === 'property_type') {
+                              setPropertyType(value);
+                              // Reset dynamic filters when property type changes
+                              setDynamicFilters({});
+                              setSelectedAmenities([]);
+                            } else {
+                              setDynamicFilters(prev => ({
+                                ...prev,
+                                [filterType]: value
+                              }));
+                            }
                           }}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder={`Select ${label}`} />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="any">Any {label}</SelectItem>
-                            {options.map((option) => (
-                              <SelectItem key={option.id || option._id} value={option.value}>
-                                {option.displayLabel || option.name}
-                              </SelectItem>
-                            ))}
+                          <SelectContent className="max-h-[300px] overflow-y-auto">
+                            <SelectItem value={filterType === 'listing_type' || filterType === 'property_type' ? 'all' : 'any'}>
+                              {filterType === 'listing_type' || filterType === 'property_type' ? `All ${label}s` : `Any ${label}`}
+                            </SelectItem>
+                            {options
+                              .filter(option => shouldShowOption(filterType, option.value))
+                              .map((option) => (
+                                <SelectItem key={option.id || option._id} value={option.value}>
+                                  {option.displayLabel || option.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>

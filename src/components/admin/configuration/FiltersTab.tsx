@@ -477,6 +477,22 @@ const FiltersTab: React.FC = () => {
         return;
       }
 
+      // Check for duplicates to prevent 500 errors
+      const isDuplicate = filters.some(f =>
+        f.filterType === formData.filter_type &&
+        f.value === formData.value &&
+        (!editingFilter || f.id !== editingFilter.id)
+      );
+
+      if (isDuplicate) {
+        toast({
+          title: 'Error',
+          description: 'A filter with this value already exists for this type.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       if (editingFilter) {
         await configurationService.updateFilterConfiguration(editingFilter.id!, formData);
         toast({
@@ -1084,6 +1100,114 @@ const FiltersTab: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Auto-fill from Property Types */}
+            {formData.filter_type === 'property_type' && (
+              <div className="space-y-2 p-3 border rounded-md bg-muted/20">
+                <Label className="text-xs font-semibold uppercase text-muted-foreground">
+                  Quick Fill from Property Management
+                </Label>
+                <Select
+                  onValueChange={(val) => {
+                    const selected = propertyTypes.find(pt => pt.value === val);
+                    if (selected) {
+                      setFormData({
+                        ...formData,
+                        name: selected.name,
+                        value: selected.value,
+                        display_label: selected.name
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select existing property type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {propertyTypes.map(pt => (
+                      <SelectItem key={pt._id} value={pt.value}>
+                        <div className="flex items-center gap-2">
+                          <span>{pt.name}</span>
+                          {pt.categories?.map(cat => (
+                            <Badge key={cat} variant="secondary" className="text-[10px] px-1 py-0 h-4">
+                              {cat}
+                            </Badge>
+                          ))}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Auto-fill from Field Options or Standard Suggestions */}
+            {(() => {
+              // Helper to normalize strings for comparison
+              const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+              const targetType = normalize(formData.filter_type);
+
+              // 1. Try to find a matching dynamic field
+              const matchingField = allPropertyFields.find(f =>
+                normalize(f.fieldName) === targetType &&
+                f.fieldOptions &&
+                f.fieldOptions.length > 0
+              );
+
+              // 2. Fallback to standard known options
+              const STANDARD_OPTIONS: Record<string, string[]> = {
+                listingtype: ['Sale', 'Rent', 'Lease', 'PG'],
+                furnishing: ['Fully Furnished', 'Semi Furnished', 'Unfurnished'],
+                possessionstatus: ['Ready to Move', 'Under Construction'],
+                facing: ['North', 'South', 'East', 'West', 'North-East', 'North-West', 'South-East', 'South-West'],
+                gender: ['Male', 'Female', 'Any'],
+                parking: ['Covered', 'Open', 'None'],
+                wateravailability: ['24 Hours', '12 Hours', 'Rare'],
+              };
+
+              const standardOptions = STANDARD_OPTIONS[targetType];
+              const optionsToUse = matchingField ? matchingField.fieldOptions : standardOptions;
+              const sourceLabel = matchingField ? `Quick Fill from ${matchingField.fieldLabel} Options` : 'Quick Fill Standard Suggestions';
+
+              if (optionsToUse && optionsToUse.length > 0) {
+                return (
+                  <div className="space-y-2 p-3 border rounded-md bg-muted/20">
+                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
+                      {sourceLabel}
+                    </Label>
+                    <Select
+                      onValueChange={(val) => {
+                        // val is the option string
+                        const formattedValue = val.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_+]/g, '');
+                        setFormData({
+                          ...formData,
+                          name: val,
+                          value: formattedValue,
+                          display_label: val
+                        });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an option to auto-fill..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {optionsToUse.map((opt: string) => (
+                          <SelectItem key={opt} value={opt}>
+                            <div className="flex items-center gap-2">
+                              <span>{opt}</span>
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+                                {matchingField ? 'Field Option' : 'Suggestion'}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             {formData.filter_type === 'location' ? (
               <div className="space-y-4">

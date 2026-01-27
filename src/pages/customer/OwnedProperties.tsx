@@ -650,24 +650,26 @@ const OwnedProperties: React.FC = () => {
                 <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                     <span className="text-primary font-semibold text-lg">
-                      {selectedProperty.owner.profile.firstName.charAt(0).toUpperCase()}
+                      {selectedProperty.owner.profile?.firstName?.charAt(0).toUpperCase() || 'O'}
                     </span>
                   </div>
                   <div>
-                    <p className="font-medium">{selectedProperty.owner.profile.firstName} {selectedProperty.owner.profile.lastName}</p>
+                    <p className="font-medium">
+                      {selectedProperty.owner.profile?.firstName || 'Property'} {selectedProperty.owner.profile?.lastName || 'Owner'}
+                    </p>
                     <p className="text-sm text-muted-foreground">Property Owner</p>
                   </div>
                 </div>
 
                 <div className="grid gap-3">
-                  {selectedProperty.owner.profile.phone && (
+                  {selectedProperty.owner.profile?.phone && (
                     <Button
                       variant="outline"
                       className="w-full justify-start"
-                      onClick={() => window.location.href = `tel:${selectedProperty.owner.profile.phone}`}
+                      onClick={() => window.location.href = `tel:${selectedProperty.owner.profile?.phone}`}
                     >
                       <Phone className="w-4 h-4 mr-2" />
-                      Call {selectedProperty.owner.profile.phone}
+                      Call {selectedProperty.owner.profile?.phone}
                     </Button>
                   )}
 
